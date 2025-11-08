@@ -9,7 +9,33 @@ import { z } from 'zod';
 import toast from 'react-hot-toast';
 import { format } from 'date-fns';
 import { Customer, Supplier } from '@/lib/types';
-import Modal from '@/components/Modal';
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/dialog';
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { Textarea } from '@/components/ui/textarea';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
+import {
+  Form,
+  FormControl,
+  FormField,
+  FormItem,
+  FormLabel,
+  FormMessage,
+} from '@/components/ui/form';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 
 const transactionSchema = z.object({
   entityType: z.enum(['customer', 'supplier']),
@@ -253,34 +279,36 @@ export default function NewTransactionPage() {
             Select Transaction Type
           </h2>
           <div className="space-y-4">
-            <button
+            <Button
               onClick={() => handleEntityTypeSelect('customer')}
-              className="w-full p-6 border-2 border-gray-300 rounded-lg hover:border-blue-500 hover:bg-blue-50 transition-colors text-left"
+              variant="outline"
+              className="w-full p-6 h-auto justify-start"
             >
-              <div className="flex items-center justify-between">
+              <div className="flex items-center justify-between w-full">
                 <div>
-                  <h3 className="text-lg font-semibold text-gray-900">Customer</h3>
-                  <p className="text-sm text-gray-600 mt-1">
+                  <h3 className="text-lg font-semibold">Customer</h3>
+                  <p className="text-sm text-muted-foreground mt-1">
                     Transaction with a customer
                   </p>
                 </div>
                 <span className="text-2xl">→</span>
               </div>
-            </button>
-            <button
+            </Button>
+            <Button
               onClick={() => handleEntityTypeSelect('supplier')}
-              className="w-full p-6 border-2 border-gray-300 rounded-lg hover:border-blue-500 hover:bg-blue-50 transition-colors text-left"
+              variant="outline"
+              className="w-full p-6 h-auto justify-start"
             >
-              <div className="flex items-center justify-between">
+              <div className="flex items-center justify-between w-full">
                 <div>
-                  <h3 className="text-lg font-semibold text-gray-900">Supplier</h3>
-                  <p className="text-sm text-gray-600 mt-1">
+                  <h3 className="text-lg font-semibold">Supplier</h3>
+                  <p className="text-sm text-muted-foreground mt-1">
                     Transaction with a supplier
                   </p>
                 </div>
                 <span className="text-2xl">→</span>
               </div>
-            </button>
+            </Button>
           </div>
         </div>
       </div>
@@ -306,16 +334,17 @@ export default function NewTransactionPage() {
             ← Back to Ledger
           </Link>
         ) : (
-          <button
+          <Button
             onClick={() => {
               setStep('select');
               setEntityType(null);
               reset();
             }}
-            className="text-blue-600 hover:text-blue-800 text-sm font-medium"
+            variant="link"
+            size="sm"
           >
             ← Back to Selection
-          </button>
+          </Button>
         )}
       </div>
       <h1 className="text-3xl font-bold text-gray-900 mb-6">New Transaction</h1>
@@ -326,25 +355,30 @@ export default function NewTransactionPage() {
             <label className="block text-sm font-medium text-gray-700">
               {entityName} *
             </label>
-            <button
+            <Button
               type="button"
               onClick={() => setShowCreateModal(true)}
-              className="text-sm text-blue-600 hover:text-blue-800 font-medium"
+              variant="link"
+              size="sm"
             >
               + Create New {entityName}
-            </button>
+            </Button>
           </div>
-          <select
-            {...register('entityId')}
-            className="w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm px-3 py-2 border"
+          <Select
+            onValueChange={(value) => setValue('entityId', value)}
+            defaultValue={watch('entityId')}
           >
-            <option value="">Select a {entityName.toLowerCase()}</option>
-            {entities.map((entity) => (
-              <option key={entity.id} value={entity.id}>
-                {entity.name}
-              </option>
-            ))}
-          </select>
+            <SelectTrigger className="w-full">
+              <SelectValue placeholder={`Select a ${entityName.toLowerCase()}`} />
+            </SelectTrigger>
+            <SelectContent>
+              {entities.map((entity) => (
+                <SelectItem key={entity.id} value={entity.id}>
+                  {entity.name}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
           {errors.entityId && (
             <p className="mt-1 text-sm text-red-600">{errors.entityId.message}</p>
           )}
@@ -354,13 +388,18 @@ export default function NewTransactionPage() {
           <label className="block text-sm font-medium text-gray-700 mb-2">
             Transaction Type *
           </label>
-          <select
-            {...register('type')}
-            className="w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm px-3 py-2 border"
+          <Select
+            onValueChange={(value) => setValue('type', value as 'credit' | 'debit')}
+            defaultValue={watch('type')}
           >
-            <option value="debit">Debit (Money received)</option>
-            <option value="credit">Credit (Money given)</option>
-          </select>
+            <SelectTrigger className="w-full">
+              <SelectValue placeholder="Select transaction type" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="debit">Debit (Money received)</SelectItem>
+              <SelectItem value="credit">Credit (Money given)</SelectItem>
+            </SelectContent>
+          </Select>
           {errors.type && (
             <p className="mt-1 text-sm text-red-600">{errors.type.message}</p>
           )}
@@ -370,12 +409,11 @@ export default function NewTransactionPage() {
           <label className="block text-sm font-medium text-gray-700 mb-2">
             Amount *
           </label>
-          <input
+          <Input
             {...register('amount', { valueAsNumber: true })}
             type="number"
             step="0.01"
             min="0.01"
-            className="w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm px-3 py-2 border"
             placeholder="0.00"
           />
           {errors.amount && (
@@ -387,10 +425,9 @@ export default function NewTransactionPage() {
           <label className="block text-sm font-medium text-gray-700 mb-2">
             Description
           </label>
-          <textarea
+          <Textarea
             {...register('description')}
             rows={3}
-            className="w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm px-3 py-2 border"
             placeholder="Transaction description (optional)"
           />
         </div>
@@ -399,10 +436,9 @@ export default function NewTransactionPage() {
           <label className="block text-sm font-medium text-gray-700 mb-2">
             Date *
           </label>
-          <input
+          <Input
             {...register('date')}
             type="date"
-            className="w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm px-3 py-2 border"
           />
           {errors.date && (
             <p className="mt-1 text-sm text-red-600">{errors.date.message}</p>
@@ -410,32 +446,30 @@ export default function NewTransactionPage() {
         </div>
 
         <div className="flex justify-end space-x-3 pt-4">
-          <button
+          <Button
             type="button"
             onClick={() => router.back()}
-            className="px-4 py-2 border border-gray-300 rounded-md text-sm font-medium text-gray-700 hover:bg-gray-50"
+            variant="outline"
           >
             Cancel
-          </button>
-          <button
+          </Button>
+          <Button
             type="submit"
             disabled={loading}
-            className="px-4 py-2 bg-blue-600 text-white rounded-md text-sm font-medium hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed"
           >
             {loading ? 'Creating...' : 'Create Transaction'}
-          </button>
+          </Button>
         </div>
       </form>
 
-      <Modal
-        isOpen={showCreateModal}
-        onClose={() => {
-          setShowCreateModal(false);
-          resetCustomer();
-          resetSupplier();
-        }}
-        title={`Create New ${entityName}`}
-      >
+      <Dialog open={showCreateModal} onOpenChange={setShowCreateModal}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Create New {entityName}</DialogTitle>
+            <DialogDescription>
+              Add a new {entityName.toLowerCase()} to your ledger
+            </DialogDescription>
+          </DialogHeader>
         {entityType === 'customer' ? (
           <form onSubmit={handleSubmitCustomer(handleCreateCustomer)} className="space-y-4">
             <div>
@@ -589,7 +623,8 @@ export default function NewTransactionPage() {
             </div>
           </form>
         )}
-      </Modal>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

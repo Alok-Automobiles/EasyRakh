@@ -7,7 +7,34 @@ import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import toast from 'react-hot-toast';
 import CustomerCard from '@/components/CustomerCard';
-import Modal from '@/components/Modal';
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/dialog';
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
+import { Textarea } from '@/components/ui/textarea';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
+import {
+  Form,
+  FormControl,
+  FormField,
+  FormItem,
+  FormLabel,
+  FormMessage,
+} from '@/components/ui/form';
+import { Skeleton } from '@/components/ui/skeleton';
 import { Customer } from '@/lib/types';
 
 const customerSchema = z.object({
@@ -27,14 +54,13 @@ export default function CustomersPage() {
   const [loading, setLoading] = useState(true);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingCustomer, setEditingCustomer] = useState<string | null>(null);
-  const {
-    register,
-    handleSubmit,
-    reset,
-    formState: { errors },
-  } = useForm<CustomerForm>({
+  const form = useForm<CustomerForm>({
     resolver: zodResolver(customerSchema),
     defaultValues: {
+      name: '',
+      phone: '',
+      email: '',
+      address: '',
       openingBalance: 0,
       balanceType: 'debit',
     },
@@ -80,7 +106,7 @@ export default function CustomersPage() {
             : 'Customer created successfully!'
         );
         setIsModalOpen(false);
-        reset();
+        form.reset();
         setEditingCustomer(null);
         fetchCustomers();
       } else {
@@ -116,7 +142,7 @@ export default function CustomersPage() {
 
   const handleEdit = (customer: Customer & { id: string }) => {
     setEditingCustomer(customer.id);
-    reset({
+    form.reset({
       name: customer.name,
       phone: customer.phone || '',
       email: customer.email || '',
@@ -130,7 +156,12 @@ export default function CustomersPage() {
   if (loading) {
     return (
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-        <div className="text-center">Loading...</div>
+        <Skeleton className="h-9 w-48 mb-6" />
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+          {[1, 2, 3].map((i) => (
+            <Skeleton key={i} className="h-48" />
+          ))}
+        </div>
       </div>
     );
   }
@@ -138,23 +169,22 @@ export default function CustomersPage() {
   return (
     <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
       <div className="flex justify-between items-center mb-6">
-        <h1 className="text-3xl font-bold text-gray-900">Customers</h1>
-        <button
+        <h1 className="text-3xl font-bold text-foreground">Customers</h1>
+        <Button
           onClick={() => {
-            reset();
+            form.reset();
             setEditingCustomer(null);
             setIsModalOpen(true);
           }}
-          className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-md font-medium"
         >
           Add Customer
-        </button>
+        </Button>
       </div>
 
       {customers.length === 0 ? (
         <div className="text-center py-12">
-          <p className="text-gray-500 text-lg">No customers yet.</p>
-          <p className="text-gray-400 mt-2">Add your first customer to get started.</p>
+          <p className="text-muted-foreground text-lg">No customers yet.</p>
+          <p className="text-muted-foreground mt-2">Add your first customer to get started.</p>
         </div>
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
@@ -164,123 +194,140 @@ export default function CustomersPage() {
                 customer={customer}
                 onDelete={handleDelete}
               />
-              <button
+              <Button
                 onClick={() => handleEdit(customer)}
-                className="absolute top-2 right-2 text-blue-500 hover:text-blue-700 text-sm font-medium"
+                variant="ghost"
+                size="sm"
+                className="absolute top-2 right-2"
               >
                 Edit
-              </button>
+              </Button>
             </div>
           ))}
         </div>
       )}
 
-      <Modal
-        isOpen={isModalOpen}
-        onClose={() => {
-          setIsModalOpen(false);
-          reset();
-          setEditingCustomer(null);
-        }}
-        title={editingCustomer ? 'Edit Customer' : 'Add Customer'}
-      >
-        <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
-          <div>
-            <label className="block text-sm font-medium text-gray-700">
-              Name *
-            </label>
-            <input
-              {...register('name')}
-              type="text"
-              className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm px-3 py-2 border"
-            />
-            {errors.name && (
-              <p className="mt-1 text-sm text-red-600">{errors.name.message}</p>
-            )}
-          </div>
-
-          <div>
-            <label className="block text-sm font-medium text-gray-700">
-              Phone
-            </label>
-            <input
-              {...register('phone')}
-              type="text"
-              className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm px-3 py-2 border"
-            />
-          </div>
-
-          <div>
-            <label className="block text-sm font-medium text-gray-700">
-              Email
-            </label>
-            <input
-              {...register('email')}
-              type="email"
-              className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm px-3 py-2 border"
-            />
-            {errors.email && (
-              <p className="mt-1 text-sm text-red-600">{errors.email.message}</p>
-            )}
-          </div>
-
-          <div>
-            <label className="block text-sm font-medium text-gray-700">
-              Address
-            </label>
-            <textarea
-              {...register('address')}
-              rows={3}
-              className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm px-3 py-2 border"
-            />
-          </div>
-
-          <div>
-            <label className="block text-sm font-medium text-gray-700">
-              Opening Balance
-            </label>
-            <input
-              {...register('openingBalance', { valueAsNumber: true })}
-              type="number"
-              step="0.01"
-              className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm px-3 py-2 border"
-            />
-          </div>
-
-          <div>
-            <label className="block text-sm font-medium text-gray-700">
-              Balance Type
-            </label>
-            <select
-              {...register('balanceType')}
-              className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm px-3 py-2 border"
-            >
-              <option value="debit">Debit (They owe you)</option>
-              <option value="credit">Credit (You owe them)</option>
-            </select>
-          </div>
-
-          <div className="flex justify-end space-x-3 pt-4">
-            <button
-              type="button"
-              onClick={() => {
-                setIsModalOpen(false);
-                reset();
-                setEditingCustomer(null);
-              }}
-              className="px-4 py-2 border border-gray-300 rounded-md text-sm font-medium text-gray-700 hover:bg-gray-50"
-            >
-              Cancel
-            </button>
-            <button
-              type="submit"
-              className="px-4 py-2 bg-blue-600 text-white rounded-md text-sm font-medium hover:bg-blue-700"
-            >
-              {editingCustomer ? 'Update' : 'Create'}
-            </button>
-          </div>
-        </form>
-      </Modal>
+      <Dialog open={isModalOpen} onOpenChange={setIsModalOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>{editingCustomer ? 'Edit Customer' : 'Add Customer'}</DialogTitle>
+            <DialogDescription>
+              {editingCustomer ? 'Update customer information' : 'Create a new customer'}
+            </DialogDescription>
+          </DialogHeader>
+          <Form {...form}>
+            <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
+              <FormField
+                control={form.control}
+                name="name"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Name *</FormLabel>
+                    <FormControl>
+                      <Input type="text" {...field} value={field.value || ''} />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+              <FormField
+                control={form.control}
+                name="phone"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Phone</FormLabel>
+                    <FormControl>
+                      <Input type="text" {...field} value={field.value || ''} />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+              <FormField
+                control={form.control}
+                name="email"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Email</FormLabel>
+                    <FormControl>
+                      <Input type="email" {...field} value={field.value || ''} />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+              <FormField
+                control={form.control}
+                name="address"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Address</FormLabel>
+                    <FormControl>
+                      <Textarea rows={3} {...field} value={field.value || ''} />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+              <FormField
+                control={form.control}
+                name="openingBalance"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Opening Balance</FormLabel>
+                    <FormControl>
+                      <Input
+                        type="number"
+                        step="0.01"
+                        {...field}
+                        onChange={(e) => field.onChange(parseFloat(e.target.value) || 0)}
+                      />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+              <FormField
+                control={form.control}
+                name="balanceType"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Balance Type</FormLabel>
+                    <Select onValueChange={field.onChange} defaultValue={field.value}>
+                      <FormControl>
+                        <SelectTrigger>
+                          <SelectValue placeholder="Select balance type" />
+                        </SelectTrigger>
+                      </FormControl>
+                      <SelectContent>
+                        <SelectItem value="debit">Debit (They owe you)</SelectItem>
+                        <SelectItem value="credit">Credit (You owe them)</SelectItem>
+                      </SelectContent>
+                    </Select>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+              <DialogFooter>
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={() => {
+                    setIsModalOpen(false);
+                    form.reset();
+                    setEditingCustomer(null);
+                  }}
+                >
+                  Cancel
+                </Button>
+                <Button type="submit">
+                  {editingCustomer ? 'Update' : 'Create'}
+                </Button>
+              </DialogFooter>
+            </form>
+          </Form>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

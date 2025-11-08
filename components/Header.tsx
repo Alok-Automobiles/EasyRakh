@@ -3,6 +3,7 @@
 import Link from 'next/link';
 import { useRouter, usePathname } from 'next/navigation';
 import { useEffect, useState } from 'react';
+import { Button } from '@/components/ui/button';
 
 export default function Header() {
   const router = useRouter();
@@ -102,12 +103,13 @@ export default function Header() {
           </div>
           <div className="flex items-center space-x-4">
             <span className="text-sm text-gray-700">{user.name}</span>
-            <button
+            <Button
               onClick={handleLogout}
-              className="bg-red-500 hover:bg-red-600 text-white px-4 py-2 rounded-md text-sm font-medium"
+              variant="destructive"
+              size="sm"
             >
               Logout
-            </button>
+            </Button>
           </div>
         </div>
       </div>

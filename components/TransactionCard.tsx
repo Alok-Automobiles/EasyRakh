@@ -2,6 +2,9 @@
 
 import { Transaction } from '@/lib/types';
 import { format } from 'date-fns';
+import { Card, CardContent } from '@/components/ui/card';
+import { Badge } from '@/components/ui/badge';
+import { Button } from '@/components/ui/button';
 
 interface TransactionCardProps {
   transaction: Transaction & { id: string; customerName?: string };
@@ -19,55 +22,60 @@ export default function TransactionCard({
   const bgColor = isCredit ? 'bg-green-50' : 'bg-red-50';
 
   return (
-    <div className={`${bgColor} rounded-lg shadow-md p-4 hover:shadow-lg transition-shadow`}>
-      <div className="flex justify-between items-start">
-        <div className="flex-1">
-          <div className="flex items-center space-x-2">
-            <span
-              className={`px-2 py-1 rounded text-xs font-semibold ${
-                isCredit ? 'bg-green-200 text-green-800' : 'bg-red-200 text-red-800'
-              }`}
-            >
-              {isCredit ? 'Credit' : 'Debit'}
+    <Card className={`${bgColor} hover:shadow-lg transition-shadow`}>
+      <CardContent className="p-4">
+        <div className="flex justify-between items-start">
+          <div className="flex-1">
+            <div className="flex items-center space-x-2">
+              <Badge
+                variant={isCredit ? 'default' : 'destructive'}
+                className={isCredit ? 'bg-green-200 text-green-800 hover:bg-green-200' : 'bg-red-200 text-red-800 hover:bg-red-200'}
+              >
+                {isCredit ? 'Credit' : 'Debit'}
+              </Badge>
+              {transaction.customerName && (
+                <span className="text-sm font-medium text-foreground">
+                  {transaction.customerName}
+                </span>
+              )}
+            </div>
+            {transaction.description && (
+              <p className="text-sm text-muted-foreground mt-1">{transaction.description}</p>
+            )}
+            <p className="text-xs text-muted-foreground mt-1">
+              {format(new Date(transaction.date), 'MMM dd, yyyy')}
+            </p>
+          </div>
+          <div className="flex items-center space-x-4">
+            <span className={`text-lg font-bold ${amountColor}`}>
+              {isCredit ? '+' : '-'}₹{transaction.amount.toLocaleString()}
             </span>
-            {transaction.customerName && (
-              <span className="text-sm font-medium text-gray-700">
-                {transaction.customerName}
-              </span>
-            )}
-          </div>
-          {transaction.description && (
-            <p className="text-sm text-gray-600 mt-1">{transaction.description}</p>
-          )}
-          <p className="text-xs text-gray-500 mt-1">
-            {format(new Date(transaction.date), 'MMM dd, yyyy')}
-          </p>
-        </div>
-        <div className="flex items-center space-x-4">
-          <span className={`text-lg font-bold ${amountColor}`}>
-            {isCredit ? '+' : '-'}₹{transaction.amount.toLocaleString()}
-          </span>
-          <div className="flex space-x-2">
-            {onEdit && (
-              <button
-                onClick={() => onEdit(transaction)}
-                className="text-blue-500 hover:text-blue-700 text-sm font-medium"
-              >
-                Edit
-              </button>
-            )}
-            {onDelete && (
-              <button
-                onClick={() => onDelete(transaction.id)}
-                className="text-red-500 hover:text-red-700 text-sm font-medium"
-              >
-                Delete
-              </button>
-            )}
+            <div className="flex space-x-2">
+              {onEdit && (
+                <Button
+                  onClick={() => onEdit(transaction)}
+                  variant="ghost"
+                  size="sm"
+                  className="text-primary hover:text-primary"
+                >
+                  Edit
+                </Button>
+              )}
+              {onDelete && (
+                <Button
+                  onClick={() => onDelete(transaction.id)}
+                  variant="ghost"
+                  size="sm"
+                  className="text-destructive hover:text-destructive"
+                >
+                  Delete
+                </Button>
+              )}
+            </div>
           </div>
         </div>
-      </div>
-    </div>
+      </CardContent>
+    </Card>
   );
 }
 

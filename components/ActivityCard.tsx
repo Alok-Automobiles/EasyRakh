@@ -2,6 +2,7 @@
 
 import { format } from 'date-fns';
 import { RecentActivity } from '@/lib/types';
+import { Card, CardContent } from '@/components/ui/card';
 
 interface ActivityCardProps {
   activity: RecentActivity;
@@ -39,29 +40,31 @@ export default function ActivityCard({ activity }: ActivityCardProps) {
   };
 
   return (
-    <div className={`${getActivityColor()} rounded-lg shadow-md p-4 hover:shadow-lg transition-shadow`}>
-      <div className="flex items-start space-x-4">
-        {getActivityIcon()}
-        <div className="flex-1">
-          <div className="flex items-center justify-between">
-            <div>
-              <p className="font-semibold text-gray-900">{activity.entityName}</p>
-              <p className="text-sm text-gray-600 mt-1">{activity.description}</p>
+    <Card className={`${getActivityColor()} hover:shadow-lg transition-shadow`}>
+      <CardContent className="p-4">
+        <div className="flex items-start space-x-4">
+          {getActivityIcon()}
+          <div className="flex-1">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="font-semibold text-foreground">{activity.entityName}</p>
+                <p className="text-sm text-muted-foreground mt-1">{activity.description}</p>
+              </div>
+              {activity.amount !== undefined && (
+                <span className={`text-lg font-bold ${
+                  activity.transactionType === 'credit' ? 'text-green-600' : 'text-red-600'
+                }`}>
+                  {activity.transactionType === 'credit' ? '+' : '-'}₹{activity.amount.toLocaleString()}
+                </span>
+              )}
             </div>
-            {activity.amount !== undefined && (
-              <span className={`text-lg font-bold ${
-                activity.transactionType === 'credit' ? 'text-green-600' : 'text-red-600'
-              }`}>
-                {activity.transactionType === 'credit' ? '+' : '-'}₹{activity.amount.toLocaleString()}
-              </span>
-            )}
+            <p className="text-xs text-muted-foreground mt-2">
+              {format(new Date(activity.createdAt), 'MMM dd, yyyy HH:mm')}
+            </p>
           </div>
-          <p className="text-xs text-gray-500 mt-2">
-            {format(new Date(activity.createdAt), 'MMM dd, yyyy HH:mm')}
-          </p>
         </div>
-      </div>
-    </div>
+      </CardContent>
+    </Card>
   );
 }
 

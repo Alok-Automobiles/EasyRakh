@@ -5,6 +5,9 @@ import { useRouter, useParams } from 'next/navigation';
 import { format } from 'date-fns';
 import Link from 'next/link';
 import toast from 'react-hot-toast';
+import { Button } from '@/components/ui/button';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Skeleton } from '@/components/ui/skeleton';
 
 interface LedgerEntry {
   date: Date;
@@ -72,7 +75,9 @@ export default function LedgerPage() {
   if (loading) {
     return (
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-        <div className="text-center">Loading...</div>
+        <Skeleton className="h-9 w-48 mb-6" />
+        <Skeleton className="h-32 mb-6" />
+        <Skeleton className="h-96" />
       </div>
     );
   }
@@ -110,8 +115,11 @@ export default function LedgerPage() {
         )}
       </div>
 
-      <div className="bg-white rounded-lg shadow-md p-6 mb-6">
-        <h2 className="text-xl font-semibold text-gray-900 mb-4">Opening Balance</h2>
+      <Card className="mb-6">
+        <CardHeader>
+          <CardTitle>Opening Balance</CardTitle>
+        </CardHeader>
+        <CardContent>
         <div className="flex items-center space-x-4">
           <span className="text-gray-600">Amount:</span>
           <span
@@ -126,9 +134,10 @@ export default function LedgerPage() {
             ({openingBalance.type === 'credit' ? 'You owe them' : 'They owe you'})
           </span>
         </div>
-      </div>
+        </CardContent>
+      </Card>
 
-      <div className="bg-white rounded-lg shadow-md overflow-hidden">
+      <Card className="overflow-hidden">
         <div className="overflow-x-auto">
           <table className="min-w-full divide-y divide-gray-200">
             <thead className="bg-gray-50">
@@ -224,15 +233,14 @@ export default function LedgerPage() {
             </tfoot>
           </table>
         </div>
-      </div>
+      </Card>
 
       <div className="mt-6 flex justify-end">
-        <Link
-          href={`/transactions/new?entityType=${entityType}&entityId=${entityId}`}
-          className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-md font-medium"
-        >
-          Add Transaction
-        </Link>
+        <Button asChild>
+          <Link href={`/transactions/new?entityType=${entityType}&entityId=${entityId}`}>
+            Add Transaction
+          </Link>
+        </Button>
       </div>
     </div>
   );

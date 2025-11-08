@@ -1,5 +1,7 @@
 'use client';
 
+import { Card, CardContent } from '@/components/ui/card';
+
 interface BalanceCardProps {
   title: string;
   amount: number;
@@ -26,21 +28,23 @@ export default function BalanceCard({
   };
 
   return (
-    <div className="bg-white rounded-lg shadow-md p-6 hover:shadow-lg transition-shadow">
-      <div className="flex items-center justify-between">
-        <div className="flex-1">
-          <p className="text-sm font-medium text-gray-600 mb-2">{title}</p>
-          <p className={`text-3xl font-bold ${getColor().split(' ')[0]}`}>
-            {getSign()}₹{Math.abs(amount).toLocaleString()}
-          </p>
-        </div>
-        {icon && (
-          <div className={`p-3 rounded-full ${getColor().split(' ')[1]}`}>
-            {icon}
+    <Card className="hover:shadow-lg transition-shadow">
+      <CardContent className="p-6">
+        <div className="flex items-center justify-between">
+          <div className="flex-1">
+            <p className="text-sm font-medium text-muted-foreground mb-2">{title}</p>
+            <p className={`text-3xl font-bold ${getColor().split(' ')[0]}`}>
+              {getSign()}₹{Math.abs(amount).toLocaleString()}
+            </p>
           </div>
-        )}
-      </div>
-    </div>
+          {icon && (
+            <div className={`p-3 rounded-full ${getColor().split(' ')[1]}`}>
+              {icon}
+            </div>
+          )}
+        </div>
+      </CardContent>
+    </Card>
   );
 }
 
