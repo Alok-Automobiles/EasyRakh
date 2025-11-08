@@ -1,0 +1,109 @@
+import { NextRequest, NextResponse } from 'next/server';
+import { getDb } from '@/lib/mongodb';
+import { getUserIdFromRequest } from '@/lib/auth';
+import { z } from 'zod';
+import { ObjectId } from 'mongodb';
+
+const customerSchema = z.object({
+  name: z.string().min(1, 'Name is required'),
+  phone: z.string().optional(),
+  email: z.string().email('Invalid email').optional().or(z.literal('')),
+  address: z.string().optional(),
+  openingBalance: z.number().default(0),
+  balanceType: z.enum(['credit', 'debit']).default('debit'),
+});
+
+export async function GET(request: NextRequest) {
+  try {
+    const userId = getUserIdFromRequest(request);
+
+    if (!userId) {
+      return NextResponse.json(
+        { error: 'Unauthorized' },
+        { status: 401 }
+      );
+    }
+
+    const db = await getDb();
+    const customersCollection = db.collection('customers');
+
+    const customers = await customersCollection
+      .find({ userId })
+      .sort({ createdAt: -1 })
+      .toArray();
+
+    return NextResponse.json({
+      customers: customers.map((customer) => ({
+        id: customer._id.toString(),
+        name: customer.name,
+        phone: customer.phone,
+        email: customer.email,
+        address: customer.address,
+        openingBalance: customer.openingBalance,
+        balanceType: customer.balanceType,
+        createdAt: customer.createdAt,
+      })),
+    });
+  } catch (error) {
+    console.error('Get customers error:', error);
+    return NextResponse.json(
+      { error: 'Internal server error' },
+      { status: 500 }
+    );
+  }
+}
+
+export async function POST(request: NextRequest) {
+  try {
+    const userId = getUserIdFromRequest(request);
+
+    if (!userId) {
+      return NextResponse.json(
+        { error: 'Unauthorized' },
+        { status: 401 }
+      );
+    }
+
+    const body = await request.json();
+    const validatedData = customerSchema.parse(body);
+
+    const db = await getDb();
+    const customersCollection = db.collection('customers');
+
+    const result = await customersCollection.insertOne({
+      userId,
+      name: validatedData.name,
+      phone: validatedData.phone || '',
+      email: validatedData.email || '',
+      address: validatedData.address || '',
+      openingBalance: validatedData.openingBalance,
+      balanceType: validatedData.balanceType,
+      createdAt: new Date(),
+    });
+
+    return NextResponse.json(
+      {
+        message: 'Customer created successfully',
+        customer: {
+          id: result.insertedId.toString(),
+          ...validatedData,
+        },
+      },
+      { status: 201 }
+    );
+  } catch (error) {
+    if (error instanceof z.ZodError) {
+      return NextResponse.json(
+        { error: error.errors[0].message },
+        { status: 400 }
+      );
+    }
+
+    console.error('Create customer error:', error);
+    return NextResponse.json(
+      { error: 'Internal server error' },
+      { status: 500 }
+    );
+  }
+}
+
