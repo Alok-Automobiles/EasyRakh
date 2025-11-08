@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, Suspense } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import Link from 'next/link';
 import { useForm } from 'react-hook-form';
@@ -68,7 +68,7 @@ type TransactionForm = z.infer<typeof transactionSchema>;
 type CustomerForm = z.infer<typeof customerSchema>;
 type SupplierForm = z.infer<typeof supplierSchema>;
 
-export default function NewTransactionPage() {
+function NewTransactionPageContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const [step, setStep] = useState<'select' | 'form'>('select');
@@ -626,5 +626,17 @@ export default function NewTransactionPage() {
         </DialogContent>
       </Dialog>
     </div>
+  );
+}
+
+export default function NewTransactionPage() {
+  return (
+    <Suspense fallback={
+      <div className="max-w-2xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+        <div className="text-center">Loading...</div>
+      </div>
+    }>
+      <NewTransactionPageContent />
+    </Suspense>
   );
 }
