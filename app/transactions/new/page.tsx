@@ -396,8 +396,17 @@ function NewTransactionPageContent() {
               <SelectValue placeholder="Select transaction type" />
             </SelectTrigger>
             <SelectContent>
-              <SelectItem value="debit">Debit (Money received)</SelectItem>
-              <SelectItem value="credit">Credit (Money given)</SelectItem>
+              {entityType === 'supplier' ? (
+                <>
+                  <SelectItem value="credit">Credit (Parts supplied by supplier)</SelectItem>
+                  <SelectItem value="debit">Debit (Money paid to supplier)</SelectItem>
+                </>
+              ) : (
+                <>
+                  <SelectItem value="debit">Debit (Customer purchase - amount to be paid)</SelectItem>
+                  <SelectItem value="credit">Credit (Money received from customer)</SelectItem>
+                </>
+              )}
             </SelectContent>
           </Select>
           {errors.type && (

@@ -69,10 +69,22 @@ export async function GET(
     }
 
     const ledgerEntries = transactions.map((transaction) => {
-      if (transaction.type === 'credit') {
-        runningBalance -= transaction.amount; // Credit decreases balance (you owe more)
+      // Entity-specific logic:
+      // Suppliers: Credit subtracts (you owe more, balance more negative), Debit adds (you owe less, balance less negative)
+      // Customers: Credit subtracts (they owe less), Debit adds (they owe more)
+      if (entityType === 'supplier') {
+        if (transaction.type === 'credit') {
+          runningBalance -= transaction.amount; // Credit subtracts (you owe more, balance more negative)
+        } else {
+          runningBalance += transaction.amount; // Debit adds (you owe less, balance less negative)
+        }
       } else {
-        runningBalance += transaction.amount; // Debit increases balance (they owe more)
+        // customer
+        if (transaction.type === 'credit') {
+          runningBalance -= transaction.amount; // Credit subtracts (they owe less)
+        } else {
+          runningBalance += transaction.amount; // Debit adds (they owe more)
+        }
       }
 
       return {
@@ -97,7 +109,15 @@ export async function GET(
     if (entity.balanceType === 'credit') {
       finalBalance = -finalBalance;
     }
-    finalBalance = finalBalance - totalCredit + totalDebit;
+    // Entity-specific logic for transactions:
+    // Suppliers: Credit subtracts (you owe more), Debit adds (you owe less)
+    // Customers: Credit subtracts (they owe less), Debit adds (they owe more)
+    if (entityType === 'supplier') {
+      finalBalance = finalBalance - totalCredit + totalDebit;
+    } else {
+      // customer
+      finalBalance = finalBalance - totalCredit + totalDebit;
+    }
 
     return NextResponse.json({
       entity: {

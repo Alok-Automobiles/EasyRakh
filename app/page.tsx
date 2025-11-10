@@ -88,8 +88,29 @@ export default function Dashboard() {
         }
       }
 
-      // Add transactions to balance
-      netBalance = netBalance - totalCredit + totalDebit;
+      // Add transactions to balance with entity-specific logic:
+      // Suppliers: Credit subtracts (you owe more, balance more negative), Debit adds (you owe less, balance less negative)
+      // Customers: Credit subtracts (they owe less), Debit adds (they owe more)
+      const customerTransactions = transactions.filter((t: Transaction) => t.entityType === 'customer');
+      const supplierTransactions = transactions.filter((t: Transaction) => t.entityType === 'supplier');
+
+      // Customer transactions: Credit subtracts, Debit adds
+      for (const transaction of customerTransactions) {
+        if (transaction.type === 'credit') {
+          netBalance -= transaction.amount; // Credit subtracts (they owe less)
+        } else {
+          netBalance += transaction.amount; // Debit adds (they owe more)
+        }
+      }
+
+      // Supplier transactions: Credit subtracts (you owe more), Debit adds (you owe less)
+      for (const transaction of supplierTransactions) {
+        if (transaction.type === 'credit') {
+          netBalance -= transaction.amount; // Credit subtracts (you owe more, balance more negative)
+        } else {
+          netBalance += transaction.amount; // Debit adds (you owe less, balance less negative)
+        }
+      }
 
       setStats({
         totalCredit,
