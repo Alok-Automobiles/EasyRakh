@@ -98,8 +98,10 @@ export function VideoText({
 
   const dataUrlMask = `url("data:image/svg+xml,${encodeURIComponent(svgMask)}")`
 
+  const ComponentWithProps = Component as React.ElementType<React.HTMLAttributes<HTMLElement> & { children?: ReactNode }>
+  
   return (
-    <Component className={cn(`relative size-full`, className)}>
+    <ComponentWithProps className={cn(`relative size-full`, className)}>
       {/* Create a container that masks the video to only show within text */}
       <div
         className="absolute inset-0 flex items-center justify-center"
@@ -129,6 +131,6 @@ export function VideoText({
 
       {/* Add a backup text element for SEO/accessibility */}
       <span className="sr-only">{content}</span>
-    </Component>
+    </ComponentWithProps>
   )
 }
