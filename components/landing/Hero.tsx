@@ -3,22 +3,44 @@
 import Link from 'next/link';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { IndianRupee, ArrowUpRight, ArrowDownLeft, ReceiptIndianRupee } from 'lucide-react';
+import { IndianRupee, ArrowUpRight, ArrowDownLeft } from 'lucide-react';
 import React from 'react';
+import { ComicText } from '@/components/ui/comic-text';
 
 export default function Hero() {
   return (
     <section className="relative overflow-hidden">
       <div className="absolute inset-0 -z-10 bg-gradient-to-b from-emerald-50 via-white to-rose-50" />
 
-      {/* Decorative vectors */}
-      <RupeeCoin className="hidden sm:block absolute -left-10 top-12 h-24 w-24 opacity-70" />
-      <GreenUpArrow className="hidden md:block absolute right-12 top-10 h-28 w-28 opacity-70" />
-      <RedDownArrow className="hidden md:block absolute left-24 bottom-10 h-24 w-24 opacity-60" />
-      <Receipt className="hidden sm:block absolute right-0 -bottom-6 h-28 w-28 opacity-70" />
-
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-24">
         <div className="mx-auto text-center max-w-3xl">
+          {/* EasyRakh Logo */}
+          <div className="mb-8">
+            <div className="flex items-center justify-center gap-2">
+              <ComicText
+                fontSize={4}
+                style={{
+                  backgroundColor: '#10b981',
+                  backgroundImage: 'radial-gradient(circle at 1px 1px, #065f46 1px, transparent 0)',
+                  WebkitTextStroke: '4px #000000',
+                  filter: 'drop-shadow(5px 5px 0px #000000) drop-shadow(3px 3px 0px #065f46)',
+                }}
+              >
+                Easy
+              </ComicText>
+              <ComicText
+                fontSize={4}
+                style={{
+                  backgroundColor: '#f43f5e',
+                  backgroundImage: 'radial-gradient(circle at 1px 1px, #be123c 1px, transparent 0)',
+                  WebkitTextStroke: '4px #000000',
+                  filter: 'drop-shadow(5px 5px 0px #000000) drop-shadow(3px 3px 0px #be123c)',
+                }}
+              >
+                Rakh
+              </ComicText>
+            </div>
+          </div>
           <div className="inline-flex items-center gap-2 mb-6 rounded-full border bg-white/70 backdrop-blur px-4 py-1 shadow-sm">
             <Badge className="bg-emerald-100 text-emerald-800 hover:bg-emerald-100">New</Badge>
             <span className="text-sm text-gray-600">Track every rupee with confidence</span>
@@ -31,14 +53,14 @@ export default function Hero() {
             Designed for fast daily bookkeeping.
           </p>
           <div className="mt-10 flex flex-col sm:flex-row gap-4 justify-center">
-            <Button asChild size="lg" className="text-base px-8 py-6 bg-emerald-600 hover:bg-emerald-700">
+            <Button asChild size="lg" className="text-base px-8 py-6 bg-emerald-600 hover:bg-emerald-700 cursor-none">
               <Link href="/register">Get started free</Link>
             </Button>
             <Button
               asChild
               size="lg"
               variant="outline"
-              className="text-base px-8 py-6 border-gray-300"
+              className="text-base px-8 py-6 border-gray-300 cursor-none"
             >
               <Link href="/login">Sign in</Link>
             </Button>
@@ -62,52 +84,6 @@ export default function Hero() {
         </div>
       </div>
     </section>
-  );
-}
-
-function RupeeCoin({ className = '' }: { className?: string }) {
-  return (
-    <svg viewBox="0 0 120 120" className={className}>
-      <defs>
-        <radialGradient id="g" cx="50%" cy="50%" r="60%">
-          <stop offset="0%" stopColor="#d1fae5" />
-          <stop offset="100%" stopColor="#a7f3d0" />
-        </radialGradient>
-      </defs>
-      <circle cx="60" cy="60" r="58" fill="url(#g)" stroke="#10b981" strokeWidth="2" />
-      {/* rupee symbol */}
-      <g transform="translate(40,35)">
-        <path d="M5 0h25M5 10h20M5 10c0 15 10 30 30 35" stroke="#065f46" strokeWidth="4" fill="none" />
-      </g>
-    </svg>
-  );
-}
-
-function GreenUpArrow({ className = '' }: { className?: string }) {
-  return (
-    <svg viewBox="0 0 120 120" className={className}>
-      <path d="M20 80 L60 40 L80 60 L100 30" stroke="#10b981" strokeWidth="10" fill="none" />
-      <circle cx="100" cy="30" r="6" fill="#10b981" />
-    </svg>
-  );
-}
-
-function RedDownArrow({ className = '' }: { className?: string }) {
-  return (
-    <svg viewBox="0 0 120 120" className={className}>
-      <path d="M20 40 L60 80 L80 60 L100 90" stroke="#f43f5e" strokeWidth="10" fill="none" />
-      <circle cx="20" cy="40" r="6" fill="#f43f5e" />
-    </svg>
-  );
-}
-
-function Receipt({ className = '' }: { className?: string }) {
-  return (
-    <svg viewBox="0 0 140 160" className={className}>
-      <rect x="20" y="10" width="100" height="140" rx="10" fill="#fff" stroke="#e5e7eb" />
-      <path d="M35 40h70M35 60h70M35 80h50M35 100h60" stroke="#e5e7eb" strokeWidth="6" />
-      <ReceiptIndianRupee className="absolute" />
-    </svg>
   );
 }
 
