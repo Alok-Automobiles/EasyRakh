@@ -6,13 +6,38 @@ import { Badge } from '@/components/ui/badge';
 import { IndianRupee, ArrowUpRight, ArrowDownLeft } from 'lucide-react';
 import React from 'react';
 import { ComicText } from '@/components/ui/comic-text';
+import Image from 'next/image';
 
 export default function Hero() {
   return (
     <section className="relative overflow-hidden">
       <div className="absolute inset-0 -z-10 bg-gradient-to-b from-emerald-50 via-white to-rose-50" />
 
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-24">
+      {/* Left SVG decoration */}
+      <div className="absolute left-0 top-1/2 -translate-y-1/2 -translate-x-1/4 z-20 pointer-events-none hidden lg:block">
+        <Image
+          src="/left.svg"
+          alt=""
+          width={380}
+          height={390}
+          className="opacity-100"
+          priority={false}
+        />
+      </div>
+
+      {/* Right SVG decoration */}
+      <div className="absolute right-0 top-1/2 -translate-y-1/2 translate-x-1/4 z-20 pointer-events-none hidden lg:block">
+        <Image
+          src="/right.svg"
+          alt=""
+          width={290}
+          height={420}
+          className="opacity-100"
+          priority={false}
+        />
+      </div>
+
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-24 relative z-30">
         <div className="mx-auto text-center max-w-3xl">
           {/* EasyRakh Logo */}
           <div className="mb-8">
@@ -86,5 +111,3 @@ export default function Hero() {
     </section>
   );
 }
-
-
