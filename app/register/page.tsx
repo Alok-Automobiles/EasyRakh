@@ -47,7 +47,7 @@ export default function RegisterPage() {
 
       if (response.ok) {
         toast.success('Registration successful!');
-        router.push('/');
+        router.push('/dashboard');
         router.refresh();
       } else {
         toast.error(result.error || 'Registration failed');

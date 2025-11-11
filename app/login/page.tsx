@@ -32,6 +32,10 @@ export default function LoginPage() {
   const [loading, setLoading] = useState(false);
   const form = useForm<LoginForm>({
     resolver: zodResolver(loginSchema),
+    defaultValues: {
+      email: '',
+      password: '',
+    },
   });
 
   const onSubmit = async (data: LoginForm) => {
@@ -47,7 +51,7 @@ export default function LoginPage() {
 
       if (response.ok) {
         toast.success('Login successful!');
-        router.push('/');
+        router.push('/dashboard');
         router.refresh();
       } else {
         toast.error(result.error || 'Login failed');
