@@ -8,6 +8,7 @@ import toast from 'react-hot-toast';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Skeleton } from '@/components/ui/skeleton';
+import { motion } from 'framer-motion';
 
 interface LedgerEntry {
   date: Date;
@@ -74,19 +75,33 @@ export default function LedgerPage() {
 
   if (loading) {
     return (
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-        <Skeleton className="h-9 w-48 mb-6" />
-        <Skeleton className="h-32 mb-6" />
-        <Skeleton className="h-96" />
-      </div>
+      <motion.div
+        initial={{ opacity: 0 }}
+        animate={{ opacity: 1 }}
+        transition={{ duration: 1.3 }}
+        exit={{ opacity: 0 }}
+      >
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+          <Skeleton className="h-9 w-48 mb-6" />
+          <Skeleton className="h-32 mb-6" />
+          <Skeleton className="h-96" />
+        </div>
+      </motion.div>
     );
   }
 
   if (!ledgerData) {
     return (
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-        <div className="text-center">Ledger not found</div>
-      </div>
+      <motion.div
+        initial={{ opacity: 0 }}
+        animate={{ opacity: 1 }}
+        transition={{ duration: 1.3 }}
+        exit={{ opacity: 0 }}
+      >
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+          <div className="text-center">Ledger not found</div>
+        </div>
+      </motion.div>
     );
   }
 
@@ -95,7 +110,13 @@ export default function LedgerPage() {
   const entityName = entityType === 'customer' ? 'Customers' : 'Suppliers';
 
   return (
-    <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+    <motion.div
+      initial={{ opacity: 0 }}
+      animate={{ opacity: 1 }}
+      transition={{ duration: 1.3 }}
+      exit={{ opacity: 0 }}
+    >
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
       <div className="mb-6">
         <Link
           href={`/${entityType === 'customer' ? 'customers' : 'suppliers'}`}
@@ -243,6 +264,7 @@ export default function LedgerPage() {
         </Button>
       </div>
     </div>
+    </motion.div>
   );
 }
 

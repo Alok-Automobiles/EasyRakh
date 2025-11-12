@@ -7,6 +7,7 @@ import { IndianRupee, ArrowUpRight, ArrowDownLeft } from 'lucide-react';
 import React from 'react';
 import { ComicText } from '@/components/ui/comic-text';
 import Image from 'next/image';
+import { Highlighter } from '../ui/highlighter';
 
 export default function Hero() {
   return (
@@ -71,12 +72,13 @@ export default function Hero() {
             <span className="text-sm text-gray-600">Track every rupee with confidence</span>
           </div>
           <h1 className="text-5xl sm:text-6xl font-bold tracking-tight text-gray-900">
-            Simple Ledger for Profits and Losses
+            Simple <Highlighter action="highlight" color="#fecaca">Ledger</Highlighter> for <Highlighter action="underline" color="#10b981">Profits</Highlighter> and <Highlighter action="underline" color="#10b981">Losses</Highlighter>
           </h1>
           <p className="mt-6 text-lg text-gray-600">
-            Manage credits and debits with clarity. Light green highlights profits, light red flags losses.
+            Manage credits and debits with clarity. Light green highlights <Highlighter action="underline" color="#10b981">profits</Highlighter>, light red flags <Highlighter action="underline" color="#10b981">losses</Highlighter>.
             Designed for fast daily bookkeeping.
           </p>
+          
           <div className="mt-10 flex flex-col sm:flex-row gap-4 justify-center">
             <Button asChild size="lg" className="text-base px-8 py-6 bg-emerald-600 hover:bg-emerald-700 cursor-none">
               <Link href="/register">Get started free</Link>
