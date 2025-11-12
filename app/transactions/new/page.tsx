@@ -36,6 +36,7 @@ import {
   FormMessage,
 } from '@/components/ui/form';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { motion } from 'framer-motion';
 
 const transactionSchema = z.object({
   entityType: z.enum(['customer', 'supplier']),
@@ -272,46 +273,53 @@ function NewTransactionPageContent() {
 
   if (step === 'select') {
     return (
-      <div className="max-w-2xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-        <h1 className="text-3xl font-bold text-gray-900 mb-6">New Transaction</h1>
-        <div className="bg-white rounded-lg shadow-md p-6">
-          <h2 className="text-xl font-semibold text-gray-900 mb-4">
-            Select Transaction Type
-          </h2>
-          <div className="space-y-4">
-            <Button
-              onClick={() => handleEntityTypeSelect('customer')}
-              variant="outline"
-              className="w-full p-6 h-auto justify-start"
-            >
-              <div className="flex items-center justify-between w-full">
-                <div>
-                  <h3 className="text-lg font-semibold">Customer</h3>
-                  <p className="text-sm text-muted-foreground mt-1">
-                    Transaction with a customer
-                  </p>
+      <motion.div
+        initial={{ opacity: 0 }}
+        animate={{ opacity: 1 }}
+        transition={{ duration: 1.3 }}
+        exit={{ opacity: 0 }}
+      >
+        <div className="max-w-2xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+          <h1 className="text-3xl font-bold text-gray-900 mb-6">New Transaction</h1>
+          <div className="bg-white rounded-lg shadow-md p-6">
+            <h2 className="text-xl font-semibold text-gray-900 mb-4">
+              Select Transaction Type
+            </h2>
+            <div className="space-y-4">
+              <Button
+                onClick={() => handleEntityTypeSelect('customer')}
+                variant="outline"
+                className="w-full p-6 h-auto justify-start"
+              >
+                <div className="flex items-center justify-between w-full">
+                  <div>
+                    <h3 className="text-lg font-semibold">Customer</h3>
+                    <p className="text-sm text-muted-foreground mt-1">
+                      Transaction with a customer
+                    </p>
+                  </div>
+                  <span className="text-2xl">→</span>
                 </div>
-                <span className="text-2xl">→</span>
-              </div>
-            </Button>
-            <Button
-              onClick={() => handleEntityTypeSelect('supplier')}
-              variant="outline"
-              className="w-full p-6 h-auto justify-start"
-            >
-              <div className="flex items-center justify-between w-full">
-                <div>
-                  <h3 className="text-lg font-semibold">Supplier</h3>
-                  <p className="text-sm text-muted-foreground mt-1">
-                    Transaction with a supplier
-                  </p>
+              </Button>
+              <Button
+                onClick={() => handleEntityTypeSelect('supplier')}
+                variant="outline"
+                className="w-full p-6 h-auto justify-start"
+              >
+                <div className="flex items-center justify-between w-full">
+                  <div>
+                    <h3 className="text-lg font-semibold">Supplier</h3>
+                    <p className="text-sm text-muted-foreground mt-1">
+                      Transaction with a supplier
+                    </p>
+                  </div>
+                  <span className="text-2xl">→</span>
                 </div>
-                <span className="text-2xl">→</span>
-              </div>
-            </Button>
+              </Button>
+            </div>
           </div>
         </div>
-      </div>
+      </motion.div>
     );
   }
 
@@ -324,7 +332,13 @@ function NewTransactionPageContent() {
   const cameFromLedger = urlEntityType && urlEntityId && (urlEntityType === 'customer' || urlEntityType === 'supplier');
 
   return (
-    <div className="max-w-2xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+    <motion.div
+      initial={{ opacity: 0 }}
+      animate={{ opacity: 1 }}
+      transition={{ duration: 1.3 }}
+      exit={{ opacity: 0 }}
+    >
+      <div className="max-w-2xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
       <div className="mb-4">
         {cameFromLedger ? (
           <Link
@@ -635,6 +649,7 @@ function NewTransactionPageContent() {
         </DialogContent>
       </Dialog>
     </div>
+    </motion.div>
   );
 }
 
