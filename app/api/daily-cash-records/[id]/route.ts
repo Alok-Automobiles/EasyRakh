@@ -123,6 +123,13 @@ export async function PUT(
       _id: record._id,
     });
 
+    if (!updatedRecord) {
+      return NextResponse.json(
+        { error: 'Failed to retrieve updated record' },
+        { status: 500 }
+      );
+    }
+
     return NextResponse.json({
       message: 'Entry updated successfully',
       record: {

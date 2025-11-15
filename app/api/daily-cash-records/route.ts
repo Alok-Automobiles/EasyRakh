@@ -205,6 +205,13 @@ export async function POST(request: NextRequest) {
       });
     }
 
+    if (!record) {
+      return NextResponse.json(
+        { error: 'Failed to retrieve record after creation/update' },
+        { status: 500 }
+      );
+    }
+
     return NextResponse.json(
       {
         message: 'Entry created successfully',
