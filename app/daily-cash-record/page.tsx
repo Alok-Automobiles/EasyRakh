@@ -28,7 +28,7 @@ import {
 } from '@/components/ui/dialog';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Skeleton } from '@/components/ui/skeleton';
-import { Edit2, CalendarIcon } from 'lucide-react';
+import { Edit2, CalendarIcon, Plus } from 'lucide-react';
 import { motion } from 'framer-motion';
 
 interface CashEntry {
@@ -73,6 +73,8 @@ export default function DailyCashRecordPage() {
   const [editingEntry, setEditingEntry] = useState<CashEntry | null>(null);
   const [viewingRecord, setViewingRecord] = useState<DailyRecord | null>(null);
   const [currentPage, setCurrentPage] = useState(1);
+  const [recordsCache, setRecordsCache] = useState<Map<string, DailyRecord>>(new Map());
+  const [addTransactionOpen, setAddTransactionOpen] = useState(false);
 
   // Form states
   const [amount, setAmount] = useState('');
@@ -103,16 +105,33 @@ export default function DailyCashRecordPage() {
 
   
 
-  const fetchRecordForDate = async (date: Date) => {
+  const fetchRecordForDate = async (date: Date, useCache: boolean = true) => {
+    const dateString = format(date, 'dd-MM-yyyy');
+    
+    // Check cache first
+    if (useCache && recordsCache.has(dateString)) {
+      return recordsCache.get(dateString)!;
+    }
+
     try {
-      const dateString = format(date, 'dd-MM-yyyy');
       const response = await fetch(`/api/daily-cash-records?date=${dateString}`);
       if (response.status === 401) {
         router.push('/login');
-        return;
+        return null;
       }
       const data = await response.json();
-      return data.record;
+      const record = data.record;
+      
+      // Update cache if record exists
+      if (record) {
+        setRecordsCache((prev) => {
+          const newCache = new Map(prev);
+          newCache.set(dateString, record);
+          return newCache;
+        });
+      }
+      
+      return record;
     } catch (error) {
       console.error('Error fetching record:', error);
       toast.error('Failed to load record');
@@ -165,6 +184,17 @@ export default function DailyCashRecordPage() {
         setRecordDate(new Date());
         setEntryType('in');
         setCreateNewRecordOpen(false);
+        
+        // Update cache with the new record
+        if (data.record) {
+          setRecordsCache((prev) => {
+            const newCache = new Map(prev);
+            newCache.set(dateString, data.record);
+            return newCache;
+          });
+        }
+        
+        // Refresh summary list
         fetchData();
         setCurrentPage(1); // Reset to first page after creating new record
       } else {
@@ -178,7 +208,7 @@ export default function DailyCashRecordPage() {
 
   const handleViewRecord = async (record: SummaryRecord) => {
     const parsedDate = parse(record.date, 'dd-MM-yyyy', new Date());
-    const recordData = await fetchRecordForDate(parsedDate);
+    const recordData = await fetchRecordForDate(parsedDate, true);
     if (recordData) {
       setViewingRecord(recordData);
       setViewRecordOpen(true);
@@ -192,6 +222,67 @@ export default function DailyCashRecordPage() {
     setRecordDate(parse(record.date, 'dd-MM-yyyy', new Date()));
     setEntryType(entry.type);
     setEditEntryOpen(true);
+  };
+
+  const handleAddTransaction = async () => {
+    if (!amount || !description || !viewingRecord) {
+      toast.error('Please fill in all fields');
+      return;
+    }
+
+    const amountNum = parseFloat(amount);
+    if (isNaN(amountNum) || amountNum <= 0) {
+      toast.error('Please enter a valid amount');
+      return;
+    }
+
+    try {
+      const dateString = format(recordDate, 'dd-MM-yyyy');
+      const response = await fetch('/api/daily-cash-records', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          amount: amountNum,
+          type: entryType,
+          description,
+          date: dateString,
+        }),
+      });
+
+      if (response.status === 401) {
+        router.push('/login');
+        return;
+      }
+
+      const data = await response.json();
+      if (response.ok) {
+        toast.success(`Transaction ${entryType === 'in' ? 'added' : 'deducted'} successfully`);
+        setAmount('');
+        setDescription('');
+        setEntryType('in');
+        setAddTransactionOpen(false);
+        
+        // Update cache with the updated record
+        if (data.record) {
+          setRecordsCache((prev) => {
+            const newCache = new Map(prev);
+            newCache.set(dateString, data.record);
+            return newCache;
+          });
+          setViewingRecord(data.record);
+        }
+        
+        // Refresh summary list
+        fetchData();
+      } else {
+        toast.error(data.error || 'Failed to add transaction');
+      }
+    } catch (error) {
+      console.error('Error adding transaction:', error);
+      toast.error('Failed to add transaction');
+    }
   };
 
   const handleUpdateEntry = async () => {
@@ -233,8 +324,16 @@ export default function DailyCashRecordPage() {
         setDescription('');
         setEditingEntry(null);
         setEditEntryOpen(false);
+        
+        // Invalidate cache for this date and fetch fresh data
+        setRecordsCache((prev) => {
+          const newCache = new Map(prev);
+          newCache.delete(dateString);
+          return newCache;
+        });
+        
         if (viewingRecord) {
-          const updatedRecord = await fetchRecordForDate(recordDate);
+          const updatedRecord = await fetchRecordForDate(recordDate, false);
           if (updatedRecord) {
             setViewingRecord(updatedRecord);
           }
@@ -383,7 +482,7 @@ export default function DailyCashRecordPage() {
                   onSelect={(date) => {
                     if (date) {
                       setSelectedDate(date);
-                      fetchRecordForDate(date).then((record) => {
+                      fetchRecordForDate(date, true).then((record) => {
                         if (record) {
                           setViewingRecord(record);
                           setSeePrevRecordsOpen(false);
@@ -468,9 +567,27 @@ export default function DailyCashRecordPage() {
         <Dialog open={viewRecordOpen} onOpenChange={setViewRecordOpen}>
           <DialogContent className="max-w-4xl max-h-[80vh] flex flex-col p-0">
             <DialogHeader className="px-6 pt-6 pb-4 flex-shrink-0">
-              <DialogTitle>
-                Records for {viewingRecord?.date || format(selectedDate, 'dd-MM-yyyy')}
-              </DialogTitle>
+              <div className="flex flex-row items-center justify-between">
+                <DialogTitle>
+                  Records for {viewingRecord?.date || format(selectedDate, 'dd-MM-yyyy')}
+                </DialogTitle>
+                {viewingRecord && (
+                  <Button
+                    onClick={() => {
+                      setRecordDate(parse(viewingRecord.date, 'dd-MM-yyyy', new Date()));
+                      setAmount('');
+                      setDescription('');
+                      setEntryType('in');
+                      setAddTransactionOpen(true);
+                    }}
+                    size="sm"
+                    className="gap-2"
+                  >
+                    <Plus className="h-4 w-4" />
+                    Add Transaction
+                  </Button>
+                )}
+              </div>
             </DialogHeader>
             <div className="px-6 pb-6 overflow-auto flex-1">
               {viewingRecord && viewingRecord.entries && viewingRecord.entries.length > 0 ? (
@@ -545,6 +662,67 @@ export default function DailyCashRecordPage() {
                   No entries found for this date
                 </div>
               )}
+            </div>
+          </DialogContent>
+        </Dialog>
+
+        {/* Add Transaction Dialog */}
+        <Dialog open={addTransactionOpen} onOpenChange={setAddTransactionOpen}>
+          <DialogContent>
+            <DialogHeader>
+              <DialogTitle>Add Transaction</DialogTitle>
+            </DialogHeader>
+            <div className="space-y-4 py-4">
+              <div>
+                <Label htmlFor="add-transaction-date">Date *</Label>
+                <div className="mt-2">
+                  <Calendar
+                    mode="single"
+                    selected={recordDate}
+                    onSelect={(date) => date && setRecordDate(date)}
+                    className="rounded-md border"
+                  />
+                </div>
+              </div>
+              <div>
+                <Label htmlFor="add-transaction-type">Type *</Label>
+                <Select value={entryType} onValueChange={(value: 'in' | 'out') => setEntryType(value)}>
+                  <SelectTrigger id="add-transaction-type" className="w-full mt-2">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="in">Money In</SelectItem>
+                    <SelectItem value="out">Money Out</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+              <div>
+                <Label htmlFor="add-transaction-amount">Amount *</Label>
+                <Input
+                  id="add-transaction-amount"
+                  type="number"
+                  placeholder="Enter amount"
+                  value={amount}
+                  onChange={(e) => setAmount(e.target.value)}
+                  className="mt-2"
+                />
+              </div>
+              <div>
+                <Label htmlFor="add-transaction-description">Description *</Label>
+                <Input
+                  id="add-transaction-description"
+                  placeholder="Enter description"
+                  value={description}
+                  onChange={(e) => setDescription(e.target.value)}
+                  className="mt-2"
+                />
+              </div>
+              <Button
+                onClick={handleAddTransaction}
+                className="w-full bg-blue-600 hover:bg-blue-700 text-white"
+              >
+                Add Transaction
+              </Button>
             </div>
           </DialogContent>
         </Dialog>
