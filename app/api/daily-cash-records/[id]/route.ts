@@ -3,7 +3,7 @@ import { getDb } from '@/lib/mongodb';
 import { getUserIdFromRequest } from '@/lib/auth';
 import { z } from 'zod';
 import { ObjectId } from 'mongodb';
-import { format, parse, startOfDay } from 'date-fns';
+import { format } from 'date-fns';
 
 const updateEntrySchema = z.object({
   amount: z.number().positive('Amount must be greater than 0'),
@@ -13,26 +13,38 @@ const updateEntrySchema = z.object({
 });
 
 // Helper function to parse date from dd-mm-yyyy or YYYY-MM-DD format
+// Returns a UTC date at start of day
 function parseDate(dateString: string): Date {
   // Try dd-mm-yyyy format first
   if (dateString.includes('-') && dateString.split('-')[0].length <= 2) {
     try {
-      return parse(dateString, 'dd-MM-yyyy', new Date());
+      const parts = dateString.split('-');
+      const day = parseInt(parts[0], 10);
+      const month = parseInt(parts[1], 10) - 1; // Month is 0-indexed
+      const year = parseInt(parts[2], 10);
+      return new Date(Date.UTC(year, month, day, 0, 0, 0, 0));
     } catch {
       // Fall through to try YYYY-MM-DD
     }
   }
   // Try YYYY-MM-DD format
   try {
-    return parse(dateString, 'yyyy-MM-dd', new Date());
+    const parts = dateString.split('-');
+    const year = parseInt(parts[0], 10);
+    const month = parseInt(parts[1], 10) - 1; // Month is 0-indexed
+    const day = parseInt(parts[2], 10);
+    return new Date(Date.UTC(year, month, day, 0, 0, 0, 0));
   } catch {
     throw new Error('Invalid date format. Use dd-mm-yyyy or YYYY-MM-DD');
   }
 }
 
-// Helper function to normalize date to start of day
+// Helper function to normalize date to start of day in UTC
 function normalizeDate(date: Date): Date {
-  return startOfDay(date);
+  const year = date.getUTCFullYear();
+  const month = date.getUTCMonth();
+  const day = date.getUTCDate();
+  return new Date(Date.UTC(year, month, day, 0, 0, 0, 0));
 }
 
 export async function PUT(
