@@ -50,9 +50,12 @@ export default function Header() {
     return null;
   }
 
+  const headerClasses =
+    'sticky top-0 z-50 w-full border-b border-white/40 bg-white/70 backdrop-blur-xl shadow-[0_10px_30px_rgba(15,23,42,0.08)] supports-[backdrop-filter]:bg-white/60';
+
   if (loading) {
     return (
-      <header className="bg-white shadow-sm border-b">
+      <header className={headerClasses}>
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex justify-between items-center h-16">
             <div className="text-xl font-bold text-gray-900">
@@ -69,7 +72,7 @@ export default function Header() {
   }
 
   return (
-    <header className="bg-white shadow-sm border-b">
+    <header className={headerClasses}>
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="flex justify-between items-center h-16">
           <div className="flex items-center space-x-8">
@@ -106,6 +109,12 @@ export default function Header() {
                 className="text-gray-600 hover:text-gray-900 px-3 py-2 rounded-md text-sm font-medium"
               >
                 Daily Cash Record
+              </Link>
+              <Link
+                href="/notes"
+                className="text-gray-600 hover:text-gray-900 px-3 py-2 rounded-md text-sm font-medium"
+              >
+                Notes
               </Link>
             </nav>
           </div>

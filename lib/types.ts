@@ -64,3 +64,14 @@ export interface LedgerEntry {
   balance: number;
 }
 
+export interface Note {
+  _id?: string;
+  userId: string;
+  title: string;
+  content?: string;
+  color: string;
+  isFavorite?: boolean;
+  createdAt: Date;
+  updatedAt: Date;
+}
+
