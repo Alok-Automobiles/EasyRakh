@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, Suspense } from 'react';
+import { useState, useEffect, useRef, Suspense } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import Link from 'next/link';
 import { useForm } from 'react-hook-form';
@@ -79,6 +79,7 @@ function NewTransactionPageContent() {
   const [loading, setLoading] = useState(false);
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [creatingEntity, setCreatingEntity] = useState(false);
+  const hasFetchedRef = useRef(false);
 
   const {
     register,
@@ -122,6 +123,8 @@ function NewTransactionPageContent() {
   });
 
   useEffect(() => {
+    if (hasFetchedRef.current) return;
+    hasFetchedRef.current = true;
     fetchCustomers();
     fetchSuppliers();
   }, []);
