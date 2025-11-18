@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
@@ -55,6 +55,7 @@ export default function CustomersPage() {
   const [loading, setLoading] = useState(true);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingCustomer, setEditingCustomer] = useState<string | null>(null);
+  const hasFetchedRef = useRef(false);
   const form = useForm<CustomerForm>({
     resolver: zodResolver(customerSchema),
     defaultValues: {
@@ -68,6 +69,8 @@ export default function CustomersPage() {
   });
 
   useEffect(() => {
+    if (hasFetchedRef.current) return;
+    hasFetchedRef.current = true;
     fetchCustomers();
   }, []);
 

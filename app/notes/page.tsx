@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useRef, useCallback } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 import { format } from 'date-fns';
 import toast from 'react-hot-toast';
@@ -32,26 +32,31 @@ export default function NotesPage() {
   const dropdownRef = useRef<HTMLDivElement>(null);
   const titleInputRef = useRef<HTMLInputElement>(null);
   const contentTextareaRef = useRef<HTMLTextAreaElement>(null);
-
-  const fetchNotes = useCallback(async () => {
-    try {
-      const response = await fetch('/api/notes');
-      if (response.ok) {
-        const data = await response.json();
-        setNotes(data.notes || []);
-      } else if (response.status === 401) {
-        router.push('/login');
-      }
-    } catch {
-      toast.error('Failed to fetch notes');
-    } finally {
-      setLoading(false);
-    }
-  }, [router]);
+  const hasFetchedRef = useRef(false);
 
   useEffect(() => {
+    if (hasFetchedRef.current) return;
+    hasFetchedRef.current = true;
+
+    const fetchNotes = async () => {
+      try {
+        const response = await fetch('/api/notes');
+        if (response.ok) {
+          const data = await response.json();
+          setNotes(data.notes || []);
+        } else if (response.status === 401) {
+          router.push('/login');
+        }
+      } catch {
+        toast.error('Failed to fetch notes');
+      } finally {
+        setLoading(false);
+      }
+    };
+
     fetchNotes();
-  }, [fetchNotes]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {

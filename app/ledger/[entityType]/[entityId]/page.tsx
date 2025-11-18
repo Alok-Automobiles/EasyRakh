@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useRouter, useParams } from 'next/navigation';
 import { format } from 'date-fns';
 import Link from 'next/link';
@@ -48,11 +48,14 @@ export default function LedgerPage() {
   const entityId = params.entityId as string;
   const [ledgerData, setLedgerData] = useState<LedgerData | null>(null);
   const [loading, setLoading] = useState(true);
+  const lastFetchedRef = useRef<string>('');
 
   useEffect(() => {
-    if (entityId && entityType) {
-      fetchLedger();
-    }
+    if (!entityId || !entityType) return;
+    const fetchKey = `${entityType}-${entityId}`;
+    if (lastFetchedRef.current === fetchKey) return;
+    lastFetchedRef.current = fetchKey;
+    fetchLedger();
   }, [entityId, entityType]);
 
   const fetchLedger = async () => {

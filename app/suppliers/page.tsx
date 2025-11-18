@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
@@ -54,6 +54,7 @@ export default function SuppliersPage() {
   const [loading, setLoading] = useState(true);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingSupplier, setEditingSupplier] = useState<string | null>(null);
+  const hasFetchedRef = useRef(false);
   const form = useForm<SupplierForm>({
     resolver: zodResolver(supplierSchema),
     defaultValues: {
@@ -67,6 +68,8 @@ export default function SuppliersPage() {
   });
 
   useEffect(() => {
+    if (hasFetchedRef.current) return;
+    hasFetchedRef.current = true;
     fetchSuppliers();
   }, []);
 

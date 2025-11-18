@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getDb } from '@/lib/mongodb';
 import { getUserIdFromRequest } from '@/lib/auth';
+import { ObjectId } from 'mongodb';
 
 export async function GET(request: NextRequest) {
   try {
@@ -19,7 +20,7 @@ export async function GET(request: NextRequest) {
     const transactionsCollection = db.collection('transactions');
 
     // Fetch recent customers, suppliers, and transactions
-    const [customers, suppliers, transactions] = await Promise.all([
+    const [recentCustomers, recentSuppliers, recentTransactions] = await Promise.all([
       customersCollection
         .find({ userId })
         .sort({ createdAt: -1 })
@@ -41,7 +42,7 @@ export async function GET(request: NextRequest) {
     const activities: any[] = [];
 
     // Add customer creation activities
-    customers.forEach((customer) => {
+    recentCustomers.forEach((customer) => {
       activities.push({
         id: `customer_${customer._id.toString()}`,
         type: 'customer_created',
@@ -53,7 +54,7 @@ export async function GET(request: NextRequest) {
     });
 
     // Add supplier creation activities
-    suppliers.forEach((supplier) => {
+    recentSuppliers.forEach((supplier) => {
       activities.push({
         id: `supplier_${supplier._id.toString()}`,
         type: 'supplier_created',
@@ -64,22 +65,59 @@ export async function GET(request: NextRequest) {
       });
     });
 
-    // Add transaction activities - need to get entity names
-    const allCustomers = await customersCollection.find({ userId }).toArray();
-    const allSuppliers = await suppliersCollection.find({ userId }).toArray();
-    
-    transactions.forEach((transaction) => {
+    // Create lookup maps from recent customers/suppliers for efficient entity name resolution
+    const customerMap = new Map(
+      recentCustomers.map((c) => [c._id.toString(), c.name])
+    );
+    const supplierMap = new Map(
+      recentSuppliers.map((s) => [s._id.toString(), s.name])
+    );
+
+    // Collect entity IDs that are not in the recent lists
+    const missingCustomerIds = new Set<string>();
+    const missingSupplierIds = new Set<string>();
+
+    recentTransactions.forEach((transaction) => {
       const entityId = transaction.entityId || transaction.customerId || transaction.supplierId || '';
       const entityType = transaction.entityType || (transaction.customerId ? 'customer' : 'supplier');
       
-      let entityName = '';
-      if (entityType === 'customer') {
-        const entity = allCustomers.find((c: any) => c._id.toString() === entityId);
-        entityName = entity?.name || 'Unknown Customer';
-      } else {
-        const entity = allSuppliers.find((s: any) => s._id.toString() === entityId);
-        entityName = entity?.name || 'Unknown Supplier';
+      if (entityType === 'customer' && !customerMap.has(entityId)) {
+        missingCustomerIds.add(entityId);
+      } else if (entityType === 'supplier' && !supplierMap.has(entityId)) {
+        missingSupplierIds.add(entityId);
       }
+    });
+
+    // Fetch only missing entities (if any)
+    const [missingCustomers, missingSuppliers] = await Promise.all([
+      missingCustomerIds.size > 0
+        ? customersCollection
+            .find({ userId, _id: { $in: Array.from(missingCustomerIds).map((id) => new ObjectId(id)) } })
+            .toArray()
+        : Promise.resolve([]),
+      missingSupplierIds.size > 0
+        ? suppliersCollection
+            .find({ userId, _id: { $in: Array.from(missingSupplierIds).map((id) => new ObjectId(id)) } })
+            .toArray()
+        : Promise.resolve([]),
+    ]);
+
+    // Add missing entities to maps
+    missingCustomers.forEach((customer) => {
+      customerMap.set(customer._id.toString(), customer.name);
+    });
+    missingSuppliers.forEach((supplier) => {
+      supplierMap.set(supplier._id.toString(), supplier.name);
+    });
+
+    // Add transaction activities using the optimized lookup maps
+    recentTransactions.forEach((transaction) => {
+      const entityId = transaction.entityId || transaction.customerId || transaction.supplierId || '';
+      const entityType = transaction.entityType || (transaction.customerId ? 'customer' : 'supplier');
+      
+      const entityName = entityType === 'customer'
+        ? (customerMap.get(entityId) || 'Unknown Customer')
+        : (supplierMap.get(entityId) || 'Unknown Supplier');
       
       activities.push({
         id: transaction._id.toString(),

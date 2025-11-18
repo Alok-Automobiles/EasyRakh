@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 import { format, parse } from 'date-fns';
 import toast from 'react-hot-toast';
@@ -75,6 +75,7 @@ export default function DailyCashRecordPage() {
   const [currentPage, setCurrentPage] = useState(1);
   const [recordsCache, setRecordsCache] = useState<Map<string, DailyRecord>>(new Map());
   const [addTransactionOpen, setAddTransactionOpen] = useState(false);
+  const hasFetchedRef = useRef(false);
 
   // Form states
   const [amount, setAmount] = useState('');
@@ -100,6 +101,8 @@ export default function DailyCashRecordPage() {
   };
 
   useEffect(() => {
+    if (hasFetchedRef.current) return;
+    hasFetchedRef.current = true;
     fetchData();
   }, []);
 

@@ -2,7 +2,7 @@
 
 import Link from 'next/link';
 import { useRouter, usePathname } from 'next/navigation';
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useRef } from 'react';
 import { Button } from '@/components/ui/button';
 
 export default function Header() {
@@ -10,6 +10,7 @@ export default function Header() {
   const pathname = usePathname();
   const [user, setUser] = useState<{ name: string; email: string } | null>(null);
   const [loading, setLoading] = useState(true);
+  const lastPathnameRef = useRef<string>('');
 
   // Don't show header on login/register pages or landing page
   const isAuthPage = pathname === '/login' || pathname === '/register' || pathname === '/';
@@ -19,6 +20,10 @@ export default function Header() {
       setLoading(false);
       return;
     }
+
+    // Prevent duplicate calls for the same pathname
+    if (lastPathnameRef.current === pathname) return;
+    lastPathnameRef.current = pathname;
 
     fetch('/api/auth/me')
       .then((res) => {
@@ -38,7 +43,7 @@ export default function Header() {
         setLoading(false);
       })
       .catch(() => setLoading(false));
-  }, [isAuthPage, router]);
+  }, [pathname, router]);
 
   const handleLogout = async () => {
     await fetch('/api/auth/logout', { method: 'POST' });
