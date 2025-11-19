@@ -221,7 +221,7 @@ export default function NotesPage() {
           <div className="relative" ref={dropdownRef}>
             <button
               onClick={() => setIsColorDropdownOpen(!isColorDropdownOpen)}
-              className="w-12 h-12 bg-black rounded-full flex items-center justify-center text-white hover:bg-gray-800 transition-colors"
+              className="w-12 h-12 bg-black rounded-full flex items-center justify-center text-white hover:bg-gray-800 transition-colors cursor-pointer"
             >
               <Plus className="w-6 h-6" />
             </button>
@@ -230,18 +230,31 @@ export default function NotesPage() {
             <AnimatePresence>
               {isColorDropdownOpen && (
                 <motion.div
-                  initial={{ opacity: 0, y: -10, scale: 0.95 }}
-                  animate={{ opacity: 1, y: 0, scale: 1 }}
-                  exit={{ opacity: 0, y: -10, scale: 0.95 }}
-                  transition={{ duration: 0.2 }}
-                  className="absolute left-full ml-4 top-0 bg-white rounded-lg shadow-lg p-2 z-50"
+                  initial={{ opacity: 0, y: 10, scale: 0.8, rotate: -5 }}
+                  animate={{ opacity: 1, y: 0, scale: 1, rotate: 0 }}
+                  exit={{ opacity: 0, y: 10, scale: 0.8, rotate: -5 }}
+                  transition={{ 
+                    type: "spring",
+                    stiffness: 300,
+                    damping: 25,
+                    duration: 0.3
+                  }}
+                  className="absolute top-full mt-4 left-1/2 -translate-x-1/2 bg-white rounded-lg shadow-lg p-2 z-50"
                 >
                   <div className="flex flex-col space-y-2">
-                    {colorPalette.map((color) => (
-                      <button
+                    {colorPalette.map((color, index) => (
+                      <motion.button
                         key={color.value}
+                        initial={{ opacity: 0, scale: 0.5, x: -20 }}
+                        animate={{ opacity: 1, scale: 1, x: 0 }}
+                        transition={{ 
+                          delay: index * 0.05,
+                          type: "spring",
+                          stiffness: 400,
+                          damping: 20
+                        }}
                         onClick={() => handleCreateNote(color.value)}
-                        className="w-10 h-10 rounded-full hover:scale-110 transition-transform"
+                        className="w-10 h-10 rounded-full hover:scale-110 transition-transform cursor-pointer"
                         style={{ backgroundColor: color.value }}
                         title={color.name}
                       />
@@ -250,19 +263,6 @@ export default function NotesPage() {
                 </motion.div>
               )}
             </AnimatePresence>
-          </div>
-
-          {/* Color Circles */}
-          <div className="flex flex-col space-y-3">
-            {colorPalette.map((color) => (
-              <button
-                key={color.value}
-                onClick={() => handleCreateNote(color.value)}
-                className="w-8 h-8 rounded-full hover:scale-110 transition-transform"
-                style={{ backgroundColor: color.value }}
-                title={color.name}
-              />
-            ))}
           </div>
         </div>
 

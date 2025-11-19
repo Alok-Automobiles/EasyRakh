@@ -34,6 +34,8 @@ export default function Dashboard() {
   });
   const [recentActivities, setRecentActivities] = useState<RecentActivity[]>([]);
   const [loading, setLoading] = useState(true);
+  const [currentPage, setCurrentPage] = useState(1);
+  const activitiesPerPage = 5;
   const hasFetchedRef = useRef(false);
 
   useEffect(() => {
@@ -41,6 +43,11 @@ export default function Dashboard() {
     hasFetchedRef.current = true;
     fetchDashboardData();
   }, []);
+
+  useEffect(() => {
+    // Reset to page 1 when activities change
+    setCurrentPage(1);
+  }, [recentActivities.length]);
 
   const fetchDashboardData = async () => {
     try {
@@ -75,6 +82,27 @@ export default function Dashboard() {
     } finally {
       setLoading(false);
     }
+  };
+
+  const totalPages = Math.ceil(recentActivities.length / activitiesPerPage);
+  const startIndex = (currentPage - 1) * activitiesPerPage;
+  const endIndex = startIndex + activitiesPerPage;
+  const visibleActivities = recentActivities.slice(startIndex, endIndex);
+
+  const handlePreviousPage = () => {
+    if (currentPage > 1) {
+      setCurrentPage((prev) => prev - 1);
+    }
+  };
+
+  const handleNextPage = () => {
+    if (currentPage < totalPages) {
+      setCurrentPage((prev) => prev + 1);
+    }
+  };
+
+  const handlePageClick = (page: number) => {
+    setCurrentPage(page);
   };
 
   if (loading) {
@@ -185,12 +213,7 @@ export default function Dashboard() {
       {/* Recent Activities */}
       <Card>
         <CardHeader>
-          <div className="flex justify-between items-center">
-            <CardTitle>Recent Activities</CardTitle>
-            <Button asChild variant="link">
-              <Link href="/transactions/new">View All</Link>
-            </Button>
-          </div>
+          <CardTitle>Recent Activities</CardTitle>
         </CardHeader>
         <CardContent>
           {recentActivities.length === 0 ? (
@@ -203,14 +226,47 @@ export default function Dashboard() {
               </p>
             </div>
           ) : (
-            <div className="space-y-4">
-              {recentActivities.slice(0, 10).map((activity) => (
-                <ActivityCard
-                  key={activity.id}
-                  activity={activity}
-                />
-              ))}
-            </div>
+            <>
+              <div className="space-y-4">
+                {visibleActivities.map((activity) => (
+                  <ActivityCard
+                    key={activity.id}
+                    activity={activity}
+                  />
+                ))}
+              </div>
+              {totalPages > 1 && (
+                <div className="mt-6 flex items-center justify-between">
+                  <Button
+                    onClick={handlePreviousPage}
+                    disabled={currentPage === 1}
+                    variant="outline"
+                  >
+                    Previous
+                  </Button>
+                  <div className="flex items-center gap-2">
+                    {Array.from({ length: totalPages }, (_, i) => i + 1).map((page) => (
+                      <Button
+                        key={page}
+                        onClick={() => handlePageClick(page)}
+                        variant={currentPage === page ? 'default' : 'outline'}
+                        size="sm"
+                        className="min-w-[40px]"
+                      >
+                        {page}
+                      </Button>
+                    ))}
+                  </div>
+                  <Button
+                    onClick={handleNextPage}
+                    disabled={currentPage === totalPages}
+                    variant="outline"
+                  >
+                    Next
+                  </Button>
+                </div>
+              )}
+            </>
           )}
         </CardContent>
       </Card>
