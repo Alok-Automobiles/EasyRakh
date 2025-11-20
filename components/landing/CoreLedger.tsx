@@ -2,7 +2,7 @@
 
 import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
-import { ArrowUpRight, ArrowDownLeft, TrendingUp, TrendingDown } from 'lucide-react';
+import { ArrowUpRight, ArrowDownLeft, TrendUp, TrendDown } from '@phosphor-icons/react';
 import { motion } from 'framer-motion';
 
 export default function CoreLedger() {
@@ -28,7 +28,7 @@ export default function CoreLedger() {
             <div className="space-y-6">
               <div className="flex gap-4 items-start">
                 <div className="p-3 bg-emerald-100 rounded-xl mt-1">
-                  <TrendingUp className="w-6 h-6 text-emerald-600" />
+                  <TrendUp weight="duotone" className="w-6 h-6 text-emerald-600" />
                 </div>
                 <div>
                   <h3 className="text-xl font-semibold text-gray-900">Profit-First Visuals</h3>
@@ -40,7 +40,7 @@ export default function CoreLedger() {
 
               <div className="flex gap-4 items-start">
                 <div className="p-3 bg-rose-100 rounded-xl mt-1">
-                  <TrendingDown className="w-6 h-6 text-rose-600" />
+                  <TrendDown weight="duotone" className="w-6 h-6 text-rose-600" />
                 </div>
                 <div>
                   <h3 className="text-xl font-semibold text-gray-900">Loss Awareness</h3>
@@ -68,7 +68,7 @@ export default function CoreLedger() {
                   <CardContent className="p-6 flex items-center justify-between">
                     <div className="flex items-center gap-4">
                       <div className="p-3 bg-emerald-100 rounded-full">
-                        <ArrowUpRight className="w-6 h-6 text-emerald-600" />
+                        <ArrowUpRight weight="bold" className="w-6 h-6 text-emerald-600" />
                       </div>
                       <div>
                         <p className="font-semibold text-gray-900">Sale to Raj Traders</p>
@@ -94,7 +94,7 @@ export default function CoreLedger() {
                   <CardContent className="p-6 flex items-center justify-between">
                     <div className="flex items-center gap-4">
                       <div className="p-3 bg-rose-100 rounded-full">
-                        <ArrowDownLeft className="w-6 h-6 text-rose-600" />
+                        <ArrowDownLeft weight="bold" className="w-6 h-6 text-rose-600" />
                       </div>
                       <div>
                         <p className="font-semibold text-gray-900">Shop Rent Payment</p>

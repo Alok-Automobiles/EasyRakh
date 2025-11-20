@@ -1,7 +1,7 @@
 'use client';
 
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { BarChart3, PieChart, Activity } from 'lucide-react';
+import { ChartBar, ChartPie, Pulse } from '@phosphor-icons/react';
 
 export default function DashboardPreview() {
   return (
@@ -69,7 +69,7 @@ export default function DashboardPreview() {
             <div className="space-y-8">
               <div className="flex gap-4">
                 <div className="flex-shrink-0 w-12 h-12 bg-indigo-100 rounded-xl flex items-center justify-center">
-                  <BarChart3 className="w-6 h-6 text-indigo-600" />
+                  <ChartBar weight="duotone" className="w-6 h-6 text-indigo-600" />
                 </div>
                 <div>
                   <h3 className="text-xl font-semibold text-gray-900 mb-2">Financial Overview</h3>
@@ -81,7 +81,7 @@ export default function DashboardPreview() {
 
               <div className="flex gap-4">
                 <div className="flex-shrink-0 w-12 h-12 bg-indigo-100 rounded-xl flex items-center justify-center">
-                  <Activity className="w-6 h-6 text-indigo-600" />
+                  <Pulse weight="duotone" className="w-6 h-6 text-indigo-600" />
                 </div>
                 <div>
                   <h3 className="text-xl font-semibold text-gray-900 mb-2">Recent Activity Feed</h3>
@@ -93,7 +93,7 @@ export default function DashboardPreview() {
 
               <div className="flex gap-4">
                 <div className="flex-shrink-0 w-12 h-12 bg-indigo-100 rounded-xl flex items-center justify-center">
-                  <PieChart className="w-6 h-6 text-indigo-600" />
+                  <ChartPie weight="duotone" className="w-6 h-6 text-indigo-600" />
                 </div>
                 <div>
                   <h3 className="text-xl font-semibold text-gray-900 mb-2">Business Health</h3>

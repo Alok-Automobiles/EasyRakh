@@ -1,6 +1,6 @@
 'use client';
 
-import { ShieldCheck, Lock, Server } from 'lucide-react';
+import { ShieldCheck, Lock, HardDrives } from '@phosphor-icons/react';
 
 export default function SecuritySection() {
   return (
@@ -18,7 +18,7 @@ export default function SecuritySection() {
         <div className="grid grid-cols-1 md:grid-cols-3 gap-8 text-center">
           <div className="p-6 rounded-2xl bg-gray-800/50 border border-gray-700 hover:bg-gray-800 transition-colors">
             <div className="w-16 h-16 bg-emerald-500/10 rounded-full flex items-center justify-center mx-auto mb-6">
-              <Lock className="w-8 h-8 text-emerald-400" />
+              <Lock weight="duotone" className="w-8 h-8 text-emerald-400" />
             </div>
             <h3 className="text-xl font-semibold mb-3">Secure Authentication</h3>
             <p className="text-gray-400">
@@ -28,7 +28,7 @@ export default function SecuritySection() {
 
           <div className="p-6 rounded-2xl bg-gray-800/50 border border-gray-700 hover:bg-gray-800 transition-colors">
             <div className="w-16 h-16 bg-blue-500/10 rounded-full flex items-center justify-center mx-auto mb-6">
-              <ShieldCheck className="w-8 h-8 text-blue-400" />
+              <ShieldCheck weight="duotone" className="w-8 h-8 text-blue-400" />
             </div>
             <h3 className="text-xl font-semibold mb-3">Account Isolation</h3>
             <p className="text-gray-400">
@@ -38,7 +38,7 @@ export default function SecuritySection() {
 
           <div className="p-6 rounded-2xl bg-gray-800/50 border border-gray-700 hover:bg-gray-800 transition-colors">
             <div className="w-16 h-16 bg-purple-500/10 rounded-full flex items-center justify-center mx-auto mb-6">
-              <Server className="w-8 h-8 text-purple-400" />
+              <HardDrives weight="duotone" className="w-8 h-8 text-purple-400" />
             </div>
             <h3 className="text-xl font-semibold mb-3">Daily Backups</h3>
             <p className="text-gray-400">

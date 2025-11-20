@@ -1,6 +1,6 @@
 'use client';
 
-import { Banknote, Zap, Smartphone, IndianRupee } from 'lucide-react';
+import { Money, Lightning, DeviceMobile, CurrencyInr } from '@phosphor-icons/react';
 import React from 'react';
 import { Iphone } from '@/components/ui/iphone';
 
@@ -13,7 +13,7 @@ export default function TransactionShowcase() {
           {/* Left Side: Content */}
           <div>
             <div className="inline-flex items-center gap-2 mb-6 px-3 py-1 rounded-full bg-emerald-100 border border-emerald-200">
-              <Smartphone className="h-4 w-4 text-emerald-700" />
+              <DeviceMobile weight="duotone" className="h-4 w-4 text-emerald-700" />
               <span className="text-xs font-medium text-emerald-700 uppercase tracking-wider">Mobile Optimized</span>
             </div>
             
@@ -29,7 +29,7 @@ export default function TransactionShowcase() {
             <div className="space-y-8">
               <div className="flex gap-4">
                 <div className="flex-shrink-0 w-12 h-12 bg-white rounded-xl shadow-sm border border-gray-100 flex items-center justify-center">
-                  <Zap className="w-6 h-6 text-amber-500" />
+                  <Lightning weight="duotone" className="w-6 h-6 text-amber-500" />
                 </div>
                 <div>
                   <h3 className="text-xl font-semibold text-gray-900 mb-2">Fast Entry Workflows</h3>
@@ -41,7 +41,7 @@ export default function TransactionShowcase() {
 
               <div className="flex gap-4">
                 <div className="flex-shrink-0 w-12 h-12 bg-white rounded-xl shadow-sm border border-gray-100 flex items-center justify-center">
-                  <IndianRupee className="w-6 h-6 text-emerald-600" />
+                  <CurrencyInr weight="bold" className="w-6 h-6 text-emerald-600" />
                 </div>
                 <div>
                   <h3 className="text-xl font-semibold text-gray-900 mb-2">Localized for India</h3>
@@ -68,7 +68,7 @@ export default function TransactionShowcase() {
               <div className="absolute -right-8 top-1/4 bg-white p-4 rounded-2xl shadow-xl border border-gray-100 animate-bounce duration-[3000ms]">
                 <div className="flex items-center gap-3">
                   <div className="p-2 bg-emerald-100 rounded-lg">
-                    <Banknote className="w-5 h-5 text-emerald-600" />
+                    <Money weight="duotone" className="w-5 h-5 text-emerald-600" />
                   </div>
                   <div>
                     <p className="text-xs text-gray-500">Daily Cash</p>
@@ -81,7 +81,7 @@ export default function TransactionShowcase() {
               <div className="absolute -left-8 bottom-1/4 bg-white p-4 rounded-2xl shadow-xl border border-gray-100 animate-bounce duration-[4000ms]">
                 <div className="flex items-center gap-3">
                   <div className="p-2 bg-rose-100 rounded-lg">
-                    <Zap className="w-5 h-5 text-rose-600" />
+                    <Lightning weight="duotone" className="w-5 h-5 text-rose-600" />
                   </div>
                   <div>
                     <p className="text-xs text-gray-500">Quick Expense</p>

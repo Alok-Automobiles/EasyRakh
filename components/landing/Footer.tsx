@@ -2,7 +2,7 @@
 
 import Link from 'next/link';
 import { ComicText } from '@/components/ui/comic-text';
-import { Facebook, Twitter, Instagram, Linkedin, Mail, Phone, MapPin } from 'lucide-react';
+import { FacebookLogo, TwitterLogo, InstagramLogo, LinkedinLogo, Envelope, PhoneCall, MapPin } from '@phosphor-icons/react';
 
 export default function Footer() {
   return (
@@ -41,16 +41,16 @@ export default function Footer() {
             </p>
             <div className="flex gap-4">
               <Link href="#" className="text-gray-400 hover:text-emerald-600 transition-colors">
-                <Facebook className="h-5 w-5" />
+                <FacebookLogo weight="fill" className="h-5 w-5" />
               </Link>
               <Link href="#" className="text-gray-400 hover:text-emerald-600 transition-colors">
-                <Twitter className="h-5 w-5" />
+                <TwitterLogo weight="fill" className="h-5 w-5" />
               </Link>
               <Link href="#" className="text-gray-400 hover:text-emerald-600 transition-colors">
-                <Instagram className="h-5 w-5" />
+                <InstagramLogo weight="fill" className="h-5 w-5" />
               </Link>
               <Link href="#" className="text-gray-400 hover:text-emerald-600 transition-colors">
-                <Linkedin className="h-5 w-5" />
+                <LinkedinLogo weight="fill" className="h-5 w-5" />
               </Link>
             </div>
           </div>
@@ -82,15 +82,15 @@ export default function Footer() {
             <h3 className="font-semibold text-gray-900 mb-4">Contact</h3>
             <ul className="space-y-3">
               <li className="flex items-start gap-3 text-gray-500">
-                <MapPin className="h-5 w-5 text-emerald-600 flex-shrink-0" />
+                <MapPin weight="duotone" className="h-5 w-5 text-emerald-600 flex-shrink-0" />
                 <span>123 Business Park, Sector 62, Noida, India</span>
               </li>
               <li className="flex items-center gap-3 text-gray-500">
-                <Phone className="h-5 w-5 text-emerald-600 flex-shrink-0" />
+                <PhoneCall weight="duotone" className="h-5 w-5 text-emerald-600 flex-shrink-0" />
                 <span>+91 98765 43210</span>
               </li>
               <li className="flex items-center gap-3 text-gray-500">
-                <Mail className="h-5 w-5 text-emerald-600 flex-shrink-0" />
+                <Envelope weight="duotone" className="h-5 w-5 text-emerald-600 flex-shrink-0" />
                 <span>support@easyrakh.com</span>
               </li>
             </ul>

@@ -3,6 +3,7 @@
 import Hero from '@/components/landing/Hero';
 import CoreLedger from '@/components/landing/CoreLedger';
 import EntityManagement from '@/components/landing/EntityManagement';
+import DailyOperations from '@/components/landing/DailyOperations';
 import DashboardPreview from '@/components/landing/DashboardPreview';
 import TransactionShowcase from '@/components/landing/TransactionShowcase';
 import SecuritySection from '@/components/landing/SecuritySection';
@@ -20,12 +21,13 @@ export default function LandingPage() {
         exit={{ opacity: 0 }}
       >
         <SmoothCursor />
-        <div className="min-h-screen bg-white">
+        <div className="min-h-screen bg-white selection:bg-emerald-100 selection:text-emerald-900">
           <Hero />
+          <TransactionShowcase />
           <CoreLedger />
           <EntityManagement />
+          <DailyOperations />
           <DashboardPreview />
-          <TransactionShowcase />
           <SecuritySection />
           <Footer />
         </div>

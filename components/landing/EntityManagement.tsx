@@ -1,6 +1,6 @@
 'use client';
 
-import { Users, Truck, ArrowRight } from 'lucide-react';
+import { Users, Truck, ArrowRight } from '@phosphor-icons/react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 
@@ -23,7 +23,7 @@ export default function EntityManagement() {
             <div className="h-2 bg-blue-500 w-full" />
             <CardContent className="p-8">
               <div className="w-14 h-14 bg-blue-100 rounded-2xl flex items-center justify-center mb-6 group-hover:scale-110 transition-transform">
-                <Users className="w-7 h-7 text-blue-600" />
+                <Users weight="duotone" className="w-7 h-7 text-blue-600" />
               </div>
               <h3 className="text-2xl font-bold text-gray-900 mb-3">Customer Ledger</h3>
               <p className="text-gray-600 mb-6">
@@ -44,7 +44,7 @@ export default function EntityManagement() {
                 </li>
               </ul>
               <Button variant="outline" className="group-hover:bg-blue-50 group-hover:text-blue-700 group-hover:border-blue-200">
-                Learn more <ArrowRight className="ml-2 w-4 h-4" />
+                Learn more <ArrowRight weight="bold" className="ml-2 w-4 h-4" />
               </Button>
             </CardContent>
           </Card>
@@ -54,7 +54,7 @@ export default function EntityManagement() {
             <div className="h-2 bg-purple-500 w-full" />
             <CardContent className="p-8">
               <div className="w-14 h-14 bg-purple-100 rounded-2xl flex items-center justify-center mb-6 group-hover:scale-110 transition-transform">
-                <Truck className="w-7 h-7 text-purple-600" />
+                <Truck weight="duotone" className="w-7 h-7 text-purple-600" />
               </div>
               <h3 className="text-2xl font-bold text-gray-900 mb-3">Supplier Ledger</h3>
               <p className="text-gray-600 mb-6">
@@ -75,7 +75,7 @@ export default function EntityManagement() {
                 </li>
               </ul>
               <Button variant="outline" className="group-hover:bg-purple-50 group-hover:text-purple-700 group-hover:border-purple-200">
-                Learn more <ArrowRight className="ml-2 w-4 h-4" />
+                Learn more <ArrowRight weight="bold" className="ml-2 w-4 h-4" />
               </Button>
             </CardContent>
           </Card>

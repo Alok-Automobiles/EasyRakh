@@ -5,7 +5,7 @@ import { useRouter } from 'next/navigation';
 import { format } from 'date-fns';
 import toast from 'react-hot-toast';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Plus, Star, X } from 'lucide-react';
+import { Plus, Star, X } from '@phosphor-icons/react';
 import { Note } from '@/lib/types';
 
 const colorPalette = [
@@ -299,7 +299,7 @@ export default function NotesPage() {
                   {/* Star Icon */}
                   {note.isFavorite && (
                     <div className="absolute top-4 right-4">
-                      <Star className="w-5 h-5 fill-yellow-400 text-yellow-400" />
+                      <Star weight="fill" className="w-5 h-5 text-yellow-400" />
                     </div>)}
 
                   {/* Note Content */}
@@ -370,9 +370,10 @@ export default function NotesPage() {
                         <Star
                           className={`w-4 h-4 ${
                             note.isFavorite
-                              ? 'fill-yellow-400 text-yellow-400'
+                              ? 'text-yellow-400'
                               : 'text-gray-600'
                           }`}
+                          weight={note.isFavorite ? "fill" : "regular"}
                         />
                       </button>
                       <button
