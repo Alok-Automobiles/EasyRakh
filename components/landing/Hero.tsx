@@ -3,7 +3,7 @@
 import Link from 'next/link';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { IndianRupee, ArrowUpRight, ArrowDownLeft } from 'lucide-react';
+import { CurrencyInr, ArrowUpRight, ArrowDownLeft } from '@phosphor-icons/react';
 import React from 'react';
 import { ComicText } from '@/components/ui/comic-text';
 import Image from 'next/image';
@@ -96,15 +96,15 @@ export default function Hero() {
           {/* Mini highlights */}
           <div className="mt-12 grid grid-cols-1 sm:grid-cols-3 gap-3 text-sm">
             <div className="flex items-center justify-center gap-2 rounded-lg border bg-white/70 px-3 py-2">
-              <IndianRupee className="h-4 w-4 text-emerald-600" />
+              <CurrencyInr weight="bold" className="h-4 w-4 text-emerald-600" />
               <span className="text-gray-700">Profit-first visuals</span>
             </div>
             <div className="flex items-center justify-center gap-2 rounded-lg border bg-white/70 px-3 py-2">
-              <ArrowUpRight className="h-4 w-4 text-emerald-600" />
+              <ArrowUpRight weight="bold" className="h-4 w-4 text-emerald-600" />
               <span className="text-gray-700">Fast credit entry</span>
             </div>
             <div className="flex items-center justify-center gap-2 rounded-lg border bg-white/70 px-3 py-2">
-              <ArrowDownLeft className="h-4 w-4 text-rose-600" />
+              <ArrowDownLeft weight="bold" className="h-4 w-4 text-rose-600" />
               <span className="text-gray-700">Clear debit history</span>
             </div>
           </div>

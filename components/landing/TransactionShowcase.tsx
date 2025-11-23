@@ -1,131 +1,101 @@
 'use client';
 
-import { ArrowDownLeft, ArrowUpRight, Banknote, CreditCard, Wallet, TrendingUp, TrendingDown } from 'lucide-react';
+import { Money, Lightning, DeviceMobile, CurrencyInr } from '@phosphor-icons/react';
 import React from 'react';
-
-type Tx = {
-  id: string;
-  label: string;
-  amount: string;
-  type: 'credit' | 'debit';
-};
-
-const SAMPLE_TX: Tx[] = [
-  { id: 't1', label: 'Payment from Rahul', amount: '+₹4,800', type: 'credit' },
-  { id: 't2', label: 'Parts purchase', amount: '-₹1,260', type: 'debit' },
-  { id: 't3', label: 'Service income', amount: '+₹2,150', type: 'credit' },
-  { id: 't4', label: 'Fuel expense', amount: '-₹740', type: 'debit' },
-  { id: 't5', label: 'UPI settlement', amount: '+₹9,200', type: 'credit' },
-  { id: 't6', label: 'Maintenance cost', amount: '-₹3,500', type: 'debit' },
-  { id: 't7', label: 'Customer payment', amount: '+₹6,400', type: 'credit' },
-];
+import { Iphone } from '@/components/ui/iphone';
 
 export default function TransactionShowcase() {
   return (
-    <section className="relative py-16 overflow-hidden">
+    <section className="relative py-24 overflow-hidden bg-gray-50">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-        {/* Header */}
-        <div className="text-center mb-8">
-          <div className="inline-flex items-center gap-2 mb-3">
-            <div className="p-2 rounded-lg bg-emerald-100">
-              <Banknote className="h-5 w-5 text-emerald-600" />
-            </div>
-            <h3 className="text-2xl font-bold text-gray-900">Live Transaction Feed</h3>
-          </div>
-          <p className="text-gray-600 text-sm">Watch your credits and debits flow in real-time</p>
-        </div>
-
-        {/* Marquee Container */}
-        <div className="relative rounded-2xl border-2 border-emerald-200/50 bg-gradient-to-br from-emerald-50/50 via-white to-rose-50/50 backdrop-blur-sm shadow-xl overflow-hidden">
-          <div className="absolute inset-0 bg-gradient-to-r from-emerald-100/20 via-transparent to-rose-100/20" />
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-16 items-center">
           
-          {/* Animated background pattern */}
-          <div className="absolute inset-0 opacity-5">
-            <div className="absolute inset-0" style={{
-              backgroundImage: 'repeating-linear-gradient(45deg, transparent, transparent 10px, rgba(16, 185, 129, 0.1) 10px, rgba(16, 185, 129, 0.1) 20px)',
-            }} />
-          </div>
-
-          <div className="relative px-6 py-8">
-            <div className="relative h-20 overflow-hidden">
-              <div className="absolute inset-0 flex items-center gap-6 animate-marquee will-change-transform">
-                {[...SAMPLE_TX, ...SAMPLE_TX, ...SAMPLE_TX].map((t, i) => (
-                  <Chip key={`${t.id}-${i}`} tx={t} />
-                ))}
-              </div>
+          {/* Left Side: Content */}
+          <div>
+            <div className="inline-flex items-center gap-2 mb-6 px-3 py-1 rounded-full bg-emerald-100 border border-emerald-200">
+              <DeviceMobile weight="duotone" className="h-4 w-4 text-emerald-700" />
+              <span className="text-xs font-medium text-emerald-700 uppercase tracking-wider">Mobile Optimized</span>
             </div>
             
-            {/* Gradient fades */}
-            <div className="pointer-events-none absolute left-0 top-0 h-full w-32 bg-gradient-to-r from-emerald-50/50 via-white/50 to-transparent z-10" />
-            <div className="pointer-events-none absolute right-0 top-0 h-full w-32 bg-gradient-to-l from-rose-50/50 via-white/50 to-transparent z-10" />
-          </div>
+            <h2 className="text-4xl font-bold text-gray-900 mb-6">
+              Designed for Fast, <br />
+              <span className="text-emerald-600">On-the-Go</span> Bookkeeping
+            </h2>
+            
+            <p className="text-lg text-gray-600 mb-8">
+              Business doesn't happen at a desk. EasyRakh is built to work perfectly on your phone, so you can record transactions the moment they happen.
+            </p>
 
-          {/* Stats footer */}
-          <div className="border-t border-emerald-200/30 bg-white/40 backdrop-blur-sm px-6 py-4">
-            <div className="flex items-center justify-center gap-8 text-sm">
-              <div className="flex items-center gap-2">
-                <TrendingUp className="h-4 w-4 text-emerald-600" />
-                <span className="text-gray-700 font-medium">Credits</span>
-                <span className="text-emerald-600 font-bold">+₹22,550</span>
+            <div className="space-y-8">
+              <div className="flex gap-4">
+                <div className="flex-shrink-0 w-12 h-12 bg-white rounded-xl shadow-sm border border-gray-100 flex items-center justify-center">
+                  <Lightning weight="duotone" className="w-6 h-6 text-amber-500" />
+                </div>
+                <div>
+                  <h3 className="text-xl font-semibold text-gray-900 mb-2">Fast Entry Workflows</h3>
+                  <p className="text-gray-600">
+                    Keyboard-friendly forms designed for speed. Record a transaction in seconds with minimal taps.
+                  </p>
+                </div>
               </div>
-              <div className="h-4 w-px bg-gray-300" />
-              <div className="flex items-center gap-2">
-                <TrendingDown className="h-4 w-4 text-rose-600" />
-                <span className="text-gray-700 font-medium">Debits</span>
-                <span className="text-rose-600 font-bold">-₹5,500</span>
+
+              <div className="flex gap-4">
+                <div className="flex-shrink-0 w-12 h-12 bg-white rounded-xl shadow-sm border border-gray-100 flex items-center justify-center">
+                  <CurrencyInr weight="bold" className="w-6 h-6 text-emerald-600" />
+                </div>
+                <div>
+                  <h3 className="text-xl font-semibold text-gray-900 mb-2">Localized for India</h3>
+                  <p className="text-gray-600">
+                    Built with Indian business owners in mind. Rupee formatting (₹) and familiar terminology throughout.
+                  </p>
+                </div>
               </div>
             </div>
           </div>
+
+          {/* Right Side: iPhone Showcase */}
+          <div className="flex justify-center items-center relative z-10">
+            <div className="relative">
+              {/* Glow effect behind the phone */}
+              <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[500px] h-[500px] bg-emerald-500/20 rounded-full blur-[100px] -z-10" />
+              
+              <Iphone 
+                videoSrc="/App_Advertisement_Video_Generated.mp4"
+                className="w-[300px] sm:w-[350px] shadow-2xl rounded-[3rem]"
+              />
+              
+              {/* Floating Badge 1 */}
+              <div className="absolute -right-8 top-1/4 bg-white p-4 rounded-2xl shadow-xl border border-gray-100 animate-bounce duration-[3000ms]">
+                <div className="flex items-center gap-3">
+                  <div className="p-2 bg-emerald-100 rounded-lg">
+                    <Money weight="duotone" className="w-5 h-5 text-emerald-600" />
+                  </div>
+                  <div>
+                    <p className="text-xs text-gray-500">Daily Cash</p>
+                    <p className="font-bold text-gray-900">₹ 12,400</p>
+                  </div>
+                </div>
+              </div>
+
+              {/* Floating Badge 2 */}
+              <div className="absolute -left-8 bottom-1/4 bg-white p-4 rounded-2xl shadow-xl border border-gray-100 animate-bounce duration-[4000ms]">
+                <div className="flex items-center gap-3">
+                  <div className="p-2 bg-rose-100 rounded-lg">
+                    <Lightning weight="duotone" className="w-5 h-5 text-rose-600" />
+                  </div>
+                  <div>
+                    <p className="text-xs text-gray-500">Quick Expense</p>
+                    <p className="font-bold text-gray-900">- ₹ 500</p>
+                  </div>
+                </div>
+              </div>
+
+            </div>
+          </div>
+
         </div>
       </div>
-
-      <style jsx>{`
-        @keyframes marquee {
-          0% {
-            transform: translateX(0%);
-          }
-          100% {
-            transform: translateX(-33.333%);
-          }
-        }
-        .animate-marquee {
-          width: 300%;
-          animation: marquee 40s linear infinite;
-        }
-      `}</style>
     </section>
-  );
-}
-
-function Chip({ tx }: { tx: Tx }) {
-  const isCredit = tx.type === 'credit';
-  return (
-    <div
-      className={[
-        'flex items-center gap-3 whitespace-nowrap rounded-xl border-2 px-4 py-3 text-sm font-medium shadow-lg backdrop-blur-sm transition-all hover:scale-105',
-        isCredit
-          ? 'bg-gradient-to-r from-emerald-100 to-emerald-50 text-emerald-800 border-emerald-300 shadow-emerald-200/50'
-          : 'bg-gradient-to-r from-rose-100 to-rose-50 text-rose-800 border-rose-300 shadow-rose-200/50',
-      ].join(' ')}
-    >
-      <div className={`p-1.5 rounded-lg ${isCredit ? 'bg-emerald-200' : 'bg-rose-200'}`}>
-        {isCredit ? (
-          <ArrowUpRight className="h-4 w-4" />
-        ) : (
-          <ArrowDownLeft className="h-4 w-4" />
-        )}
-      </div>
-      <span className="text-base font-bold">{tx.amount}</span>
-      <div className="h-4 w-px bg-current opacity-30" />
-      <span className="text-gray-700">{tx.label}</span>
-      <div className="ml-1">
-        {isCredit ? (
-          <Wallet className="h-4 w-4 opacity-70" />
-        ) : (
-          <CreditCard className="h-4 w-4 opacity-70" />
-        )}
-      </div>
-    </div>
   );
 }
 
