@@ -28,7 +28,7 @@ import {
 } from '@/components/ui/dialog';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Skeleton } from '@/components/ui/skeleton';
-import { PencilSimple, CalendarBlank, Plus } from '@phosphor-icons/react';
+import { Edit2, CalendarIcon, Plus } from 'lucide-react';
 import { motion } from 'framer-motion';
 
 interface CashEntry {
@@ -470,7 +470,7 @@ export default function DailyCashRecordPage() {
                 variant="outline"
                 className="rounded-lg"
               >
-                <CalendarBlank className="h-4 w-4 mr-2" />
+                <CalendarIcon className="h-4 w-4 mr-2" />
                 select date to prev records
               </Button>
             </DialogTrigger>
@@ -629,7 +629,7 @@ export default function DailyCashRecordPage() {
                                 onClick={() => handleEditEntry(entry, viewingRecord)}
                                 className="h-8 w-8 p-0"
                               >
-                                <PencilSimple className="h-4 w-4" />
+                                <Edit2 className="h-4 w-4" />
                               </Button>
                             </TableCell>
                           </TableRow>
