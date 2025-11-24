@@ -14,7 +14,6 @@ import {
   Tooltip as RechartsTooltip,
   XAxis,
   YAxis,
-  type TooltipProps,
 } from 'recharts';
 import ActivityCard from '@/components/ActivityCard';
 import { RecentActivity } from '@/lib/types';
@@ -83,14 +82,21 @@ const defaultStats: DashboardStats = {
 
 const formatCurrency = (value: number) => currencyFormatter.format(value || 0);
 
-const SalesTooltip = ({ active, payload }: TooltipProps<number, string>) => {
+type SalesTooltipPoint = {
+  label: string;
+  totalIn: number;
+  totalOut: number;
+  dateISO: string;
+};
+
+interface SalesTooltipProps {
+  active?: boolean;
+  payload?: { payload: SalesTooltipPoint }[];
+}
+
+const SalesTooltip = ({ active, payload }: SalesTooltipProps) => {
   if (!active || !payload?.length) return null;
-  const point = payload[0].payload as {
-    label: string;
-    totalIn: number;
-    totalOut: number;
-    dateISO: string;
-  };
+  const point = payload[0].payload;
 
   return (
     <div className="rounded-lg border bg-white/80 p-3 shadow-md backdrop-blur-sm">
