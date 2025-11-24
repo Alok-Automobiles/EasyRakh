@@ -9,6 +9,7 @@ const updateNoteSchema = z.object({
   content: z.string().optional(),
   color: z.string().min(1, 'Color is required').optional(),
   isFavorite: z.boolean().optional(),
+  showOnDashboard: z.boolean().optional(),
 });
 
 const colorPalette = ['#FFB347', '#FF6B6B', '#9B59B6', '#5DADE2', '#52BE80']; // orange, red-orange, purple, light blue, light green
@@ -56,7 +57,14 @@ export async function PUT(
     }
 
     // Build update object
-    const updateData: any = {
+    const updateData: {
+      title?: string;
+      content?: string;
+      color?: string;
+      isFavorite?: boolean;
+      showOnDashboard?: boolean;
+      updatedAt: Date;
+    } = {
       updatedAt: new Date(),
     };
 
@@ -71,6 +79,9 @@ export async function PUT(
     }
     if (validatedData.isFavorite !== undefined) {
       updateData.isFavorite = validatedData.isFavorite;
+    }
+    if (validatedData.showOnDashboard !== undefined) {
+      updateData.showOnDashboard = validatedData.showOnDashboard;
     }
 
     await notesCollection.updateOne(
@@ -92,6 +103,7 @@ export async function PUT(
         content: updatedNote!.content || '',
         color: updatedNote!.color,
         isFavorite: updatedNote!.isFavorite || false,
+        showOnDashboard: updatedNote!.showOnDashboard || false,
         createdAt: updatedNote!.createdAt,
         updatedAt: updatedNote!.updatedAt,
       },

@@ -5,7 +5,7 @@ import { useRouter } from 'next/navigation';
 import { format } from 'date-fns';
 import toast from 'react-hot-toast';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Plus, Star, X } from 'lucide-react';
+import { Plus, Star, X, LayoutDashboard } from 'lucide-react';
 import { Note } from '@/lib/types';
 
 const colorPalette = [
@@ -94,6 +94,7 @@ export default function NotesPage() {
           content: '',
           color,
           isFavorite: false,
+          showOnDashboard: false,
         }),
       });
 
@@ -212,6 +213,32 @@ export default function NotesPage() {
     }
   };
 
+  const handleToggleDashboard = async (note: NoteWithId) => {
+    try {
+      const response = await fetch(`/api/notes/${note.id}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          showOnDashboard: !note.showOnDashboard,
+        }),
+      });
+
+      if (response.ok) {
+        const data = await response.json();
+        setNotes(notes.map((n) => (n.id === note.id ? data.note : n)));
+        toast.success(
+          !note.showOnDashboard
+            ? 'Note added to dashboard'
+            : 'Note removed from dashboard'
+        );
+      } else {
+        toast.error('Failed to update dashboard visibility');
+      }
+    } catch {
+      toast.error('Failed to update dashboard visibility');
+    }
+  };
+
   return (
     <div className="min-h-screen bg-white">
       <div className="flex h-screen">
@@ -297,10 +324,14 @@ export default function NotesPage() {
                   style={{ backgroundColor: note.color }}
                 >
                   {/* Star Icon */}
-                  {note.isFavorite && (
-                    <div className="absolute top-4 right-4">
+                  <div className="absolute top-4 right-4 flex gap-2">
+                    {note.showOnDashboard && (
+                      <LayoutDashboard className="w-5 h-5 text-gray-900" />
+                    )}
+                    {note.isFavorite && (
                       <Star className="w-5 h-5 fill-yellow-400 text-yellow-400" />
-                    </div>)}
+                    )}
+                  </div>
 
                   {/* Note Content */}
                   <div className="flex-1 mb-4 overflow-hidden">
@@ -371,6 +402,23 @@ export default function NotesPage() {
                           className={`w-4 h-4 ${
                             note.isFavorite
                               ? 'fill-yellow-400 text-yellow-400'
+                              : 'text-gray-600'
+                          }`}
+                        />
+                      </button>
+                      <button
+                        onClick={() => handleToggleDashboard(note)}
+                        className="p-1 hover:bg-black/10 rounded transition-colors"
+                        title={
+                          note.showOnDashboard
+                            ? 'Remove from dashboard'
+                            : 'Add to dashboard'
+                        }
+                      >
+                        <LayoutDashboard
+                          className={`w-4 h-4 ${
+                            note.showOnDashboard
+                              ? 'text-gray-900'
                               : 'text-gray-600'
                           }`}
                         />

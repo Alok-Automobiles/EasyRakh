@@ -1,6 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getDb } from '@/lib/mongodb';
 import { getUserIdFromRequest } from '@/lib/auth';
+import { subDays } from 'date-fns';
+import type { RecentActivity, Transaction } from '@/lib/types';
 
 export async function GET(request: NextRequest) {
   try {
@@ -16,10 +18,28 @@ export async function GET(request: NextRequest) {
     const db = await getDb();
     const customersCollection = db.collection('customers');
     const suppliersCollection = db.collection('suppliers');
-    const transactionsCollection = db.collection('transactions');
+    const transactionsCollection = db.collection<Transaction>('transactions');
+    const dailyCashRecordsCollection = db.collection('dailyCashRecords');
+    const notesCollection = db.collection('notes');
+
+    const normalizeToUTCStart = (date: Date) =>
+      new Date(Date.UTC(date.getUTCFullYear(), date.getUTCMonth(), date.getUTCDate(), 0, 0, 0, 0));
+    const dateKey = (date: Date) => normalizeToUTCStart(date).getTime();
+
+    const today = normalizeToUTCStart(new Date());
+    const thirtyDaysAgo = normalizeToUTCStart(subDays(today, 29));
+    const currentMonthStart = new Date(Date.UTC(today.getUTCFullYear(), today.getUTCMonth(), 1, 0, 0, 0, 0));
 
     // Fetch all data in parallel
-    const [customers, suppliers, transactions, recentCustomers, recentSuppliers] = await Promise.all([
+    const [
+      customers,
+      suppliers,
+      transactions,
+      recentCustomers,
+      recentSuppliers,
+      recentDailyCashRecords,
+      dashboardNotes,
+    ] = await Promise.all([
       // All customers for balance calculation
       customersCollection.find({ userId }).toArray(),
       // All suppliers for balance calculation
@@ -37,6 +57,20 @@ export async function GET(request: NextRequest) {
         .find({ userId })
         .sort({ createdAt: -1 })
         .limit(20)
+        .toArray(),
+      // Daily cash records for the last 30 days
+      dailyCashRecordsCollection
+        .find({
+          userId,
+          date: { $gte: thirtyDaysAgo, $lte: today },
+        })
+        .sort({ date: 1 })
+        .toArray(),
+      // Notes opted in for dashboard display
+      notesCollection
+        .find({ userId, showOnDashboard: true })
+        .sort({ updatedAt: -1 })
+        .limit(6)
         .toArray(),
     ]);
 
@@ -88,8 +122,47 @@ export async function GET(request: NextRequest) {
       }
     }
 
+    // Helper to normalize record lookup by date string
+    const recordByDate = new Map(
+      recentDailyCashRecords.map((record) => [dateKey(record.date), record])
+    );
+
+    const todayRecord = recordByDate.get(today.getTime());
+
+    const todayCash = {
+      totalIn: todayRecord?.totalIn || 0,
+      totalOut: todayRecord?.totalOut || 0,
+      totalLeft: todayRecord?.totalLeft || 0,
+    };
+
+    const monthlyRecords = recentDailyCashRecords.filter(
+      (record) => record.date >= currentMonthStart
+    );
+
+    const monthlyTotals = monthlyRecords.reduce(
+      (acc, record) => {
+        acc.totalIn += record.totalIn || 0;
+        acc.totalOut += record.totalOut || 0;
+        acc.totalLeft += record.totalLeft || 0;
+        return acc;
+      },
+      { totalIn: 0, totalOut: 0, totalLeft: 0 }
+    );
+
+    const monthlySeries = [];
+    for (let i = 0; i < 30; i++) {
+      const day = normalizeToUTCStart(subDays(today, 29 - i));
+      const inRangeRecord = recordByDate.get(day.getTime());
+      monthlySeries.push({
+        dateLabel: day.toISOString(),
+        totalIn: inRangeRecord?.totalIn || 0,
+        totalOut: inRangeRecord?.totalOut || 0,
+        totalLeft: inRangeRecord?.totalLeft || 0,
+      });
+    }
+
     // Build activities from recent data
-    const activities: any[] = [];
+    const activities: RecentActivity[] = [];
 
     // Add customer creation activities
     recentCustomers.forEach((customer) => {
@@ -167,6 +240,58 @@ export async function GET(request: NextRequest) {
     // Return top 20 activities
     const topActivities = activities.slice(0, 20);
 
+    const aggregateTopEntities = (
+      sourceTransactions: Transaction[],
+      entityType: 'customer' | 'supplier'
+    ) => {
+      const totals = new Map<
+        string,
+        { total: number; credit: number; debit: number }
+      >();
+
+      sourceTransactions
+        .filter((t) => t.entityType === entityType)
+        .forEach((transaction) => {
+          const entityId =
+            transaction.entityId ||
+            transaction.customerId ||
+            transaction.supplierId;
+          if (!entityId) return;
+
+          if (!totals.has(entityId)) {
+            totals.set(entityId, { total: 0, credit: 0, debit: 0 });
+          }
+          const entry = totals.get(entityId)!;
+          entry.total += transaction.amount;
+          if (transaction.type === 'credit') {
+            entry.credit += transaction.amount;
+          } else {
+            entry.debit += transaction.amount;
+          }
+        });
+
+      const nameSource =
+        entityType === 'customer'
+          ? customers
+          : suppliers;
+
+      return Array.from(totals.entries())
+        .map(([entityId, summary]) => ({
+          id: entityId,
+          name:
+            nameSource.find((entity) => entity._id.toString() === entityId)
+              ?.name || 'Unknown',
+          total: summary.total,
+          credit: summary.credit,
+          debit: summary.debit,
+        }))
+        .sort((a, b) => b.total - a.total)
+        .slice(0, 3);
+    };
+
+    const topCustomers = aggregateTopEntities(transactions, 'customer');
+    const topSuppliers = aggregateTopEntities(transactions, 'supplier');
+
     return NextResponse.json({
       stats: {
         totalCredit,
@@ -175,8 +300,20 @@ export async function GET(request: NextRequest) {
         totalCustomers: customers.length,
         totalSuppliers: suppliers.length,
         totalTransactions: transactions.length,
+        todayCash,
+        monthlyTotals,
+        monthlySeries,
       },
       activities: topActivities,
+      topCustomers,
+      topSuppliers,
+      dashboardNotes: dashboardNotes.map((note) => ({
+        id: note._id.toString(),
+        title: note.title,
+        content: note.content || '',
+        color: note.color,
+        updatedAt: note.updatedAt,
+      })),
     });
   } catch (error) {
     console.error('Get dashboard stats error:', error);

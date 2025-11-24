@@ -2,13 +2,13 @@ import { NextRequest, NextResponse } from 'next/server';
 import { getDb } from '@/lib/mongodb';
 import { getUserIdFromRequest } from '@/lib/auth';
 import { z } from 'zod';
-import { ObjectId } from 'mongodb';
 
 const noteSchema = z.object({
   title: z.string().min(1, 'Title is required'),
   content: z.string().optional(),
   color: z.string().min(1, 'Color is required'),
   isFavorite: z.boolean().optional().default(false),
+  showOnDashboard: z.boolean().optional().default(false),
 });
 
 const colorPalette = ['#FFB347', '#FF6B6B', '#9B59B6', '#5DADE2', '#52BE80']; // orange, red-orange, purple, light blue, light green
@@ -39,6 +39,7 @@ export async function GET(request: NextRequest) {
         content: note.content || '',
         color: note.color,
         isFavorite: note.isFavorite || false,
+        showOnDashboard: note.showOnDashboard || false,
         createdAt: note.createdAt,
         updatedAt: note.updatedAt,
       })),
@@ -84,6 +85,7 @@ export async function POST(request: NextRequest) {
       content: validatedData.content || '',
       color: validatedData.color,
       isFavorite: validatedData.isFavorite || false,
+      showOnDashboard: validatedData.showOnDashboard || false,
       createdAt: now,
       updatedAt: now,
     });
@@ -97,6 +99,7 @@ export async function POST(request: NextRequest) {
           content: validatedData.content || '',
           color: validatedData.color,
           isFavorite: validatedData.isFavorite || false,
+          showOnDashboard: validatedData.showOnDashboard || false,
           createdAt: now,
           updatedAt: now,
         },

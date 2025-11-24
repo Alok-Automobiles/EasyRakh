@@ -71,6 +71,7 @@ export interface Note {
   content?: string;
   color: string;
   isFavorite?: boolean;
+  showOnDashboard?: boolean;
   createdAt: Date;
   updatedAt: Date;
 }
