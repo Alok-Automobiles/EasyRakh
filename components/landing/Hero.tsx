@@ -3,111 +3,96 @@
 import Link from 'next/link';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { IndianRupee, ArrowUpRight, ArrowDownLeft } from 'lucide-react';
+import { ArrowRight, CheckCircle2, PlayCircle } from 'lucide-react';
 import React from 'react';
 import { ComicText } from '@/components/ui/comic-text';
 import Image from 'next/image';
-import { Highlighter } from '../ui/highlighter';
+import { motion } from 'framer-motion';
+import { Highlighter } from '@/components/ui/highlighter';
 
 export default function Hero() {
   return (
-    <section className="relative overflow-hidden">
-      <div className="absolute inset-0 -z-10 bg-gradient-to-b from-emerald-50 via-white to-rose-50" />
-
-      {/* Left SVG decoration */}
-      <div className="absolute left-0 top-1/2 -translate-y-1/2 -translate-x-1/4 z-20 pointer-events-none hidden lg:block">
-        <Image
-          src="/left.svg"
-          alt=""
-          width={380}
-          height={390}
-          className="opacity-100"
-          priority={false}
-        />
+    <section className="relative overflow-hidden pt-32 pb-20 lg:pt-40 lg:pb-28">
+      {/* Background Elements */}
+      <div className="absolute inset-0 -z-10 bg-[radial-gradient(ellipse_at_top,_var(--tw-gradient-stops))] from-emerald-50 via-white to-white" />
+      <div className="absolute top-0 left-1/2 -translate-x-1/2 w-full h-full max-w-7xl -z-10 opacity-40 pointer-events-none">
+         <div className="absolute top-20 left-10 w-72 h-72 bg-emerald-200/30 rounded-full blur-3xl" />
+         <div className="absolute top-40 right-10 w-96 h-96 bg-rose-200/30 rounded-full blur-3xl" />
       </div>
 
-      {/* Right SVG decoration */}
-      <div className="absolute right-0 top-1/2 -translate-y-1/2 translate-x-1/4 z-20 pointer-events-none hidden lg:block">
-        <Image
-          src="/right.svg"
-          alt=""
-          width={290}
-          height={420}
-          className="opacity-100"
-          priority={false}
-        />
-      </div>
-
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-24 relative z-30">
-        <div className="mx-auto text-center max-w-3xl">
-          {/* EasyRakh Logo */}
-          <div className="mb-8">
-            <div className="flex items-center justify-center gap-2">
-              <ComicText
-                fontSize={4}
-                style={{
-                  backgroundColor: '#10b981',
-                  backgroundImage: 'radial-gradient(circle at 1px 1px, #065f46 1px, transparent 0)',
-                  WebkitTextStroke: '4px #000000',
-                  filter: 'drop-shadow(5px 5px 0px #000000) drop-shadow(3px 3px 0px #065f46)',
-                }}
-              >
-                Easy
-              </ComicText>
-              <ComicText
-                fontSize={4}
-                style={{
-                  backgroundColor: '#f43f5e',
-                  backgroundImage: 'radial-gradient(circle at 1px 1px, #be123c 1px, transparent 0)',
-                  WebkitTextStroke: '4px #000000',
-                  filter: 'drop-shadow(5px 5px 0px #000000) drop-shadow(3px 3px 0px #be123c)',
-                }}
-              >
-                Rakh
-              </ComicText>
-            </div>
-          </div>
-          <div className="inline-flex items-center gap-2 mb-6 rounded-full border bg-white/70 backdrop-blur px-4 py-1 shadow-sm">
-            <Badge className="bg-emerald-100 text-emerald-800 hover:bg-emerald-100">New</Badge>
-            <span className="text-sm text-gray-600">Track every rupee with confidence</span>
-          </div>
-          <h1 className="text-5xl sm:text-6xl font-bold tracking-tight text-gray-900">
-            Simple <Highlighter action="highlight" color="#fecaca">Ledger</Highlighter> for <Highlighter action="underline" color="#10b981">Profits</Highlighter> and <Highlighter action="underline" color="#10b981">Losses</Highlighter>
-          </h1>
-          <p className="mt-6 text-lg text-gray-600">
-            Manage credits and debits with clarity. Light green highlights <Highlighter action="underline" color="#10b981">profits</Highlighter>, light red flags <Highlighter action="underline" color="#10b981">losses</Highlighter>.
-            Designed for fast daily bookkeeping.
-          </p>
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 relative">
+        <div className="flex flex-col items-center text-center max-w-4xl mx-auto">
           
-          <div className="mt-10 flex flex-col sm:flex-row gap-4 justify-center">
-            <Button asChild size="lg" className="text-base px-8 py-6 bg-emerald-600 hover:bg-emerald-700 cursor-none">
+          <motion.div 
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.5 }}
+            className="inline-flex items-center gap-2 mb-8 rounded-full border border-emerald-100 bg-emerald-50/50 px-4 py-1.5 shadow-sm backdrop-blur-sm"
+          >
+            <Badge variant="secondary" className="bg-white text-emerald-700 hover:bg-white shadow-sm border-emerald-100">New v2.0</Badge>
+            <span className="text-sm font-medium text-emerald-900">The simplest ledger for Indian businesses</span>
+            <ArrowRight className="w-3 h-3 text-emerald-600 ml-1" />
+          </motion.div>
+
+          <motion.h1 
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.5, delay: 0.1 }}
+            className="text-5xl sm:text-6xl lg:text-7xl font-bold tracking-tight text-gray-900 mb-8 leading-[1.1]"
+          >
+            Master your <Highlighter action="underline" color="#10b981">Cashflow</Highlighter> with <br className="hidden sm:block" />
+            <span className="mt-2 inline-block">
+              <Highlighter action="underline" color="#e65c5cff">EasyRakh</Highlighter>
+            </span>
+          </motion.h1>
+
+          <motion.p 
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.5, delay: 0.2 }}
+            className="text-xl text-gray-600 mb-10 max-w-2xl leading-relaxed"
+          >
+            Stop wrestling with complex spreadsheets. Track credits, debits, and daily cash in a simple, secure, and purpose-built ledger for your business.
+          </motion.p>
+          
+          <motion.div 
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.5, delay: 0.3 }}
+            className="flex flex-col sm:flex-row gap-4 w-full sm:w-auto"
+          >
+            <Button asChild size="lg" className="text-base px-8 py-6 bg-emerald-600 hover:bg-emerald-700 shadow-lg shadow-emerald-200/50 transition-all hover:scale-105">
               <Link href="/register">Get started free</Link>
             </Button>
             <Button
               asChild
               size="lg"
               variant="outline"
-              className="text-base px-8 py-6 border-gray-300 cursor-none"
+              className="text-base px-8 py-6 border-gray-200 hover:bg-gray-50 hover:text-gray-900 transition-all hover:scale-105"
             >
               <Link href="/login">Sign in</Link>
             </Button>
-          </div>
+          </motion.div>
 
-          {/* Mini highlights */}
-          <div className="mt-12 grid grid-cols-1 sm:grid-cols-3 gap-3 text-sm">
-            <div className="flex items-center justify-center gap-2 rounded-lg border bg-white/70 px-3 py-2">
-              <IndianRupee className="h-4 w-4 text-emerald-600" />
-              <span className="text-gray-700">Profit-first visuals</span>
+          <motion.div 
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            transition={{ duration: 0.5, delay: 0.5 }}
+            className="mt-10 flex items-center gap-6 text-sm text-gray-500"
+          >
+            <div className="flex items-center gap-2">
+              <CheckCircle2 className="w-4 h-4 text-emerald-500" />
+              <span>Free forever plan</span>
             </div>
-            <div className="flex items-center justify-center gap-2 rounded-lg border bg-white/70 px-3 py-2">
-              <ArrowUpRight className="h-4 w-4 text-emerald-600" />
-              <span className="text-gray-700">Fast credit entry</span>
+            <div className="flex items-center gap-2">
+              <CheckCircle2 className="w-4 h-4 text-emerald-500" />
+              <span>No credit card required</span>
             </div>
-            <div className="flex items-center justify-center gap-2 rounded-lg border bg-white/70 px-3 py-2">
-              <ArrowDownLeft className="h-4 w-4 text-rose-600" />
-              <span className="text-gray-700">Clear debit history</span>
+            <div className="flex items-center gap-2">
+              <CheckCircle2 className="w-4 h-4 text-emerald-500" />
+              <span>Secure & Private</span>
             </div>
-          </div>
+          </motion.div>
         </div>
       </div>
     </section>
