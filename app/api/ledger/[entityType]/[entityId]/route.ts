@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { getDb } from '@/lib/mongodb';
 import { getUserIdFromRequest } from '@/lib/auth';
 import { ObjectId } from 'mongodb';
+import redis from '@/lib/redis';
 
 export async function GET(
   request: NextRequest,
@@ -24,6 +25,18 @@ export async function GET(
         { error: 'Invalid entity type' },
         { status: 400 }
       );
+    }
+
+    // Try to get from cache
+    try {
+      const cacheKey = `ledger:${entityType}:${entityId}:${userId}`;
+      const cached = await redis.get(cacheKey);
+      if (cached) {
+        return NextResponse.json(JSON.parse(cached));
+      }
+    } catch (cacheError) {
+      // If Redis fails, continue to DB query
+      console.warn('Redis cache read failed, falling back to DB:', cacheError);
     }
 
     const db = await getDb();
@@ -119,7 +132,7 @@ export async function GET(
       finalBalance = finalBalance - totalCredit + totalDebit;
     }
 
-    return NextResponse.json({
+    const responseData = {
       entity: {
         id: entity._id.toString(),
         name: entity.name,
@@ -140,7 +153,18 @@ export async function GET(
         debit: totalDebit,
         balance: finalBalance,
       },
-    });
+    };
+
+    // Cache the response with 90 second TTL
+    try {
+      const cacheKey = `ledger:${entityType}:${entityId}:${userId}`;
+      await redis.setex(cacheKey, 90, JSON.stringify(responseData));
+    } catch (cacheError) {
+      // If Redis fails, continue without caching
+      console.warn('Redis cache write failed:', cacheError);
+    }
+
+    return NextResponse.json(responseData);
   } catch (error) {
     console.error('Get ledger error:', error);
     return NextResponse.json(

@@ -1,16 +1,18 @@
-import { NextRequest, NextResponse } from 'next/server';
-import { getDb } from '@/lib/mongodb';
-import { getUserIdFromRequest } from '@/lib/auth';
-import { z } from 'zod';
-import { ObjectId } from 'mongodb';
+import { NextRequest, NextResponse } from "next/server";
+import { getDb } from "@/lib/mongodb";
+import { getUserIdFromRequest } from "@/lib/auth";
+import { z } from "zod";
+import { ObjectId } from "mongodb";
+import redis from "@/lib/redis";
+import { Customer } from "@/lib/types";
 
 const customerSchema = z.object({
-  name: z.string().min(1, 'Name is required'),
+  name: z.string().min(1, "Name is required"),
   phone: z.string().optional(),
-  email: z.string().email('Invalid email').optional().or(z.literal('')),
+  email: z.string().email("Invalid email").optional().or(z.literal("")),
   address: z.string().optional(),
   openingBalance: z.number().default(0),
-  balanceType: z.enum(['credit', 'debit']).default('debit'),
+  balanceType: z.enum(["credit", "debit"]).default("debit"),
 });
 
 export async function GET(request: NextRequest) {
@@ -18,20 +20,35 @@ export async function GET(request: NextRequest) {
     const userId = getUserIdFromRequest(request);
 
     if (!userId) {
-      return NextResponse.json(
-        { error: 'Unauthorized' },
-        { status: 401 }
-      );
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
-
+    const cachedCustomers = await redis.get(`customers:${userId}`);
+    if (cachedCustomers) {
+      return NextResponse.json(JSON.parse(cachedCustomers) as { customers: Customer[] }, { status: 200 });
+    }
     const db = await getDb();
-    const customersCollection = db.collection('customers');
+    const customersCollection = db.collection("customers");
 
     const customers = await customersCollection
       .find({ userId })
       .sort({ createdAt: -1 })
       .toArray();
 
+    await redis.set(
+      `customers:${userId}`,
+      JSON.stringify({
+        customers: customers.map((customer) => ({
+          id: customer._id.toString(),
+          name: customer.name,
+          phone: customer.phone,
+          email: customer.email,
+          address: customer.address,
+          openingBalance: customer.openingBalance,
+          balanceType: customer.balanceType,
+          createdAt: customer.createdAt,
+        })),
+      })
+    );
     return NextResponse.json({
       customers: customers.map((customer) => ({
         id: customer._id.toString(),
@@ -43,11 +60,11 @@ export async function GET(request: NextRequest) {
         balanceType: customer.balanceType,
         createdAt: customer.createdAt,
       })),
-    });
+    }, { status: 200 });
   } catch (error) {
-    console.error('Get customers error:', error);
+    console.error("Get customers error:", error);
     return NextResponse.json(
-      { error: 'Internal server error' },
+      { error: "Internal server error" },
       { status: 500 }
     );
   }
@@ -58,32 +75,36 @@ export async function POST(request: NextRequest) {
     const userId = getUserIdFromRequest(request);
 
     if (!userId) {
-      return NextResponse.json(
-        { error: 'Unauthorized' },
-        { status: 401 }
-      );
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
     const body = await request.json();
     const validatedData = customerSchema.parse(body);
 
     const db = await getDb();
-    const customersCollection = db.collection('customers');
+    const customersCollection = db.collection("customers");
 
     const result = await customersCollection.insertOne({
       userId,
       name: validatedData.name,
-      phone: validatedData.phone || '',
-      email: validatedData.email || '',
-      address: validatedData.address || '',
+      phone: validatedData.phone || "",
+      email: validatedData.email || "",
+      address: validatedData.address || "",
       openingBalance: validatedData.openingBalance,
       balanceType: validatedData.balanceType,
       createdAt: new Date(),
     });
 
+    // Invalidate related caches
+    try {
+      await redis.del(`customers:${userId}`, `dashboard:stats:${userId}`);
+    } catch (cacheError) {
+      console.warn("Redis cache invalidation failed:", cacheError);
+    }
+
     return NextResponse.json(
       {
-        message: 'Customer created successfully',
+        message: "Customer created successfully",
         customer: {
           id: result.insertedId.toString(),
           ...validatedData,
@@ -99,11 +120,10 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    console.error('Create customer error:', error);
+    console.error("Create customer error:", error);
     return NextResponse.json(
-      { error: 'Internal server error' },
+      { error: "Internal server error" },
       { status: 500 }
     );
   }
 }
-

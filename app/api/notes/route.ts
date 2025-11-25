@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { getDb } from '@/lib/mongodb';
 import { getUserIdFromRequest } from '@/lib/auth';
 import { z } from 'zod';
+import redis from '@/lib/redis';
 
 const noteSchema = z.object({
   title: z.string().min(1, 'Title is required'),
@@ -89,6 +90,13 @@ export async function POST(request: NextRequest) {
       createdAt: now,
       updatedAt: now,
     });
+
+    // Invalidate dashboard stats cache (notes are included in dashboard)
+    try {
+      await redis.del(`dashboard:stats:${userId}`);
+    } catch (cacheError) {
+      console.warn('Redis cache invalidation failed:', cacheError);
+    }
 
     return NextResponse.json(
       {
