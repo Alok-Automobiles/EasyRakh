@@ -300,19 +300,6 @@ export async function DELETE(
       }
     }
 
-    // Get transaction first to know which entity's cache to invalidate
-    const transaction = await transactionsCollection.findOne({
-      _id: new ObjectId(id),
-      userId,
-    });
-
-    if (!transaction) {
-      return NextResponse.json(
-        { error: 'Transaction not found' },
-        { status: 404 }
-      );
-    }
-
     const result = await transactionsCollection.deleteOne({
       _id: new ObjectId(id),
       userId,
