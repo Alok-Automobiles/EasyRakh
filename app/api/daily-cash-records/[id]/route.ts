@@ -4,6 +4,7 @@ import { getUserIdFromRequest } from '@/lib/auth';
 import { z } from 'zod';
 import { ObjectId } from 'mongodb';
 import { format } from 'date-fns';
+import redis from '@/lib/redis';
 
 const updateEntrySchema = z.object({
   amount: z.number().positive('Amount must be greater than 0'),
@@ -142,11 +143,24 @@ export async function PUT(
       );
     }
 
+    const dateKey = format(updatedRecord.date, 'dd-MM-yyyy');
+
+    // Invalidate related caches
+    try {
+      await redis.del(
+        `daily-cash:list:${userId}`,
+        `daily-cash:date:${userId}:${dateKey}`,
+        `dashboard:stats:${userId}`
+      );
+    } catch (cacheError) {
+      console.warn('Redis cache invalidation failed:', cacheError);
+    }
+
     return NextResponse.json({
       message: 'Entry updated successfully',
       record: {
         id: updatedRecord._id.toString(),
-        date: format(updatedRecord.date, 'dd-MM-yyyy'),
+        date: dateKey,
         entries: updatedRecord.entries.map((entry: any) => ({
           id: entry._id.toString(),
           amount: entry.amount,

@@ -3,6 +3,7 @@ import { getDb } from '@/lib/mongodb';
 import { getUserIdFromRequest } from '@/lib/auth';
 import { z } from 'zod';
 import { ObjectId } from 'mongodb';
+import redis from '@/lib/redis';
 
 const supplierSchema = z.object({
   name: z.string().min(1, 'Name is required'),
@@ -24,6 +25,18 @@ export async function GET(request: NextRequest) {
       );
     }
 
+    // Try to get from cache
+    try {
+      const cacheKey = `suppliers:${userId}`;
+      const cached = await redis.get(cacheKey);
+      if (cached) {
+        return NextResponse.json(JSON.parse(cached));
+      }
+    } catch (cacheError) {
+      // If Redis fails, continue to DB query
+      console.warn('Redis cache read failed, falling back to DB:', cacheError);
+    }
+
     const db = await getDb();
     const suppliersCollection = db.collection('suppliers');
 
@@ -32,7 +45,7 @@ export async function GET(request: NextRequest) {
       .sort({ createdAt: -1 })
       .toArray();
 
-    return NextResponse.json({
+    const responseData = {
       suppliers: suppliers.map((supplier) => ({
         id: supplier._id.toString(),
         name: supplier.name,
@@ -43,7 +56,18 @@ export async function GET(request: NextRequest) {
         balanceType: supplier.balanceType,
         createdAt: supplier.createdAt,
       })),
-    });
+    };
+
+    // Cache the response with 5 minute TTL
+    try {
+      const cacheKey = `suppliers:${userId}`;
+      await redis.setex(cacheKey, 300, JSON.stringify(responseData));
+    } catch (cacheError) {
+      // If Redis fails, continue without caching
+      console.warn('Redis cache write failed:', cacheError);
+    }
+
+    return NextResponse.json(responseData);
   } catch (error) {
     console.error('Get suppliers error:', error);
     return NextResponse.json(
@@ -80,6 +104,13 @@ export async function POST(request: NextRequest) {
       balanceType: validatedData.balanceType,
       createdAt: new Date(),
     });
+
+    // Invalidate related caches
+    try {
+      await redis.del(`suppliers:${userId}`, `dashboard:stats:${userId}`);
+    } catch (cacheError) {
+      console.warn('Redis cache invalidation failed:', cacheError);
+    }
 
     return NextResponse.json(
       {

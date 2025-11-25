@@ -3,6 +3,7 @@ import { getDb } from '@/lib/mongodb';
 import { getUserIdFromRequest } from '@/lib/auth';
 import { subDays } from 'date-fns';
 import type { RecentActivity, Transaction } from '@/lib/types';
+import redis from '@/lib/redis';
 
 export async function GET(request: NextRequest) {
   try {
@@ -13,6 +14,18 @@ export async function GET(request: NextRequest) {
         { error: 'Unauthorized' },
         { status: 401 }
       );
+    }
+
+    // Try to get from cache
+    try {
+      const cacheKey = `dashboard:stats:${userId}`;
+      const cached = await redis.get(cacheKey);
+      if (cached) {
+        return NextResponse.json(JSON.parse(cached));
+      }
+    } catch (cacheError) {
+      // If Redis fails, continue to DB query
+      console.warn('Redis cache read failed, falling back to DB:', cacheError);
     }
 
     const db = await getDb();
@@ -292,7 +305,7 @@ export async function GET(request: NextRequest) {
     const topCustomers = aggregateTopEntities(transactions, 'customer');
     const topSuppliers = aggregateTopEntities(transactions, 'supplier');
 
-    return NextResponse.json({
+    const responseData = {
       stats: {
         totalCredit,
         totalDebit,
@@ -314,7 +327,18 @@ export async function GET(request: NextRequest) {
         color: note.color,
         updatedAt: note.updatedAt,
       })),
-    });
+    };
+
+    // Cache the response with 45 second TTL
+    try {
+      const cacheKey = `dashboard:stats:${userId}`;
+      await redis.setex(cacheKey, 45, JSON.stringify(responseData));
+    } catch (cacheError) {
+      // If Redis fails, continue without caching
+      console.warn('Redis cache write failed:', cacheError);
+    }
+
+    return NextResponse.json(responseData);
   } catch (error) {
     console.error('Get dashboard stats error:', error);
     return NextResponse.json(
