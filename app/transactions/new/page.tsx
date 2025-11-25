@@ -1,8 +1,9 @@
 'use client';
 
-import { useState, useEffect, useRef, Suspense } from 'react';
+import { useState, useEffect, useRef, Suspense, ChangeEvent } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import Link from 'next/link';
+import Image from 'next/image';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
@@ -13,7 +14,6 @@ import {
   Dialog,
   DialogContent,
   DialogDescription,
-  DialogFooter,
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog';
@@ -27,15 +27,6 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
-import {
-  Form,
-  FormControl,
-  FormField,
-  FormItem,
-  FormLabel,
-  FormMessage,
-} from '@/components/ui/form';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { motion } from 'framer-motion';
 
 const transactionSchema = z.object({
@@ -45,7 +36,19 @@ const transactionSchema = z.object({
   amount: z.number().positive('Amount must be positive'),
   description: z.string().optional(),
   date: z.string().min(1, 'Date is required'),
+  billUrl: z.string().optional(),
+  billPublicId: z.string().optional(),
 });
+
+const MAX_BILL_SIZE_BYTES = 5 * 1024 * 1024;
+const ACCEPTED_BILL_TYPES = [
+  'image/jpeg',
+  'image/png',
+  'image/webp',
+  'image/heic',
+  'image/heif',
+  'application/pdf',
+];
 
 const customerSchema = z.object({
   name: z.string().min(1, 'Name is required'),
@@ -80,6 +83,13 @@ function NewTransactionPageContent() {
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [creatingEntity, setCreatingEntity] = useState(false);
   const hasFetchedRef = useRef(false);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+  const [billUploadResult, setBillUploadResult] = useState<{
+    url: string;
+    publicId: string;
+    resourceType: string;
+  } | null>(null);
+  const [billUploading, setBillUploading] = useState(false);
 
   const {
     register,
@@ -165,6 +175,7 @@ function NewTransactionPageContent() {
         setCustomers(data.customers || []);
       }
     } catch (error) {
+      console.error('Failed to fetch customers', error);
       toast.error('Failed to fetch customers');
     }
   };
@@ -177,7 +188,62 @@ function NewTransactionPageContent() {
         setSuppliers(data.suppliers || []);
       }
     } catch (error) {
+      console.error('Failed to fetch suppliers', error);
       toast.error('Failed to fetch suppliers');
+    }
+  };
+
+  const handleBillFileChange = async (event: ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (!file) return;
+
+    if (!ACCEPTED_BILL_TYPES.includes(file.type)) {
+      toast.error('Unsupported file type. Please upload JPG, PNG, WEBP, HEIC/HEIF, or PDF files.');
+      event.target.value = '';
+      return;
+    }
+
+    if (file.size > MAX_BILL_SIZE_BYTES) {
+      toast.error('File size exceeds 5MB limit.');
+      event.target.value = '';
+      return;
+    }
+
+    setBillUploading(true);
+    setBillUploadResult(null);
+
+    const formData = new FormData();
+    formData.append('file', file);
+
+    try {
+      const response = await fetch('/api/uploads/bill', {
+        method: 'POST',
+        body: formData,
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.error || 'Failed to upload bill');
+      }
+
+      const result = await response.json();
+      setBillUploadResult(result);
+      toast.success('Bill uploaded successfully.');
+    } catch (error) {
+      console.error('Failed to upload bill', error);
+      toast.error(error instanceof Error ? error.message : 'Failed to upload bill');
+      if (fileInputRef.current) {
+        fileInputRef.current.value = '';
+      }
+    } finally {
+      setBillUploading(false);
+    }
+  };
+
+  const handleRemoveBill = () => {
+    setBillUploadResult(null);
+    if (fileInputRef.current) {
+      fileInputRef.current.value = '';
     }
   };
 
@@ -208,6 +274,7 @@ function NewTransactionPageContent() {
         toast.error(result.error || 'Failed to create customer');
       }
     } catch (error) {
+      console.error('Failed to create customer', error);
       toast.error('An error occurred. Please try again.');
     } finally {
       setCreatingEntity(false);
@@ -235,6 +302,7 @@ function NewTransactionPageContent() {
         toast.error(result.error || 'Failed to create supplier');
       }
     } catch (error) {
+      console.error('Failed to create supplier', error);
       toast.error('An error occurred. Please try again.');
     } finally {
       setCreatingEntity(false);
@@ -244,15 +312,29 @@ function NewTransactionPageContent() {
   const onSubmit = async (data: TransactionForm) => {
     setLoading(true);
     try {
+      const payload: Record<string, unknown> = { ...data };
+
+      if (billUploadResult) {
+        payload.billUrl = billUploadResult.url;
+        payload.billPublicId = billUploadResult.publicId;
+      } else {
+        delete payload.billUrl;
+        delete payload.billPublicId;
+      }
+
       const response = await fetch('/api/transactions', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(data),
+        body: JSON.stringify(payload),
       });
 
       if (response.ok) {
         toast.success('Transaction created successfully!');
         reset();
+        if (fileInputRef.current) {
+          fileInputRef.current.value = '';
+        }
+        setBillUploadResult(null);
         
         // If we came from a ledger page, redirect back to it
         const urlEntityType = searchParams.get('entityType');
@@ -268,6 +350,7 @@ function NewTransactionPageContent() {
         toast.error(result.error || 'Failed to create transaction');
       }
     } catch (error) {
+      console.error('Failed to create transaction', error);
       toast.error('An error occurred. Please try again.');
     } finally {
       setLoading(false);
@@ -471,6 +554,64 @@ function NewTransactionPageContent() {
           )}
         </div>
 
+        <div>
+          <label className="block text-sm font-medium text-gray-700 mb-2">
+            Bill Attachment
+          </label>
+          <input
+            ref={fileInputRef}
+            type="file"
+            accept="image/jpeg,image/png,image/webp,image/heic,image/heif,application/pdf"
+            className="hidden"
+            onChange={handleBillFileChange}
+          />
+          <div className="flex flex-wrap items-center gap-3">
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() => fileInputRef.current?.click()}
+              disabled={billUploading}
+            >
+              {billUploadResult ? 'Replace Bill' : 'Upload Bill'}
+            </Button>
+            {billUploadResult && (
+              <Button type="button" variant="ghost" onClick={handleRemoveBill} disabled={billUploading}>
+                Remove
+              </Button>
+            )}
+          </div>
+          {billUploading && (
+            <p className="text-sm text-muted-foreground mt-2">Uploading bill...</p>
+          )}
+          {billUploadResult && (
+            <div className="mt-3 flex items-center gap-3">
+              {billUploadResult.resourceType === 'image' ? (
+                <Image
+                  src={billUploadResult.url}
+                  alt="Bill preview"
+                  width={80}
+                  height={80}
+                  unoptimized
+                  className="h-20 w-20 rounded-md object-cover border"
+                />
+              ) : (
+                <div className="text-sm text-gray-600">PDF uploaded</div>
+              )}
+              <a
+                href={billUploadResult.url}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="text-sm text-blue-600 hover:underline"
+              >
+                View uploaded file
+              </a>
+            </div>
+          )}
+          <p className="text-xs text-gray-500 mt-2">
+            Accepted formats: JPG, PNG, WEBP, HEIC/HEIF, PDF up to 5MB.
+          </p>
+        </div>
+
         <div className="flex justify-end space-x-3 pt-4">
           <Button
             type="button"
@@ -481,7 +622,7 @@ function NewTransactionPageContent() {
           </Button>
           <Button
             type="submit"
-            disabled={loading}
+            disabled={loading || billUploading}
           >
             {loading ? 'Creating...' : 'Create Transaction'}
           </Button>

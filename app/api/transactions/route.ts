@@ -5,14 +5,29 @@ import { z } from 'zod';
 import { ObjectId } from 'mongodb';
 import redis from '@/lib/redis';
 
-const transactionSchema = z.object({
-  entityType: z.enum(['customer', 'supplier']),
-  entityId: z.string().min(1, 'Entity is required'),
-  type: z.enum(['credit', 'debit']),
-  amount: z.number().positive('Amount must be positive'),
-  description: z.string().optional(),
-  date: z.string().or(z.date()),
-});
+const transactionSchema = z
+  .object({
+    entityType: z.enum(['customer', 'supplier']),
+    entityId: z.string().min(1, 'Entity is required'),
+    type: z.enum(['credit', 'debit']),
+    amount: z.number().positive('Amount must be positive'),
+    description: z.string().optional(),
+    date: z.string().or(z.date()),
+    billUrl: z.union([z.string().url('Invalid bill URL'), z.literal('')]).optional(),
+    billPublicId: z.string().optional(),
+  })
+  .refine(
+    (data) => {
+      if (data.billUrl && data.billUrl !== '' && !data.billPublicId) {
+        return false;
+      }
+      return true;
+    },
+    {
+      message: 'billPublicId is required when billUrl is provided',
+      path: ['billPublicId'],
+    }
+  );
 
 export async function GET(request: NextRequest) {
   try {
@@ -35,7 +50,18 @@ export async function GET(request: NextRequest) {
     const db = await getDb();
     const transactionsCollection = db.collection('transactions');
 
-    const query: any = { userId };
+  type TransactionQuery = {
+    userId: string;
+    entityId?: string;
+    entityType?: string;
+    type?: string;
+    date?: {
+      $gte?: Date;
+      $lte?: Date;
+    };
+  };
+
+  const query: TransactionQuery = { userId };
     if (entityId) {
       query.entityId = entityId;
     }
@@ -70,6 +96,8 @@ export async function GET(request: NextRequest) {
         type: transaction.type,
         amount: transaction.amount,
         description: transaction.description,
+        billUrl: transaction.billUrl,
+        billPublicId: transaction.billPublicId,
         date: transaction.date,
         createdAt: transaction.createdAt,
       })),
@@ -127,6 +155,9 @@ export async function POST(request: NextRequest) {
       ? new Date(validatedData.date)
       : new Date();
 
+    const billUrl = validatedData.billUrl?.trim();
+    const billPublicId = validatedData.billPublicId?.trim();
+
     const result = await transactionsCollection.insertOne({
       userId,
       entityType: validatedData.entityType,
@@ -136,6 +167,8 @@ export async function POST(request: NextRequest) {
       type: validatedData.type,
       amount: validatedData.amount,
       description: validatedData.description || '',
+      billUrl: billUrl || undefined,
+      billPublicId: billPublicId || undefined,
       date: transactionDate,
       createdAt: new Date(),
     });
@@ -160,6 +193,8 @@ export async function POST(request: NextRequest) {
           type: validatedData.type,
           amount: validatedData.amount,
           description: validatedData.description,
+          billUrl: billUrl || undefined,
+          billPublicId: billPublicId || undefined,
           date: transactionDate,
         },
       },

@@ -4,15 +4,31 @@ import { getUserIdFromRequest } from '@/lib/auth';
 import { z } from 'zod';
 import { ObjectId } from 'mongodb';
 import redis from '@/lib/redis';
+import { deleteAsset } from '@/lib/cloudinary';
 
-const transactionSchema = z.object({
-  entityType: z.enum(['customer', 'supplier']),
-  entityId: z.string().min(1, 'Entity is required'),
-  type: z.enum(['credit', 'debit']),
-  amount: z.number().positive('Amount must be positive'),
-  description: z.string().optional(),
-  date: z.string().or(z.date()),
-});
+const transactionSchema = z
+  .object({
+    entityType: z.enum(['customer', 'supplier']),
+    entityId: z.string().min(1, 'Entity is required'),
+    type: z.enum(['credit', 'debit']),
+    amount: z.number().positive('Amount must be positive'),
+    description: z.string().optional(),
+    date: z.string().or(z.date()),
+    billUrl: z.union([z.string().url('Invalid bill URL'), z.literal('')]).optional(),
+    billPublicId: z.string().optional(),
+  })
+  .refine(
+    (data) => {
+      if (data.billUrl && data.billUrl !== '' && !data.billPublicId) {
+        return false;
+      }
+      return true;
+    },
+    {
+      message: 'billPublicId is required when billUrl is provided',
+      path: ['billPublicId'],
+    }
+  );
 
 export async function GET(
   request: NextRequest,
@@ -54,6 +70,8 @@ export async function GET(
         type: transaction.type,
         amount: transaction.amount,
         description: transaction.description,
+        billUrl: transaction.billUrl,
+        billPublicId: transaction.billPublicId,
         date: transaction.date,
         createdAt: transaction.createdAt,
       },
@@ -89,6 +107,18 @@ export async function PUT(
     const transactionsCollection = db.collection('transactions');
     const customersCollection = db.collection('customers');
     const suppliersCollection = db.collection('suppliers');
+
+    const existingTransaction = await transactionsCollection.findOne({
+      _id: new ObjectId(id),
+      userId,
+    });
+
+    if (!existingTransaction) {
+      return NextResponse.json(
+        { error: 'Transaction not found' },
+        { status: 404 }
+      );
+    }
 
     // Get old transaction to know which entity's cache to invalidate
     const oldTransaction = await transactionsCollection.findOne({
@@ -128,23 +158,54 @@ export async function PUT(
       ? new Date(validatedData.date)
       : new Date();
 
+    const billUrl = validatedData.billUrl?.trim();
+    const billPublicId = validatedData.billPublicId?.trim();
+    const existingPublicId = existingTransaction.billPublicId;
+    const hasExistingBill = Boolean(existingPublicId);
+    const billFieldsProvided =
+      Object.prototype.hasOwnProperty.call(body, 'billUrl') ||
+      Object.prototype.hasOwnProperty.call(body, 'billPublicId');
+    const newPublicId = billUrl && billPublicId ? billPublicId : undefined;
+    const removingBill = billFieldsProvided && hasExistingBill && (!billUrl || billUrl === '');
+    const replacingBill = billFieldsProvided && hasExistingBill && newPublicId && existingPublicId !== newPublicId;
+
+    if ((removingBill || replacingBill) && existingPublicId) {
+      try {
+        await deleteAsset(existingPublicId);
+      } catch (error) {
+        console.warn('Failed to delete existing bill asset:', error);
+      }
+    }
+
+    const updateOperation: {
+      $set: Record<string, unknown>;
+      $unset?: Record<string, string>;
+    } = {
+      $set: {
+        entityType: validatedData.entityType,
+        entityId: validatedData.entityId,
+        customerId: validatedData.entityType === 'customer' ? validatedData.entityId : undefined,
+        supplierId: validatedData.entityType === 'supplier' ? validatedData.entityId : undefined,
+        type: validatedData.type,
+        amount: validatedData.amount,
+        description: validatedData.description || '',
+        date: transactionDate,
+      },
+    };
+
+    if (billUrl && billPublicId) {
+      updateOperation.$set.billUrl = billUrl;
+      updateOperation.$set.billPublicId = billPublicId;
+    } else if (removingBill && hasExistingBill) {
+      updateOperation.$unset = { billUrl: '', billPublicId: '' };
+    }
+
     const result = await transactionsCollection.updateOne(
       {
         _id: new ObjectId(id),
         userId,
       },
-      {
-        $set: {
-          entityType: validatedData.entityType,
-          entityId: validatedData.entityId,
-          customerId: validatedData.entityType === 'customer' ? validatedData.entityId : undefined,
-          supplierId: validatedData.entityType === 'supplier' ? validatedData.entityId : undefined,
-          type: validatedData.type,
-          amount: validatedData.amount,
-          description: validatedData.description || '',
-          date: transactionDate,
-        },
-      }
+      updateOperation
     );
 
     if (result.matchedCount === 0) {
@@ -180,6 +241,8 @@ export async function PUT(
         type: validatedData.type,
         amount: validatedData.amount,
         description: validatedData.description,
+        billUrl: billUrl && billPublicId ? billUrl : removingBill ? undefined : existingTransaction.billUrl,
+        billPublicId: billUrl && billPublicId ? billPublicId : removingBill ? undefined : existingTransaction.billPublicId,
         date: transactionDate,
       },
     });
@@ -217,7 +280,6 @@ export async function DELETE(
     const db = await getDb();
     const transactionsCollection = db.collection('transactions');
 
-    // Get transaction first to know which entity's cache to invalidate
     const transaction = await transactionsCollection.findOne({
       _id: new ObjectId(id),
       userId,
@@ -228,6 +290,14 @@ export async function DELETE(
         { error: 'Transaction not found' },
         { status: 404 }
       );
+    }
+
+    if (transaction.billPublicId) {
+      try {
+        await deleteAsset(transaction.billPublicId);
+      } catch (error) {
+        console.warn('Failed to delete bill asset during transaction delete:', error);
+      }
     }
 
     const result = await transactionsCollection.deleteOne({

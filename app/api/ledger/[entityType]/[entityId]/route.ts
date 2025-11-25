@@ -101,11 +101,14 @@ export async function GET(
       }
 
       return {
+        transactionId: transaction._id.toString(),
         date: transaction.date,
         description: transaction.description || '',
         credit: transaction.type === 'credit' ? transaction.amount : 0,
         debit: transaction.type === 'debit' ? transaction.amount : 0,
         balance: runningBalance,
+        billUrl: transaction.billUrl,
+        billPublicId: transaction.billPublicId,
       };
     });
 

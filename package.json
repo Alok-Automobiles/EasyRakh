@@ -19,6 +19,7 @@
     "@react-three/fiber": "9.0.0-alpha.8",
     "bcryptjs": "^2.4.3",
     "class-variance-authority": "^0.7.1",
+    "cloudinary": "^2.8.0",
     "clsx": "^2.1.1",
     "cobe": "^0.6.5",
     "date-fns": "^3.0.6",

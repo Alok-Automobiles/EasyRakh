@@ -40,6 +40,8 @@ export interface Transaction {
   type: 'credit' | 'debit';
   amount: number;
   description?: string;
+  billUrl?: string;
+  billPublicId?: string;
   date: Date;
   createdAt: Date;
 }
@@ -62,6 +64,9 @@ export interface LedgerEntry {
   credit: number;
   debit: number;
   balance: number;
+  billUrl?: string;
+  billPublicId?: string;
+  transactionId?: string;
 }
 
 export interface Note {
