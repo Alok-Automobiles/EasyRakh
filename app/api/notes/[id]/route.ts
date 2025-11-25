@@ -3,6 +3,7 @@ import { getDb } from '@/lib/mongodb';
 import { getUserIdFromRequest } from '@/lib/auth';
 import { z } from 'zod';
 import { ObjectId } from 'mongodb';
+import redis from '@/lib/redis';
 
 const updateNoteSchema = z.object({
   title: z.string().min(1, 'Title is required').optional(),
@@ -95,6 +96,13 @@ export async function PUT(
       userId,
     });
 
+    // Invalidate dashboard stats cache (notes are included in dashboard)
+    try {
+      await redis.del(`dashboard:stats:${userId}`);
+    } catch (cacheError) {
+      console.warn('Redis cache invalidation failed:', cacheError);
+    }
+
     return NextResponse.json({
       message: 'Note updated successfully',
       note: {
@@ -160,6 +168,13 @@ export async function DELETE(
       _id: new ObjectId(id),
       userId,
     });
+
+    // Invalidate dashboard stats cache (notes are included in dashboard)
+    try {
+      await redis.del(`dashboard:stats:${userId}`);
+    } catch (cacheError) {
+      console.warn('Redis cache invalidation failed:', cacheError);
+    }
 
     return NextResponse.json({
       message: 'Note deleted successfully',

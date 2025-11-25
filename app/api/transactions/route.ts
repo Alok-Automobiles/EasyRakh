@@ -3,6 +3,7 @@ import { getDb } from '@/lib/mongodb';
 import { getUserIdFromRequest } from '@/lib/auth';
 import { z } from 'zod';
 import { ObjectId } from 'mongodb';
+import redis from '@/lib/redis';
 
 const transactionSchema = z
   .object({
@@ -171,6 +172,16 @@ export async function POST(request: NextRequest) {
       date: transactionDate,
       createdAt: new Date(),
     });
+
+    // Invalidate related caches
+    try {
+      await redis.del(
+        `dashboard:stats:${userId}`,
+        `ledger:${validatedData.entityType}:${validatedData.entityId}:${userId}`
+      );
+    } catch (cacheError) {
+      console.warn('Redis cache invalidation failed:', cacheError);
+    }
 
     return NextResponse.json(
       {

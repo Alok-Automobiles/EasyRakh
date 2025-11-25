@@ -4,6 +4,7 @@ import { getUserIdFromRequest } from '@/lib/auth';
 import { z } from 'zod';
 import { ObjectId } from 'mongodb';
 import { format, subDays } from 'date-fns';
+import redis from '@/lib/redis';
 
 const entrySchema = z.object({
   amount: z.number().positive('Amount must be greater than 0'),
@@ -68,39 +69,70 @@ export async function GET(request: NextRequest) {
       // Get specific date record
       const parsedDate = parseDate(dateParam);
       const normalizedDate = normalizeDate(parsedDate);
+      const dateKey = format(normalizedDate, 'dd-MM-yyyy');
+
+      // Try to get from cache
+      try {
+        const cacheKey = `daily-cash:date:${userId}:${dateKey}`;
+        const cached = await redis.get(cacheKey);
+        if (cached) {
+          return NextResponse.json(JSON.parse(cached));
+        }
+      } catch (cacheError) {
+        console.warn('Redis cache read failed, falling back to DB:', cacheError);
+      }
 
       const record = await dailyCashRecordsCollection.findOne({
         userId,
         date: normalizedDate,
       });
 
-      if (!record) {
-        return NextResponse.json({
-          record: null,
-          date: format(normalizedDate, 'dd-MM-yyyy'),
-        });
+      const responseData = !record
+        ? {
+            record: null,
+            date: dateKey,
+          }
+        : {
+            record: {
+              id: record._id.toString(),
+              date: format(record.date, 'dd-MM-yyyy'),
+              entries: record.entries.map((entry: any) => ({
+                id: entry._id.toString(),
+                amount: entry.amount,
+                type: entry.type,
+                description: entry.description,
+                createdAt: entry.createdAt,
+                updatedAt: entry.updatedAt,
+              })),
+              totalIn: record.totalIn,
+              totalOut: record.totalOut,
+              totalLeft: record.totalLeft,
+            },
+            date: dateKey,
+          };
+
+      // Cache the response with 3 minute TTL
+      try {
+        const cacheKey = `daily-cash:date:${userId}:${dateKey}`;
+        await redis.setex(cacheKey, 180, JSON.stringify(responseData));
+      } catch (cacheError) {
+        console.warn('Redis cache write failed:', cacheError);
       }
 
-      return NextResponse.json({
-        record: {
-          id: record._id.toString(),
-          date: format(record.date, 'dd-MM-yyyy'),
-          entries: record.entries.map((entry: any) => ({
-            id: entry._id.toString(),
-            amount: entry.amount,
-            type: entry.type,
-            description: entry.description,
-            createdAt: entry.createdAt,
-            updatedAt: entry.updatedAt,
-          })),
-          totalIn: record.totalIn,
-          totalOut: record.totalOut,
-          totalLeft: record.totalLeft,
-        },
-        date: format(normalizedDate, 'dd-MM-yyyy'),
-      });
+      return NextResponse.json(responseData);
     } else {
       // Get last 7 days records
+      // Try to get from cache
+      try {
+        const cacheKey = `daily-cash:list:${userId}`;
+        const cached = await redis.get(cacheKey);
+        if (cached) {
+          return NextResponse.json(JSON.parse(cached));
+        }
+      } catch (cacheError) {
+        console.warn('Redis cache read failed, falling back to DB:', cacheError);
+      }
+
       const today = normalizeDate(new Date());
       const sevenDaysAgo = normalizeDate(subDays(today, 6));
 
@@ -112,7 +144,7 @@ export async function GET(request: NextRequest) {
         .sort({ date: -1 })
         .toArray();
 
-      return NextResponse.json({
+      const responseData = {
         records: records.map((record) => ({
           id: record._id.toString(),
           date: format(record.date, 'dd-MM-yyyy'),
@@ -121,7 +153,17 @@ export async function GET(request: NextRequest) {
           totalLeft: record.totalLeft,
           entryCount: record.entries?.length || 0,
         })),
-      });
+      };
+
+      // Cache the response with 3 minute TTL
+      try {
+        const cacheKey = `daily-cash:list:${userId}`;
+        await redis.setex(cacheKey, 180, JSON.stringify(responseData));
+      } catch (cacheError) {
+        console.warn('Redis cache write failed:', cacheError);
+      }
+
+      return NextResponse.json(responseData);
     }
   } catch (error) {
     console.error('Get daily cash records error:', error);
@@ -224,12 +266,25 @@ export async function POST(request: NextRequest) {
       );
     }
 
+    const dateKey = format(record.date, 'dd-MM-yyyy');
+
+    // Invalidate related caches
+    try {
+      await redis.del(
+        `daily-cash:list:${userId}`,
+        `daily-cash:date:${userId}:${dateKey}`,
+        `dashboard:stats:${userId}`
+      );
+    } catch (cacheError) {
+      console.warn('Redis cache invalidation failed:', cacheError);
+    }
+
     return NextResponse.json(
       {
         message: 'Entry created successfully',
         record: {
           id: record._id.toString(),
-          date: format(record.date, 'dd-MM-yyyy'),
+          date: dateKey,
           entries: record.entries.map((entry: any) => ({
             id: entry._id.toString(),
             amount: entry.amount,

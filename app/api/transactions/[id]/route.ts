@@ -3,6 +3,7 @@ import { getDb } from '@/lib/mongodb';
 import { getUserIdFromRequest } from '@/lib/auth';
 import { z } from 'zod';
 import { ObjectId } from 'mongodb';
+import redis from '@/lib/redis';
 import { deleteAsset } from '@/lib/cloudinary';
 
 const transactionSchema = z
@@ -119,6 +120,19 @@ export async function PUT(
       );
     }
 
+    // Get old transaction to know which entity's cache to invalidate
+    const oldTransaction = await transactionsCollection.findOne({
+      _id: new ObjectId(id),
+      userId,
+    });
+
+    if (!oldTransaction) {
+      return NextResponse.json(
+        { error: 'Transaction not found' },
+        { status: 404 }
+      );
+    }
+
     // Verify entity exists and belongs to user
     let entity;
     if (validatedData.entityType === 'customer') {
@@ -201,6 +215,23 @@ export async function PUT(
       );
     }
 
+    // Invalidate related caches
+    try {
+      const oldEntityId = oldTransaction.entityId || oldTransaction.customerId || oldTransaction.supplierId;
+      const oldEntityType = oldTransaction.entityType || (oldTransaction.customerId ? 'customer' : 'supplier');
+      const keysToDelete = [
+        `dashboard:stats:${userId}`,
+        `ledger:${validatedData.entityType}:${validatedData.entityId}:${userId}`,
+      ];
+      // If entity changed, also invalidate old entity's ledger
+      if (oldEntityId !== validatedData.entityId || oldEntityType !== validatedData.entityType) {
+        keysToDelete.push(`ledger:${oldEntityType}:${oldEntityId}:${userId}`);
+      }
+      await redis.del(...keysToDelete);
+    } catch (cacheError) {
+      console.warn('Redis cache invalidation failed:', cacheError);
+    }
+
     return NextResponse.json({
       message: 'Transaction updated successfully',
       transaction: {
@@ -269,6 +300,19 @@ export async function DELETE(
       }
     }
 
+    // Get transaction first to know which entity's cache to invalidate
+    const transaction = await transactionsCollection.findOne({
+      _id: new ObjectId(id),
+      userId,
+    });
+
+    if (!transaction) {
+      return NextResponse.json(
+        { error: 'Transaction not found' },
+        { status: 404 }
+      );
+    }
+
     const result = await transactionsCollection.deleteOne({
       _id: new ObjectId(id),
       userId,
@@ -279,6 +323,18 @@ export async function DELETE(
         { error: 'Transaction not found' },
         { status: 404 }
       );
+    }
+
+    // Invalidate related caches
+    try {
+      const entityId = transaction.entityId || transaction.customerId || transaction.supplierId;
+      const entityType = transaction.entityType || (transaction.customerId ? 'customer' : 'supplier');
+      await redis.del(
+        `dashboard:stats:${userId}`,
+        `ledger:${entityType}:${entityId}:${userId}`
+      );
+    } catch (cacheError) {
+      console.warn('Redis cache invalidation failed:', cacheError);
     }
 
     return NextResponse.json({
