@@ -18,7 +18,7 @@ import {
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Skeleton } from '@/components/ui/skeleton';
 import { motion } from 'framer-motion';
-import PrintLedgerDialog from '@/components/PrintLedgerDialog';
+import PrintLedgerOverlay from '@/components/PrintLedgerOverlay';
 
 interface LedgerEntry {
   date: Date;
@@ -88,7 +88,7 @@ export default function LedgerPage() {
   const [billModalLoading, setBillModalLoading] = useState(false);
   const [billModalUploading, setBillModalUploading] = useState(false);
   const billModalFileInputRef = useRef<HTMLInputElement>(null);
-  const [printDialogOpen, setPrintDialogOpen] = useState(false);
+  const [printOverlayOpen, setPrintOverlayOpen] = useState(false);
   const [firmInfo, setFirmInfo] = useState<{
     firmTitle: string;
     gstNumber: string;
@@ -327,7 +327,7 @@ export default function LedgerPage() {
 
   const handlePrintClick = async () => {
     await fetchFirmInfo();
-    setPrintDialogOpen(true);
+    setPrintOverlayOpen(true);
   };
 
   if (loading) {
@@ -629,11 +629,11 @@ export default function LedgerPage() {
         </DialogContent>
       </Dialog>
 
-      <PrintLedgerDialog
-        open={printDialogOpen}
-        onOpenChange={setPrintDialogOpen}
+      <PrintLedgerOverlay
+        open={printOverlayOpen}
+        onClose={() => setPrintOverlayOpen(false)}
         ledgerData={ledgerData}
-        firmInfo={firmInfo}
+        initialFirmInfo={firmInfo}
       />
     </div>
     </motion.div>
