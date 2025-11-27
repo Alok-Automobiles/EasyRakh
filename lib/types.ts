@@ -3,6 +3,11 @@ export interface User {
   email: string;
   password: string;
   name: string;
+  firmTitle?: string;
+  gstNumber?: string;
+  firmPhone?: string;
+  firmEmail?: string;
+  firmAddress?: string;
   createdAt: Date;
 }
 

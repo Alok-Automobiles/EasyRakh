@@ -40,9 +40,9 @@ export default function Hero() {
             transition={{ duration: 0.5, delay: 0.1 }}
             className="text-5xl sm:text-6xl lg:text-7xl font-bold tracking-tight text-gray-900 mb-8 leading-[1.1]"
           >
-            Master your <Highlighter action="underline" color="#10b981">Cashflow</Highlighter> with <br className="hidden sm:block" />
+            Master your <Highlighter action="underline" color="#10b981" >Cashflow</Highlighter> with <br className="hidden sm:block" />
             <span className="mt-2 inline-block">
-              <Highlighter action="underline" color="#e65c5cff">EasyRakh</Highlighter>
+              <Highlighter action="underline" color="#e65c5cff" >EasyRakh</Highlighter>
             </span>
           </motion.h1>
 
@@ -61,14 +61,14 @@ export default function Hero() {
             transition={{ duration: 0.5, delay: 0.3 }}
             className="flex flex-col sm:flex-row gap-4 w-full sm:w-auto"
           >
-            <Button asChild size="lg" className="text-base px-8 py-6 bg-emerald-600 hover:bg-emerald-700 shadow-lg shadow-emerald-200/50 transition-all hover:scale-105">
+            <Button asChild size="lg" className="text-base px-8 py-6 bg-emerald-600 hover:bg-emerald-700 shadow-lg shadow-emerald-200/50 transition-all hover:scale-105 cursor-none">
               <Link href="/register">Get started free</Link>
             </Button>
             <Button
               asChild
               size="lg"
               variant="outline"
-              className="text-base px-8 py-6 border-gray-200 hover:bg-gray-50 hover:text-gray-900 transition-all hover:scale-105"
+              className="text-base px-8 py-6 border-gray-200 hover:bg-gray-50 hover:text-gray-900 transition-all hover:scale-105 cursor-none"
             >
               <Link href="/login">Sign in</Link>
             </Button>

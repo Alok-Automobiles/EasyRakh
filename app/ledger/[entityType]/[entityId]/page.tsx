@@ -18,6 +18,7 @@ import {
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Skeleton } from '@/components/ui/skeleton';
 import { motion } from 'framer-motion';
+import PrintLedgerDialog from '@/components/PrintLedgerDialog';
 
 interface LedgerEntry {
   date: Date;
@@ -87,6 +88,14 @@ export default function LedgerPage() {
   const [billModalLoading, setBillModalLoading] = useState(false);
   const [billModalUploading, setBillModalUploading] = useState(false);
   const billModalFileInputRef = useRef<HTMLInputElement>(null);
+  const [printDialogOpen, setPrintDialogOpen] = useState(false);
+  const [firmInfo, setFirmInfo] = useState<{
+    firmTitle: string;
+    gstNumber: string;
+    firmPhone: string;
+    firmEmail: string;
+    firmAddress: string;
+  } | null>(null);
 
   const fetchLedger = useCallback(async () => {
     try {
@@ -296,6 +305,31 @@ export default function LedgerPage() {
     await submitBillUpdate({ billUrl: '', billPublicId: '' }, 'Bill removed successfully.');
   };
 
+  const fetchFirmInfo = async () => {
+    try {
+      const response = await fetch('/api/auth/me');
+      if (response.ok) {
+        const data = await response.json();
+        if (data.user) {
+          setFirmInfo({
+            firmTitle: data.user.firmTitle || '',
+            gstNumber: data.user.gstNumber || '',
+            firmPhone: data.user.firmPhone || '',
+            firmEmail: data.user.firmEmail || '',
+            firmAddress: data.user.firmAddress || '',
+          });
+        }
+      }
+    } catch (error) {
+      console.error('Failed to fetch firm info', error);
+    }
+  };
+
+  const handlePrintClick = async () => {
+    await fetchFirmInfo();
+    setPrintDialogOpen(true);
+  };
+
   if (loading) {
     return (
       <motion.div
@@ -499,7 +533,10 @@ export default function LedgerPage() {
         </div>
       </Card>
 
-      <div className="mt-6 flex justify-end">
+      <div className="mt-6 flex justify-end gap-3">
+        <Button variant="outline" onClick={handlePrintClick}>
+          Print/Download
+        </Button>
         <Button asChild>
           <Link href={`/transactions/new?entityType=${entityType}&entityId=${entityId}`}>
             Add Transaction
@@ -591,6 +628,13 @@ export default function LedgerPage() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      <PrintLedgerDialog
+        open={printDialogOpen}
+        onOpenChange={setPrintDialogOpen}
+        ledgerData={ledgerData}
+        firmInfo={firmInfo}
+      />
     </div>
     </motion.div>
   );
