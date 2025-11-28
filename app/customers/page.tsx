@@ -104,6 +104,9 @@ export default function CustomersPage() {
       });
 
       if (response.ok) {
+        const result = await response.json();
+        const nextCustomerId = editingCustomer ?? result.customer?.id;
+
         toast.success(
           editingCustomer
             ? 'Customer updated successfully!'
@@ -112,6 +115,12 @@ export default function CustomersPage() {
         setIsModalOpen(false);
         form.reset();
         setEditingCustomer(null);
+
+        if (!editingCustomer && nextCustomerId) {
+          router.push(`/ledger/customer/${nextCustomerId}`);
+          return;
+        }
+
         fetchCustomers();
       } else {
         const result = await response.json();

@@ -103,6 +103,9 @@ export default function SuppliersPage() {
       });
 
       if (response.ok) {
+        const result = await response.json();
+        const nextSupplierId = editingSupplier ?? result.supplier?.id;
+
         toast.success(
           editingSupplier
             ? 'Supplier updated successfully!'
@@ -111,6 +114,12 @@ export default function SuppliersPage() {
         setIsModalOpen(false);
         form.reset();
         setEditingSupplier(null);
+
+        if (!editingSupplier && nextSupplierId) {
+          router.push(`/ledger/supplier/${nextSupplierId}`);
+          return;
+        }
+
         fetchSuppliers();
       } else {
         const result = await response.json();

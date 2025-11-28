@@ -179,11 +179,14 @@ export async function GET(request: NextRequest) {
 
     // Add customer creation activities
     recentCustomers.forEach((customer) => {
+      const customerId = customer._id.toString();
       activities.push({
-        id: `customer_${customer._id.toString()}`,
+        id: `customer_${customerId}`,
         type: 'customer_created',
         entityName: customer.name,
         description: `Customer "${customer.name}" was created`,
+        entityType: 'customer',
+        entityId: customerId,
         date: customer.createdAt,
         createdAt: customer.createdAt,
       });
@@ -191,11 +194,14 @@ export async function GET(request: NextRequest) {
 
     // Add supplier creation activities
     recentSuppliers.forEach((supplier) => {
+      const supplierId = supplier._id.toString();
       activities.push({
-        id: `supplier_${supplier._id.toString()}`,
+        id: `supplier_${supplierId}`,
         type: 'supplier_created',
         entityName: supplier.name,
         description: `Supplier "${supplier.name}" was created`,
+        entityType: 'supplier',
+        entityId: supplierId,
         date: supplier.createdAt,
         createdAt: supplier.createdAt,
       });
@@ -238,6 +244,7 @@ export async function GET(request: NextRequest) {
         amount: transaction.amount,
         transactionType: transaction.type,
         entityType: entityType,
+        entityId: entityId,
         date: transaction.date,
         createdAt: transaction.createdAt,
       });

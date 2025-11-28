@@ -59,6 +59,7 @@ export interface RecentActivity {
   amount?: number;
   transactionType?: 'credit' | 'debit';
   entityType?: 'customer' | 'supplier';
+  entityId?: string;
   date: Date;
   createdAt: Date;
 }

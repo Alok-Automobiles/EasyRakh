@@ -335,13 +335,16 @@ function NewTransactionPageContent() {
           fileInputRef.current.value = '';
         }
         setBillUploadResult(null);
-        
-        // If we came from a ledger page, redirect back to it
-        const urlEntityType = searchParams.get('entityType');
-        const urlEntityId = searchParams.get('entityId');
-        
-        if (urlEntityType && urlEntityId && (urlEntityType === 'customer' || urlEntityType === 'supplier')) {
-          router.push(`/ledger/${urlEntityType}/${urlEntityId}`);
+
+        const ledgerEntityType = data.entityType || searchParams.get('entityType');
+        const ledgerEntityId = data.entityId || searchParams.get('entityId');
+
+        if (
+          ledgerEntityType &&
+          ledgerEntityId &&
+          (ledgerEntityType === 'customer' || ledgerEntityType === 'supplier')
+        ) {
+          router.push(`/ledger/${ledgerEntityType}/${ledgerEntityId}`);
         } else {
           router.push('/');
         }
