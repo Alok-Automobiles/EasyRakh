@@ -4,6 +4,7 @@ import { getUserIdFromRequest } from '@/lib/auth';
 import { subDays } from 'date-fns';
 import type { RecentActivity, Transaction } from '@/lib/types';
 import redis from '@/lib/redis';
+import { ObjectId } from 'mongodb';
 
 export async function GET(request: NextRequest) {
   try {
@@ -43,22 +44,115 @@ export async function GET(request: NextRequest) {
     const thirtyDaysAgo = normalizeToUTCStart(subDays(today, 29));
     const currentMonthStart = new Date(Date.UTC(today.getUTCFullYear(), today.getUTCMonth(), 1, 0, 0, 0, 0));
 
-    // Fetch all data in parallel
+    // Use aggregation pipelines for efficient calculations
     const [
-      customers,
-      suppliers,
-      transactions,
+      // Transaction totals using aggregation (much faster than loading all)
+      transactionStats,
+      // Transaction count
+      transactionCount,
+      // Customer and supplier counts and opening balance totals
+      customerStats,
+      supplierStats,
+      // Recent data for activities (limited)
       recentCustomers,
       recentSuppliers,
+      recentTransactions,
       recentDailyCashRecords,
       dashboardNotes,
     ] = await Promise.all([
-      // All customers for balance calculation
-      customersCollection.find({ userId }).toArray(),
-      // All suppliers for balance calculation
-      suppliersCollection.find({ userId }).toArray(),
-      // All transactions for stats
-      transactionsCollection.find({ userId }).toArray(),
+      // Calculate transaction totals using aggregation
+      transactionsCollection
+        .aggregate([
+          { $match: { userId } },
+          {
+            $group: {
+              _id: null,
+              totalCredit: {
+                $sum: {
+                  $cond: [{ $eq: ['$type', 'credit'] }, '$amount', 0],
+                },
+              },
+              totalDebit: {
+                $sum: {
+                  $cond: [{ $eq: ['$type', 'debit'] }, '$amount', 0],
+                },
+              },
+              customerCredit: {
+                $sum: {
+                  $cond: [
+                    { $and: [{ $eq: ['$entityType', 'customer'] }, { $eq: ['$type', 'credit'] }] },
+                    '$amount',
+                    0,
+                  ],
+                },
+              },
+              customerDebit: {
+                $sum: {
+                  $cond: [
+                    { $and: [{ $eq: ['$entityType', 'customer'] }, { $eq: ['$type', 'debit'] }] },
+                    '$amount',
+                    0,
+                  ],
+                },
+              },
+              supplierCredit: {
+                $sum: {
+                  $cond: [
+                    { $and: [{ $eq: ['$entityType', 'supplier'] }, { $eq: ['$type', 'credit'] }] },
+                    '$amount',
+                    0,
+                  ],
+                },
+              },
+              supplierDebit: {
+                $sum: {
+                  $cond: [
+                    { $and: [{ $eq: ['$entityType', 'supplier'] }, { $eq: ['$type', 'debit'] }] },
+                    '$amount',
+                    0,
+                  ],
+                },
+              },
+            },
+          },
+        ])
+        .toArray(),
+      // Get transaction count
+      transactionsCollection.countDocuments({ userId }),
+      // Customer stats using aggregation
+      customersCollection
+        .aggregate([
+          { $match: { userId } },
+          {
+            $group: {
+              _id: null,
+              count: { $sum: 1 },
+              creditBalance: {
+                $sum: {
+                  $cond: [{ $eq: ['$balanceType', 'credit'] }, { $multiply: ['$openingBalance', -1] }, '$openingBalance'],
+                },
+              },
+            },
+          },
+        ])
+        .toArray(),
+      // Supplier stats using aggregation
+      suppliersCollection
+        .aggregate([
+          { $match: { userId } },
+          {
+            $group: {
+              _id: null,
+              count: { $sum: 1 },
+              creditBalance: {
+                $sum: {
+                  $cond: [{ $eq: ['$balanceType', 'credit'] }, { $multiply: ['$openingBalance', -1] }, '$openingBalance'],
+                },
+              },
+            },
+          },
+        ])
+        .toArray(),
       // Recent customers for activities (limit 20)
       customersCollection
         .find({ userId })
@@ -67,6 +161,12 @@ export async function GET(request: NextRequest) {
         .toArray(),
       // Recent suppliers for activities (limit 20)
       suppliersCollection
+        .find({ userId })
+        .sort({ createdAt: -1 })
+        .limit(20)
+        .toArray(),
+      // Recent transactions for activities (limit 20)
+      transactionsCollection
         .find({ userId })
         .sort({ createdAt: -1 })
         .limit(20)
@@ -87,53 +187,26 @@ export async function GET(request: NextRequest) {
         .toArray(),
     ]);
 
-    // Calculate stats
-    const totalCredit = transactions
-      .filter((t) => t.type === 'credit')
-      .reduce((sum, t) => sum + t.amount, 0);
+    // Extract stats from aggregation results
+    const txStats = transactionStats[0] || { totalCredit: 0, totalDebit: 0, customerCredit: 0, customerDebit: 0, supplierCredit: 0, supplierDebit: 0 };
+    const totalCredit = txStats.totalCredit || 0;
+    const totalDebit = txStats.totalDebit || 0;
 
-    const totalDebit = transactions
-      .filter((t) => t.type === 'debit')
-      .reduce((sum, t) => sum + t.amount, 0);
+    const custStats = customerStats[0] || { count: 0, creditBalance: 0 };
+    const suppStats = supplierStats[0] || { count: 0, creditBalance: 0 };
+    const totalCustomers = custStats.count || 0;
+    const totalSuppliers = suppStats.count || 0;
 
-    // Calculate net balance from customers' and suppliers' opening balances
-    let netBalance = 0;
-    for (const customer of customers) {
-      if (customer.balanceType === 'credit') {
-        netBalance -= customer.openingBalance;
-      } else {
-        netBalance += customer.openingBalance;
-      }
-    }
-    for (const supplier of suppliers) {
-      if (supplier.balanceType === 'credit') {
-        netBalance -= supplier.openingBalance;
-      } else {
-        netBalance += supplier.openingBalance;
-      }
-    }
-
-    // Add transactions to balance
-    const customerTransactions = transactions.filter((t) => t.entityType === 'customer');
-    const supplierTransactions = transactions.filter((t) => t.entityType === 'supplier');
-
+    // Calculate net balance: opening balances + transactions
     // Customer transactions: Credit subtracts, Debit adds
-    for (const transaction of customerTransactions) {
-      if (transaction.type === 'credit') {
-        netBalance -= transaction.amount;
-      } else {
-        netBalance += transaction.amount;
-      }
-    }
-
     // Supplier transactions: Credit subtracts, Debit adds
-    for (const transaction of supplierTransactions) {
-      if (transaction.type === 'credit') {
-        netBalance -= transaction.amount;
-      } else {
-        netBalance += transaction.amount;
-      }
-    }
+    const netBalance =
+      (custStats.creditBalance || 0) +
+      (suppStats.creditBalance || 0) -
+      (txStats.customerCredit || 0) +
+      (txStats.customerDebit || 0) -
+      (txStats.supplierCredit || 0) +
+      (txStats.supplierDebit || 0);
 
     // Helper to normalize record lookup by date string
     const recordByDate = new Map(
@@ -207,11 +280,6 @@ export async function GET(request: NextRequest) {
       });
     });
 
-    // Add transaction activities - use recent customers/suppliers for entity names
-    const recentTransactions = transactions
-      .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())
-      .slice(0, 20);
-
     // Create lookup maps for efficient entity name resolution
     const customerMap = new Map(
       recentCustomers.map((c) => [c._id.toString(), c.name])
@@ -220,20 +288,16 @@ export async function GET(request: NextRequest) {
       recentSuppliers.map((s) => [s._id.toString(), s.name])
     );
 
-    // If entity not in recent list, fetch it individually (only for transactions)
+    // Add transaction activities from recent transactions (already limited to 20)
     for (const transaction of recentTransactions) {
       const entityId = transaction.entityId || transaction.customerId || transaction.supplierId || '';
       const entityType = transaction.entityType || (transaction.customerId ? 'customer' : 'supplier');
       
       let entityName = '';
       if (entityType === 'customer') {
-        entityName = customerMap.get(entityId) || 
-          customers.find((c) => c._id.toString() === entityId)?.name || 
-          'Unknown Customer';
+        entityName = customerMap.get(entityId) || 'Unknown Customer';
       } else {
-        entityName = supplierMap.get(entityId) || 
-          suppliers.find((s) => s._id.toString() === entityId)?.name || 
-          'Unknown Supplier';
+        entityName = supplierMap.get(entityId) || 'Unknown Supplier';
       }
       
       activities.push({
@@ -260,66 +324,92 @@ export async function GET(request: NextRequest) {
     // Return top 20 activities
     const topActivities = activities.slice(0, 20);
 
-    const aggregateTopEntities = (
-      sourceTransactions: Transaction[],
-      entityType: 'customer' | 'supplier'
-    ) => {
-      const totals = new Map<
-        string,
-        { total: number; credit: number; debit: number }
-      >();
+    // Use aggregation for top customers and suppliers (much more efficient)
+    const [topCustomersAgg, topSuppliersAgg] = await Promise.all([
+      transactionsCollection
+        .aggregate([
+          { $match: { userId, entityType: 'customer' } },
+          {
+            $group: {
+              _id: '$entityId',
+              total: { $sum: '$amount' },
+              credit: {
+                $sum: { $cond: [{ $eq: ['$type', 'credit'] }, '$amount', 0] },
+              },
+              debit: {
+                $sum: { $cond: [{ $eq: ['$type', 'debit'] }, '$amount', 0] },
+              },
+            },
+          },
+          { $sort: { total: -1 } },
+          { $limit: 3 },
+        ])
+        .toArray(),
+      transactionsCollection
+        .aggregate([
+          { $match: { userId, entityType: 'supplier' } },
+          {
+            $group: {
+              _id: '$entityId',
+              total: { $sum: '$amount' },
+              credit: {
+                $sum: { $cond: [{ $eq: ['$type', 'credit'] }, '$amount', 0] },
+              },
+              debit: {
+                $sum: { $cond: [{ $eq: ['$type', 'debit'] }, '$amount', 0] },
+              },
+            },
+          },
+          { $sort: { total: -1 } },
+          { $limit: 3 },
+        ])
+        .toArray(),
+    ]);
 
-      sourceTransactions
-        .filter((t) => t.entityType === entityType)
-        .forEach((transaction) => {
-          const entityId =
-            transaction.entityId ||
-            transaction.customerId ||
-            transaction.supplierId;
-          if (!entityId) return;
+    // Fetch entity names for top customers and suppliers
+    const topCustomerIds = topCustomersAgg.map((t) => t._id).filter(Boolean);
+    const topSupplierIds = topSuppliersAgg.map((t) => t._id).filter(Boolean);
 
-          if (!totals.has(entityId)) {
-            totals.set(entityId, { total: 0, credit: 0, debit: 0 });
-          }
-          const entry = totals.get(entityId)!;
-          entry.total += transaction.amount;
-          if (transaction.type === 'credit') {
-            entry.credit += transaction.amount;
-          } else {
-            entry.debit += transaction.amount;
-          }
-        });
+    const [topCustomerEntities, topSupplierEntities] = await Promise.all([
+      topCustomerIds.length > 0
+        ? customersCollection
+            .find({ userId, _id: { $in: topCustomerIds.map((id) => new ObjectId(id)) } })
+            .toArray()
+        : [],
+      topSupplierIds.length > 0
+        ? suppliersCollection
+            .find({ userId, _id: { $in: topSupplierIds.map((id) => new ObjectId(id)) } })
+            .toArray()
+        : [],
+    ]);
 
-      const nameSource =
-        entityType === 'customer'
-          ? customers
-          : suppliers;
+    const customerNameMap = new Map(topCustomerEntities.map((c) => [c._id.toString(), c.name]));
+    const supplierNameMap = new Map(topSupplierEntities.map((s) => [s._id.toString(), s.name]));
 
-      return Array.from(totals.entries())
-        .map(([entityId, summary]) => ({
-          id: entityId,
-          name:
-            nameSource.find((entity) => entity._id.toString() === entityId)
-              ?.name || 'Unknown',
-          total: summary.total,
-          credit: summary.credit,
-          debit: summary.debit,
-        }))
-        .sort((a, b) => b.total - a.total)
-        .slice(0, 3);
-    };
+    const topCustomers = topCustomersAgg.map((agg) => ({
+      id: agg._id || '',
+      name: customerNameMap.get(agg._id || '') || 'Unknown',
+      total: agg.total || 0,
+      credit: agg.credit || 0,
+      debit: agg.debit || 0,
+    }));
 
-    const topCustomers = aggregateTopEntities(transactions, 'customer');
-    const topSuppliers = aggregateTopEntities(transactions, 'supplier');
+    const topSuppliers = topSuppliersAgg.map((agg) => ({
+      id: agg._id || '',
+      name: supplierNameMap.get(agg._id || '') || 'Unknown',
+      total: agg.total || 0,
+      credit: agg.credit || 0,
+      debit: agg.debit || 0,
+    }));
 
     const responseData = {
       stats: {
         totalCredit,
         totalDebit,
         netBalance,
-        totalCustomers: customers.length,
-        totalSuppliers: suppliers.length,
-        totalTransactions: transactions.length,
+        totalCustomers,
+        totalSuppliers,
+        totalTransactions: transactionCount,
         todayCash,
         monthlyTotals,
         monthlySeries,
