@@ -34,6 +34,11 @@ export async function GET(request: NextRequest) {
         id: user._id.toString(),
         name: user.name,
         email: user.email,
+        firmTitle: user.firmTitle || '',
+        gstNumber: user.gstNumber || '',
+        firmPhone: user.firmPhone || '',
+        firmEmail: user.firmEmail || '',
+        firmAddress: user.firmAddress || '',
       },
     });
   } catch (error) {

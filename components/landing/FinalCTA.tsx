@@ -22,7 +22,7 @@ export default function FinalCTA() {
         </p>
         
         <div className="flex flex-col sm:flex-row gap-4 justify-center items-center mb-12">
-          <Button asChild size="lg" className="text-base px-8 py-6 bg-white text-emerald-900 hover:bg-emerald-50 shadow-xl shadow-emerald-900/20 transition-all hover:scale-105 font-bold">
+          <Button asChild size="lg" className="text-base px-8 py-6 bg-white text-emerald-900 hover:bg-emerald-50 shadow-xl shadow-emerald-900/20 transition-all hover:scale-105 font-bold cursor-none">
             <Link href="/register">
               Get Started Free
               <ArrowRight className="ml-2 w-5 h-5" />
@@ -33,7 +33,7 @@ export default function FinalCTA() {
             asChild
             size="lg"
             variant="outline"
-            className="text-base px-8 py-6 bg-transparent border-emerald-700 text-white hover:bg-emerald-800 hover:text-white transition-all hover:scale-105"
+            className="text-base px-8 py-6 bg-transparent border-emerald-700 text-white hover:bg-emerald-800 hover:text-white transition-all hover:scale-105 cursor-none"
           >
             <Link href="/login">Sign In</Link>
           </Button>

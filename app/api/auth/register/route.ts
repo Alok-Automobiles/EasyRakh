@@ -8,6 +8,11 @@ const registerSchema = z.object({
   name: z.string().min(1, 'Name is required'),
   email: z.string().email('Invalid email address'),
   password: z.string().min(6, 'Password must be at least 6 characters'),
+  firmTitle: z.string().min(1, 'Firm title is required'),
+  gstNumber: z.string().min(1, 'GST number is required'),
+  firmPhone: z.string().min(1, 'Phone number is required'),
+  firmEmail: z.string().email('Invalid firm email address'),
+  firmAddress: z.string().min(1, 'Address is required'),
 });
 
 export async function POST(request: NextRequest) {
@@ -38,6 +43,11 @@ export async function POST(request: NextRequest) {
       name: validatedData.name,
       email: validatedData.email.toLowerCase(),
       password: hashedPassword,
+      firmTitle: validatedData.firmTitle,
+      gstNumber: validatedData.gstNumber,
+      firmPhone: validatedData.firmPhone,
+      firmEmail: validatedData.firmEmail,
+      firmAddress: validatedData.firmAddress,
       createdAt: new Date(),
     });
 
@@ -54,6 +64,11 @@ export async function POST(request: NextRequest) {
           id: result.insertedId.toString(),
           name: validatedData.name,
           email: validatedData.email.toLowerCase(),
+          firmTitle: validatedData.firmTitle,
+          gstNumber: validatedData.gstNumber,
+          firmPhone: validatedData.firmPhone,
+          firmEmail: validatedData.firmEmail,
+          firmAddress: validatedData.firmAddress,
         },
       },
       { status: 201 }

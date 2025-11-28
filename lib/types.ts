@@ -3,6 +3,11 @@ export interface User {
   email: string;
   password: string;
   name: string;
+  firmTitle?: string;
+  gstNumber?: string;
+  firmPhone?: string;
+  firmEmail?: string;
+  firmAddress?: string;
   createdAt: Date;
 }
 
@@ -54,6 +59,7 @@ export interface RecentActivity {
   amount?: number;
   transactionType?: 'credit' | 'debit';
   entityType?: 'customer' | 'supplier';
+  entityId?: string;
   date: Date;
   createdAt: Date;
 }
