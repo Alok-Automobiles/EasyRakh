@@ -149,73 +149,103 @@ export default function PrintLedgerOverlay({
       // A4 portrait document
       const doc = new jsPDF('p', 'mm', 'a4');
       const pageWidth = doc.internal.pageSize.getWidth();
-      const pageHeight = doc.internal.pageSize.getHeight();
-      let yPos = 20;
+      const margin = 18;
+      const primaryGreen: [number, number, number] = [34, 197, 94];
+      const darkGreen: [number, number, number] = [16, 185, 129];
+      const mutedText: [number, number, number] = [75, 85, 99];
 
-      // Firm Information Header
-      doc.setFontSize(18);
+      // Decorative green header
+      doc.setFillColor(primaryGreen[0], primaryGreen[1], primaryGreen[2]);
+      doc.rect(0, 0, pageWidth, 38, 'F');
+      doc.setFillColor(darkGreen[0], darkGreen[1], darkGreen[2]);
+      doc.triangle(0, 0, 70, 0, 0, 38, 'F');
+      doc.triangle(pageWidth, 0, pageWidth - 80, 0, pageWidth, 38, 'F');
+
+      // Header text
+      doc.setTextColor(255, 255, 255);
       doc.setFont('helvetica', 'bold');
-      doc.text(firmInfo.firmTitle, pageWidth / 2, yPos, { align: 'center' });
-      yPos += 8;
-
-      doc.setFontSize(10);
+      doc.setFontSize(14);
+      doc.text(firmInfo.firmTitle || 'Your Firm', margin, 16);
       doc.setFont('helvetica', 'normal');
-      doc.text(`GST: ${firmInfo.gstNumber}`, pageWidth / 2, yPos, { align: 'center' });
-      yPos += 6;
-      doc.text(`Phone: ${firmInfo.firmPhone}`, pageWidth / 2, yPos, { align: 'center' });
-      yPos += 6;
-      doc.text(`Email: ${firmInfo.firmEmail}`, pageWidth / 2, yPos, { align: 'center' });
-      yPos += 6;
-      doc.text(firmInfo.firmAddress, pageWidth / 2, yPos, { align: 'center' });
-      yPos += 15;
+      doc.setFontSize(9);
+      const headerLines = doc.splitTextToSize(firmInfo.firmAddress || '', 80);
+      if (headerLines.length) {
+        doc.text(headerLines, margin, 23);
+      }
 
-      // Customer/Supplier Information (Left side)
-      const leftMargin = 14;
-      const rightMargin = pageWidth - 14;
-      const infoWidth = 80;
-
-      doc.setFontSize(12);
       doc.setFont('helvetica', 'bold');
-      doc.text(
-        ledgerData.entityType === 'customer' ? 'Customer Information' : 'Supplier Information',
-        leftMargin,
-        yPos
+      doc.setFontSize(30);
+      doc.text('LEDGER', pageWidth - margin, 20, { align: 'right' });
+
+      // Reset text color for body content
+      doc.setTextColor(17, 24, 39);
+      let yPos = 50;
+
+      // Invoice meta
+      const formattedDate = format(new Date(), 'dd MMMM yyyy');
+      doc.setFontSize(11);
+      doc.setFont('helvetica', 'bold');
+      doc.text('Invoice Date :', margin, yPos);
+      doc.setFont('helvetica', 'normal');
+      doc.text(formattedDate, margin + 32, yPos);
+
+      doc.setFont('helvetica', 'bold');
+      doc.text('Invoice to :', pageWidth - margin - 60, yPos);
+      doc.setFont('helvetica', 'normal');
+      doc.text(ledgerData.entity.name, pageWidth - margin, yPos, { align: 'right' });
+      yPos += 6;
+
+      doc.setDrawColor(229, 231, 235);
+      doc.line(margin, yPos, pageWidth - margin, yPos);
+      yPos += 10;
+
+      const drawStackedInfo = (title: string, lines: string[]) => {
+        const availableWidth = pageWidth - margin * 2;
+        doc.setFont('helvetica', 'bold');
+        doc.setFontSize(11);
+        doc.text(title, margin, yPos);
+        yPos += 5;
+        doc.setFont('helvetica', 'normal');
+        doc.setFontSize(9);
+        doc.setTextColor(mutedText[0], mutedText[1], mutedText[2]);
+
+        const wrapped = lines
+          .filter(Boolean)
+          .flatMap((line) => doc.splitTextToSize(line, availableWidth));
+
+        wrapped.forEach((line, index) => {
+          doc.text(line, margin, yPos + index * 5);
+        });
+
+        yPos += wrapped.length * 5 + 8;
+        doc.setTextColor(17, 24, 39);
+      };
+
+      drawStackedInfo('Firm Information', [
+        `Firm: ${firmInfo.firmTitle}`,
+        `GST: ${firmInfo.gstNumber}`,
+        `Phone: ${firmInfo.firmPhone}`,
+        `Email: ${firmInfo.firmEmail}`,
+        `Address: ${firmInfo.firmAddress}`,
+      ]);
+
+      drawStackedInfo(
+        ledgerData.entityType === 'customer' ? 'Customer' : 'Supplier',
+        [
+          `Name: ${ledgerData.entity.name}`,
+          ledgerData.entity.phone ? `Phone: ${ledgerData.entity.phone}` : '',
+          ledgerData.entity.email ? `Email: ${ledgerData.entity.email}` : '',
+          ledgerData.entity.address ? `Address: ${ledgerData.entity.address}` : '',
+        ]
       );
-      yPos += 8;
 
-      doc.setFontSize(10);
-      doc.setFont('helvetica', 'normal');
-      doc.text(`Name: ${ledgerData.entity.name}`, leftMargin, yPos);
-      yPos += 6;
-      if (ledgerData.entity.phone) {
-        doc.text(`Phone: ${ledgerData.entity.phone}`, leftMargin, yPos);
-        yPos += 6;
-      }
-      if (ledgerData.entity.email) {
-        doc.text(`Email: ${ledgerData.entity.email}`, leftMargin, yPos);
-        yPos += 6;
-      }
-      if (ledgerData.entity.address) {
-        const addressLines = doc.splitTextToSize(
-          `Address: ${ledgerData.entity.address}`,
-          infoWidth
-        );
-        doc.text(addressLines, leftMargin, yPos);
-        yPos += addressLines.length * 6;
-      }
-
-      // Ledger Table
-      yPos += 5;
+      yPos += 2;
 
       // Prepare table data
-      const tableData: (string | number)[][] = [];
+      const tableRows: (string | number)[][] = [];
+      const formatAmount = (amount: number) => `Rs ${amount.toLocaleString('en-IN')}`;
 
-      // Helper to format amounts for PDF (avoid ₹ symbol – not supported in default font)
-      const formatAmount = (amount: number) =>
-        `Rs ${amount.toLocaleString('en-IN')}`;
-
-      // Opening Balance Row
-      tableData.push([
+      tableRows.push([
         format(new Date(), 'dd/MM/yyyy'),
         'Opening Balance',
         ledgerData.openingBalance.type === 'credit'
@@ -227,9 +257,8 @@ export default function PrintLedgerOverlay({
         formatAmount(Math.abs(ledgerData.openingBalance.amount)),
       ]);
 
-      // Transaction Entries
       ledgerData.entries.forEach((entry) => {
-        tableData.push([
+        tableRows.push([
           format(new Date(entry.date), 'dd/MM/yyyy'),
           entry.description || '-',
           entry.credit > 0 ? formatAmount(entry.credit) : '-',
@@ -238,38 +267,54 @@ export default function PrintLedgerOverlay({
         ]);
       });
 
-      // Totals Row
-      tableData.push([
-        '',
-        'Total',
-        formatAmount(ledgerData.totals.credit),
-        formatAmount(ledgerData.totals.debit),
-        formatAmount(Math.abs(ledgerData.totals.balance)),
-      ]);
-
       autoTable(doc, {
         startY: yPos,
-        head: [['Date', 'Description', 'Credit (Rs)', 'Debit (Rs)', 'Balance (Rs)']],
-        body: tableData,
-        theme: 'striped',
-        pageBreak: 'auto',
-        headStyles: { fillColor: [66, 66, 66], textColor: 255, fontStyle: 'bold' },
-        styles: {
-          fontSize: 9,
-          cellPadding: 3,
-          overflow: 'linebreak',
+        head: [['DATE', 'ITEM DESCRIPTION', 'CREDIT', 'DEBIT', 'BALANCE']],
+        body: tableRows,
+        foot: [
+          [
+            { content: 'SUBTOTAL', colSpan: 2, styles: { halign: 'right' } },
+            { content: formatAmount(ledgerData.totals.credit), styles: { halign: 'right' } },
+            { content: formatAmount(ledgerData.totals.debit), styles: { halign: 'right' } },
+            {
+              content: formatAmount(ledgerData.totals.balance),
+              styles: { halign: 'right' },
+            },
+          ],
+        ],
+        headStyles: {
+          fillColor: primaryGreen,
+          textColor: 255,
+          fontSize: 11,
+          fontStyle: 'bold',
+          halign: 'center',
+          cellPadding: 4,
         },
         bodyStyles: {
-          valign: 'top',
+          fontSize: 9,
+          textColor: [31, 41, 55],
+          lineColor: [229, 231, 235],
+          lineWidth: 0.1,
+        },
+        alternateRowStyles: {
+          fillColor: [247, 247, 247],
+        },
+        footStyles: {
+          fillColor: [240, 253, 244],
+          textColor: primaryGreen,
+          fontStyle: 'bold',
+          fontSize: 10,
         },
         columnStyles: {
-          0: { cellWidth: 26 },
-          1: { cellWidth: 70 },
+          0: { cellWidth: 24 },
+          1: { cellWidth: 78 },
           2: { cellWidth: 28, halign: 'right' },
           3: { cellWidth: 28, halign: 'right' },
-          4: { cellWidth: 30, halign: 'right' },
+          4: { cellWidth: 32, halign: 'right' },
         },
-        margin: { left: leftMargin, right: rightMargin, top: 10, bottom: 15 },
+        margin: { left: margin, right: margin, top: 10, bottom: 20 },
+        showFoot: 'lastPage',
+        theme: 'plain',
       });
 
       // Generate filename
@@ -520,7 +565,7 @@ export default function PrintLedgerOverlay({
                           ₹{ledgerData.totals.debit.toLocaleString()}
                         </td>
                         <td
-                          className={`px-4 py-2 text-sm text-right font-bold text-lg ${
+                          className={`px-4 py-2 text-right font-bold text-lg ${
                             ledgerData.totals.balance >= 0 ? 'text-green-600' : 'text-red-600'
                           }`}
                         >
