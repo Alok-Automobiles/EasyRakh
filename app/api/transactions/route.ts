@@ -46,22 +46,29 @@ export async function GET(request: NextRequest) {
     const type = searchParams.get('type');
     const startDate = searchParams.get('startDate');
     const endDate = searchParams.get('endDate');
+    
+    // Pagination parameters
+    const pageParam = Number(searchParams.get('page') || '1');
+    const limitParam = Number(searchParams.get('limit') || '50');
+    const page = Number.isNaN(pageParam) || pageParam < 1 ? 1 : pageParam;
+    const limit = Number.isNaN(limitParam) || limitParam < 1 ? 50 : Math.min(limitParam, 100); // Max 100 per page
+    const skip = (page - 1) * limit;
 
     const db = await getDb();
     const transactionsCollection = db.collection('transactions');
 
-  type TransactionQuery = {
-    userId: string;
-    entityId?: string;
-    entityType?: string;
-    type?: string;
-    date?: {
-      $gte?: Date;
-      $lte?: Date;
+    type TransactionQuery = {
+      userId: string;
+      entityId?: string;
+      entityType?: string;
+      type?: string;
+      date?: {
+        $gte?: Date;
+        $lte?: Date;
+      };
     };
-  };
 
-  const query: TransactionQuery = { userId };
+    const query: TransactionQuery = { userId };
     if (entityId) {
       query.entityId = entityId;
     }
@@ -81,10 +88,18 @@ export async function GET(request: NextRequest) {
       }
     }
 
-    const transactions = await transactionsCollection
-      .find(query)
-      .sort({ date: -1, createdAt: -1 })
-      .toArray();
+    // Get total count and paginated transactions in parallel
+    const [total, transactions] = await Promise.all([
+      transactionsCollection.countDocuments(query),
+      transactionsCollection
+        .find(query)
+        .sort({ date: -1, createdAt: -1 })
+        .skip(skip)
+        .limit(limit)
+        .toArray(),
+    ]);
+
+    const totalPages = Math.max(1, Math.ceil(total / limit));
 
     return NextResponse.json({
       transactions: transactions.map((transaction) => ({
@@ -101,6 +116,12 @@ export async function GET(request: NextRequest) {
         date: transaction.date,
         createdAt: transaction.createdAt,
       })),
+      pagination: {
+        total,
+        page,
+        pageSize: limit,
+        totalPages,
+      },
     });
   } catch (error) {
     console.error('Get transactions error:', error);

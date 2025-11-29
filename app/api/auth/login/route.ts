@@ -3,6 +3,7 @@ import bcrypt from 'bcryptjs';
 import { getDb } from '@/lib/mongodb';
 import { generateToken } from '@/lib/auth';
 import { z } from 'zod';
+import { checkRateLimit, rateLimitConfigs } from '@/lib/rateLimit';
 
 const loginSchema = z.object({
   email: z.string().email('Invalid email address'),
@@ -10,6 +11,12 @@ const loginSchema = z.object({
 });
 
 export async function POST(request: NextRequest) {
+  // Rate limiting for auth endpoints
+  const rateLimitResponse = await checkRateLimit(request, rateLimitConfigs.auth);
+  if (rateLimitResponse) {
+    return rateLimitResponse;
+  }
+
   try {
     const body = await request.json();
     const validatedData = loginSchema.parse(body);
