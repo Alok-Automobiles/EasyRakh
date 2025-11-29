@@ -3,7 +3,7 @@ import { getDb } from '@/lib/mongodb';
 import { getUserIdFromRequest } from '@/lib/auth';
 import { z } from 'zod';
 import { ObjectId } from 'mongodb';
-import { format, subDays } from 'date-fns';
+import { format } from 'date-fns';
 import redis from '@/lib/redis';
 
 const entrySchema = z.object({
@@ -121,10 +121,15 @@ export async function GET(request: NextRequest) {
 
       return NextResponse.json(responseData);
     } else {
-      // Get last 7 days records
-      // Try to get from cache
+      // Get paginated records (7 records per page)
+      const pageParam = searchParams.get('page');
+      const page = pageParam ? Math.max(1, parseInt(pageParam, 10)) : 1;
+      const recordsPerPage = 7;
+      const skip = (page - 1) * recordsPerPage;
+
+      // Try to get from cache (cache key includes page number)
       try {
-        const cacheKey = `daily-cash:list:${userId}`;
+        const cacheKey = `daily-cash:list:${userId}:page:${page}`;
         const cached = await redis.get(cacheKey);
         if (cached) {
           return NextResponse.json(JSON.parse(cached));
@@ -133,16 +138,18 @@ export async function GET(request: NextRequest) {
         console.warn('Redis cache read failed, falling back to DB:', cacheError);
       }
 
-      const today = normalizeDate(new Date());
-      const sevenDaysAgo = normalizeDate(subDays(today, 6));
+      // Get total count for pagination metadata
+      const totalRecords = await dailyCashRecordsCollection.countDocuments({ userId });
 
+      // Fetch paginated records sorted by date descending (newest first)
       const records = await dailyCashRecordsCollection
-        .find({
-          userId,
-          date: { $gte: sevenDaysAgo, $lte: today },
-        })
+        .find({ userId })
         .sort({ date: -1 })
+        .skip(skip)
+        .limit(recordsPerPage)
         .toArray();
+
+      const totalPages = Math.ceil(totalRecords / recordsPerPage);
 
       const responseData = {
         records: records.map((record) => ({
@@ -153,11 +160,17 @@ export async function GET(request: NextRequest) {
           totalLeft: record.totalLeft,
           entryCount: record.entries?.length || 0,
         })),
+        pagination: {
+          currentPage: page,
+          totalPages,
+          totalRecords,
+          recordsPerPage,
+        },
       };
 
       // Cache the response with 3 minute TTL
       try {
-        const cacheKey = `daily-cash:list:${userId}`;
+        const cacheKey = `daily-cash:list:${userId}:page:${page}`;
         await redis.setex(cacheKey, 180, JSON.stringify(responseData));
       } catch (cacheError) {
         console.warn('Redis cache write failed:', cacheError);
@@ -269,12 +282,22 @@ export async function POST(request: NextRequest) {
     const dateKey = format(record.date, 'dd-MM-yyyy');
 
     // Invalidate related caches
+    // Note: We invalidate all paginated list caches since a new record could affect any page
     try {
-      await redis.del(
-        `daily-cash:list:${userId}`,
+      // Get all cache keys for paginated lists (we'll use a pattern match approach)
+      // Since we can't easily get all keys, we'll just invalidate the first few pages
+      // The cache will naturally expire after 3 minutes anyway
+      const keysToDelete = [
         `daily-cash:date:${userId}:${dateKey}`,
-        `dashboard:stats:${userId}`
-      );
+        `dashboard:stats:${userId}`,
+      ];
+      
+      // Delete first 10 pages (covers most common use cases)
+      for (let i = 1; i <= 10; i++) {
+        keysToDelete.push(`daily-cash:list:${userId}:page:${i}`);
+      }
+      
+      await redis.del(...keysToDelete);
     } catch (cacheError) {
       console.warn('Redis cache invalidation failed:', cacheError);
     }

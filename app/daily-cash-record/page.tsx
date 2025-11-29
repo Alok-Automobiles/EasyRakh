@@ -58,7 +58,12 @@ interface SummaryRecord {
   entryCount: number;
 }
 
-const RECORDS_PER_PAGE = 6;
+interface PaginationInfo {
+  currentPage: number;
+  totalPages: number;
+  totalRecords: number;
+  recordsPerPage: number;
+}
 
 export default function DailyCashRecordPage() {
   const router = useRouter();
@@ -73,9 +78,11 @@ export default function DailyCashRecordPage() {
   const [editingEntry, setEditingEntry] = useState<CashEntry | null>(null);
   const [viewingRecord, setViewingRecord] = useState<DailyRecord | null>(null);
   const [currentPage, setCurrentPage] = useState(1);
+  const [pagination, setPagination] = useState<PaginationInfo | null>(null);
   const [recordsCache, setRecordsCache] = useState<Map<string, DailyRecord>>(new Map());
   const [addTransactionOpen, setAddTransactionOpen] = useState(false);
   const hasFetchedRef = useRef(false);
+  const prevPageRef = useRef<number | null>(null);
 
   // Form states
   const [amount, setAmount] = useState('');
@@ -83,15 +90,17 @@ export default function DailyCashRecordPage() {
   const [entryType, setEntryType] = useState<'in' | 'out'>('in');
   const [recordDate, setRecordDate] = useState<Date>(new Date());
 
-  const fetchData = async () => {
+  const fetchData = async (page: number = 1) => {
     try {
-      const response = await fetch('/api/daily-cash-records');
+      setLoading(true);
+      const response = await fetch(`/api/daily-cash-records?page=${page}`);
       if (response.status === 401) {
         router.push('/login');
         return;
       }
       const data = await response.json();
       setSummaryRecords(data.records || []);
+      setPagination(data.pagination || null);
       setLoading(false);
     } catch (error) {
       console.error('Error fetching summary:', error);
@@ -101,10 +110,15 @@ export default function DailyCashRecordPage() {
   };
 
   useEffect(() => {
-    if (hasFetchedRef.current) return;
-    hasFetchedRef.current = true;
-    fetchData();
-  }, []);
+    if (!hasFetchedRef.current) {
+      hasFetchedRef.current = true;
+      prevPageRef.current = currentPage;
+      fetchData(1);
+    } else if (prevPageRef.current !== currentPage) {
+      prevPageRef.current = currentPage;
+      fetchData(currentPage);
+    }
+  }, [currentPage]);
 
   
 
@@ -197,9 +211,9 @@ export default function DailyCashRecordPage() {
           });
         }
         
-        // Refresh summary list
-        fetchData();
-        setCurrentPage(1); // Reset to first page after creating new record
+        // Refresh summary list - reset to first page after creating new record
+        setCurrentPage(1);
+        fetchData(1);
       } else {
         toast.error(data.error || 'Failed to add entry');
       }
@@ -277,8 +291,8 @@ export default function DailyCashRecordPage() {
           setViewingRecord(data.record);
         }
         
-        // Refresh summary list
-        fetchData();
+        // Refresh summary list - keep current page
+        fetchData(currentPage);
       } else {
         toast.error(data.error || 'Failed to add transaction');
       }
@@ -359,16 +373,9 @@ export default function DailyCashRecordPage() {
     }).format(amount);
   };
 
-  // Pagination logic
-  const totalPages = Math.ceil(summaryRecords.length / RECORDS_PER_PAGE);
-  const startIndex = (currentPage - 1) * RECORDS_PER_PAGE;
-  const endIndex = startIndex + RECORDS_PER_PAGE;
-  const paginatedRecords = summaryRecords.slice(startIndex, endIndex);
-
-  useEffect(() => {
-    // Reset to page 1 when records change
-    setCurrentPage(1);
-  }, [summaryRecords.length]);
+  const handlePageChange = (newPage: number) => {
+    setCurrentPage(newPage);
+  };
 
   if (loading) {
     return (
@@ -508,10 +515,10 @@ export default function DailyCashRecordPage() {
         {/* Records Display Section */}
         <div className="mt-8">
           <div className="rounded-lg border bg-white p-6 min-h-[400px] shadow-sm">
-            {paginatedRecords.length > 0 ? (
+            {summaryRecords.length > 0 ? (
               <>
                 <div className="space-y-4 mb-6">
-                  {paginatedRecords.map((record) => (
+                  {summaryRecords.map((record) => (
                     <motion.div
                       key={record.id}
                       initial={{ opacity: 0, y: 20 }}
@@ -550,11 +557,13 @@ export default function DailyCashRecordPage() {
                   ))}
                 </div>
                 <div className="flex justify-end mt-6">
-                  <Pagination
-                    currentPage={currentPage}
-                    totalPages={totalPages}
-                    onPageChange={setCurrentPage}
-                  />
+                  {pagination && (
+                    <Pagination
+                      currentPage={pagination.currentPage}
+                      totalPages={pagination.totalPages}
+                      onPageChange={handlePageChange}
+                    />
+                  )}
                 </div>
               </>
             ) : (
