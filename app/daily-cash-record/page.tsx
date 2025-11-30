@@ -89,6 +89,9 @@ export default function DailyCashRecordPage() {
   const [description, setDescription] = useState('');
   const [entryType, setEntryType] = useState<'in' | 'out'>('in');
   const [recordDate, setRecordDate] = useState<Date>(new Date());
+  const [showCreateCalendar, setShowCreateCalendar] = useState(false);
+  const [showAddTransactionCalendar, setShowAddTransactionCalendar] = useState(false);
+  const [showEditCalendar, setShowEditCalendar] = useState(false);
 
   const fetchData = async (page: number = 1) => {
     try {
@@ -402,7 +405,10 @@ export default function DailyCashRecordPage() {
 
         {/* Buttons Section */}
         <div className="flex gap-4 mb-6">
-          <Dialog open={createNewRecordOpen} onOpenChange={setCreateNewRecordOpen}>
+          <Dialog open={createNewRecordOpen} onOpenChange={(open) => {
+            setCreateNewRecordOpen(open);
+            if (!open) setShowCreateCalendar(false);
+          }}>
             <DialogTrigger asChild>
               <Button
                 onClick={handleCreateRecordForToday}
@@ -412,20 +418,38 @@ export default function DailyCashRecordPage() {
                 create new record for today
               </Button>
             </DialogTrigger>
-            <DialogContent>
+            <DialogContent className="max-w-[90vw] sm:max-w-md max-h-[90vh] overflow-y-auto">
               <DialogHeader>
                 <DialogTitle>Create New Record</DialogTitle>
               </DialogHeader>
               <div className="space-y-4 py-4">
                 <div>
                   <Label htmlFor="record-date">Date *</Label>
-                  <div className="mt-2">
-                    <Calendar
-                      mode="single"
-                      selected={recordDate}
-                      onSelect={(date) => date && setRecordDate(date)}
-                      className="rounded-md border"
+                  <div className="mt-2 relative">
+                    <Input
+                      id="record-date"
+                      type="text"
+                      readOnly
+                      value={format(recordDate, 'dd-MM-yyyy')}
+                      className="pr-10 cursor-pointer"
+                      onClick={() => setShowCreateCalendar(!showCreateCalendar)}
                     />
+                    <CalendarIcon className="absolute right-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400 pointer-events-none" />
+                    {showCreateCalendar && (
+                      <div className="mt-2 bg-white border rounded-md shadow-lg">
+                        <Calendar
+                          mode="single"
+                          selected={recordDate}
+                          onSelect={(date) => {
+                            if (date) {
+                              setRecordDate(date);
+                              setShowCreateCalendar(false);
+                            }
+                          }}
+                          className="rounded-md border"
+                        />
+                      </div>
+                    )}
                   </div>
                 </div>
                 <div>
@@ -577,10 +601,10 @@ export default function DailyCashRecordPage() {
 
         {/* View Record Dialog */}
         <Dialog open={viewRecordOpen} onOpenChange={setViewRecordOpen}>
-          <DialogContent className="max-w-4xl max-h-[80vh] flex flex-col p-0">
-            <DialogHeader className="px-6 pt-6 pb-4 flex-shrink-0">
-              <div className="flex flex-row items-center justify-between">
-                <DialogTitle>
+          <DialogContent className="max-w-[90vw] sm:max-w-6xl max-h-[85vh] flex flex-col p-0">
+            <DialogHeader className="px-6 pt-6 pb-4 pr-16 flex-shrink-0 border-b border-gray-200">
+              <div className="flex flex-row items-center justify-between gap-4">
+                <DialogTitle className="text-xl flex-1">
                   Records for {viewingRecord?.date || format(selectedDate, 'dd-MM-yyyy')}
                 </DialogTitle>
                 {viewingRecord && (
@@ -593,7 +617,7 @@ export default function DailyCashRecordPage() {
                       setAddTransactionOpen(true);
                     }}
                     size="sm"
-                    className="gap-2"
+                    className="gap-2 bg-blue-600 hover:bg-blue-700 text-white shrink-0"
                   >
                     <Plus className="h-4 w-4" />
                     Add Transaction
@@ -601,73 +625,75 @@ export default function DailyCashRecordPage() {
                 )}
               </div>
             </DialogHeader>
-            <div className="px-6 pb-6 overflow-auto flex-1">
+            <div className="px-6 pb-6 overflow-auto flex-1 min-h-0">
               {viewingRecord && viewingRecord.entries && viewingRecord.entries.length > 0 ? (
-                <div className="rounded-lg border border-gray-200 overflow-x-auto bg-white">
-                  <Table className="min-w-full">
-                    <TableHeader>
-                      <TableRow className="border-b border-gray-200">
-                        <TableHead className="font-semibold text-left px-4 py-3 whitespace-nowrap">DATE</TableHead>
-                        <TableHead className="font-semibold text-left px-4 py-3 min-w-[200px]">description</TableHead>
-                        <TableHead className="font-semibold text-left px-4 py-3 whitespace-nowrap">money out</TableHead>
-                        <TableHead className="font-semibold text-right px-4 py-3 whitespace-nowrap">money in</TableHead>
-                        <TableHead className="w-[50px] px-4 py-3"></TableHead>
-                      </TableRow>
-                    </TableHeader>
-                    <TableBody>
-                      {viewingRecord.entries.map((entry) => {
-                        const entryDate = entry.createdAt 
-                          ? format(new Date(entry.createdAt), 'dd-MM-yyyy')
-                          : viewingRecord.date;
-                        return (
-                          <TableRow key={entry.id} className="hover:bg-gray-50 border-b border-gray-200">
-                            <TableCell className="px-4 py-3 font-medium whitespace-nowrap">{entryDate}</TableCell>
-                            <TableCell className="px-4 py-3 break-words whitespace-normal max-w-md">
-                              {entry.description}
-                            </TableCell>
-                            <TableCell className="px-4 py-3 text-red-600 whitespace-nowrap">
-                              {entry.type === 'out' ? formatCurrency(entry.amount) : ''}
-                            </TableCell>
-                            <TableCell className="px-4 py-3 text-right text-green-600 whitespace-nowrap">
-                              {entry.type === 'in' ? formatCurrency(entry.amount) : ''}
-                            </TableCell>
-                            <TableCell className="px-4 py-3">
-                              <Button
-                                size="sm"
-                                variant="ghost"
-                                onClick={() => handleEditEntry(entry, viewingRecord)}
-                                className="h-8 w-8 p-0"
-                              >
-                                <Edit2 className="h-4 w-4" />
-                              </Button>
-                            </TableCell>
-                          </TableRow>
-                        );
-                      })}
-                      {/* Summary Row: total in/out */}
-                      <TableRow className="bg-gray-50 border-t-2 border-gray-300">
-                        <TableCell className="px-4 py-3 font-semibold">total in/out</TableCell>
-                        <TableCell className="px-4 py-3"></TableCell>
-                        <TableCell className="px-4 py-3 font-semibold text-red-600">
-                          {formatCurrency(viewingRecord.totalOut)}
-                        </TableCell>
-                        <TableCell className="px-4 py-3 font-semibold text-right text-green-600">
-                          {formatCurrency(viewingRecord.totalIn)}
-                        </TableCell>
-                        <TableCell className="px-4 py-3"></TableCell>
-                      </TableRow>
-                      {/* Summary Row: total left */}
-                      <TableRow className="bg-gray-100 border-t-2 border-gray-300">
-                        <TableCell className="px-4 py-3 font-semibold">total left</TableCell>
-                        <TableCell className="px-4 py-3"></TableCell>
-                        <TableCell className="px-4 py-3"></TableCell>
-                        <TableCell className="px-4 py-3 font-bold text-lg text-right text-black">
-                          {formatCurrency(viewingRecord.totalLeft)}
-                        </TableCell>
-                        <TableCell className="px-4 py-3"></TableCell>
-                      </TableRow>
-                    </TableBody>
-                  </Table>
+                <div className="rounded-lg border border-gray-200 overflow-hidden bg-white shadow-sm">
+                  <div className="overflow-x-auto">
+                    <Table className="min-w-full">
+                      <TableHeader className="sticky top-0 bg-gray-50 z-10">
+                        <TableRow className="border-b border-gray-200">
+                          <TableHead className="font-semibold text-left px-4 py-3 whitespace-nowrap min-w-[120px]">DATE</TableHead>
+                          <TableHead className="font-semibold text-left px-4 py-3 min-w-[300px]">description</TableHead>
+                          <TableHead className="font-semibold text-left px-4 py-3 whitespace-nowrap min-w-[130px]">money out</TableHead>
+                          <TableHead className="font-semibold text-right px-4 py-3 whitespace-nowrap min-w-[130px]">money in</TableHead>
+                          <TableHead className="w-[80px] px-4 py-3 text-center">Action</TableHead>
+                        </TableRow>
+                      </TableHeader>
+                      <TableBody>
+                        {viewingRecord.entries.map((entry) => {
+                          const entryDate = entry.createdAt 
+                            ? format(new Date(entry.createdAt), 'dd-MM-yyyy')
+                            : viewingRecord.date;
+                          return (
+                            <TableRow key={entry.id} className="hover:bg-gray-50 border-b border-gray-200">
+                              <TableCell className="px-4 py-3 font-medium whitespace-nowrap">{entryDate}</TableCell>
+                              <TableCell className="px-4 py-3 break-words whitespace-normal">
+                                {entry.description}
+                              </TableCell>
+                              <TableCell className="px-4 py-3 text-red-600 whitespace-nowrap font-medium">
+                                {entry.type === 'out' ? formatCurrency(entry.amount) : '-'}
+                              </TableCell>
+                              <TableCell className="px-4 py-3 text-right text-green-600 whitespace-nowrap font-medium">
+                                {entry.type === 'in' ? formatCurrency(entry.amount) : '-'}
+                              </TableCell>
+                              <TableCell className="px-4 py-3 text-center">
+                                <Button
+                                  size="sm"
+                                  variant="ghost"
+                                  onClick={() => handleEditEntry(entry, viewingRecord)}
+                                  className="h-8 w-8 p-0"
+                                >
+                                  <Edit2 className="h-4 w-4" />
+                                </Button>
+                              </TableCell>
+                            </TableRow>
+                          );
+                        })}
+                        {/* Summary Row: total in/out */}
+                        <TableRow className="bg-gray-50 border-t-2 border-gray-300">
+                          <TableCell className="px-4 py-3 font-semibold">total in/out</TableCell>
+                          <TableCell className="px-4 py-3"></TableCell>
+                          <TableCell className="px-4 py-3 font-semibold text-red-600">
+                            {formatCurrency(viewingRecord.totalOut)}
+                          </TableCell>
+                          <TableCell className="px-4 py-3 font-semibold text-right text-green-600">
+                            {formatCurrency(viewingRecord.totalIn)}
+                          </TableCell>
+                          <TableCell className="px-4 py-3"></TableCell>
+                        </TableRow>
+                        {/* Summary Row: total left */}
+                        <TableRow className="bg-gray-100 border-t-2 border-gray-300">
+                          <TableCell className="px-4 py-3 font-semibold">total left</TableCell>
+                          <TableCell className="px-4 py-3"></TableCell>
+                          <TableCell className="px-4 py-3"></TableCell>
+                          <TableCell className="px-4 py-3 font-bold text-lg text-right text-black">
+                            {formatCurrency(viewingRecord.totalLeft)}
+                          </TableCell>
+                          <TableCell className="px-4 py-3"></TableCell>
+                        </TableRow>
+                      </TableBody>
+                    </Table>
+                  </div>
                 </div>
               ) : (
                 <div className="text-center py-8 text-gray-500">
@@ -679,21 +705,42 @@ export default function DailyCashRecordPage() {
         </Dialog>
 
         {/* Add Transaction Dialog */}
-        <Dialog open={addTransactionOpen} onOpenChange={setAddTransactionOpen}>
-          <DialogContent>
+        <Dialog open={addTransactionOpen} onOpenChange={(open) => {
+          setAddTransactionOpen(open);
+          if (!open) setShowAddTransactionCalendar(false);
+        }}>
+          <DialogContent className="max-w-[90vw] sm:max-w-md max-h-[90vh] overflow-y-auto">
             <DialogHeader>
               <DialogTitle>Add Transaction</DialogTitle>
             </DialogHeader>
             <div className="space-y-4 py-4">
               <div>
                 <Label htmlFor="add-transaction-date">Date *</Label>
-                <div className="mt-2">
-                  <Calendar
-                    mode="single"
-                    selected={recordDate}
-                    onSelect={(date) => date && setRecordDate(date)}
-                    className="rounded-md border"
+                <div className="mt-2 relative">
+                  <Input
+                    id="add-transaction-date"
+                    type="text"
+                    readOnly
+                    value={format(recordDate, 'dd-MM-yyyy')}
+                    className="pr-10 cursor-pointer"
+                    onClick={() => setShowAddTransactionCalendar(!showAddTransactionCalendar)}
                   />
+                  <CalendarIcon className="absolute right-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400 pointer-events-none" />
+                  {showAddTransactionCalendar && (
+                    <div className="mt-2 bg-white border rounded-md shadow-lg">
+                      <Calendar
+                        mode="single"
+                        selected={recordDate}
+                        onSelect={(date) => {
+                          if (date) {
+                            setRecordDate(date);
+                            setShowAddTransactionCalendar(false);
+                          }
+                        }}
+                        className="rounded-md border"
+                      />
+                    </div>
+                  )}
                 </div>
               </div>
               <div>
@@ -740,21 +787,42 @@ export default function DailyCashRecordPage() {
         </Dialog>
 
         {/* Edit Entry Dialog */}
-        <Dialog open={editEntryOpen} onOpenChange={setEditEntryOpen}>
-          <DialogContent>
+        <Dialog open={editEntryOpen} onOpenChange={(open) => {
+          setEditEntryOpen(open);
+          if (!open) setShowEditCalendar(false);
+        }}>
+          <DialogContent className="max-w-[90vw] sm:max-w-md max-h-[90vh] overflow-y-auto">
             <DialogHeader>
               <DialogTitle>Edit Entry</DialogTitle>
             </DialogHeader>
             <div className="space-y-4 py-4">
               <div>
                 <Label htmlFor="edit-date">Date *</Label>
-                <div className="mt-2">
-                  <Calendar
-                    mode="single"
-                    selected={recordDate}
-                    onSelect={(date) => date && setRecordDate(date)}
-                    className="rounded-md border"
+                <div className="mt-2 relative">
+                  <Input
+                    id="edit-date"
+                    type="text"
+                    readOnly
+                    value={format(recordDate, 'dd-MM-yyyy')}
+                    className="pr-10 cursor-pointer"
+                    onClick={() => setShowEditCalendar(!showEditCalendar)}
                   />
+                  <CalendarIcon className="absolute right-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400 pointer-events-none" />
+                  {showEditCalendar && (
+                    <div className="mt-2 bg-white border rounded-md shadow-lg">
+                      <Calendar
+                        mode="single"
+                        selected={recordDate}
+                        onSelect={(date) => {
+                          if (date) {
+                            setRecordDate(date);
+                            setShowEditCalendar(false);
+                          }
+                        }}
+                        className="rounded-md border"
+                      />
+                    </div>
+                  )}
                 </div>
               </div>
               <div>
