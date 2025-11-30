@@ -20,13 +20,6 @@ export async function GET(
 
     const { entityType, entityId } = await params;
 
-    if (entityType !== 'customer' && entityType !== 'supplier') {
-      return NextResponse.json(
-        { error: 'Invalid entity type' },
-        { status: 400 }
-      );
-    }
-
     // Try to get from cache
     try {
       const cacheKey = `ledger:${entityType}:${entityId}:${userId}`;
@@ -42,25 +35,44 @@ export async function GET(
     const db = await getDb();
     const customersCollection = db.collection('customers');
     const suppliersCollection = db.collection('suppliers');
+    const customEntitiesCollection = db.collection('customEntities');
     const transactionsCollection = db.collection('transactions');
 
-    // Get entity (customer or supplier)
+    // Get entity (customer, supplier, or custom entity)
     let entity;
+    let entityDisplayName = 'Entity';
+    
     if (entityType === 'customer') {
       entity = await customersCollection.findOne({
         _id: new ObjectId(entityId),
         userId,
       });
-    } else {
+      entityDisplayName = 'Customer';
+    } else if (entityType === 'supplier') {
       entity = await suppliersCollection.findOne({
         _id: new ObjectId(entityId),
         userId,
       });
+      entityDisplayName = 'Supplier';
+    } else {
+      // Custom entity type
+      entity = await customEntitiesCollection.findOne({
+        _id: new ObjectId(entityId),
+        collectionType: entityType,
+        userId,
+      });
+      // Get collection type name for display
+      const collectionTypesCollection = db.collection('collectionTypes');
+      const collectionType = await collectionTypesCollection.findOne({
+        userId,
+        slug: entityType,
+      });
+      entityDisplayName = collectionType?.name || 'Entity';
     }
 
     if (!entity) {
       return NextResponse.json(
-        { error: `${entityType === 'customer' ? 'Customer' : 'Supplier'} not found` },
+        { error: `${entityDisplayName} not found` },
         { status: 404 }
       );
     }
@@ -82,22 +94,12 @@ export async function GET(
     }
 
     const ledgerEntries = transactions.map((transaction) => {
-      // Entity-specific logic:
-      // Suppliers: Credit subtracts (you owe more, balance more negative), Debit adds (you owe less, balance less negative)
-      // Customers: Credit subtracts (they owe less), Debit adds (they owe more)
-      if (entityType === 'supplier') {
-        if (transaction.type === 'credit') {
-          runningBalance -= transaction.amount; // Credit subtracts (you owe more, balance more negative)
-        } else {
-          runningBalance += transaction.amount; // Debit adds (you owe less, balance less negative)
-        }
+      // Generic logic for all entity types:
+      // Credit subtracts from balance, Debit adds to balance
+      if (transaction.type === 'credit') {
+        runningBalance -= transaction.amount;
       } else {
-        // customer
-        if (transaction.type === 'credit') {
-          runningBalance -= transaction.amount; // Credit subtracts (they owe less)
-        } else {
-          runningBalance += transaction.amount; // Debit adds (they owe more)
-        }
+        runningBalance += transaction.amount;
       }
 
       return {
@@ -120,20 +122,12 @@ export async function GET(
       .filter((t) => t.type === 'debit')
       .reduce((sum, t) => sum + t.amount, 0);
 
-    // Final balance
+    // Final balance - generic logic for all entity types
     let finalBalance = entity.openingBalance;
     if (entity.balanceType === 'credit') {
       finalBalance = -finalBalance;
     }
-    // Entity-specific logic for transactions:
-    // Suppliers: Credit subtracts (you owe more), Debit adds (you owe less)
-    // Customers: Credit subtracts (they owe less), Debit adds (they owe more)
-    if (entityType === 'supplier') {
-      finalBalance = finalBalance - totalCredit + totalDebit;
-    } else {
-      // customer
-      finalBalance = finalBalance - totalCredit + totalDebit;
-    }
+    finalBalance = finalBalance - totalCredit + totalDebit;
 
     const responseData = {
       entity: {
@@ -176,4 +170,3 @@ export async function GET(
     );
   }
 }
-

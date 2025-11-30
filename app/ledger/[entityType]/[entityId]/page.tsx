@@ -51,7 +51,7 @@ interface LedgerData {
     openingBalance: number;
     balanceType: 'credit' | 'debit';
   };
-  entityType: 'customer' | 'supplier';
+  entityType: string;
   openingBalance: {
     amount: number;
     type: 'credit' | 'debit';
@@ -67,7 +67,7 @@ interface LedgerData {
 export default function LedgerPage() {
   const router = useRouter();
   const params = useParams();
-  const entityType = params.entityType as 'customer' | 'supplier';
+  const entityType = params.entityType as string;
   const entityId = params.entityId as string;
   const [ledgerData, setLedgerData] = useState<LedgerData | null>(null);
   const [loading, setLoading] = useState(true);
@@ -76,7 +76,7 @@ export default function LedgerPage() {
   const [selectedEntry, setSelectedEntry] = useState<(LedgerEntry & { transactionId?: string }) | null>(null);
   const [selectedTransaction, setSelectedTransaction] = useState<{
     id: string;
-    entityType: 'customer' | 'supplier';
+    entityType: string;
     entityId: string;
     type: 'credit' | 'debit';
     amount: number;
@@ -96,6 +96,7 @@ export default function LedgerPage() {
     firmEmail: string;
     firmAddress: string;
   } | null>(null);
+  const [collectionTypeName, setCollectionTypeName] = useState<string>('');
 
   const fetchLedger = useCallback(async () => {
     try {
@@ -123,6 +124,21 @@ export default function LedgerPage() {
     lastFetchedRef.current = fetchKey;
     fetchLedger();
   }, [entityId, entityType, fetchLedger]);
+
+  // Fetch collection type name for custom entity types
+  useEffect(() => {
+    if (entityType && entityType !== 'customer' && entityType !== 'supplier') {
+      fetch(`/api/collection-types`)
+        .then((res) => res.json())
+        .then((data) => {
+          const ct = data.collectionTypes?.find((ct: { slug: string }) => ct.slug === entityType);
+          if (ct) {
+            setCollectionTypeName(ct.name);
+          }
+        })
+        .catch(() => {});
+    }
+  }, [entityType]);
 
   const loadTransactionDetails = async (transactionId: string) => {
     setBillModalLoading(true);
@@ -364,7 +380,21 @@ export default function LedgerPage() {
 
   const { entity, openingBalance, entries, totals } = ledgerData;
   const finalBalanceColor = totals.balance >= 0 ? 'text-green-600' : 'text-red-600';
-  const entityName = entityType === 'customer' ? 'Customers' : 'Suppliers';
+  
+  // Determine entity name and back link
+  let entityName = 'Entities';
+  let backLink = '/';
+  if (entityType === 'customer') {
+    entityName = 'Customers';
+    backLink = '/customers';
+  } else if (entityType === 'supplier') {
+    entityName = 'Suppliers';
+    backLink = '/suppliers';
+  } else {
+    // Custom entity type
+    entityName = collectionTypeName || 'Entities';
+    backLink = `/custom-entities/${entityType}`;
+  }
 
   return (
     <motion.div
@@ -376,7 +406,7 @@ export default function LedgerPage() {
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
       <div className="mb-6">
         <Link
-          href={`/${entityType === 'customer' ? 'customers' : 'suppliers'}`}
+          href={backLink}
           className="text-blue-600 hover:text-blue-800 text-sm font-medium mb-4 inline-block"
         >
           ← Back to {entityName}

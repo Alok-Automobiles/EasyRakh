@@ -32,6 +32,7 @@ export async function GET(request: NextRequest) {
     const db = await getDb();
     const customersCollection = db.collection('customers');
     const suppliersCollection = db.collection('suppliers');
+    const customEntitiesCollection = db.collection('customEntities');
     const transactionsCollection = db.collection<Transaction>('transactions');
     const dailyCashRecordsCollection = db.collection('dailyCashRecords');
     const notesCollection = db.collection('notes');
@@ -288,6 +289,36 @@ export async function GET(request: NextRequest) {
       recentSuppliers.map((s) => [s._id.toString(), s.name])
     );
 
+    // Identify custom entity transactions and collect their IDs
+    const customEntityTransactions = recentTransactions.filter(
+      (tx) => tx.entityType && tx.entityType !== 'customer' && tx.entityType !== 'supplier'
+    );
+    const customEntityIds = new Set<string>();
+    const customEntityTypeMap = new Map<string, string>(); // entityId -> collectionType
+
+    customEntityTransactions.forEach((tx) => {
+      const entityId = tx.entityId || '';
+      if (entityId && tx.entityType) {
+        customEntityIds.add(entityId);
+        customEntityTypeMap.set(entityId, tx.entityType);
+      }
+    });
+
+    // Fetch custom entities for transactions
+    const customEntities = customEntityIds.size > 0
+      ? await customEntitiesCollection
+          .find({
+            userId,
+            _id: { $in: Array.from(customEntityIds).map((id) => new ObjectId(id)) },
+          })
+          .toArray()
+      : [];
+
+    // Create custom entity map
+    const customEntityMap = new Map(
+      customEntities.map((e) => [e._id.toString(), e.name])
+    );
+
     // Add transaction activities from recent transactions (already limited to 20)
     for (const transaction of recentTransactions) {
       const entityId = transaction.entityId || transaction.customerId || transaction.supplierId || '';
@@ -296,8 +327,11 @@ export async function GET(request: NextRequest) {
       let entityName = '';
       if (entityType === 'customer') {
         entityName = customerMap.get(entityId) || 'Unknown Customer';
-      } else {
+      } else if (entityType === 'supplier') {
         entityName = supplierMap.get(entityId) || 'Unknown Supplier';
+      } else {
+        // Custom entity type
+        entityName = customEntityMap.get(entityId) || 'Unknown Entity';
       }
       
       activities.push({

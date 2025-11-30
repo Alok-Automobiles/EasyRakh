@@ -4,7 +4,14 @@ import Link from 'next/link';
 import { useRouter, usePathname } from 'next/navigation';
 import { useEffect, useState, useRef } from 'react';
 import { Button } from '@/components/ui/button';
-import { Menu, X } from 'lucide-react';
+import { Menu, X, ChevronDown } from 'lucide-react';
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu';
 
 export default function Header() {
   const router = useRouter();
@@ -13,6 +20,7 @@ export default function Header() {
   const [loading, setLoading] = useState(true);
   const lastPathnameRef = useRef<string>('');
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
+  const [customCollectionTypes, setCustomCollectionTypes] = useState<Array<{ id: string; name: string; slug: string; lastTransactionDate?: Date }>>([]);
 
   // Don't show header on login/register pages or landing page
   const isAuthPage = pathname === '/login' || pathname === '/register' || pathname === '/';
@@ -27,8 +35,8 @@ export default function Header() {
     if (lastPathnameRef.current === pathname) return;
     lastPathnameRef.current = pathname;
 
-    fetch('/api/auth/me')
-      .then((res) => {
+    Promise.all([
+      fetch('/api/auth/me').then((res) => {
         if (res.ok) {
           return res.json();
         }
@@ -37,10 +45,59 @@ export default function Header() {
           return null;
         }
         return null;
-      })
-      .then((data) => {
-        if (data?.user) {
-          setUser(data.user);
+      }),
+      fetch('/api/collection-types').then((res) => {
+        if (res.ok) {
+          return res.json();
+        }
+        return { collectionTypes: [] };
+      }).catch(() => ({ collectionTypes: [] })),
+      fetch('/api/transactions?limit=100').then((res) => {
+        if (res.ok) {
+          return res.json();
+        }
+        return { transactions: [] };
+      }).catch(() => ({ transactions: [] })),
+    ])
+      .then(([userData, collectionTypesData, transactionsData]) => {
+        if (userData?.user) {
+          setUser(userData.user);
+        }
+        if (collectionTypesData?.collectionTypes) {
+          const collections = collectionTypesData.collectionTypes;
+          const transactions = transactionsData?.transactions || [];
+          
+          // Create a map of collection slugs to their most recent transaction date
+          const collectionLastTransactionMap = new Map<string, Date>();
+          
+          transactions.forEach((tx: { entityType: string; date: string | Date; createdAt: string | Date }) => {
+            // Only process custom entity types (not 'customer' or 'supplier')
+            if (tx.entityType && tx.entityType !== 'customer' && tx.entityType !== 'supplier') {
+              const txDate = new Date(tx.date || tx.createdAt);
+              const existing = collectionLastTransactionMap.get(tx.entityType);
+              if (!existing || txDate > existing) {
+                collectionLastTransactionMap.set(tx.entityType, txDate);
+              }
+            }
+          });
+          
+          // Add last transaction date to each collection and sort by most recent
+          const collectionsWithDates = collections.map((ct: { id: string; name: string; slug: string }) => ({
+            ...ct,
+            lastTransactionDate: collectionLastTransactionMap.get(ct.slug),
+          }));
+          
+          // Sort: collections with recent transactions first, then by creation date
+          collectionsWithDates.sort((a: { id: string; name: string; slug: string; lastTransactionDate?: Date }, b: { id: string; name: string; slug: string; lastTransactionDate?: Date }) => {
+            if (a.lastTransactionDate && b.lastTransactionDate) {
+              return b.lastTransactionDate.getTime() - a.lastTransactionDate.getTime();
+            }
+            if (a.lastTransactionDate) return -1;
+            if (b.lastTransactionDate) return 1;
+            return 0; // Keep original order if neither has transactions
+          });
+          
+          setCustomCollectionTypes(collectionsWithDates);
         }
         setLoading(false);
       })
@@ -64,12 +121,16 @@ export default function Header() {
   const headerClasses =
     'sticky top-0 z-50 w-full border-b border-white/40 bg-white/70 backdrop-blur-xl shadow-[0_10px_30px_rgba(15,23,42,0.08)] supports-[backdrop-filter]:bg-white/60';
 
+  // Get top 2 most recently used collections
+  const topCollections = customCollectionTypes.slice(0, 2);
+  const hasMoreCollections = customCollectionTypes.length > 2;
+
   const navLinks = [
     { href: '/dashboard', label: 'Dashboard' },
-    { href: '/customers', label: 'Manage Customers' },
-    { href: '/suppliers', label: 'Manage Suppliers' },
-    { href: '/transactions/new', label: 'New Transaction' },
-    { href: '/daily-cash-record', label: 'Daily Cash Record' },
+    { href: '/customers', label: 'Customers' },
+    { href: '/suppliers', label: 'Suppliers' },
+    { href: '/transactions/new', label: 'Transaction' },
+    { href: '/daily-cash-record', label: 'Cash Record' },
     { href: '/notes', label: 'Notes' },
   ];
 
@@ -99,16 +160,45 @@ export default function Header() {
             <Link href="/dashboard" className="text-xl font-bold text-gray-900">
               Easy<span className="text-blue-600">Rakh</span>
             </Link>
-            <nav className="hidden md:flex space-x-4">
+            <nav className="hidden md:flex items-center space-x-4">
               {navLinks.map((link) => (
                 <Link
                   key={link.href}
                   href={link.href}
-                  className="text-gray-600 hover:text-gray-900 px-3 py-2 rounded-md text-sm font-medium"
+                  className="text-gray-600 hover:text-gray-900 px-3 py-2 rounded-md text-sm font-medium whitespace-nowrap"
                 >
                   {link.label}
                 </Link>
               ))}
+              {(topCollections.length > 0 || hasMoreCollections) && (
+                <DropdownMenu>
+                  <DropdownMenuTrigger asChild>
+                    <button className="text-gray-600 hover:text-gray-900 px-3 py-2 rounded-md text-sm font-medium whitespace-nowrap flex items-center gap-1">
+                      Collections
+                      <ChevronDown className="h-4 w-4" />
+                    </button>
+                  </DropdownMenuTrigger>
+                  <DropdownMenuContent align="start" className="w-56">
+                    {topCollections.map((ct) => (
+                      <DropdownMenuItem key={ct.id} asChild>
+                        <Link href={`/custom-entities/${ct.slug}`} className="cursor-pointer">
+                          {ct.name}
+                        </Link>
+                      </DropdownMenuItem>
+                    ))}
+                    {hasMoreCollections && (
+                      <>
+                        <DropdownMenuSeparator />
+                        <DropdownMenuItem asChild>
+                          <Link href="/collection-types" className="cursor-pointer">
+                            View All Collections
+                          </Link>
+                        </DropdownMenuItem>
+                      </>
+                    )}
+                  </DropdownMenuContent>
+                </DropdownMenu>
+              )}
             </nav>
           </div>
           <div className="flex items-center space-x-4">
@@ -147,6 +237,28 @@ export default function Header() {
                 {link.label}
               </Link>
             ))}
+            {topCollections.length > 0 && (
+              <div className="px-3 py-2">
+                <div className="text-xs font-semibold text-gray-500 uppercase mb-2">Collections</div>
+                {topCollections.map((ct) => (
+                  <Link
+                    key={ct.id}
+                    href={`/custom-entities/${ct.slug}`}
+                    className="block px-3 py-2 rounded-md text-sm font-medium text-gray-700 hover:bg-gray-100"
+                  >
+                    {ct.name}
+                  </Link>
+                ))}
+                {hasMoreCollections && (
+                  <Link
+                    href="/collection-types"
+                    className="block px-3 py-2 rounded-md text-sm font-medium text-gray-700 hover:bg-gray-100"
+                  >
+                    View All Collections
+                  </Link>
+                )}
+              </div>
+            )}
             <Button onClick={handleLogout} variant="destructive" size="sm" className="mt-2 w-max">
               Logout
             </Button>

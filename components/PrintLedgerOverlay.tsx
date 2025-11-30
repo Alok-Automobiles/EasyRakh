@@ -33,7 +33,7 @@ interface LedgerData {
     openingBalance: number;
     balanceType: 'credit' | 'debit';
   };
-  entityType: 'customer' | 'supplier';
+  entityType: string;
   openingBalance: {
     amount: number;
     type: 'credit' | 'debit';
