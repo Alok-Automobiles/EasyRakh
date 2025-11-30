@@ -41,6 +41,18 @@ export async function initializeIndexes(db: Db): Promise<void> {
     await usersCollection.createIndex({ userId: 1 }); // If userId field exists separately
     console.log('✓ Created unique index on users: { email: 1 }');
 
+    // Collection types collection indexes
+    const collectionTypesCollection = db.collection('collectionTypes');
+    await collectionTypesCollection.createIndex({ userId: 1, slug: 1 }, { unique: true });
+    await collectionTypesCollection.createIndex({ userId: 1, createdAt: -1 });
+    console.log('✓ Created indexes on collectionTypes: { userId: 1, slug: 1 } (unique), { userId: 1, createdAt: -1 }');
+
+    // Custom entities collection indexes
+    const customEntitiesCollection = db.collection('customEntities');
+    await customEntitiesCollection.createIndex({ userId: 1, collectionType: 1, createdAt: -1 });
+    await customEntitiesCollection.createIndex({ userId: 1, collectionType: 1 });
+    console.log('✓ Created indexes on customEntities: { userId: 1, collectionType: 1, createdAt: -1 }, { userId: 1, collectionType: 1 }');
+
     console.log('✅ All database indexes initialized successfully');
   } catch (error) {
     console.error('❌ Error initializing database indexes:', error);

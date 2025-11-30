@@ -35,12 +35,33 @@ export interface Supplier {
   createdAt: Date;
 }
 
+export interface CollectionType {
+  _id?: string;
+  userId: string;
+  name: string;
+  slug: string; // URL-safe identifier, unique per user
+  createdAt: Date;
+}
+
+export interface CustomEntity {
+  _id?: string;
+  userId: string;
+  collectionType: string; // slug of the collection type
+  name: string;
+  phone?: string;
+  email?: string;
+  address?: string;
+  openingBalance: number;
+  balanceType: 'credit' | 'debit';
+  createdAt: Date;
+}
+
 export interface Transaction {
   _id?: string;
   userId: string;
   customerId?: string;
   supplierId?: string;
-  entityType: 'customer' | 'supplier';
+  entityType: 'customer' | 'supplier' | string; // string allows custom entity types
   entityId: string;
   type: 'credit' | 'debit';
   amount: number;
@@ -53,12 +74,12 @@ export interface Transaction {
 
 export interface RecentActivity {
   id: string;
-  type: 'transaction' | 'customer_created' | 'supplier_created';
+  type: 'transaction' | 'customer_created' | 'supplier_created' | 'custom_entity_created';
   entityName: string;
   description: string;
   amount?: number;
   transactionType?: 'credit' | 'debit';
-  entityType?: 'customer' | 'supplier';
+  entityType?: 'customer' | 'supplier' | string;
   entityId?: string;
   date: Date;
   createdAt: Date;

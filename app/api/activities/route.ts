@@ -17,6 +17,7 @@ export async function GET(request: NextRequest) {
     const db = await getDb();
     const customersCollection = db.collection('customers');
     const suppliersCollection = db.collection('suppliers');
+    const customEntitiesCollection = db.collection('customEntities');
     const transactionsCollection = db.collection('transactions');
 
     // Fetch recent customers, suppliers, and transactions
@@ -76,6 +77,8 @@ export async function GET(request: NextRequest) {
     // Collect entity IDs that are not in the recent lists
     const missingCustomerIds = new Set<string>();
     const missingSupplierIds = new Set<string>();
+    const customEntityIds = new Set<string>();
+    const customEntityTypeMap = new Map<string, string>(); // entityId -> collectionType
 
     recentTransactions.forEach((transaction) => {
       const entityId = transaction.entityId || transaction.customerId || transaction.supplierId || '';
@@ -85,11 +88,17 @@ export async function GET(request: NextRequest) {
         missingCustomerIds.add(entityId);
       } else if (entityType === 'supplier' && !supplierMap.has(entityId)) {
         missingSupplierIds.add(entityId);
+      } else if (entityType && entityType !== 'customer' && entityType !== 'supplier') {
+        // Custom entity type
+        if (entityId) {
+          customEntityIds.add(entityId);
+          customEntityTypeMap.set(entityId, entityType);
+        }
       }
     });
 
     // Fetch only missing entities (if any)
-    const [missingCustomers, missingSuppliers] = await Promise.all([
+    const [missingCustomers, missingSuppliers, customEntities] = await Promise.all([
       missingCustomerIds.size > 0
         ? customersCollection
             .find({ userId, _id: { $in: Array.from(missingCustomerIds).map((id) => new ObjectId(id)) } })
@@ -98,6 +107,11 @@ export async function GET(request: NextRequest) {
       missingSupplierIds.size > 0
         ? suppliersCollection
             .find({ userId, _id: { $in: Array.from(missingSupplierIds).map((id) => new ObjectId(id)) } })
+            .toArray()
+        : Promise.resolve([]),
+      customEntityIds.size > 0
+        ? customEntitiesCollection
+            .find({ userId, _id: { $in: Array.from(customEntityIds).map((id) => new ObjectId(id)) } })
             .toArray()
         : Promise.resolve([]),
     ]);
@@ -110,14 +124,25 @@ export async function GET(request: NextRequest) {
       supplierMap.set(supplier._id.toString(), supplier.name);
     });
 
+    // Create custom entity map
+    const customEntityMap = new Map(
+      customEntities.map((e) => [e._id.toString(), e.name])
+    );
+
     // Add transaction activities using the optimized lookup maps
     recentTransactions.forEach((transaction) => {
       const entityId = transaction.entityId || transaction.customerId || transaction.supplierId || '';
       const entityType = transaction.entityType || (transaction.customerId ? 'customer' : 'supplier');
       
-      const entityName = entityType === 'customer'
-        ? (customerMap.get(entityId) || 'Unknown Customer')
-        : (supplierMap.get(entityId) || 'Unknown Supplier');
+      let entityName = '';
+      if (entityType === 'customer') {
+        entityName = customerMap.get(entityId) || 'Unknown Customer';
+      } else if (entityType === 'supplier') {
+        entityName = supplierMap.get(entityId) || 'Unknown Supplier';
+      } else {
+        // Custom entity type
+        entityName = customEntityMap.get(entityId) || 'Unknown Entity';
+      }
       
       activities.push({
         id: transaction._id.toString(),
@@ -127,6 +152,7 @@ export async function GET(request: NextRequest) {
         amount: transaction.amount,
         transactionType: transaction.type,
         entityType: entityType,
+        entityId: entityId,
         date: transaction.date,
         createdAt: transaction.createdAt,
       });

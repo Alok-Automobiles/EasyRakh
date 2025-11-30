@@ -1,0 +1,181 @@
+import { NextRequest, NextResponse } from 'next/server';
+import { getDb } from '@/lib/mongodb';
+import { getUserIdFromRequest } from '@/lib/auth';
+import { z } from 'zod';
+import redis from '@/lib/redis';
+
+const customEntitySchema = z.object({
+  collectionType: z.string().min(1, 'Collection type is required'),
+  name: z.string().min(1, 'Name is required'),
+  phone: z.string().optional(),
+  email: z.string().email('Invalid email').optional().or(z.literal('')),
+  address: z.string().optional(),
+  openingBalance: z.number().default(0),
+  balanceType: z.enum(['credit', 'debit']).default('debit'),
+});
+
+export async function GET(request: NextRequest) {
+  try {
+    const userId = getUserIdFromRequest(request);
+
+    if (!userId) {
+      return NextResponse.json(
+        { error: 'Unauthorized' },
+        { status: 401 }
+      );
+    }
+
+    const { searchParams } = new URL(request.url);
+    const collectionType = searchParams.get('collectionType');
+
+    if (!collectionType) {
+      return NextResponse.json(
+        { error: 'collectionType query parameter is required' },
+        { status: 400 }
+      );
+    }
+
+    // Try to get from cache
+    try {
+      const cacheKey = `customEntities:${collectionType}:${userId}`;
+      const cached = await redis.get(cacheKey);
+      if (cached) {
+        return NextResponse.json(JSON.parse(cached));
+      }
+    } catch (cacheError) {
+      console.warn('Redis cache read failed, falling back to DB:', cacheError);
+    }
+
+    const db = await getDb();
+    const collectionTypesCollection = db.collection('collectionTypes');
+    const customEntitiesCollection = db.collection('customEntities');
+
+    // Verify collection type exists and belongs to user
+    const collectionTypeDoc = await collectionTypesCollection.findOne({
+      userId,
+      slug: collectionType,
+    });
+
+    if (!collectionTypeDoc) {
+      return NextResponse.json(
+        { error: 'Collection type not found' },
+        { status: 404 }
+      );
+    }
+
+    const entities = await customEntitiesCollection
+      .find({ userId, collectionType })
+      .sort({ createdAt: -1 })
+      .toArray();
+
+    const responseData = {
+      entities: entities.map((entity) => ({
+        id: entity._id.toString(),
+        collectionType: entity.collectionType,
+        name: entity.name,
+        phone: entity.phone,
+        email: entity.email,
+        address: entity.address,
+        openingBalance: entity.openingBalance,
+        balanceType: entity.balanceType,
+        createdAt: entity.createdAt,
+      })),
+    };
+
+    // Cache the response with 5 minute TTL
+    try {
+      const cacheKey = `customEntities:${collectionType}:${userId}`;
+      await redis.setex(cacheKey, 300, JSON.stringify(responseData));
+    } catch (cacheError) {
+      console.warn('Redis cache write failed:', cacheError);
+    }
+
+    return NextResponse.json(responseData);
+  } catch (error) {
+    console.error('Get custom entities error:', error);
+    return NextResponse.json(
+      { error: 'Internal server error' },
+      { status: 500 }
+    );
+  }
+}
+
+export async function POST(request: NextRequest) {
+  try {
+    const userId = getUserIdFromRequest(request);
+
+    if (!userId) {
+      return NextResponse.json(
+        { error: 'Unauthorized' },
+        { status: 401 }
+      );
+    }
+
+    const body = await request.json();
+    const validatedData = customEntitySchema.parse(body);
+
+    const db = await getDb();
+    const collectionTypesCollection = db.collection('collectionTypes');
+    const customEntitiesCollection = db.collection('customEntities');
+
+    // Verify collection type exists and belongs to user
+    const collectionTypeDoc = await collectionTypesCollection.findOne({
+      userId,
+      slug: validatedData.collectionType,
+    });
+
+    if (!collectionTypeDoc) {
+      return NextResponse.json(
+        { error: 'Collection type not found' },
+        { status: 404 }
+      );
+    }
+
+    const result = await customEntitiesCollection.insertOne({
+      userId,
+      collectionType: validatedData.collectionType,
+      name: validatedData.name,
+      phone: validatedData.phone || '',
+      email: validatedData.email || '',
+      address: validatedData.address || '',
+      openingBalance: validatedData.openingBalance,
+      balanceType: validatedData.balanceType,
+      createdAt: new Date(),
+    });
+
+    // Invalidate related caches
+    try {
+      await redis.del(
+        `customEntities:${validatedData.collectionType}:${userId}`,
+        `dashboard:stats:${userId}`
+      );
+    } catch (cacheError) {
+      console.warn('Redis cache invalidation failed:', cacheError);
+    }
+
+    return NextResponse.json(
+      {
+        message: 'Entity created successfully',
+        entity: {
+          id: result.insertedId.toString(),
+          ...validatedData,
+        },
+      },
+      { status: 201 }
+    );
+  } catch (error) {
+    if (error instanceof z.ZodError) {
+      return NextResponse.json(
+        { error: error.errors[0].message },
+        { status: 400 }
+      );
+    }
+
+    console.error('Create custom entity error:', error);
+    return NextResponse.json(
+      { error: 'Internal server error' },
+      { status: 500 }
+    );
+  }
+}
+

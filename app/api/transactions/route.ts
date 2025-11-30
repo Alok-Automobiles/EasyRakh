@@ -7,7 +7,7 @@ import redis from '@/lib/redis';
 
 const transactionSchema = z
   .object({
-    entityType: z.enum(['customer', 'supplier']),
+    entityType: z.string().min(1, 'Entity type is required'),
     entityId: z.string().min(1, 'Entity is required'),
     type: z.enum(['credit', 'debit']),
     amount: z.number().positive('Amount must be positive'),
@@ -150,24 +150,43 @@ export async function POST(request: NextRequest) {
     const transactionsCollection = db.collection('transactions');
     const customersCollection = db.collection('customers');
     const suppliersCollection = db.collection('suppliers');
+    const customEntitiesCollection = db.collection('customEntities');
 
     // Verify entity exists and belongs to user
     let entity;
+    let entityDisplayName = 'Entity';
+    
     if (validatedData.entityType === 'customer') {
       entity = await customersCollection.findOne({
         _id: new ObjectId(validatedData.entityId),
         userId,
       });
-    } else {
+      entityDisplayName = 'Customer';
+    } else if (validatedData.entityType === 'supplier') {
       entity = await suppliersCollection.findOne({
         _id: new ObjectId(validatedData.entityId),
         userId,
       });
+      entityDisplayName = 'Supplier';
+    } else {
+      // Custom entity type
+      entity = await customEntitiesCollection.findOne({
+        _id: new ObjectId(validatedData.entityId),
+        collectionType: validatedData.entityType,
+        userId,
+      });
+      // Get collection type name for display
+      const collectionTypesCollection = db.collection('collectionTypes');
+      const collectionType = await collectionTypesCollection.findOne({
+        userId,
+        slug: validatedData.entityType,
+      });
+      entityDisplayName = collectionType?.name || 'Entity';
     }
 
     if (!entity) {
       return NextResponse.json(
-        { error: `${validatedData.entityType === 'customer' ? 'Customer' : 'Supplier'} not found` },
+        { error: `${entityDisplayName} not found` },
         { status: 404 }
       );
     }

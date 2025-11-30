@@ -9,7 +9,7 @@ import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import toast from 'react-hot-toast';
 import { format } from 'date-fns';
-import { Customer, Supplier } from '@/lib/types';
+import { Customer, Supplier, CustomEntity, CollectionType } from '@/lib/types';
 import {
   Dialog,
   DialogContent,
@@ -30,7 +30,7 @@ import {
 import { motion } from 'framer-motion';
 
 const transactionSchema = z.object({
-  entityType: z.enum(['customer', 'supplier']),
+  entityType: z.string().min(1, 'Entity type is required'),
   entityId: z.string().min(1, 'Entity is required'),
   type: z.enum(['credit', 'debit']),
   amount: z.number().positive('Amount must be positive'),
@@ -68,17 +68,30 @@ const supplierSchema = z.object({
   balanceType: z.enum(['credit', 'debit']).default('debit'),
 });
 
+const customEntitySchema = z.object({
+  collectionType: z.string().min(1, 'Collection type is required'),
+  name: z.string().min(1, 'Name is required'),
+  phone: z.string().optional(),
+  email: z.string().email('Invalid email').optional().or(z.literal('')),
+  address: z.string().optional(),
+  openingBalance: z.number().default(0),
+  balanceType: z.enum(['credit', 'debit']).default('debit'),
+});
+
 type TransactionForm = z.infer<typeof transactionSchema>;
 type CustomerForm = z.infer<typeof customerSchema>;
 type SupplierForm = z.infer<typeof supplierSchema>;
+type CustomEntityForm = z.infer<typeof customEntitySchema>;
 
 function NewTransactionPageContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const [step, setStep] = useState<'select' | 'form'>('select');
-  const [entityType, setEntityType] = useState<'customer' | 'supplier' | null>(null);
+  const [entityType, setEntityType] = useState<string | null>(null);
   const [customers, setCustomers] = useState<(Customer & { id: string })[]>([]);
   const [suppliers, setSuppliers] = useState<(Supplier & { id: string })[]>([]);
+  const [customEntities, setCustomEntities] = useState<(CustomEntity & { id: string })[]>([]);
+  const [collectionTypes, setCollectionTypes] = useState<(CollectionType & { id: string })[]>([]);
   const [loading, setLoading] = useState(false);
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [creatingEntity, setCreatingEntity] = useState(false);
@@ -132,22 +145,63 @@ function NewTransactionPageContent() {
     },
   });
 
+  const {
+    register: registerCustomEntity,
+    handleSubmit: handleSubmitCustomEntity,
+    reset: resetCustomEntity,
+    formState: { errors: customEntityErrors },
+  } = useForm<CustomEntityForm>({
+    resolver: zodResolver(customEntitySchema),
+    defaultValues: {
+      openingBalance: 0,
+      balanceType: 'debit',
+    },
+  });
+
   useEffect(() => {
     if (hasFetchedRef.current) return;
     hasFetchedRef.current = true;
     fetchCustomers();
     fetchSuppliers();
+    fetchCollectionTypes();
   }, []);
+
+  const fetchCollectionTypes = async () => {
+    try {
+      const response = await fetch('/api/collection-types');
+      if (response.ok) {
+        const data = await response.json();
+        setCollectionTypes(data.collectionTypes || []);
+      }
+    } catch (error) {
+      console.error('Failed to fetch collection types', error);
+    }
+  };
+
+  const fetchCustomEntities = async (collectionType: string) => {
+    try {
+      const response = await fetch(`/api/custom-entities?collectionType=${collectionType}`);
+      if (response.ok) {
+        const data = await response.json();
+        setCustomEntities(data.entities || []);
+      }
+    } catch (error) {
+      console.error('Failed to fetch custom entities', error);
+    }
+  };
 
   // Check for entityType and entityId in query params (from ledger page)
   useEffect(() => {
-    const urlEntityType = searchParams.get('entityType') as 'customer' | 'supplier' | null;
+    const urlEntityType = searchParams.get('entityType');
     const urlEntityId = searchParams.get('entityId');
 
-    if (urlEntityType && urlEntityId && (urlEntityType === 'customer' || urlEntityType === 'supplier')) {
+    if (urlEntityType && urlEntityId) {
       // Skip selection step and go directly to form
       setEntityType(urlEntityType);
       setValue('entityType', urlEntityType);
+      if (urlEntityType !== 'customer' && urlEntityType !== 'supplier') {
+        fetchCustomEntities(urlEntityType);
+      }
       setValue('entityId', urlEntityId);
       setStep('form');
     }
@@ -247,9 +301,12 @@ function NewTransactionPageContent() {
     }
   };
 
-  const handleEntityTypeSelect = (type: 'customer' | 'supplier') => {
+  const handleEntityTypeSelect = (type: string) => {
     setEntityType(type);
     setValue('entityType', type);
+    if (type !== 'customer' && type !== 'supplier') {
+      fetchCustomEntities(type);
+    }
     setStep('form');
   };
 
@@ -309,6 +366,36 @@ function NewTransactionPageContent() {
     }
   };
 
+  const handleCreateCustomEntity = async (data: CustomEntityForm) => {
+    setCreatingEntity(true);
+    try {
+      const response = await fetch('/api/custom-entities', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(data),
+      });
+
+      if (response.ok) {
+        const result = await response.json();
+        toast.success('Entity created successfully!');
+        setValue('entityId', result.entity.id);
+        setShowCreateModal(false);
+        resetCustomEntity();
+        if (entityType) {
+          fetchCustomEntities(entityType);
+        }
+      } else {
+        const result = await response.json();
+        toast.error(result.error || 'Failed to create entity');
+      }
+    } catch (error) {
+      console.error('Failed to create custom entity', error);
+      toast.error('An error occurred. Please try again.');
+    } finally {
+      setCreatingEntity(false);
+    }
+  };
+
   const onSubmit = async (data: TransactionForm) => {
     setLoading(true);
     try {
@@ -339,11 +426,7 @@ function NewTransactionPageContent() {
         const ledgerEntityType = data.entityType || searchParams.get('entityType');
         const ledgerEntityId = data.entityId || searchParams.get('entityId');
 
-        if (
-          ledgerEntityType &&
-          ledgerEntityId &&
-          (ledgerEntityType === 'customer' || ledgerEntityType === 'supplier')
-        ) {
+        if (ledgerEntityType && ledgerEntityId) {
           router.push(`/ledger/${ledgerEntityType}/${ledgerEntityId}`);
         } else {
           router.push('/');
@@ -405,6 +488,24 @@ function NewTransactionPageContent() {
                   <span className="text-2xl">→</span>
                 </div>
               </Button>
+              {collectionTypes.map((ct) => (
+                <Button
+                  key={ct.id}
+                  onClick={() => handleEntityTypeSelect(ct.slug)}
+                  variant="outline"
+                  className="w-full p-6 h-auto justify-start"
+                >
+                  <div className="flex items-center justify-between w-full">
+                    <div>
+                      <h3 className="text-lg font-semibold">{ct.name}</h3>
+                      <p className="text-sm text-muted-foreground mt-1">
+                        Transaction with {ct.name.toLowerCase()}
+                      </p>
+                    </div>
+                    <span className="text-2xl">→</span>
+                  </div>
+                </Button>
+              ))}
             </div>
           </div>
         </div>
@@ -412,13 +513,23 @@ function NewTransactionPageContent() {
     );
   }
 
-  const entities = entityType === 'customer' ? customers : suppliers;
-  const entityName = entityType === 'customer' ? 'Customer' : 'Supplier';
+  const entities = entityType === 'customer' 
+    ? customers 
+    : entityType === 'supplier' 
+    ? suppliers 
+    : customEntities;
+  
+  const collectionType = collectionTypes.find(ct => ct.slug === entityType);
+  const entityName = entityType === 'customer' 
+    ? 'Customer' 
+    : entityType === 'supplier' 
+    ? 'Supplier' 
+    : collectionType?.name || 'Entity';
   
   // Check if we came from a ledger page
   const urlEntityType = searchParams.get('entityType');
   const urlEntityId = searchParams.get('entityId');
-  const cameFromLedger = urlEntityType && urlEntityId && (urlEntityType === 'customer' || urlEntityType === 'supplier');
+  const cameFromLedger = urlEntityType && urlEntityId;
 
   return (
     <motion.div
@@ -716,7 +827,7 @@ function NewTransactionPageContent() {
               </button>
             </div>
           </form>
-        ) : (
+        ) : entityType === 'supplier' ? (
           <form onSubmit={handleSubmitSupplier(handleCreateSupplier)} className="space-y-4">
             <div>
               <label className="block text-sm font-medium text-gray-700">Name *</label>
@@ -778,6 +889,83 @@ function NewTransactionPageContent() {
                 onClick={() => {
                   setShowCreateModal(false);
                   resetSupplier();
+                }}
+                className="px-4 py-2 border border-gray-300 rounded-md text-sm font-medium text-gray-700 hover:bg-gray-50"
+              >
+                Cancel
+              </button>
+              <button
+                type="submit"
+                disabled={creatingEntity}
+                className="px-4 py-2 bg-blue-600 text-white rounded-md text-sm font-medium hover:bg-blue-700 disabled:opacity-50"
+              >
+                {creatingEntity ? 'Creating...' : 'Create'}
+              </button>
+            </div>
+          </form>
+        ) : (
+          <form onSubmit={handleSubmitCustomEntity(handleCreateCustomEntity)} className="space-y-4">
+            <input type="hidden" {...registerCustomEntity('collectionType')} value={entityType || ''} />
+            <div>
+              <label className="block text-sm font-medium text-gray-700">Name *</label>
+              <input
+                {...registerCustomEntity('name')}
+                type="text"
+                className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm px-3 py-2 border"
+              />
+              {customEntityErrors.name && (
+                <p className="mt-1 text-sm text-red-600">{customEntityErrors.name.message}</p>
+              )}
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-700">Phone</label>
+              <input
+                {...registerCustomEntity('phone')}
+                type="text"
+                className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm px-3 py-2 border"
+              />
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-700">Email</label>
+              <input
+                {...registerCustomEntity('email')}
+                type="email"
+                className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm px-3 py-2 border"
+              />
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-700">Address</label>
+              <textarea
+                {...registerCustomEntity('address')}
+                rows={3}
+                className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm px-3 py-2 border"
+              />
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-700">Opening Balance</label>
+              <input
+                {...registerCustomEntity('openingBalance', { valueAsNumber: true })}
+                type="number"
+                step="0.01"
+                className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm px-3 py-2 border"
+              />
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-700">Balance Type</label>
+              <select
+                {...registerCustomEntity('balanceType')}
+                className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm px-3 py-2 border"
+              >
+                <option value="debit">Debit (They owe you)</option>
+                <option value="credit">Credit (You owe them)</option>
+              </select>
+            </div>
+            <div className="flex justify-end space-x-3 pt-4">
+              <button
+                type="button"
+                onClick={() => {
+                  setShowCreateModal(false);
+                  resetCustomEntity();
                 }}
                 className="px-4 py-2 border border-gray-300 rounded-md text-sm font-medium text-gray-700 hover:bg-gray-50"
               >
