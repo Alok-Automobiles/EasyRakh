@@ -88,7 +88,7 @@ export default function Header() {
           }));
           
           // Sort: collections with recent transactions first, then by creation date
-          collectionsWithDates.sort((a, b) => {
+          collectionsWithDates.sort((a: { id: string; name: string; slug: string; lastTransactionDate?: Date }, b: { id: string; name: string; slug: string; lastTransactionDate?: Date }) => {
             if (a.lastTransactionDate && b.lastTransactionDate) {
               return b.lastTransactionDate.getTime() - a.lastTransactionDate.getTime();
             }
