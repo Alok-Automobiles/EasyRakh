@@ -14,7 +14,7 @@ export default function AboutPage() {
         transition={{ duration: 0.5 }}
       >
         <SmoothCursor />
-        <div className="min-h-screen bg-white">
+        <div className="min-h-screen bg-white" style={{ fontFamily: "'Dancing Script', 'Poiret One', cursive" }}>
           <LandingHeader />
           
           <section className="py-20 bg-white">

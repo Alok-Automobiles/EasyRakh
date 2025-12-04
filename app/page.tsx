@@ -23,7 +23,7 @@ export default function LandingPage() {
         exit={{ opacity: 0 }}
       >
         <SmoothCursor />
-        <div className="min-h-screen bg-white">
+        <div className="min-h-screen bg-white" style={{ fontFamily: "'Dancing Script', 'Poiret One', cursive" }}>
           <LandingHeader />
           <Hero />
           <MissionStatement />

@@ -14,11 +14,13 @@ export default function MissionStatement() {
           className="text-lg sm:text-xl text-gray-700 leading-relaxed"
         >
           EasyRakh helps{' '}
-          <span className="font-semibold text-emerald-700">grow</span> and{' '}
-          <span className="font-semibold text-emerald-700">protect</span> wealth with strategic{' '}
-          <span className="font-semibold text-emerald-700">finance</span> and{' '}
-          <span className="font-semibold text-emerald-700">investment</span>, providing{' '}
-          <span className="font-semibold text-emerald-700">data-driven solutions</span> for lasting security.
+          <span className="font-semibold text-emerald-700">track</span> every{' '}
+<span className="font-semibold text-emerald-700">rupee</span> and{' '}
+<span className="font-semibold text-emerald-700">organize</span> your business with smart{' '}
+<span className="font-semibold text-emerald-700">ledger tools</span> and{' '}
+<span className="font-semibold text-emerald-700">fast data sync</span>, ensuring{' '}
+<span className="font-semibold text-emerald-700">accurate records</span> every time.
+
         </motion.p>
       </div>
     </section>

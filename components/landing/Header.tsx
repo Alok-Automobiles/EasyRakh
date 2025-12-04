@@ -1,6 +1,7 @@
 'use client';
 
 import Link from 'next/link';
+import Image from 'next/image';
 import { Button } from '@/components/ui/button';
 import { Menu, X } from 'lucide-react';
 import { useState } from 'react';
@@ -10,20 +11,21 @@ export default function LandingHeader() {
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
 
   return (
-    <header className="sticky top-0 z-50 w-full border-b border-gray-200 bg-white/95 backdrop-blur-sm">
+    <header className="sticky top-0 z-50 w-full  bg-white/95 backdrop-blur-sm font-cursive">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="flex justify-between items-center h-16">
           {/* Logo */}
-          <Link href="/" className="text-2xl font-bold text-gray-900">
-            Easy<span className="text-emerald-600">Rakh</span>
+          <Link href="/" className="flex items-center gap-2 text-2xl font-bold text-red-900">
+            <Image src="/logo.png" alt="EasyRakh Logo" width={32} height={32} className="rounded-lg" />
+            <span>Easy<span className="text-emerald-600">Rakh</span></span>
           </Link>
 
           {/* Desktop Navigation */}
           <nav className="hidden md:flex items-center space-x-8">
-            <Link href="/" className="text-gray-700 hover:text-gray-900 text-sm font-medium">
+            <Link href="/" className="text-gray-700 hover:text-black text-sm font-medium cursor-none">
               Home
             </Link>
-            <Link href="/about" className="text-gray-700 hover:text-gray-900 text-sm font-medium">
+              <Link href="/about" className="text-gray-700 hover:text-black text-sm font-medium cursor-none">
               About
             </Link>
           </nav>
@@ -32,7 +34,7 @@ export default function LandingHeader() {
           <div className="flex items-center space-x-4">
             <Button
               asChild
-              className="hidden md:flex bg-emerald-700 hover:bg-emerald-800 text-white"
+              className="hidden md:flex bg-emerald-700 hover:bg-emerald-800 text-white cursor-none"
             >
               <Link href="/register">Sign Up</Link>
             </Button>
