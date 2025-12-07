@@ -1,122 +1,47 @@
 "use client"
 
-import { useEffect, useRef } from "react"
-import type React from "react"
-import { useInView } from "motion/react"
-import { annotate } from "rough-notation"
-import { type RoughAnnotation } from "rough-notation/lib/model"
-
-type AnnotationAction =
-  | "highlight"
-  | "underline"
-  | "box"
-  | "circle"
-  | "strike-through"
-  | "crossed-off"
-  | "bracket"
+import React from "react"
+import { motion } from 'motion/react'
 
 interface HighlighterProps {
   children: React.ReactNode
-  action?: AnnotationAction | AnnotationAction[]
-  color?: string | string[]
-  strokeWidth?: number
-  animationDuration?: number
-  iterations?: number
-  padding?: number
-  multiline?: boolean
-  isView?: boolean
+  color?: string
+  type?: "underline" | "box" | "circle" | "highlight"
 }
 
-export function Highlighter({
+export const Highlighter = ({
   children,
-  action = ["highlight", "underline"],
-  color = ["#ffd1dc", "#10b981"],
-  strokeWidth = 1.5,
-  animationDuration = 600,
-  iterations = 2,
-  padding = 2,
-  multiline = true,
-  isView = false,
-}: HighlighterProps) {
-  const elementRef = useRef<HTMLSpanElement>(null)
-  const annotationsRef = useRef<RoughAnnotation[]>([])
+  color = "var(--brand-green)",
+  type = "underline"
+}: HighlighterProps) => {
 
-  const isInView = useInView(elementRef, {
-    once: true,
-    margin: "-10%",
-  })
-
-  // If isView is false, always show. If isView is true, wait for inView
-  const shouldShow = !isView || isInView
-
-  useEffect(() => {
-    if (!shouldShow) return
-
-    const element = elementRef.current
-    if (!element) return
-
-    // Normalize actions to array
-    const actions = Array.isArray(action) ? action : [action]
-    
-    // Normalize colors to array, matching the number of actions
-    const colors = Array.isArray(color) 
-      ? color 
-      : actions.map(() => color)
-
-    // Create annotations for each action
-    const annotations = actions.map((act, index) => {
-      const annotationConfig = {
-        type: act,
-        color: colors[index] || colors[0],
-        strokeWidth,
-        animationDuration,
-        iterations,
-        padding,
-        multiline,
-      }
-
-      return annotate(element, annotationConfig)
-    })
-
-    annotationsRef.current = annotations
-
-    // Show all annotations
-    annotations.forEach(annotation => {
-      annotation.show()
-    })
-
-    const resizeObserver = new ResizeObserver(() => {
-      annotations.forEach(annotation => {
-        annotation.hide()
-        annotation.show()
-      })
-    })
-
-    resizeObserver.observe(element)
-    resizeObserver.observe(document.body)
-
-    return () => {
-      if (element) {
-        annotations.forEach(annotation => {
-          annotation.remove()
-        })
-        resizeObserver.disconnect()
-      }
-    }
-  }, [
-    shouldShow,
-    action,
-    color,
-    strokeWidth,
-    animationDuration,
-    iterations,
-    padding,
-    multiline,
-  ])
+  if (type === "highlight") {
+    return (
+      <span className="relative inline-block px-1 mx-1">
+        <motion.span
+          initial={{ scaleX: 0 }}
+          whileInView={{ scaleX: 1 }}
+          viewport={{ once: true }}
+          transition={{ duration: 0.6, ease: "circOut" }}
+          className="absolute inset-0 -z-10 origin-left rounded-md opacity-30"
+          style={{ backgroundColor: color }}
+        />
+        <span className="relative z-10">{children}</span>
+      </span>
+    )
+  }
 
   return (
-    <span ref={elementRef} className="relative inline-block bg-transparent">
+    <span className="relative inline-block">
       {children}
+      <motion.span
+        initial={{ scaleX: 0 }}
+        whileInView={{ scaleX: 1 }}
+        viewport={{ once: true }}
+        transition={{ duration: 1, ease: "circOut", delay: 0.2 }}
+        className="absolute left-0 right-0 h-[0.1em] origin-left rounded-full opacity-40"
+        style={{ backgroundColor: color, bottom: "0" }}
+      />
     </span>
   )
 }

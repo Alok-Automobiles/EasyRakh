@@ -19,7 +19,7 @@ import {
   FormMessage,
 } from '@/components/ui/form';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { motion } from 'framer-motion';
+import { motion } from 'motion/react'
 const registerSchema = z.object({
   name: z.string().min(1, 'Name is required'),
   email: z.string().email('Invalid email address'),
@@ -67,96 +67,41 @@ export default function RegisterPage() {
 
   return (
     <motion.div
-    initial={{ opacity: 0 }}
-    animate={{ opacity: 1 }}
-    transition={{ duration: 1.3 }}
-    exit={{ opacity: 0 }}
+      initial={{ opacity: 0 }}
+      animate={{ opacity: 1 }}
+      transition={{ duration: 1.3 }}
+      exit={{ opacity: 0 }}
     >
-    <div className="min-h-screen flex items-center justify-center bg-gray-50 py-12 px-4 sm:px-6 lg:px-8">
-      <Card className="w-full max-w-2xl">
-        <CardHeader>
-          <CardTitle className="text-3xl font-extrabold text-center">
-            Create your account
-          </CardTitle>
-          <CardDescription className="text-center">
-            Or{' '}
-            <Link
-              href="/login"
-              className="font-medium text-primary hover:underline"
-            >
-              sign in to your existing account
-            </Link>
-          </CardDescription>
-        </CardHeader>
-        <CardContent>
-          <Form {...form}>
-            <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
-              <FormField
-                control={form.control}
-                name="name"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Full Name</FormLabel>
-                    <FormControl>
-                      <Input
-                        type="text"
-                        autoComplete="name"
-                        placeholder="Full Name"
-                        {...field}
-                      />
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-              <FormField
-                control={form.control}
-                name="email"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Email address</FormLabel>
-                    <FormControl>
-                      <Input
-                        type="email"
-                        autoComplete="email"
-                        placeholder="Email address"
-                        {...field}
-                      />
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-              <FormField
-                control={form.control}
-                name="password"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Password</FormLabel>
-                    <FormControl>
-                      <Input
-                        type="password"
-                        autoComplete="new-password"
-                        placeholder="Password"
-                        {...field}
-                      />
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-              <div className="pt-4 border-t">
-                <h3 className="text-lg font-semibold mb-4">Firm Information</h3>
+      <div className="min-h-screen flex items-center justify-center bg-gray-50 py-12 px-4 sm:px-6 lg:px-8">
+        <Card className="w-full max-w-2xl">
+          <CardHeader>
+            <CardTitle className="text-3xl font-extrabold text-center">
+              Create your account
+            </CardTitle>
+            <CardDescription className="text-center">
+              Or{' '}
+              <Link
+                href="/login"
+                className="font-medium text-primary hover:underline"
+              >
+                sign in to your existing account
+              </Link>
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            <Form {...form}>
+              <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
                 <FormField
                   control={form.control}
-                  name="firmTitle"
+                  name="name"
                   render={({ field }) => (
                     <FormItem>
-                      <FormLabel>Firm Title</FormLabel>
+                      <FormLabel>Full Name</FormLabel>
                       <FormControl>
                         <Input
                           type="text"
-                          placeholder="Your Firm Name"
+                          autoComplete="name"
+                          placeholder="Full Name"
                           {...field}
                         />
                       </FormControl>
@@ -166,48 +111,15 @@ export default function RegisterPage() {
                 />
                 <FormField
                   control={form.control}
-                  name="gstNumber"
+                  name="email"
                   render={({ field }) => (
                     <FormItem>
-                      <FormLabel>GST Number</FormLabel>
-                      <FormControl>
-                        <Input
-                          type="text"
-                          placeholder="GST Number"
-                          {...field}
-                        />
-                      </FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-                <FormField
-                  control={form.control}
-                  name="firmPhone"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Phone Number</FormLabel>
-                      <FormControl>
-                        <Input
-                          type="tel"
-                          placeholder="Phone Number"
-                          {...field}
-                        />
-                      </FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-                <FormField
-                  control={form.control}
-                  name="firmEmail"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Firm Email</FormLabel>
+                      <FormLabel>Email address</FormLabel>
                       <FormControl>
                         <Input
                           type="email"
-                          placeholder="Firm Email Address"
+                          autoComplete="email"
+                          placeholder="Email address"
                           {...field}
                         />
                       </FormControl>
@@ -217,14 +129,15 @@ export default function RegisterPage() {
                 />
                 <FormField
                   control={form.control}
-                  name="firmAddress"
+                  name="password"
                   render={({ field }) => (
                     <FormItem>
-                      <FormLabel>Address</FormLabel>
+                      <FormLabel>Password</FormLabel>
                       <FormControl>
-                        <Textarea
-                          placeholder="Firm Address"
-                          rows={3}
+                        <Input
+                          type="password"
+                          autoComplete="new-password"
+                          placeholder="Password"
                           {...field}
                         />
                       </FormControl>
@@ -232,19 +145,106 @@ export default function RegisterPage() {
                     </FormItem>
                   )}
                 />
-              </div>
-              <Button
-                type="submit"
-                disabled={loading}
-                className="w-full"
-              >
-                {loading ? 'Creating account...' : 'Create account'}
-              </Button>
-            </form>
-          </Form>
-        </CardContent>
-      </Card>
-    </div>
+                <div className="pt-4 border-t">
+                  <h3 className="text-lg font-semibold mb-4">Firm Information</h3>
+                  <FormField
+                    control={form.control}
+                    name="firmTitle"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Firm Title</FormLabel>
+                        <FormControl>
+                          <Input
+                            type="text"
+                            placeholder="Your Firm Name"
+                            {...field}
+                          />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                  <FormField
+                    control={form.control}
+                    name="gstNumber"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>GST Number</FormLabel>
+                        <FormControl>
+                          <Input
+                            type="text"
+                            placeholder="GST Number"
+                            {...field}
+                          />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                  <FormField
+                    control={form.control}
+                    name="firmPhone"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Phone Number</FormLabel>
+                        <FormControl>
+                          <Input
+                            type="tel"
+                            placeholder="Phone Number"
+                            {...field}
+                          />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                  <FormField
+                    control={form.control}
+                    name="firmEmail"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Firm Email</FormLabel>
+                        <FormControl>
+                          <Input
+                            type="email"
+                            placeholder="Firm Email Address"
+                            {...field}
+                          />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                  <FormField
+                    control={form.control}
+                    name="firmAddress"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Address</FormLabel>
+                        <FormControl>
+                          <Textarea
+                            placeholder="Firm Address"
+                            rows={3}
+                            {...field}
+                          />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                </div>
+                <Button
+                  type="submit"
+                  disabled={loading}
+                  className="w-full"
+                >
+                  {loading ? 'Creating account...' : 'Create account'}
+                </Button>
+              </form>
+            </Form>
+          </CardContent>
+        </Card>
+      </div>
     </motion.div>
   );
 }

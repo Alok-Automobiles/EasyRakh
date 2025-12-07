@@ -1,29 +1,23 @@
-'use client';
+import Hero from "@/components/landing/Hero";
+import Features from "@/components/landing/Features";
+import HowItWorks from "@/components/landing/HowItWorks";
+import Pricing from "@/components/landing/Pricing";
+import Testimonials from "@/components/landing/Testimonials";
+import FAQ from "@/components/landing/FAQ";
+import Footer from "@/components/landing/Footer";
 
-import Hero from '@/components/landing/Hero';
-import TransactionShowcase from '@/components/landing/TransactionShowcase';
-import Features from '@/components/landing/Features';
-import FinalCTA from '@/components/landing/FinalCTA';
-import { SmoothCursor } from '@/components/ui/smooth-cursor';
-import {motion} from 'framer-motion';
-
-export default function LandingPage() {
+export default function Home() {
   return (
     <>
-    <motion.div
-    initial={{ opacity: 0 }}
-    animate={{ opacity: 1 }}
-    transition={{ duration: 1.3 }}
-    exit={{ opacity: 0 }}
-    >
-      <SmoothCursor />
-      <div className="min-h-screen bg-gradient-to-b from-emerald-50 via-white to-rose-50">
+      <main className="relative z-10 bg-[var(--brand-bg)] min-h-screen shadow-xl mb-0 md:mb-[36%]">
         <Hero />
-        <TransactionShowcase />
         <Features />
-        <FinalCTA />
-      </div>
-      </motion.div>
+        <HowItWorks />
+        <Pricing />
+        <Testimonials />
+        <FAQ />
+      </main>
+      <Footer />
     </>
   );
 }

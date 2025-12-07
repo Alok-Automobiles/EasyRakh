@@ -29,7 +29,7 @@ import {
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Edit2, CalendarIcon, Plus } from 'lucide-react';
-import { motion } from 'framer-motion';
+import { motion } from 'motion/react'
 
 interface CashEntry {
   id: string;
@@ -123,11 +123,11 @@ export default function DailyCashRecordPage() {
     }
   }, [currentPage]);
 
-  
+
 
   const fetchRecordForDate = async (date: Date, useCache: boolean = true) => {
     const dateString = format(date, 'dd-MM-yyyy');
-    
+
     // Check cache first
     if (useCache && recordsCache.has(dateString)) {
       return recordsCache.get(dateString)!;
@@ -141,7 +141,7 @@ export default function DailyCashRecordPage() {
       }
       const data = await response.json();
       const record = data.record;
-      
+
       // Update cache if record exists
       if (record) {
         setRecordsCache((prev) => {
@@ -150,7 +150,7 @@ export default function DailyCashRecordPage() {
           return newCache;
         });
       }
-      
+
       return record;
     } catch (error) {
       console.error('Error fetching record:', error);
@@ -204,7 +204,7 @@ export default function DailyCashRecordPage() {
         setRecordDate(new Date());
         setEntryType('in');
         setCreateNewRecordOpen(false);
-        
+
         // Update cache with the new record
         if (data.record) {
           setRecordsCache((prev) => {
@@ -213,7 +213,7 @@ export default function DailyCashRecordPage() {
             return newCache;
           });
         }
-        
+
         // Refresh summary list - reset to first page after creating new record
         setCurrentPage(1);
         fetchData(1);
@@ -283,7 +283,7 @@ export default function DailyCashRecordPage() {
         setDescription('');
         setEntryType('in');
         setAddTransactionOpen(false);
-        
+
         // Update cache with the updated record
         if (data.record) {
           setRecordsCache((prev) => {
@@ -293,7 +293,7 @@ export default function DailyCashRecordPage() {
           });
           setViewingRecord(data.record);
         }
-        
+
         // Refresh summary list - keep current page
         fetchData(currentPage);
       } else {
@@ -344,14 +344,14 @@ export default function DailyCashRecordPage() {
         setDescription('');
         setEditingEntry(null);
         setEditEntryOpen(false);
-        
+
         // Invalidate cache for this date and fetch fresh data
         setRecordsCache((prev) => {
           const newCache = new Map(prev);
           newCache.delete(dateString);
           return newCache;
         });
-        
+
         if (viewingRecord) {
           const updatedRecord = await fetchRecordForDate(recordDate, false);
           if (updatedRecord) {
@@ -400,7 +400,7 @@ export default function DailyCashRecordPage() {
       <div className="max-w-7xl mx-auto">
         {/* Title Section */}
         <h1 className="text-3xl font-bold text-gray-900 mb-4">daily cash record</h1>
-        
+
         <Separator className="mb-6" />
 
         {/* Buttons Section */}
@@ -568,9 +568,8 @@ export default function DailyCashRecordPage() {
                             </div>
                             <div className="flex justify-between text-sm pt-2 border-t">
                               <span className="font-bold text-gray-700">Total Left:</span>
-                              <span className={`font-bold text-lg ${
-                                record.totalLeft >= 0 ? 'text-green-600' : 'text-red-600'
-                              }`}>
+                              <span className={`font-bold text-lg ${record.totalLeft >= 0 ? 'text-green-600' : 'text-red-600'
+                                }`}>
                                 {formatCurrency(record.totalLeft)}
                               </span>
                             </div>
@@ -641,7 +640,7 @@ export default function DailyCashRecordPage() {
                       </TableHeader>
                       <TableBody>
                         {viewingRecord.entries.map((entry) => {
-                          const entryDate = entry.createdAt 
+                          const entryDate = entry.createdAt
                             ? format(new Date(entry.createdAt), 'dd-MM-yyyy')
                             : viewingRecord.date;
                           return (

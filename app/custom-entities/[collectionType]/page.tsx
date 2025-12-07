@@ -35,7 +35,7 @@ import {
 } from '@/components/ui/form';
 import { Skeleton } from '@/components/ui/skeleton';
 import { CustomEntity } from '@/lib/types';
-import { motion } from 'framer-motion';
+import { motion } from 'motion/react'
 import Link from 'next/link';
 
 const customEntitySchema = z.object({
