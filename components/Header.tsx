@@ -1,6 +1,7 @@
 'use client';
 
 import Link from 'next/link';
+import Image from 'next/image';
 import { useRouter, usePathname } from 'next/navigation';
 import { useEffect, useState, useRef } from 'react';
 import { Button } from '@/components/ui/button';
@@ -157,8 +158,14 @@ export default function Header() {
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="flex justify-between items-center h-16">
           <div className="flex items-center space-x-8">
-            <Link href="/dashboard" className="text-xl font-bold text-gray-900">
-              Easy<span className="text-blue-600">Rakh</span>
+            <Link href="/" className="flex items-center">
+              <Image
+                src="/logo.png"
+                alt="EasyRakh logo"
+                width={40}
+                height={40}
+                className="rounded-full bg-white p-1 shadow-sm"
+              />
             </Link>
             <nav className="hidden md:flex items-center space-x-4">
               {navLinks.map((link) => (
@@ -208,6 +215,7 @@ export default function Header() {
                 onClick={handleLogout}
                 variant="destructive"
                 size="sm"
+                className="bg-red-700 hover:bg-red-800 focus-visible:ring-red-500/30"
               >
                 Logout
               </Button>
@@ -259,7 +267,12 @@ export default function Header() {
                 )}
               </div>
             )}
-            <Button onClick={handleLogout} variant="destructive" size="sm" className="mt-2 w-max">
+            <Button
+              onClick={handleLogout}
+              variant="destructive"
+              size="sm"
+              className="mt-2 w-max bg-red-700 hover:bg-red-800 focus-visible:ring-red-500/30"
+            >
               Logout
             </Button>
           </nav>

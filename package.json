@@ -11,6 +11,7 @@
   "dependencies": {
     "@hookform/resolvers": "^3.3.4",
     "@lottiefiles/dotlottie-react": "^0.17.8",
+    "@radix-ui/react-accordion": "^1.2.12",
     "@radix-ui/react-dialog": "^1.1.15",
     "@radix-ui/react-dropdown-menu": "^2.1.16",
     "@radix-ui/react-label": "^2.1.8",
@@ -24,7 +25,7 @@
     "clsx": "^2.1.1",
     "cobe": "^0.6.5",
     "date-fns": "^3.0.6",
-    "framer-motion": "^12.23.24",
+    "embla-carousel-react": "^8.6.0",
     "ioredis": "^5.8.2",
     "jsonwebtoken": "^9.0.2",
     "jspdf": "^3.0.4",

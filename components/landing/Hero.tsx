@@ -2,97 +2,218 @@
 
 import Link from 'next/link';
 import { Button } from '@/components/ui/button';
-import { Badge } from '@/components/ui/badge';
-import { ArrowRight, CheckCircle2, PlayCircle } from 'lucide-react';
-import React from 'react';
-import { ComicText } from '@/components/ui/comic-text';
-import Image from 'next/image';
-import { motion } from 'framer-motion';
-import { Highlighter } from '@/components/ui/highlighter';
+import { motion } from 'motion/react';
+
+type Transaction = {
+  name: string;
+  note: string;
+  amount: string;
+  type: 'in' | 'out';
+  time: string;
+};
+
+const leftTransactions: Transaction[] = [
+  {
+    name: 'Raj Traders',
+    note: 'Payment received',
+    amount: '+₹12,500',
+    type: 'in',
+    time: 'Today, 9:10 AM',
+  },
+  {
+    name: 'Metro Supplies',
+    note: 'Paid for inventory',
+    amount: '-₹7,800',
+    type: 'out',
+    time: 'Yesterday, 5:42 PM',
+  },
+  {
+    name: 'GST Payment',
+    note: 'Quarterly tax',
+    amount: '-₹3,200',
+    type: 'out',
+    time: '12 May, 10:00 AM',
+  },
+];
+
+const rightTransactions: Transaction[] = [
+  {
+    name: 'Online Orders',
+    note: 'Settlement received',
+    amount: '+₹18,940',
+    type: 'in',
+    time: 'Today, 7:55 AM',
+  },
+  {
+    name: 'Rent (March)',
+    note: 'Office & warehouse',
+    amount: '-₹14,000',
+    type: 'out',
+    time: '01 Mar, 9:00 AM',
+  },
+  {
+    name: 'UPI - Arjun',
+    note: 'Short-term advance',
+    amount: '+₹2,500',
+    type: 'in',
+    time: '28 Feb, 6:20 PM',
+  },
+];
+
+function TransactionCard({ tx, align }: { tx: Transaction; align?: 'left' | 'right' }) {
+  const isIn = tx.type === 'in';
+  return (
+    <div
+      className={`w-full max-w-[280px] rounded-2xl border border-gray-100 bg-white/90 px-4 py-3 shadow-md backdrop-blur-sm transition-transform ${align === 'left' ? 'origin-top-right' : 'origin-top-left'
+        }`}
+    >
+      <div className="flex items-start justify-between gap-3">
+        <div>
+          <p className="text-sm font-semibold text-gray-900">{tx.name}</p>
+          <p className="text-xs text-gray-500">{tx.note}</p>
+        </div>
+        <span className={`text-sm font-semibold ${isIn ? 'text-emerald-600' : 'text-rose-600'}`}>
+          {tx.amount}
+        </span>
+      </div>
+      <div className="mt-3 flex items-center gap-2 text-[11px] text-gray-500">
+        <span
+          className={`inline-flex items-center rounded-full px-2 py-1 font-semibold ${isIn ? 'bg-emerald-50 text-emerald-700' : 'bg-rose-50 text-rose-700'
+            }`}
+        >
+          {isIn ? 'Money in' : 'Money out'}
+        </span>
+        <span className="text-gray-400">•</span>
+        <span>{tx.time}</span>
+      </div>
+    </div>
+  );
+}
 
 export default function Hero() {
   return (
-    <section className="relative overflow-hidden pt-32 pb-20 lg:pt-40 lg:pb-28">
-      {/* Background Elements */}
-      <div className="absolute inset-0 -z-10 bg-[radial-gradient(ellipse_at_top,_var(--tw-gradient-stops))] from-emerald-50 via-white to-white" />
-      <div className="absolute top-0 left-1/2 -translate-x-1/2 w-full h-full max-w-7xl -z-10 opacity-40 pointer-events-none">
-         <div className="absolute top-20 left-10 w-72 h-72 bg-emerald-200/30 rounded-full blur-3xl" />
-         <div className="absolute top-40 right-10 w-96 h-96 bg-rose-200/30 rounded-full blur-3xl" />
-      </div>
-
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 relative">
-        <div className="flex flex-col items-center text-center max-w-4xl mx-auto">
-          
-          <motion.div 
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.5 }}
-            className="inline-flex items-center gap-2 mb-8 rounded-full border border-emerald-100 bg-emerald-50/50 px-4 py-1.5 shadow-sm backdrop-blur-sm"
-          >
-            <Badge variant="secondary" className="bg-white text-emerald-700 hover:bg-white shadow-sm border-emerald-100">New v2.0</Badge>
-            <span className="text-sm font-medium text-emerald-900">The simplest ledger for Indian businesses</span>
-            <ArrowRight className="w-3 h-3 text-emerald-600 ml-1" />
-          </motion.div>
-
-          <motion.h1 
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.5, delay: 0.1 }}
-            className="text-5xl sm:text-6xl lg:text-7xl font-bold tracking-tight text-gray-900 mb-8 leading-[1.1]"
-          >
-            Master your <Highlighter action="underline" color="#10b981" >Cashflow</Highlighter> with <br className="hidden sm:block" />
-            <span className="mt-2 inline-block">
-              <Highlighter action="underline" color="#e65c5cff" >EasyRakh</Highlighter>
-            </span>
-          </motion.h1>
-
-          <motion.p 
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.5, delay: 0.2 }}
-            className="text-xl text-gray-600 mb-10 max-w-2xl leading-relaxed"
-          >
-            Stop wrestling with complex spreadsheets. Track credits, debits, and daily cash in a simple, secure, and purpose-built ledger for your business.
-          </motion.p>
-          
-          <motion.div 
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.5, delay: 0.3 }}
-            className="flex flex-col sm:flex-row gap-4 w-full sm:w-auto"
-          >
-            <Button asChild size="lg" className="text-base px-8 py-6 bg-emerald-600 hover:bg-emerald-700 shadow-lg shadow-emerald-200/50 transition-all hover:scale-105 cursor-none">
-              <Link href="/register">Get started free</Link>
-            </Button>
-            <Button
-              asChild
-              size="lg"
-              variant="outline"
-              className="text-base px-8 py-6 border-gray-200 hover:bg-gray-50 hover:text-gray-900 transition-all hover:scale-105 cursor-none"
+    <section className="relative min-h-screen w-full bg-white overflow-hidden pt-10 sm:pt-14">
+      <div
+        className="absolute inset-0"
+        style={{
+          backgroundImage: `linear-gradient(to right, #e7e5e4 1px, transparent 1px),linear-gradient(to bottom, #e7e5e4 1px, transparent 1px)`,
+          backgroundSize: '20px 20px',
+          backgroundPosition: '0 0, 0 0',
+          maskImage: `repeating-linear-gradient(to right,black 0px,black 3px,transparent 3px,transparent 8px),repeating-linear-gradient(to bottom,black 0px,black 3px,transparent 3px,transparent 8px),radial-gradient(ellipse 80% 80% at 100% 0%, #000 50%, transparent 90%)`,
+          WebkitMaskImage: `repeating-linear-gradient(to right,black 0px,black 3px,transparent 3px,transparent 8px),repeating-linear-gradient(to bottom,black 0px,black 3px,transparent 3px,transparent 8px),radial-gradient(ellipse 80% 80% at 100% 0%, #000 50%, transparent 90%)`,
+          maskComposite: 'intersect',
+          WebkitMaskComposite: 'source-in',
+        }}
+      />
+      <div className="z-10 flex min-h-screen items-center px-4 py-16 sm:px-6 lg:px-10">
+        <div className="relative mx-auto flex w-full max-w-6xl flex-col gap-12 lg:gap-16">
+          <div className="grid items-center justify-items-center gap-12 lg:gap-16 md:grid-cols-[1.05fr,0.95fr]">
+            <motion.div
+              initial={{ opacity: 0, y: 30 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.7, delay: 0.1 }}
+              className="flex flex-col items-center gap-6 text-center"
             >
-              <Link href="/login">Sign in</Link>
-            </Button>
-          </motion.div>
+              <div className="inline-flex items-center gap-3 self-center rounded-full border border-gray-200 bg-white/90 px-4 py-2 text-[11px] font-semibold uppercase tracking-wide text-emerald-700 shadow-sm backdrop-blur text-center">
+                Ledger-first
+                <span className="text-gray-600 font-normal normal-case tracking-normal">
+                  Built for Indian Businesses
+                </span>
+              </div>
+              <h1 className="text-4xl font-bold leading-[1.08] text-gray-900 sm:text-5xl lg:text-6xl">
+                Master your Cashflow with EasyRakh
+              </h1>
+              <p className="text-base text-gray-600 sm:text-lg md:max-w-2xl">
+                Track credits, debits, and daily cash in minutes. No more messy spreadsheets or pen & paper—just a clean ledger that keeps your cashflow clear and your team aligned.
+              </p>
+              <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:gap-4">
+                <Button
+                  asChild
+                  size="lg"
+                  className="text-base rounded-full px-8 py-6 bg-(--brand-green) hover:bg-[#059669] text-white shadow-lg shadow-emerald-200/60 transition-all hover:scale-105"
+                >
+                  <Link href="/register">Get Started</Link>
+                </Button>
+                <Button
+                  asChild
+                  size="lg"
+                  variant="outline"
+                  className="text-base rounded-full px-8 py-6 border-gray-200 text-gray-800 hover:bg-gray-100"
+                >
+                  <Link href="#contact">Talk to us</Link>
+                </Button>
+              </div>
+              <div className="grid w-full max-w-3xl gap-3 text-left sm:grid-cols-3">
+                <div className="rounded-2xl border border-gray-200 bg-white/90 p-4 shadow-sm backdrop-blur">
+                  <p className="text-xs uppercase text-gray-500">Satisfied customers</p>
+                  <p className="mt-1 text-2xl font-semibold text-gray-900">10+</p>
+                  <p className="text-xs text-emerald-700 font-semibold">Growing weekly</p>
+                </div>
+                <div className="rounded-2xl border border-gray-200 bg-white/90 p-4 shadow-sm backdrop-blur">
+                  <p className="text-xs uppercase text-gray-500">Tracked this month</p>
+                  <p className="mt-1 text-2xl font-semibold text-gray-900">₹18.4 Cr</p>
+                  <p className="text-xs text-gray-600">Cash in/out recorded</p>
+                </div>
+                <div className="rounded-2xl border border-gray-200 bg-white/90 p-4 shadow-sm backdrop-blur">
+                  <p className="text-xs uppercase text-gray-500">Setup time</p>
+                  <p className="mt-1 text-2xl font-semibold text-gray-900">Under 5 min</p>
+                  <p className="text-xs text-gray-600">Import & start tracking</p>
+                </div>
+              </div>
+            </motion.div>
 
-          <motion.div 
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            transition={{ duration: 0.5, delay: 0.5 }}
-            className="mt-10 flex items-center gap-6 text-sm text-gray-500"
-          >
-            <div className="flex items-center gap-2">
-              <CheckCircle2 className="w-4 h-4 text-emerald-500" />
-              <span>Free forever plan</span>
+            <div className="relative">
+              <div className="absolute -left-8 -top-10 h-32 w-32 rounded-full bg-emerald-100 blur-3xl sm:-left-14 sm:-top-14" />
+              <div className="absolute -right-6 bottom-10 h-28 w-28 rounded-full bg-blue-100 blur-3xl sm:-right-10" />
+              <div className="relative rounded-3xl border border-gray-200/70 bg-white/85 p-5 shadow-xl backdrop-blur">
+                <div className="flex items-center justify-between rounded-2xl bg-neutral-900 px-4 py-3 text-white shadow-md">
+                  <div>
+                    <p className="text-xs uppercase text-white/70">Today’s cash position</p>
+                    <p className="text-2xl font-semibold mt-1">₹3,20,750</p>
+                  </div>
+                  <div className="rounded-full bg-white/15 px-3 py-1 text-xs font-semibold text-emerald-200">
+                    +₹18,940 today
+                  </div>
+                </div>
+
+                <div className="mt-4 grid gap-4 sm:grid-cols-2">
+                  {leftTransactions.map((tx, idx) => (
+                    <motion.div
+                      key={tx.name}
+                      initial={{ opacity: 0, y: 20 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      transition={{ duration: 0.5, delay: 0.1 + idx * 0.1 }}
+                    >
+                      <TransactionCard tx={tx} align="left" />
+                    </motion.div>
+                  ))}
+                </div>
+
+                <div className="mt-4 grid gap-4 sm:grid-cols-2">
+                  {rightTransactions.map((tx, idx) => (
+                    <motion.div
+                      key={tx.name}
+                      initial={{ opacity: 0, y: 20 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      transition={{ duration: 0.5, delay: 0.25 + idx * 0.1 }}
+                    >
+                      <TransactionCard tx={tx} align="right" />
+                    </motion.div>
+                  ))}
+                </div>
+
+                <div className="mt-5 flex flex-wrap items-center gap-3 rounded-2xl border border-gray-200 bg-white/90 px-4 py-3 text-sm text-gray-700 shadow-sm backdrop-blur">
+                  <div className="inline-flex items-center gap-2 rounded-full bg-emerald-50 px-3 py-1 text-emerald-700 font-semibold text-xs">
+                    On-time payouts
+                  </div>
+                  <span className="text-gray-400">•</span>
+                  <span>Attach bills & notes to every entry</span>
+                  <span className="hidden sm:inline text-gray-400">•</span>
+                  <span className="hidden sm:inline">Auto-reminders for dues</span>
+                </div>
+              </div>
             </div>
-            <div className="flex items-center gap-2">
-              <CheckCircle2 className="w-4 h-4 text-emerald-500" />
-              <span>No credit card required</span>
-            </div>
-            <div className="flex items-center gap-2">
-              <CheckCircle2 className="w-4 h-4 text-emerald-500" />
-              <span>Secure & Private</span>
-            </div>
-          </motion.div>
+          </div>
         </div>
       </div>
     </section>

@@ -27,7 +27,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
-import { motion } from 'framer-motion';
+import { motion } from 'motion/react'
 
 const transactionSchema = z.object({
   entityType: z.string().min(1, 'Entity type is required'),
@@ -513,19 +513,19 @@ function NewTransactionPageContent() {
     );
   }
 
-  const entities = entityType === 'customer' 
-    ? customers 
-    : entityType === 'supplier' 
-    ? suppliers 
-    : customEntities;
-  
+  const entities = entityType === 'customer'
+    ? customers
+    : entityType === 'supplier'
+      ? suppliers
+      : customEntities;
+
   const collectionType = collectionTypes.find(ct => ct.slug === entityType);
-  const entityName = entityType === 'customer' 
-    ? 'Customer' 
-    : entityType === 'supplier' 
-    ? 'Supplier' 
-    : collectionType?.name || 'Entity';
-  
+  const entityName = entityType === 'customer'
+    ? 'Customer'
+    : entityType === 'supplier'
+      ? 'Supplier'
+      : collectionType?.name || 'Entity';
+
   // Check if we came from a ledger page
   const urlEntityType = searchParams.get('entityType');
   const urlEntityId = searchParams.get('entityId');
@@ -539,451 +539,451 @@ function NewTransactionPageContent() {
       exit={{ opacity: 0 }}
     >
       <div className="max-w-2xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-      <div className="mb-4">
-        {cameFromLedger ? (
-          <Link
-            href={`/ledger/${urlEntityType}/${urlEntityId}`}
-            className="text-blue-600 hover:text-blue-800 text-sm font-medium"
-          >
-            ← Back to Ledger
-          </Link>
-        ) : (
-          <Button
-            onClick={() => {
-              setStep('select');
-              setEntityType(null);
-              reset();
-            }}
-            variant="link"
-            size="sm"
-          >
-            ← Back to Selection
-          </Button>
-        )}
-      </div>
-      <h1 className="text-3xl font-bold text-gray-900 mb-6">New Transaction</h1>
-
-      <form onSubmit={handleSubmit(onSubmit)} className="bg-white rounded-lg shadow-md p-6 space-y-6">
-        <div>
-          <div className="flex justify-between items-center mb-2">
-            <label className="block text-sm font-medium text-gray-700">
-              {entityName} *
-            </label>
+        <div className="mb-4">
+          {cameFromLedger ? (
+            <Link
+              href={`/ledger/${urlEntityType}/${urlEntityId}`}
+              className="text-blue-600 hover:text-blue-800 text-sm font-medium"
+            >
+              ← Back to Ledger
+            </Link>
+          ) : (
             <Button
-              type="button"
-              onClick={() => setShowCreateModal(true)}
+              onClick={() => {
+                setStep('select');
+                setEntityType(null);
+                reset();
+              }}
               variant="link"
               size="sm"
             >
-              + Create New {entityName}
+              ← Back to Selection
             </Button>
-          </div>
-          <Select
-            onValueChange={(value) => setValue('entityId', value)}
-            defaultValue={watch('entityId')}
-          >
-            <SelectTrigger className="w-full">
-              <SelectValue placeholder={`Select a ${entityName.toLowerCase()}`} />
-            </SelectTrigger>
-            <SelectContent>
-              {entities.map((entity) => (
-                <SelectItem key={entity.id} value={entity.id}>
-                  {entity.name}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-          {errors.entityId && (
-            <p className="mt-1 text-sm text-red-600">{errors.entityId.message}</p>
           )}
         </div>
+        <h1 className="text-3xl font-bold text-gray-900 mb-6">New Transaction</h1>
 
-        <div>
-          <label className="block text-sm font-medium text-gray-700 mb-2">
-            Transaction Type *
-          </label>
-          <Select
-            onValueChange={(value) => setValue('type', value as 'credit' | 'debit')}
-            defaultValue={watch('type')}
-          >
-            <SelectTrigger className="w-full">
-              <SelectValue placeholder="Select transaction type" />
-            </SelectTrigger>
-            <SelectContent>
-              {entityType === 'supplier' ? (
-                <>
-                  <SelectItem value="credit">Credit (Parts supplied by supplier)</SelectItem>
-                  <SelectItem value="debit">Debit (Money paid to supplier)</SelectItem>
-                </>
-              ) : (
-                <>
-                  <SelectItem value="debit">Debit (Customer purchase - amount to be paid)</SelectItem>
-                  <SelectItem value="credit">Credit (Money received from customer)</SelectItem>
-                </>
-              )}
-            </SelectContent>
-          </Select>
-          {errors.type && (
-            <p className="mt-1 text-sm text-red-600">{errors.type.message}</p>
-          )}
-        </div>
-
-        <div>
-          <label className="block text-sm font-medium text-gray-700 mb-2">
-            Amount *
-          </label>
-          <Input
-            {...register('amount', { valueAsNumber: true })}
-            type="number"
-            step="0.01"
-            min="0.01"
-            placeholder="0.00"
-          />
-          {errors.amount && (
-            <p className="mt-1 text-sm text-red-600">{errors.amount.message}</p>
-          )}
-        </div>
-
-        <div>
-          <label className="block text-sm font-medium text-gray-700 mb-2">
-            Description
-          </label>
-          <Textarea
-            {...register('description')}
-            rows={3}
-            placeholder="Transaction description (optional)"
-          />
-        </div>
-
-        <div>
-          <label className="block text-sm font-medium text-gray-700 mb-2">
-            Date *
-          </label>
-          <Input
-            {...register('date')}
-            type="date"
-          />
-          {errors.date && (
-            <p className="mt-1 text-sm text-red-600">{errors.date.message}</p>
-          )}
-        </div>
-
-        <div>
-          <label className="block text-sm font-medium text-gray-700 mb-2">
-            Bill Attachment
-          </label>
-          <input
-            ref={fileInputRef}
-            type="file"
-            accept="image/jpeg,image/png,image/webp,image/heic,image/heif,application/pdf"
-            className="hidden"
-            onChange={handleBillFileChange}
-          />
-          <div className="flex flex-wrap items-center gap-3">
-            <Button
-              type="button"
-              variant="outline"
-              onClick={() => fileInputRef.current?.click()}
-              disabled={billUploading}
-            >
-              {billUploadResult ? 'Replace Bill' : 'Upload Bill'}
-            </Button>
-            {billUploadResult && (
-              <Button type="button" variant="ghost" onClick={handleRemoveBill} disabled={billUploading}>
-                Remove
+        <form onSubmit={handleSubmit(onSubmit)} className="bg-white rounded-lg shadow-md p-6 space-y-6">
+          <div>
+            <div className="flex justify-between items-center mb-2">
+              <label className="block text-sm font-medium text-gray-700">
+                {entityName} *
+              </label>
+              <Button
+                type="button"
+                onClick={() => setShowCreateModal(true)}
+                variant="link"
+                size="sm"
+              >
+                + Create New {entityName}
               </Button>
+            </div>
+            <Select
+              onValueChange={(value) => setValue('entityId', value)}
+              defaultValue={watch('entityId')}
+            >
+              <SelectTrigger className="w-full">
+                <SelectValue placeholder={`Select a ${entityName.toLowerCase()}`} />
+              </SelectTrigger>
+              <SelectContent>
+                {entities.map((entity) => (
+                  <SelectItem key={entity.id} value={entity.id}>
+                    {entity.name}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+            {errors.entityId && (
+              <p className="mt-1 text-sm text-red-600">{errors.entityId.message}</p>
             )}
           </div>
-          {billUploading && (
-            <p className="text-sm text-muted-foreground mt-2">Uploading bill...</p>
-          )}
-          {billUploadResult && (
-            <div className="mt-3 flex items-center gap-3">
-              {billUploadResult.resourceType === 'image' ? (
-                <Image
-                  src={billUploadResult.url}
-                  alt="Bill preview"
-                  width={80}
-                  height={80}
-                  unoptimized
-                  className="h-20 w-20 rounded-md object-cover border"
-                />
-              ) : (
-                <div className="text-sm text-gray-600">PDF uploaded</div>
-              )}
-              <a
-                href={billUploadResult.url}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="text-sm text-blue-600 hover:underline"
-              >
-                View uploaded file
-              </a>
-            </div>
-          )}
-          <p className="text-xs text-gray-500 mt-2">
-            Accepted formats: JPG, PNG, WEBP, HEIC/HEIF, PDF up to 5MB.
-          </p>
-        </div>
 
-        <div className="flex justify-end space-x-3 pt-4">
-          <Button
-            type="button"
-            onClick={() => router.back()}
-            variant="outline"
-          >
-            Cancel
-          </Button>
-          <Button
-            type="submit"
-            disabled={loading || billUploading}
-          >
-            {loading ? 'Creating...' : 'Create Transaction'}
-          </Button>
-        </div>
-      </form>
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-2">
+              Transaction Type *
+            </label>
+            <Select
+              onValueChange={(value) => setValue('type', value as 'credit' | 'debit')}
+              defaultValue={watch('type')}
+            >
+              <SelectTrigger className="w-full">
+                <SelectValue placeholder="Select transaction type" />
+              </SelectTrigger>
+              <SelectContent>
+                {entityType === 'supplier' ? (
+                  <>
+                    <SelectItem value="credit">Credit (Parts supplied by supplier)</SelectItem>
+                    <SelectItem value="debit">Debit (Money paid to supplier)</SelectItem>
+                  </>
+                ) : (
+                  <>
+                    <SelectItem value="debit">Debit (Customer purchase - amount to be paid)</SelectItem>
+                    <SelectItem value="credit">Credit (Money received from customer)</SelectItem>
+                  </>
+                )}
+              </SelectContent>
+            </Select>
+            {errors.type && (
+              <p className="mt-1 text-sm text-red-600">{errors.type.message}</p>
+            )}
+          </div>
 
-      <Dialog open={showCreateModal} onOpenChange={setShowCreateModal}>
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>Create New {entityName}</DialogTitle>
-            <DialogDescription>
-              Add a new {entityName.toLowerCase()} to your ledger
-            </DialogDescription>
-          </DialogHeader>
-        {entityType === 'customer' ? (
-          <form onSubmit={handleSubmitCustomer(handleCreateCustomer)} className="space-y-4">
-            <div>
-              <label className="block text-sm font-medium text-gray-700">Name *</label>
-              <input
-                {...registerCustomer('name')}
-                type="text"
-                className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm px-3 py-2 border"
-              />
-              {customerErrors.name && (
-                <p className="mt-1 text-sm text-red-600">{customerErrors.name.message}</p>
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-2">
+              Amount *
+            </label>
+            <Input
+              {...register('amount', { valueAsNumber: true })}
+              type="number"
+              step="0.01"
+              min="0.01"
+              placeholder="0.00"
+            />
+            {errors.amount && (
+              <p className="mt-1 text-sm text-red-600">{errors.amount.message}</p>
+            )}
+          </div>
+
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-2">
+              Description
+            </label>
+            <Textarea
+              {...register('description')}
+              rows={3}
+              placeholder="Transaction description (optional)"
+            />
+          </div>
+
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-2">
+              Date *
+            </label>
+            <Input
+              {...register('date')}
+              type="date"
+            />
+            {errors.date && (
+              <p className="mt-1 text-sm text-red-600">{errors.date.message}</p>
+            )}
+          </div>
+
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-2">
+              Bill Attachment
+            </label>
+            <input
+              ref={fileInputRef}
+              type="file"
+              accept="image/jpeg,image/png,image/webp,image/heic,image/heif,application/pdf"
+              className="hidden"
+              onChange={handleBillFileChange}
+            />
+            <div className="flex flex-wrap items-center gap-3">
+              <Button
+                type="button"
+                variant="outline"
+                onClick={() => fileInputRef.current?.click()}
+                disabled={billUploading}
+              >
+                {billUploadResult ? 'Replace Bill' : 'Upload Bill'}
+              </Button>
+              {billUploadResult && (
+                <Button type="button" variant="ghost" onClick={handleRemoveBill} disabled={billUploading}>
+                  Remove
+                </Button>
               )}
             </div>
-            <div>
-              <label className="block text-sm font-medium text-gray-700">Phone</label>
-              <input
-                {...registerCustomer('phone')}
-                type="text"
-                className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm px-3 py-2 border"
-              />
-            </div>
-            <div>
-              <label className="block text-sm font-medium text-gray-700">Email</label>
-              <input
-                {...registerCustomer('email')}
-                type="email"
-                className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm px-3 py-2 border"
-              />
-            </div>
-            <div>
-              <label className="block text-sm font-medium text-gray-700">Address</label>
-              <textarea
-                {...registerCustomer('address')}
-                rows={3}
-                className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm px-3 py-2 border"
-              />
-            </div>
-            <div>
-              <label className="block text-sm font-medium text-gray-700">Opening Balance</label>
-              <input
-                {...registerCustomer('openingBalance', { valueAsNumber: true })}
-                type="number"
-                step="0.01"
-                className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm px-3 py-2 border"
-              />
-            </div>
-            <div>
-              <label className="block text-sm font-medium text-gray-700">Balance Type</label>
-              <select
-                {...registerCustomer('balanceType')}
-                className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm px-3 py-2 border"
-              >
-                <option value="debit">Debit (They owe you)</option>
-                <option value="credit">Credit (You owe them)</option>
-              </select>
-            </div>
-            <div className="flex justify-end space-x-3 pt-4">
-              <button
-                type="button"
-                onClick={() => {
-                  setShowCreateModal(false);
-                  resetCustomer();
-                }}
-                className="px-4 py-2 border border-gray-300 rounded-md text-sm font-medium text-gray-700 hover:bg-gray-50"
-              >
-                Cancel
-              </button>
-              <button
-                type="submit"
-                disabled={creatingEntity}
-                className="px-4 py-2 bg-blue-600 text-white rounded-md text-sm font-medium hover:bg-blue-700 disabled:opacity-50"
-              >
-                {creatingEntity ? 'Creating...' : 'Create'}
-              </button>
-            </div>
-          </form>
-        ) : entityType === 'supplier' ? (
-          <form onSubmit={handleSubmitSupplier(handleCreateSupplier)} className="space-y-4">
-            <div>
-              <label className="block text-sm font-medium text-gray-700">Name *</label>
-              <input
-                {...registerSupplier('name')}
-                type="text"
-                className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm px-3 py-2 border"
-              />
-              {supplierErrors.name && (
-                <p className="mt-1 text-sm text-red-600">{supplierErrors.name.message}</p>
-              )}
-            </div>
-            <div>
-              <label className="block text-sm font-medium text-gray-700">Phone</label>
-              <input
-                {...registerSupplier('phone')}
-                type="text"
-                className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm px-3 py-2 border"
-              />
-            </div>
-            <div>
-              <label className="block text-sm font-medium text-gray-700">Email</label>
-              <input
-                {...registerSupplier('email')}
-                type="email"
-                className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm px-3 py-2 border"
-              />
-            </div>
-            <div>
-              <label className="block text-sm font-medium text-gray-700">Address</label>
-              <textarea
-                {...registerSupplier('address')}
-                rows={3}
-                className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm px-3 py-2 border"
-              />
-            </div>
-            <div>
-              <label className="block text-sm font-medium text-gray-700">Opening Balance</label>
-              <input
-                {...registerSupplier('openingBalance', { valueAsNumber: true })}
-                type="number"
-                step="0.01"
-                className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm px-3 py-2 border"
-              />
-            </div>
-            <div>
-              <label className="block text-sm font-medium text-gray-700">Balance Type</label>
-              <select
-                {...registerSupplier('balanceType')}
-                className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm px-3 py-2 border"
-              >
-                <option value="debit">Debit (They owe you)</option>
-                <option value="credit">Credit (You owe them)</option>
-              </select>
-            </div>
-            <div className="flex justify-end space-x-3 pt-4">
-              <button
-                type="button"
-                onClick={() => {
-                  setShowCreateModal(false);
-                  resetSupplier();
-                }}
-                className="px-4 py-2 border border-gray-300 rounded-md text-sm font-medium text-gray-700 hover:bg-gray-50"
-              >
-                Cancel
-              </button>
-              <button
-                type="submit"
-                disabled={creatingEntity}
-                className="px-4 py-2 bg-blue-600 text-white rounded-md text-sm font-medium hover:bg-blue-700 disabled:opacity-50"
-              >
-                {creatingEntity ? 'Creating...' : 'Create'}
-              </button>
-            </div>
-          </form>
-        ) : (
-          <form onSubmit={handleSubmitCustomEntity(handleCreateCustomEntity)} className="space-y-4">
-            <input type="hidden" {...registerCustomEntity('collectionType')} value={entityType || ''} />
-            <div>
-              <label className="block text-sm font-medium text-gray-700">Name *</label>
-              <input
-                {...registerCustomEntity('name')}
-                type="text"
-                className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm px-3 py-2 border"
-              />
-              {customEntityErrors.name && (
-                <p className="mt-1 text-sm text-red-600">{customEntityErrors.name.message}</p>
-              )}
-            </div>
-            <div>
-              <label className="block text-sm font-medium text-gray-700">Phone</label>
-              <input
-                {...registerCustomEntity('phone')}
-                type="text"
-                className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm px-3 py-2 border"
-              />
-            </div>
-            <div>
-              <label className="block text-sm font-medium text-gray-700">Email</label>
-              <input
-                {...registerCustomEntity('email')}
-                type="email"
-                className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm px-3 py-2 border"
-              />
-            </div>
-            <div>
-              <label className="block text-sm font-medium text-gray-700">Address</label>
-              <textarea
-                {...registerCustomEntity('address')}
-                rows={3}
-                className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm px-3 py-2 border"
-              />
-            </div>
-            <div>
-              <label className="block text-sm font-medium text-gray-700">Opening Balance</label>
-              <input
-                {...registerCustomEntity('openingBalance', { valueAsNumber: true })}
-                type="number"
-                step="0.01"
-                className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm px-3 py-2 border"
-              />
-            </div>
-            <div>
-              <label className="block text-sm font-medium text-gray-700">Balance Type</label>
-              <select
-                {...registerCustomEntity('balanceType')}
-                className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm px-3 py-2 border"
-              >
-                <option value="debit">Debit (They owe you)</option>
-                <option value="credit">Credit (You owe them)</option>
-              </select>
-            </div>
-            <div className="flex justify-end space-x-3 pt-4">
-              <button
-                type="button"
-                onClick={() => {
-                  setShowCreateModal(false);
-                  resetCustomEntity();
-                }}
-                className="px-4 py-2 border border-gray-300 rounded-md text-sm font-medium text-gray-700 hover:bg-gray-50"
-              >
-                Cancel
-              </button>
-              <button
-                type="submit"
-                disabled={creatingEntity}
-                className="px-4 py-2 bg-blue-600 text-white rounded-md text-sm font-medium hover:bg-blue-700 disabled:opacity-50"
-              >
-                {creatingEntity ? 'Creating...' : 'Create'}
-              </button>
-            </div>
-          </form>
-        )}
-        </DialogContent>
-      </Dialog>
-    </div>
+            {billUploading && (
+              <p className="text-sm text-muted-foreground mt-2">Uploading bill...</p>
+            )}
+            {billUploadResult && (
+              <div className="mt-3 flex items-center gap-3">
+                {billUploadResult.resourceType === 'image' ? (
+                  <Image
+                    src={billUploadResult.url}
+                    alt="Bill preview"
+                    width={80}
+                    height={80}
+                    unoptimized
+                    className="h-20 w-20 rounded-md object-cover border"
+                  />
+                ) : (
+                  <div className="text-sm text-gray-600">PDF uploaded</div>
+                )}
+                <a
+                  href={billUploadResult.url}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="text-sm text-blue-600 hover:underline"
+                >
+                  View uploaded file
+                </a>
+              </div>
+            )}
+            <p className="text-xs text-gray-500 mt-2">
+              Accepted formats: JPG, PNG, WEBP, HEIC/HEIF, PDF up to 5MB.
+            </p>
+          </div>
+
+          <div className="flex justify-end space-x-3 pt-4">
+            <Button
+              type="button"
+              onClick={() => router.back()}
+              variant="outline"
+            >
+              Cancel
+            </Button>
+            <Button
+              type="submit"
+              disabled={loading || billUploading}
+            >
+              {loading ? 'Creating...' : 'Create Transaction'}
+            </Button>
+          </div>
+        </form>
+
+        <Dialog open={showCreateModal} onOpenChange={setShowCreateModal}>
+          <DialogContent>
+            <DialogHeader>
+              <DialogTitle>Create New {entityName}</DialogTitle>
+              <DialogDescription>
+                Add a new {entityName.toLowerCase()} to your ledger
+              </DialogDescription>
+            </DialogHeader>
+            {entityType === 'customer' ? (
+              <form onSubmit={handleSubmitCustomer(handleCreateCustomer)} className="space-y-4">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700">Name *</label>
+                  <input
+                    {...registerCustomer('name')}
+                    type="text"
+                    className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm px-3 py-2 border"
+                  />
+                  {customerErrors.name && (
+                    <p className="mt-1 text-sm text-red-600">{customerErrors.name.message}</p>
+                  )}
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700">Phone</label>
+                  <input
+                    {...registerCustomer('phone')}
+                    type="text"
+                    className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm px-3 py-2 border"
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700">Email</label>
+                  <input
+                    {...registerCustomer('email')}
+                    type="email"
+                    className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm px-3 py-2 border"
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700">Address</label>
+                  <textarea
+                    {...registerCustomer('address')}
+                    rows={3}
+                    className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm px-3 py-2 border"
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700">Opening Balance</label>
+                  <input
+                    {...registerCustomer('openingBalance', { valueAsNumber: true })}
+                    type="number"
+                    step="0.01"
+                    className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm px-3 py-2 border"
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700">Balance Type</label>
+                  <select
+                    {...registerCustomer('balanceType')}
+                    className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm px-3 py-2 border"
+                  >
+                    <option value="debit">Debit (They owe you)</option>
+                    <option value="credit">Credit (You owe them)</option>
+                  </select>
+                </div>
+                <div className="flex justify-end space-x-3 pt-4">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setShowCreateModal(false);
+                      resetCustomer();
+                    }}
+                    className="px-4 py-2 border border-gray-300 rounded-md text-sm font-medium text-gray-700 hover:bg-gray-50"
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    type="submit"
+                    disabled={creatingEntity}
+                    className="px-4 py-2 bg-blue-600 text-white rounded-md text-sm font-medium hover:bg-blue-700 disabled:opacity-50"
+                  >
+                    {creatingEntity ? 'Creating...' : 'Create'}
+                  </button>
+                </div>
+              </form>
+            ) : entityType === 'supplier' ? (
+              <form onSubmit={handleSubmitSupplier(handleCreateSupplier)} className="space-y-4">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700">Name *</label>
+                  <input
+                    {...registerSupplier('name')}
+                    type="text"
+                    className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm px-3 py-2 border"
+                  />
+                  {supplierErrors.name && (
+                    <p className="mt-1 text-sm text-red-600">{supplierErrors.name.message}</p>
+                  )}
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700">Phone</label>
+                  <input
+                    {...registerSupplier('phone')}
+                    type="text"
+                    className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm px-3 py-2 border"
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700">Email</label>
+                  <input
+                    {...registerSupplier('email')}
+                    type="email"
+                    className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm px-3 py-2 border"
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700">Address</label>
+                  <textarea
+                    {...registerSupplier('address')}
+                    rows={3}
+                    className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm px-3 py-2 border"
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700">Opening Balance</label>
+                  <input
+                    {...registerSupplier('openingBalance', { valueAsNumber: true })}
+                    type="number"
+                    step="0.01"
+                    className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm px-3 py-2 border"
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700">Balance Type</label>
+                  <select
+                    {...registerSupplier('balanceType')}
+                    className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm px-3 py-2 border"
+                  >
+                    <option value="debit">Debit (They owe you)</option>
+                    <option value="credit">Credit (You owe them)</option>
+                  </select>
+                </div>
+                <div className="flex justify-end space-x-3 pt-4">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setShowCreateModal(false);
+                      resetSupplier();
+                    }}
+                    className="px-4 py-2 border border-gray-300 rounded-md text-sm font-medium text-gray-700 hover:bg-gray-50"
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    type="submit"
+                    disabled={creatingEntity}
+                    className="px-4 py-2 bg-blue-600 text-white rounded-md text-sm font-medium hover:bg-blue-700 disabled:opacity-50"
+                  >
+                    {creatingEntity ? 'Creating...' : 'Create'}
+                  </button>
+                </div>
+              </form>
+            ) : (
+              <form onSubmit={handleSubmitCustomEntity(handleCreateCustomEntity)} className="space-y-4">
+                <input type="hidden" {...registerCustomEntity('collectionType')} value={entityType || ''} />
+                <div>
+                  <label className="block text-sm font-medium text-gray-700">Name *</label>
+                  <input
+                    {...registerCustomEntity('name')}
+                    type="text"
+                    className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm px-3 py-2 border"
+                  />
+                  {customEntityErrors.name && (
+                    <p className="mt-1 text-sm text-red-600">{customEntityErrors.name.message}</p>
+                  )}
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700">Phone</label>
+                  <input
+                    {...registerCustomEntity('phone')}
+                    type="text"
+                    className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm px-3 py-2 border"
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700">Email</label>
+                  <input
+                    {...registerCustomEntity('email')}
+                    type="email"
+                    className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm px-3 py-2 border"
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700">Address</label>
+                  <textarea
+                    {...registerCustomEntity('address')}
+                    rows={3}
+                    className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm px-3 py-2 border"
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700">Opening Balance</label>
+                  <input
+                    {...registerCustomEntity('openingBalance', { valueAsNumber: true })}
+                    type="number"
+                    step="0.01"
+                    className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm px-3 py-2 border"
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700">Balance Type</label>
+                  <select
+                    {...registerCustomEntity('balanceType')}
+                    className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm px-3 py-2 border"
+                  >
+                    <option value="debit">Debit (They owe you)</option>
+                    <option value="credit">Credit (You owe them)</option>
+                  </select>
+                </div>
+                <div className="flex justify-end space-x-3 pt-4">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setShowCreateModal(false);
+                      resetCustomEntity();
+                    }}
+                    className="px-4 py-2 border border-gray-300 rounded-md text-sm font-medium text-gray-700 hover:bg-gray-50"
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    type="submit"
+                    disabled={creatingEntity}
+                    className="px-4 py-2 bg-blue-600 text-white rounded-md text-sm font-medium hover:bg-blue-700 disabled:opacity-50"
+                  >
+                    {creatingEntity ? 'Creating...' : 'Create'}
+                  </button>
+                </div>
+              </form>
+            )}
+          </DialogContent>
+        </Dialog>
+      </div>
     </motion.div>
   );
 }

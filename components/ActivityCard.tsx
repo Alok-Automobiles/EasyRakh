@@ -55,7 +55,7 @@ export default function ActivityCard({ activity }: ActivityCardProps) {
       type="button"
       onClick={handleNavigate}
       disabled={disabled}
-      className="w-full text-left focus:outline-none disabled:cursor-not-allowed"
+      className={`w-full text-left focus:outline-none ${disabled ? 'cursor-not-allowed' : 'cursor-pointer'}`}
     >
       <Card
         className={`${getActivityColor()} hover:shadow-lg transition-shadow ${

@@ -2,7 +2,7 @@
 
 import { ArrowDownLeft, ArrowUpRight, Banknote, TrendingUp, TrendingDown } from 'lucide-react';
 import React from 'react';
-import { motion } from 'framer-motion';
+import { motion } from 'motion/react'
 
 type Tx = {
   id: string;
@@ -26,12 +26,12 @@ export default function TransactionShowcase() {
   return (
     <section className="relative py-24 overflow-hidden bg-white">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-        
+
         <div className="grid lg:grid-cols-2 gap-16 items-center">
           <div className="order-2 lg:order-1">
             <div className="relative rounded-2xl border border-gray-200 bg-white shadow-2xl overflow-hidden">
               <div className="absolute top-0 left-0 right-0 h-1 bg-gradient-to-r from-emerald-500 to-blue-500" />
-              
+
               {/* Fake Header */}
               <div className="border-b border-gray-100 bg-gray-50/50 px-6 py-4 flex items-center justify-between">
                 <div className="flex items-center gap-2">
@@ -68,7 +68,7 @@ export default function TransactionShowcase() {
                   ))}
                 </div>
               </div>
-              
+
               {/* Footer Stats */}
               <div className="bg-gray-50 px-6 py-4 border-t border-gray-100 flex justify-between items-center text-sm">
                 <div className="flex items-center gap-2 text-gray-600">
@@ -91,7 +91,7 @@ export default function TransactionShowcase() {
             <p className="text-lg text-gray-600 mb-8 leading-relaxed">
               No more guessing where your money went. Every transaction is recorded instantly and your balance is updated automatically.
             </p>
-            
+
             <div className="grid grid-cols-2 gap-6">
               <div className="p-4 rounded-xl bg-emerald-50 border border-emerald-100">
                 <TrendingUp className="w-8 h-8 text-emerald-600 mb-3" />

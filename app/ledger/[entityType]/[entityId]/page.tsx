@@ -17,7 +17,7 @@ import {
 } from '@/components/ui/dialog';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Skeleton } from '@/components/ui/skeleton';
-import { motion } from 'framer-motion';
+import { motion } from 'motion/react'
 import PrintLedgerOverlay from '@/components/PrintLedgerOverlay';
 
 interface LedgerEntry {
@@ -136,7 +136,7 @@ export default function LedgerPage() {
             setCollectionTypeName(ct.name);
           }
         })
-        .catch(() => {});
+        .catch(() => { });
     }
   }, [entityType]);
 
@@ -228,19 +228,19 @@ export default function LedgerPage() {
       setSelectedTransaction((prev) =>
         prev
           ? {
-              ...prev,
-              billUrl: updatedBillUrl,
-              billPublicId: updatedBillPublicId,
-            }
+            ...prev,
+            billUrl: updatedBillUrl,
+            billPublicId: updatedBillPublicId,
+          }
           : prev
       );
       setSelectedEntry((prev) =>
         prev
           ? {
-              ...prev,
-              billUrl: updatedBillUrl,
-              billPublicId: updatedBillPublicId,
-            }
+            ...prev,
+            billUrl: updatedBillUrl,
+            billPublicId: updatedBillPublicId,
+          }
           : prev
       );
       setLedgerData((prev) => {
@@ -380,7 +380,7 @@ export default function LedgerPage() {
 
   const { entity, openingBalance, entries, totals } = ledgerData;
   const finalBalanceColor = totals.balance >= 0 ? 'text-green-600' : 'text-red-600';
-  
+
   // Determine entity name and back link
   let entityName = 'Entities';
   let backLink = '/';
@@ -404,207 +404,205 @@ export default function LedgerPage() {
       exit={{ opacity: 0 }}
     >
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-      <div className="mb-6">
-        <Link
-          href={backLink}
-          className="text-blue-600 hover:text-blue-800 text-sm font-medium mb-4 inline-block"
-        >
-          ← Back to {entityName}
-        </Link>
-        <h1 className="text-3xl font-bold text-gray-900">{entity.name} - Ledger</h1>
-        {entity.phone && (
-          <p className="text-gray-600 mt-1">Phone: {entity.phone}</p>
-        )}
-        {entity.email && (
-          <p className="text-gray-600">Email: {entity.email}</p>
-        )}
-        {entity.address && (
-          <p className="text-gray-600 mt-1">{entity.address}</p>
-        )}
-      </div>
-
-      <Card className="mb-6">
-        <CardHeader>
-          <CardTitle>Opening Balance</CardTitle>
-        </CardHeader>
-        <CardContent>
-        <div className="flex items-center space-x-4">
-          <span className="text-gray-600">Amount:</span>
-          <span
-            className={`text-2xl font-bold ${
-              openingBalance.type === 'credit' ? 'text-green-600' : 'text-red-600'
-            }`}
+        <div className="mb-6">
+          <Link
+            href={backLink}
+            className="text-blue-600 hover:text-blue-800 text-sm font-medium mb-4 inline-block"
           >
-            {openingBalance.type === 'credit' ? '+' : '-'}₹
-            {openingBalance.amount.toLocaleString()}
-          </span>
-          <span className="text-sm text-gray-500">
-            ({openingBalance.type === 'credit' ? 'You owe them' : 'They owe you'})
-          </span>
-        </div>
-        </CardContent>
-      </Card>
-
-      <Card className="overflow-hidden">
-        <div className="overflow-x-auto">
-          <table className="min-w-full divide-y divide-gray-200">
-            <thead className="bg-gray-50">
-              <tr>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  Date
-                </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  Description
-                </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  Bill
-                </th>
-                <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  Credit
-                </th>
-                <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  Debit
-                </th>
-                <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  Balance
-                </th>
-              </tr>
-            </thead>
-            <tbody className="bg-white divide-y divide-gray-200">
-              {/* Opening Balance Row */}
-              <tr className="bg-gray-50">
-                <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                  {format(new Date(), 'MMM dd, yyyy')}
-                </td>
-                <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                  Opening Balance
-                </td>
-                <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                  —
-                </td>
-                <td className="px-6 py-4 whitespace-nowrap text-sm text-right text-gray-900">
-                  {openingBalance.type === 'credit' ? `₹${openingBalance.amount.toLocaleString()}` : '-'}
-                </td>
-                <td className="px-6 py-4 whitespace-nowrap text-sm text-right text-gray-900">
-                  {openingBalance.type === 'debit' ? `₹${openingBalance.amount.toLocaleString()}` : '-'}
-                </td>
-                <td
-                  className={`px-6 py-4 whitespace-nowrap text-sm text-right font-semibold ${
-                    openingBalance.type === 'credit' ? 'text-green-600' : 'text-red-600'
-                  }`}
-                >
-                  {openingBalance.type === 'credit' ? '-' : ''}₹
-                  {openingBalance.amount.toLocaleString()}
-                </td>
-              </tr>
-
-              {/* Transaction Entries */}
-              {entries.map((entry, index) => {
-                const balanceColor = entry.balance >= 0 ? 'text-green-600' : 'text-red-600';
-                return (
-                  <tr key={index} className="hover:bg-gray-50">
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                      {format(new Date(entry.date), 'MMM dd, yyyy')}
-                    </td>
-                    <td className="px-6 py-4 text-sm text-gray-900">
-                      {entry.description || '-'}
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                      {entry.billUrl && entry.transactionId ? (
-                        <Button
-                          type="button"
-                          variant="link"
-                          className="px-0 text-blue-600"
-                          onClick={() => handleViewBill(entry)}
-                        >
-                          View Bill
-                        </Button>
-                      ) : (
-                        '—'
-                      )}
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-right text-green-600">
-                      {entry.credit > 0 ? `₹${entry.credit.toLocaleString()}` : '-'}
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-right text-red-600">
-                      {entry.debit > 0 ? `₹${entry.debit.toLocaleString()}` : '-'}
-                    </td>
-                    <td
-                      className={`px-6 py-4 whitespace-nowrap text-sm text-right font-semibold ${balanceColor}`}
-                    >
-                      {entry.balance >= 0 ? '' : '-'}₹{Math.abs(entry.balance).toLocaleString()}
-                    </td>
-                  </tr>
-                );
-              })}
-            </tbody>
-            <tfoot className="bg-gray-100">
-              <tr>
-                <td
-                  colSpan={3}
-                  className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900"
-                >
-                  Total
-                </td>
-                <td className="px-6 py-4 whitespace-nowrap text-sm text-right font-medium text-green-600">
-                  ₹{totals.credit.toLocaleString()}
-                </td>
-                <td className="px-6 py-4 whitespace-nowrap text-sm text-right font-medium text-red-600">
-                  ₹{totals.debit.toLocaleString()}
-                </td>
-                <td
-                  className={`px-6 py-4 whitespace-nowrap text-sm text-right font-bold text-lg ${finalBalanceColor}`}
-                >
-                  {totals.balance >= 0 ? '' : '-'}₹{Math.abs(totals.balance).toLocaleString()}
-                </td>
-              </tr>
-            </tfoot>
-          </table>
-        </div>
-      </Card>
-
-      <div className="mt-6 flex justify-end gap-3">
-        <Button variant="outline" onClick={handlePrintClick}>
-          Print/Download
-        </Button>
-        <Button asChild>
-          <Link href={`/transactions/new?entityType=${entityType}&entityId=${entityId}`}>
-            Add Transaction
+            ← Back to {entityName}
           </Link>
-        </Button>
-      </div>
+          <h1 className="text-3xl font-bold text-gray-900">{entity.name} - Ledger</h1>
+          {entity.phone && (
+            <p className="text-gray-600 mt-1">Phone: {entity.phone}</p>
+          )}
+          {entity.email && (
+            <p className="text-gray-600">Email: {entity.email}</p>
+          )}
+          {entity.address && (
+            <p className="text-gray-600 mt-1">{entity.address}</p>
+          )}
+        </div>
 
-      <Dialog open={billModalOpen} onOpenChange={handleBillModalOpenChange}>
-        <DialogContent className="sm:max-w-xl">
-          <DialogHeader>
-            <DialogTitle>Bill Attachment</DialogTitle>
-            <DialogDescription>
-              {selectedEntry
-                ? `Transaction on ${format(new Date(selectedEntry.date), 'MMM dd, yyyy')}`
-                : 'View and manage the uploaded bill'}
-            </DialogDescription>
-          </DialogHeader>
+        <Card className="mb-6">
+          <CardHeader>
+            <CardTitle>Opening Balance</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="flex items-center space-x-4">
+              <span className="text-gray-600">Amount:</span>
+              <span
+                className={`text-2xl font-bold ${openingBalance.type === 'credit' ? 'text-green-600' : 'text-red-600'
+                  }`}
+              >
+                {openingBalance.type === 'credit' ? '+' : '-'}₹
+                {openingBalance.amount.toLocaleString()}
+              </span>
+              <span className="text-sm text-gray-500">
+                ({openingBalance.type === 'credit' ? 'You owe them' : 'They owe you'})
+              </span>
+            </div>
+          </CardContent>
+        </Card>
 
-          <div className="space-y-4">
-            {billModalLoading ? (
-              <p className="text-sm text-muted-foreground">Loading bill...</p>
-            ) : selectedTransaction?.billUrl ? (
-              <>
-                {selectedTransaction.billUrl.toLowerCase().includes('.pdf') ? (
-                  <div className="rounded border border-dashed p-4 text-sm text-gray-700">
-                    Bill is a PDF document.
-                  </div>
-                ) : (
-                  <Image
-                    src={selectedTransaction.billUrl}
-                    alt="Bill preview"
-                    width={800}
-                    height={600}
-                    unoptimized
-                    className="w-full max-h-96 rounded-md object-contain border"
-                  />
-                )}
-                {/* <a
+        <Card className="overflow-hidden">
+          <div className="overflow-x-auto">
+            <table className="min-w-full divide-y divide-gray-200">
+              <thead className="bg-gray-50">
+                <tr>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    Date
+                  </th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    Description
+                  </th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    Bill
+                  </th>
+                  <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    Credit
+                  </th>
+                  <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    Debit
+                  </th>
+                  <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    Balance
+                  </th>
+                </tr>
+              </thead>
+              <tbody className="bg-white divide-y divide-gray-200">
+                {/* Opening Balance Row */}
+                <tr className="bg-gray-50">
+                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                    {format(new Date(), 'MMM dd, yyyy')}
+                  </td>
+                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                    Opening Balance
+                  </td>
+                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                    —
+                  </td>
+                  <td className="px-6 py-4 whitespace-nowrap text-sm text-right text-gray-900">
+                    {openingBalance.type === 'credit' ? `₹${openingBalance.amount.toLocaleString()}` : '-'}
+                  </td>
+                  <td className="px-6 py-4 whitespace-nowrap text-sm text-right text-gray-900">
+                    {openingBalance.type === 'debit' ? `₹${openingBalance.amount.toLocaleString()}` : '-'}
+                  </td>
+                  <td
+                    className={`px-6 py-4 whitespace-nowrap text-sm text-right font-semibold ${openingBalance.type === 'credit' ? 'text-green-600' : 'text-red-600'
+                      }`}
+                  >
+                    {openingBalance.type === 'credit' ? '-' : ''}₹
+                    {openingBalance.amount.toLocaleString()}
+                  </td>
+                </tr>
+
+                {/* Transaction Entries */}
+                {entries.map((entry, index) => {
+                  const balanceColor = entry.balance >= 0 ? 'text-green-600' : 'text-red-600';
+                  return (
+                    <tr key={index} className="hover:bg-gray-50">
+                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                        {format(new Date(entry.date), 'MMM dd, yyyy')}
+                      </td>
+                      <td className="px-6 py-4 text-sm text-gray-900">
+                        {entry.description || '-'}
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                        {entry.billUrl && entry.transactionId ? (
+                          <Button
+                            type="button"
+                            variant="link"
+                            className="px-0 text-blue-600"
+                            onClick={() => handleViewBill(entry)}
+                          >
+                            View Bill
+                          </Button>
+                        ) : (
+                          '—'
+                        )}
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap text-sm text-right text-green-600">
+                        {entry.credit > 0 ? `₹${entry.credit.toLocaleString()}` : '-'}
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap text-sm text-right text-red-600">
+                        {entry.debit > 0 ? `₹${entry.debit.toLocaleString()}` : '-'}
+                      </td>
+                      <td
+                        className={`px-6 py-4 whitespace-nowrap text-sm text-right font-semibold ${balanceColor}`}
+                      >
+                        {entry.balance >= 0 ? '' : '-'}₹{Math.abs(entry.balance).toLocaleString()}
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+              <tfoot className="bg-gray-100">
+                <tr>
+                  <td
+                    colSpan={3}
+                    className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900"
+                  >
+                    Total
+                  </td>
+                  <td className="px-6 py-4 whitespace-nowrap text-sm text-right font-medium text-green-600">
+                    ₹{totals.credit.toLocaleString()}
+                  </td>
+                  <td className="px-6 py-4 whitespace-nowrap text-sm text-right font-medium text-red-600">
+                    ₹{totals.debit.toLocaleString()}
+                  </td>
+                  <td
+                    className={`px-6 py-4 whitespace-nowrap text-sm text-right font-bold text-lg ${finalBalanceColor}`}
+                  >
+                    {totals.balance >= 0 ? '' : '-'}₹{Math.abs(totals.balance).toLocaleString()}
+                  </td>
+                </tr>
+              </tfoot>
+            </table>
+          </div>
+        </Card>
+
+        <div className="mt-6 flex justify-end gap-3">
+          <Button variant="outline" onClick={handlePrintClick}>
+            Print/Download
+          </Button>
+          <Button asChild>
+            <Link href={`/transactions/new?entityType=${entityType}&entityId=${entityId}`}>
+              Add Transaction
+            </Link>
+          </Button>
+        </div>
+
+        <Dialog open={billModalOpen} onOpenChange={handleBillModalOpenChange}>
+          <DialogContent className="sm:max-w-xl">
+            <DialogHeader>
+              <DialogTitle>Bill Attachment</DialogTitle>
+              <DialogDescription>
+                {selectedEntry
+                  ? `Transaction on ${format(new Date(selectedEntry.date), 'MMM dd, yyyy')}`
+                  : 'View and manage the uploaded bill'}
+              </DialogDescription>
+            </DialogHeader>
+
+            <div className="space-y-4">
+              {billModalLoading ? (
+                <p className="text-sm text-muted-foreground">Loading bill...</p>
+              ) : selectedTransaction?.billUrl ? (
+                <>
+                  {selectedTransaction.billUrl.toLowerCase().includes('.pdf') ? (
+                    <div className="rounded border border-dashed p-4 text-sm text-gray-700">
+                      Bill is a PDF document.
+                    </div>
+                  ) : (
+                    <Image
+                      src={selectedTransaction.billUrl}
+                      alt="Bill preview"
+                      width={800}
+                      height={600}
+                      unoptimized
+                      className="w-full max-h-96 rounded-md object-contain border"
+                    />
+                  )}
+                  {/* <a
                   href={selectedTransaction.billUrl}
                   target="_blank"
                   rel="noopener noreferrer"
@@ -612,60 +610,60 @@ export default function LedgerPage() {
                 >
                   Open in new tab
                 </a> */}
-              </>
-            ) : (
-              <p className="text-sm text-muted-foreground">No bill attached to this transaction.</p>
-            )}
+                </>
+              ) : (
+                <p className="text-sm text-muted-foreground">No bill attached to this transaction.</p>
+              )}
 
-            <div className="space-y-2">
-              <input
-                ref={billModalFileInputRef}
-                type="file"
-                accept="image/jpeg,image/png,image/webp,image/heic,image/heif,application/pdf"
-                className="hidden"
-                onChange={handleReplaceBill}
-              />
-              <div className="flex flex-wrap gap-3">
-                <Button
-                  type="button"
-                  variant="outline"
-                  onClick={() => billModalFileInputRef.current?.click()}
-                  disabled={billModalUploading || billModalLoading}
-                >
-                  {selectedTransaction?.billUrl ? 'Replace Bill' : 'Upload Bill'}
-                </Button>
-                {selectedTransaction?.billUrl && (
+              <div className="space-y-2">
+                <input
+                  ref={billModalFileInputRef}
+                  type="file"
+                  accept="image/jpeg,image/png,image/webp,image/heic,image/heif,application/pdf"
+                  className="hidden"
+                  onChange={handleReplaceBill}
+                />
+                <div className="flex flex-wrap gap-3">
                   <Button
                     type="button"
-                    variant="destructive"
-                    onClick={handleDeleteBill}
+                    variant="outline"
+                    onClick={() => billModalFileInputRef.current?.click()}
                     disabled={billModalUploading || billModalLoading}
                   >
-                    Remove Bill
+                    {selectedTransaction?.billUrl ? 'Replace Bill' : 'Upload Bill'}
                   </Button>
+                  {selectedTransaction?.billUrl && (
+                    <Button
+                      type="button"
+                      variant="destructive"
+                      onClick={handleDeleteBill}
+                      disabled={billModalUploading || billModalLoading}
+                    >
+                      Remove Bill
+                    </Button>
+                  )}
+                </div>
+                {billModalUploading && (
+                  <p className="text-sm text-muted-foreground">Processing...</p>
                 )}
               </div>
-              {billModalUploading && (
-                <p className="text-sm text-muted-foreground">Processing...</p>
-              )}
             </div>
-          </div>
 
-          <DialogFooter>
-            <Button variant="outline" onClick={() => handleBillModalOpenChange(false)}>
-              Close
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
+            <DialogFooter>
+              <Button variant="outline" onClick={() => handleBillModalOpenChange(false)}>
+                Close
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
 
-      <PrintLedgerOverlay
-        open={printOverlayOpen}
-        onClose={() => setPrintOverlayOpen(false)}
-        ledgerData={ledgerData}
-        initialFirmInfo={firmInfo}
-      />
-    </div>
+        <PrintLedgerOverlay
+          open={printOverlayOpen}
+          onClose={() => setPrintOverlayOpen(false)}
+          ledgerData={ledgerData}
+          initialFirmInfo={firmInfo}
+        />
+      </div>
     </motion.div>
   );
 }
