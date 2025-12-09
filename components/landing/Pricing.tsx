@@ -12,13 +12,14 @@ const features = [
     'Secure cloud backup',
     'Mobile & Desktop access',
     'Daily cash reports',
-    'Payment reminders',
+    'Upload invoices and receipts',
+    'Download reports and statements'
 ];
 
 export default function Pricing() {
     return (
-        <section className="py-24 bg-[var(--brand-bg)]">
-            <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+        <section className="py-20 sm:py-24 bg-(--brand-bg)">
+            <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-10">
                 <div className="max-w-lg mx-auto">
                     <motion.div
                         initial={{ opacity: 0, scale: 0.95 }}
@@ -27,11 +28,11 @@ export default function Pricing() {
                         transition={{ duration: 0.5 }}
                         className="bg-white rounded-3xl shadow-xl overflow-hidden border border-gray-100"
                     >
-                        <div className="p-8 sm:p-10 text-center bg-[var(--brand-green-light)]/30">
+                        <div className="p-8 sm:p-10 text-center bg-(--brand-green-light)/30">
                             <h2 className="text-2xl font-bold text-gray-900 mb-2">Free Forever</h2>
                             <p className="text-gray-600 mb-6">Everything you need to manage your business finances.</p>
                             <div className="flex items-baseline justify-center gap-1">
-                                <span className="text-5xl font-bold text-[var(--brand-green)]">₹0</span>
+                                <span className="text-5xl font-bold text-(--brand-green)">₹0</span>
                                 <span className="text-gray-500">/month</span>
                             </div>
                         </div>
@@ -40,8 +41,8 @@ export default function Pricing() {
                             <ul className="space-y-4 mb-8">
                                 {features.map((feature, index) => (
                                     <li key={index} className="flex items-center gap-3">
-                                        <div className="flex-shrink-0 w-6 h-6 rounded-full bg-[var(--brand-green-light)] flex items-center justify-center">
-                                            <Check className="w-4 h-4 text-[var(--brand-green)]" />
+                                        <div className="shrink-0 w-6 h-6 rounded-full bg-(--brand-green-light) flex items-center justify-center">
+                                            <Check className="w-4 h-4 text-(--brand-green)" />
                                         </div>
                                         <span className="text-gray-700">{feature}</span>
                                     </li>

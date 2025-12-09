@@ -2,13 +2,13 @@
 
 import React from 'react';
 import Link from 'next/link';
-import { Twitter, Github, Linkedin, Heart } from 'lucide-react';
+import { Twitter, Github, Linkedin } from 'lucide-react';
 import Image from 'next/image';
 
 export default function Footer() {
     return (
         <footer
-            className="relative md:fixed bottom-0 left-0 right-0 w-full bg-white border-t border-gray-100 pt-20 pb-0 overflow-hidden z-0"
+            className="relative w-full bg-white border-t border-gray-100 pt-16 pb-6 sm:pb-0 overflow-hidden z-0"
             style={{ height: 'auto' }}
         >
             <div className="md:h-[500px] flex flex-col justify-between">
@@ -29,13 +29,13 @@ export default function Footer() {
                                 The simplest ledger for Indian businesses. Track credits, debits, and daily cash in a simple, secure, and purpose-built ledger.
                             </p>
                             <div className="flex gap-4">
-                                <a href="#" className="w-10 h-10 rounded-full bg-[var(--brand-bg)] flex items-center justify-center text-gray-500 hover:bg-[var(--brand-green-light)] hover:text-[var(--brand-green)] transition-colors">
+                                <a href="https://x.com/cenation_rishi" className="w-10 h-10 rounded-full bg-(--brand-bg) flex items-center justify-center text-gray-500 hover:bg-(--brand-green-light) hover:text-(--brand-green) transition-colors">
                                     <Twitter className="w-5 h-5" />
                                 </a>
-                                <a href="#" className="w-10 h-10 rounded-full bg-[var(--brand-bg)] flex items-center justify-center text-gray-500 hover:bg-[var(--brand-green-light)] hover:text-[var(--brand-green)] transition-colors">
+                                <a href="https://github.com/Alok-Automobiles/EasyRakh" className="w-10 h-10 rounded-full bg-(--brand-bg) flex items-center justify-center text-gray-500 hover:bg-(--brand-green-light) hover:text-(--brand-green) transition-colors">
                                     <Github className="w-5 h-5" />
                                 </a>
-                                <a href="#" className="w-10 h-10 rounded-full bg-[var(--brand-bg)] flex items-center justify-center text-gray-500 hover:bg-[var(--brand-green-light)] hover:text-[var(--brand-green)] transition-colors">
+                                <a href="https://www.linkedin.com/in/rishichaubey3105/" className="w-10 h-10 rounded-full bg-(--brand-bg) flex items-center justify-center text-gray-500 hover:bg-(--brand-green-light) hover:text-(--brand-green) transition-colors">
                                     <Linkedin className="w-5 h-5" />
                                 </a>
                             </div>
@@ -46,22 +46,22 @@ export default function Footer() {
                             <div>
                                 <h4 className="font-semibold text-gray-900 mb-6">Product</h4>
                                 <ul className="space-y-4">
-                                    <li><Link href="#" className="text-gray-500 hover:text-[var(--brand-green)]">Features</Link></li>
-                                    <li><Link href="#" className="text-gray-500 hover:text-[var(--brand-green)]">Pricing</Link></li>
+                                    <li><Link href="#" className="text-gray-500 hover:text-(--brand-green)">Features</Link></li>
+                                    <li><Link href="#" className="text-gray-500 hover:text-(--brand-green)">Pricing</Link></li>
                                 </ul>
                             </div>
                             <div>
                                 <h4 className="font-semibold text-gray-900 mb-6">Company</h4>
                                 <ul className="space-y-4">
-                                    <li><Link href="#" className="text-gray-500 hover:text-[var(--brand-green)]">About</Link></li>
-                                    <li><Link href="#" className="text-gray-500 hover:text-[var(--brand-green)]">Contact</Link></li>
+                                    <li><Link href="#" className="text-gray-500 hover:text-(--brand-green)">About</Link></li>
+                                    <li><Link href="#" className="text-gray-500 hover:text-(--brand-green)">Contact</Link></li>
                                 </ul>
                             </div>
                             <div>
                                 <h4 className="font-semibold text-gray-900 mb-6">Legal</h4>
                                 <ul className="space-y-4">
-                                    <li><Link href="#" className="text-gray-500 hover:text-[var(--brand-green)]">Privacy</Link></li>
-                                    <li><Link href="#" className="text-gray-500 hover:text-[var(--brand-green)]">Terms</Link></li>
+                                    <li><Link href="#" className="text-gray-500 hover:text-(--brand-green)">Privacy</Link></li>
+                                    <li><Link href="#" className="text-gray-500 hover:text-(--brand-green)">Terms</Link></li>
                                 </ul>
                             </div>
                         </div>

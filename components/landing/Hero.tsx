@@ -92,69 +92,128 @@ function TransactionCard({ tx, align }: { tx: Transaction; align?: 'left' | 'rig
 
 export default function Hero() {
   return (
-    <section className="relative min-h-screen w-full bg-white overflow-hidden">
+    <section className="relative min-h-screen w-full bg-white overflow-hidden pt-10 sm:pt-14">
       <div
         className="absolute inset-0"
         style={{
-          backgroundImage: `linear-gradient(to right, #e7e5e4 1px, transparent 1px),linear-gradient(to bottom, #e7e5e4 1px, transparent 1px)`, backgroundSize: "20px 20px", backgroundPosition: "0 0, 0 0", maskImage: `repeating-linear-gradient(to right,black 0px,black 3px,transparent 3px,transparent 8px),repeating-linear-gradient(to bottom,black 0px,black 3px,transparent 3px,transparent 8px),radial-gradient(ellipse 80% 80% at 100% 0%, #000 50%, transparent 90%)`, WebkitMaskImage: `repeating-linear-gradient(to right,black 0px,black 3px,transparent 3px,transparent 8px),repeating-linear-gradient(to bottom,black 0px,black 3px,transparent 3px,transparent 8px),radial-gradient(ellipse 80% 80% at 100% 0%, #000 50%, transparent 90%)`, maskComposite: "intersect", WebkitMaskComposite: "source-in",
+          backgroundImage: `linear-gradient(to right, #e7e5e4 1px, transparent 1px),linear-gradient(to bottom, #e7e5e4 1px, transparent 1px)`,
+          backgroundSize: '20px 20px',
+          backgroundPosition: '0 0, 0 0',
+          maskImage: `repeating-linear-gradient(to right,black 0px,black 3px,transparent 3px,transparent 8px),repeating-linear-gradient(to bottom,black 0px,black 3px,transparent 3px,transparent 8px),radial-gradient(ellipse 80% 80% at 100% 0%, #000 50%, transparent 90%)`,
+          WebkitMaskImage: `repeating-linear-gradient(to right,black 0px,black 3px,transparent 3px,transparent 8px),repeating-linear-gradient(to bottom,black 0px,black 3px,transparent 3px,transparent 8px),radial-gradient(ellipse 80% 80% at 100% 0%, #000 50%, transparent 90%)`,
+          maskComposite: 'intersect',
+          WebkitMaskComposite: 'source-in',
         }}
       />
-      <div className="z-10 flex min-h-screen items-center px-4 py-24 sm:px-6 lg:px-8">
-        <div className="relative max-w-2/3 mx-auto items-center gap-10">
-          {/* <div className="absolute bottom-0 left-0 flex flex-col items-center gap-6 lg:items-end">
-            {leftTransactions.map((tx, idx) => (
-              <motion.div
-                key={tx.name}
-                initial={{ opacity: 0, x: -60 }}
-                animate={{ opacity: 1, x: 0 }}
-                transition={{ duration: 0.6, delay: 0.2 + idx * 0.1 }}
-                className={`w-full ${idx === 1 ? 'lg:-mr-4' : ''} ${idx === 2 ? 'lg:-mr-8' : ''}`}
-              >
-                <TransactionCard tx={tx} align="left" />
-              </motion.div>
-            ))}
-          </div> */}
-
-          <motion.div
-            initial={{ opacity: 0, y: 30 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.7, delay: 0.1 }}
-            className="flex flex-col items-center text-center gap-6 px-4"
-          >
-            <div className="inline-flex items-center gap-3 rounded-full border border-gray-200 bg-white/90 px-4 py-2 text-[11px] font-semibold uppercase tracking-wide text-emerald-700 shadow-sm backdrop-blur">
-              Ledger-first
-              <span className="text-gray-600 font-normal normal-case tracking-normal">Built for small Indian Businesses</span>
-            </div>
-            <h1 className="text-4xl font-bold leading-[1.08] text-gray-900 sm:text-5xl lg:text-6xl">
-              Master your Cashflow with EasyRakh
-            </h1>
-            <p className="text-base text-gray-600 sm:text-lg w-4/5">
-              Track credits, debits, and daily cash in minutes. No more messy spreadsheets—just a clean
-              ledger that keeps your cashflow clear.
-            </p>
-
-            <Button
-              asChild
-              size="lg"
-              className="text-base rounded-full px-8 py-6 bg-(--brand-green) hover:bg-[#059669] text-white shadow-lg shadow-emerald-200/60 transition-all hover:scale-105"
+      <div className="z-10 flex min-h-screen items-center px-4 py-16 sm:px-6 lg:px-10">
+        <div className="relative mx-auto flex w-full max-w-6xl flex-col gap-12 lg:gap-16">
+          <div className="grid items-center justify-items-center gap-12 lg:gap-16 md:grid-cols-[1.05fr,0.95fr]">
+            <motion.div
+              initial={{ opacity: 0, y: 30 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.7, delay: 0.1 }}
+              className="flex flex-col items-center gap-6 text-center"
             >
-              <Link href="/register">Get Started</Link>
-            </Button>
-          </motion.div>
+              <div className="inline-flex items-center gap-3 self-center rounded-full border border-gray-200 bg-white/90 px-4 py-2 text-[11px] font-semibold uppercase tracking-wide text-emerald-700 shadow-sm backdrop-blur text-center">
+                Ledger-first
+                <span className="text-gray-600 font-normal normal-case tracking-normal">
+                  Built for Indian Businesses
+                </span>
+              </div>
+              <h1 className="text-4xl font-bold leading-[1.08] text-gray-900 sm:text-5xl lg:text-6xl">
+                Master your Cashflow with EasyRakh
+              </h1>
+              <p className="text-base text-gray-600 sm:text-lg md:max-w-2xl">
+                Track credits, debits, and daily cash in minutes. No more messy spreadsheets or pen & paper—just a clean ledger that keeps your cashflow clear and your team aligned.
+              </p>
+              <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:gap-4">
+                <Button
+                  asChild
+                  size="lg"
+                  className="text-base rounded-full px-8 py-6 bg-(--brand-green) hover:bg-[#059669] text-white shadow-lg shadow-emerald-200/60 transition-all hover:scale-105"
+                >
+                  <Link href="/register">Get Started</Link>
+                </Button>
+                <Button
+                  asChild
+                  size="lg"
+                  variant="outline"
+                  className="text-base rounded-full px-8 py-6 border-gray-200 text-gray-800 hover:bg-gray-100"
+                >
+                  <Link href="#contact">Talk to us</Link>
+                </Button>
+              </div>
+              <div className="grid w-full max-w-3xl gap-3 text-left sm:grid-cols-3">
+                <div className="rounded-2xl border border-gray-200 bg-white/90 p-4 shadow-sm backdrop-blur">
+                  <p className="text-xs uppercase text-gray-500">Satisfied customers</p>
+                  <p className="mt-1 text-2xl font-semibold text-gray-900">10+</p>
+                  <p className="text-xs text-emerald-700 font-semibold">Growing weekly</p>
+                </div>
+                <div className="rounded-2xl border border-gray-200 bg-white/90 p-4 shadow-sm backdrop-blur">
+                  <p className="text-xs uppercase text-gray-500">Tracked this month</p>
+                  <p className="mt-1 text-2xl font-semibold text-gray-900">₹18.4 Cr</p>
+                  <p className="text-xs text-gray-600">Cash in/out recorded</p>
+                </div>
+                <div className="rounded-2xl border border-gray-200 bg-white/90 p-4 shadow-sm backdrop-blur">
+                  <p className="text-xs uppercase text-gray-500">Setup time</p>
+                  <p className="mt-1 text-2xl font-semibold text-gray-900">Under 5 min</p>
+                  <p className="text-xs text-gray-600">Import & start tracking</p>
+                </div>
+              </div>
+            </motion.div>
 
-          {/* <div className="absolute bottom-[-50%] right-[-25%] flex flex-col items-center gap-6 lg:items-start">
-            {rightTransactions.map((tx, idx) => (
-              <motion.div
-                key={tx.name}
-                initial={{ opacity: 0, x: 60 }}
-                animate={{ opacity: 1, x: 0 }}
-                transition={{ duration: 0.6, delay: 0.2 + idx * 0.1 }}
-                className={`w-full ${idx === 1 ? 'lg:-ml-4' : ''} ${idx === 2 ? 'lg:-ml-8' : ''}`}
-              >
-                <TransactionCard tx={tx} align="right" />
-              </motion.div>
-            ))}
-          </div> */}
+            <div className="relative">
+              <div className="absolute -left-8 -top-10 h-32 w-32 rounded-full bg-emerald-100 blur-3xl sm:-left-14 sm:-top-14" />
+              <div className="absolute -right-6 bottom-10 h-28 w-28 rounded-full bg-blue-100 blur-3xl sm:-right-10" />
+              <div className="relative rounded-3xl border border-gray-200/70 bg-white/85 p-5 shadow-xl backdrop-blur">
+                <div className="flex items-center justify-between rounded-2xl bg-neutral-900 px-4 py-3 text-white shadow-md">
+                  <div>
+                    <p className="text-xs uppercase text-white/70">Today’s cash position</p>
+                    <p className="text-2xl font-semibold mt-1">₹3,20,750</p>
+                  </div>
+                  <div className="rounded-full bg-white/15 px-3 py-1 text-xs font-semibold text-emerald-200">
+                    +₹18,940 today
+                  </div>
+                </div>
+
+                <div className="mt-4 grid gap-4 sm:grid-cols-2">
+                  {leftTransactions.map((tx, idx) => (
+                    <motion.div
+                      key={tx.name}
+                      initial={{ opacity: 0, y: 20 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      transition={{ duration: 0.5, delay: 0.1 + idx * 0.1 }}
+                    >
+                      <TransactionCard tx={tx} align="left" />
+                    </motion.div>
+                  ))}
+                </div>
+
+                <div className="mt-4 grid gap-4 sm:grid-cols-2">
+                  {rightTransactions.map((tx, idx) => (
+                    <motion.div
+                      key={tx.name}
+                      initial={{ opacity: 0, y: 20 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      transition={{ duration: 0.5, delay: 0.25 + idx * 0.1 }}
+                    >
+                      <TransactionCard tx={tx} align="right" />
+                    </motion.div>
+                  ))}
+                </div>
+
+                <div className="mt-5 flex flex-wrap items-center gap-3 rounded-2xl border border-gray-200 bg-white/90 px-4 py-3 text-sm text-gray-700 shadow-sm backdrop-blur">
+                  <div className="inline-flex items-center gap-2 rounded-full bg-emerald-50 px-3 py-1 text-emerald-700 font-semibold text-xs">
+                    On-time payouts
+                  </div>
+                  <span className="text-gray-400">•</span>
+                  <span>Attach bills & notes to every entry</span>
+                  <span className="hidden sm:inline text-gray-400">•</span>
+                  <span className="hidden sm:inline">Auto-reminders for dues</span>
+                </div>
+              </div>
+            </div>
+          </div>
         </div>
       </div>
     </section>

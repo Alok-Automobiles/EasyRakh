@@ -112,9 +112,9 @@ const FeatureBlock = ({
 
 export default function Features() {
   return (
-    <section className="py-24 bg-[var(--brand-bg)] overflow-hidden">
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-        <div className="text-center max-w-3xl mx-auto mb-24">
+    <section className="py-20 sm:py-24 bg-(--brand-bg) overflow-hidden">
+      <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-10">
+        <div className="text-center max-w-3xl mx-auto mb-16 sm:mb-20">
           <h2 className="text-base font-semibold text-[var(--brand-green)] tracking-wide uppercase mb-2">Powerful Features</h2>
           <p className="text-4xl sm:text-5xl font-bold text-gray-900 mb-6">
             Manage your entire business in one place
@@ -195,7 +195,7 @@ export default function Features() {
           />
         </div>
 
-        <div className="mt-24 text-center">
+        <div className="mt-16 sm:mt-20 text-center">
           <Button asChild size="lg" className="text-lg px-12 py-6 rounded-full bg-(--brand-green) hover:bg-[#059669] shadow-xl hover:shadow-2xl transition-all hover:-translate-y-1">
             <Link href="/register">
               Start Managing Now

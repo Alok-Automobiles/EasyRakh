@@ -24,9 +24,9 @@ const steps = [
 
 export default function HowItWorks() {
     return (
-        <section className="py-24 bg-white">
-            <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-                <div className="text-center mb-16">
+        <section className="py-20 sm:py-24 bg-white">
+            <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-10">
+                <div className="text-center mb-14 sm:mb-16">
                     <h2 className="text-base font-semibold text-[var(--brand-green)] tracking-wide uppercase mb-2">Simple Process</h2>
                     <p className="text-3xl sm:text-4xl font-bold text-gray-900">
                         How EasyRakh Works

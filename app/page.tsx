@@ -12,14 +12,14 @@ export default function Home() {
   return (
     <>
       <LandingNavbar />
-      <main className="relative z-10 bg-(--brand-bg) min-h-screen shadow-xl mb-0 md:mb-[36%]">
+      <main className="relative z-10 bg-(--brand-bg) min-h-screen shadow-xl pb-16 sm:pb-20 md:pb-24">
         <Hero />
         <Features />
         <HowItWorks />
         <Pricing />
         <Testimonials />
-        <Contact />
         <FAQ />
+        <Contact />
       </main>
       <Footer />
     </>

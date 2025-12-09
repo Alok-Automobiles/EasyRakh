@@ -145,8 +145,8 @@ export default function RegisterPage() {
                     </FormItem>
                   )}
                 />
-                <div className="pt-4 border-t">
-                  <h3 className="text-lg font-semibold mb-4">Firm Information</h3>
+                <div className="pt-6 border-t space-y-4">
+                  <h3 className="text-lg font-semibold">Firm Information</h3>
                   <FormField
                     control={form.control}
                     name="firmTitle"
@@ -164,6 +164,7 @@ export default function RegisterPage() {
                       </FormItem>
                     )}
                   />
+                  <div className="grid gap-4 sm:grid-cols-2">
                   <FormField
                     control={form.control}
                     name="gstNumber"
@@ -198,6 +199,7 @@ export default function RegisterPage() {
                       </FormItem>
                     )}
                   />
+                  </div>
                   <FormField
                     control={form.control}
                     name="firmEmail"
