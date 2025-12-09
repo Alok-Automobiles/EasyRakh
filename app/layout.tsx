@@ -19,7 +19,7 @@ export const metadata: Metadata = {
   title: "EasyRakh - Simple Ledger Management",
   description: "Manage your customers, suppliers, and transactions with ease. Track credits, debits, and balances all in one place.",
   icons: {
-    icon: '/icon.svg',
+    icon: '/favicon.ico',
   },
 };
 

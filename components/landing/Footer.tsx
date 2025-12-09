@@ -3,6 +3,7 @@
 import React from 'react';
 import Link from 'next/link';
 import { Twitter, Github, Linkedin, Heart } from 'lucide-react';
+import Image from 'next/image';
 
 export default function Footer() {
     return (
@@ -17,10 +18,12 @@ export default function Footer() {
                         {/* Brand & Socials */}
                         <div className="max-w-sm">
                             <Link href="/" className="text-2xl font-bold text-gray-900 flex items-center gap-2 mb-6">
-                                <div className="w-8 h-8 bg-[var(--brand-green)] rounded-lg flex items-center justify-center text-white">
-                                    E
-                                </div>
-                                EasyRakh
+                                <Image
+                                    src="/favicon.ico"
+                                    alt="EasyRakh logo"
+                                    width={150}
+                                    height={150}
+                                />
                             </Link>
                             <p className="text-gray-500 mb-8 leading-relaxed">
                                 The simplest ledger for Indian businesses. Track credits, debits, and daily cash in a simple, secure, and purpose-built ledger.

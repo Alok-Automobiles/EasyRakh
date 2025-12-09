@@ -37,10 +37,10 @@ const faqs = [
 
 export default function FAQ() {
     return (
-        <section className="py-24 bg-[var(--brand-bg)]">
+        <section id="faq" className="py-24 bg-(--brand-bg)">
             <div className="max-w-3xl mx-auto px-4 sm:px-6 lg:px-8">
                 <div className="text-center mb-16">
-                    <h2 className="text-base font-semibold text-[var(--brand-green)] tracking-wide uppercase mb-2">Common Questions</h2>
+                    <h2 className="text-base font-semibold text-(--brand-green) tracking-wide uppercase mb-2">Common Questions</h2>
                     <p className="text-3xl sm:text-4xl font-bold text-gray-900">
                         Frequently Asked Questions
                     </p>

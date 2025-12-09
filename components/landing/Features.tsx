@@ -196,7 +196,7 @@ export default function Features() {
         </div>
 
         <div className="mt-24 text-center">
-          <Button asChild size="lg" className="text-lg px-10 py-7 bg-[var(--brand-green)] hover:bg-[#059669] shadow-xl hover:shadow-2xl transition-all hover:-translate-y-1">
+          <Button asChild size="lg" className="text-lg px-12 py-6 rounded-full bg-(--brand-green) hover:bg-[#059669] shadow-xl hover:shadow-2xl transition-all hover:-translate-y-1">
             <Link href="/register">
               Start Managing Now
               <ArrowRight className="ml-2 w-5 h-5" />

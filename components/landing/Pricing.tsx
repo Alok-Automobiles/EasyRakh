@@ -48,14 +48,14 @@ export default function Pricing() {
                                 ))}
                             </ul>
 
-                            <div className="bg-[var(--brand-red-light)] rounded-xl p-4 mb-8 flex items-start gap-3">
-                                <ShieldCheck className="w-5 h-5 text-rose-500 mt-0.5 flex-shrink-0" />
+                            <div className="bg-(--brand-red-light) rounded-xl p-4 mb-8 flex items-start gap-3">
+                                <ShieldCheck className="w-5 h-5 text-rose-500 mt-0.5 shrink-0" />
                                 <p className="text-sm text-rose-700">
                                     <strong>No hidden fees. No ads.</strong> Just simple, honest bookkeeping tool to help your business grow.
                                 </p>
                             </div>
 
-                            <Button asChild className="w-full py-6 text-lg bg-[var(--brand-green)] hover:bg-[#059669] shadow-lg hover:shadow-xl transition-all">
+                            <Button asChild className="w-full rounded-full py-6 text-lg bg-(--brand-green) hover:bg-[#059669] shadow-lg hover:shadow-xl transition-all">
                                 <Link href="/register">Get Started for Free</Link>
                             </Button>
                         </div>
