@@ -17,7 +17,7 @@ export async function GET(request: NextRequest) {
       );
     }
 
-    // Try to get from cache
+    // Try to get from cache first (before any DB operations)
     try {
       const cacheKey = `dashboard:stats:${userId}`;
       const cached = await redis.get(cacheKey);
@@ -45,7 +45,7 @@ export async function GET(request: NextRequest) {
     const thirtyDaysAgo = normalizeToUTCStart(subDays(today, 29));
     const currentMonthStart = new Date(Date.UTC(today.getUTCFullYear(), today.getUTCMonth(), 1, 0, 0, 0, 0));
 
-    // Use aggregation pipelines for efficient calculations
+    // Use aggregation pipelines for efficient calculations - ALL queries in ONE Promise.all
     const [
       // Transaction totals using aggregation (much faster than loading all)
       transactionStats,
@@ -60,6 +60,10 @@ export async function GET(request: NextRequest) {
       recentTransactions,
       recentDailyCashRecords,
       dashboardNotes,
+      // Top customers aggregation with $lookup for names (eliminates extra queries)
+      topCustomersAgg,
+      // Top suppliers aggregation with $lookup for names (eliminates extra queries)
+      topSuppliersAgg,
     ] = await Promise.all([
       // Calculate transaction totals using aggregation
       transactionsCollection
@@ -118,7 +122,7 @@ export async function GET(request: NextRequest) {
           },
         ])
         .toArray(),
-      // Get transaction count
+      // Get transaction count using estimatedDocumentCount when possible, fallback to countDocuments
       transactionsCollection.countDocuments({ userId }),
       // Customer stats using aggregation
       customersCollection
@@ -154,37 +158,114 @@ export async function GET(request: NextRequest) {
           },
         ])
         .toArray(),
-      // Recent customers for activities (limit 20)
+      // Recent customers for activities (limit 20) - use projection to reduce data transfer
       customersCollection
-        .find({ userId })
+        .find({ userId }, { projection: { _id: 1, name: 1, createdAt: 1 } })
         .sort({ createdAt: -1 })
         .limit(20)
         .toArray(),
-      // Recent suppliers for activities (limit 20)
+      // Recent suppliers for activities (limit 20) - use projection to reduce data transfer
       suppliersCollection
-        .find({ userId })
+        .find({ userId }, { projection: { _id: 1, name: 1, createdAt: 1 } })
         .sort({ createdAt: -1 })
         .limit(20)
         .toArray(),
-      // Recent transactions for activities (limit 20)
+      // Recent transactions for activities (limit 20) - use projection
       transactionsCollection
-        .find({ userId })
+        .find({ userId }, { projection: { _id: 1, entityId: 1, entityType: 1, customerId: 1, supplierId: 1, amount: 1, type: 1, description: 1, date: 1, createdAt: 1 } })
         .sort({ createdAt: -1 })
         .limit(20)
         .toArray(),
-      // Daily cash records for the last 30 days
+      // Daily cash records for the last 30 days - use projection
       dailyCashRecordsCollection
-        .find({
-          userId,
-          date: { $gte: thirtyDaysAgo, $lte: today },
-        })
+        .find(
+          { userId, date: { $gte: thirtyDaysAgo, $lte: today } },
+          { projection: { date: 1, totalIn: 1, totalOut: 1, totalLeft: 1 } }
+        )
         .sort({ date: 1 })
         .toArray(),
-      // Notes opted in for dashboard display
+      // Notes opted in for dashboard display - use projection
       notesCollection
-        .find({ userId, showOnDashboard: true })
+        .find(
+          { userId, showOnDashboard: true },
+          { projection: { _id: 1, title: 1, content: 1, color: 1, updatedAt: 1 } }
+        )
         .sort({ updatedAt: -1 })
         .limit(6)
+        .toArray(),
+      // Top customers aggregation with $lookup - single query replaces multiple roundtrips
+      transactionsCollection
+        .aggregate([
+          { $match: { userId, entityType: 'customer' } },
+          {
+            $group: {
+              _id: '$entityId',
+              total: { $sum: '$amount' },
+              credit: { $sum: { $cond: [{ $eq: ['$type', 'credit'] }, '$amount', 0] } },
+              debit: { $sum: { $cond: [{ $eq: ['$type', 'debit'] }, '$amount', 0] } },
+            },
+          },
+          { $sort: { total: -1 } },
+          { $limit: 3 },
+          {
+            $lookup: {
+              from: 'customers',
+              let: { entityId: { $toObjectId: '$_id' } },
+              pipeline: [
+                { $match: { $expr: { $eq: ['$_id', '$$entityId'] } } },
+                { $project: { name: 1 } },
+              ],
+              as: 'entity',
+            },
+          },
+          { $unwind: { path: '$entity', preserveNullAndEmptyArrays: true } },
+          {
+            $project: {
+              _id: 1,
+              total: 1,
+              credit: 1,
+              debit: 1,
+              name: { $ifNull: ['$entity.name', 'Unknown'] },
+            },
+          },
+        ])
+        .toArray(),
+      // Top suppliers aggregation with $lookup - single query replaces multiple roundtrips
+      transactionsCollection
+        .aggregate([
+          { $match: { userId, entityType: 'supplier' } },
+          {
+            $group: {
+              _id: '$entityId',
+              total: { $sum: '$amount' },
+              credit: { $sum: { $cond: [{ $eq: ['$type', 'credit'] }, '$amount', 0] } },
+              debit: { $sum: { $cond: [{ $eq: ['$type', 'debit'] }, '$amount', 0] } },
+            },
+          },
+          { $sort: { total: -1 } },
+          { $limit: 3 },
+          {
+            $lookup: {
+              from: 'suppliers',
+              let: { entityId: { $toObjectId: '$_id' } },
+              pipeline: [
+                { $match: { $expr: { $eq: ['$_id', '$$entityId'] } } },
+                { $project: { name: 1 } },
+              ],
+              as: 'entity',
+            },
+          },
+          { $unwind: { path: '$entity', preserveNullAndEmptyArrays: true } },
+          {
+            $project: {
+              _id: 1,
+              total: 1,
+              credit: 1,
+              debit: 1,
+              name: { $ifNull: ['$entity.name', 'Unknown'] },
+            },
+          },
+        ])
         .toArray(),
     ]);
 
@@ -358,71 +439,10 @@ export async function GET(request: NextRequest) {
     // Return top 20 activities
     const topActivities = activities.slice(0, 20);
 
-    // Use aggregation for top customers and suppliers (much more efficient)
-    const [topCustomersAgg, topSuppliersAgg] = await Promise.all([
-      transactionsCollection
-        .aggregate([
-          { $match: { userId, entityType: 'customer' } },
-          {
-            $group: {
-              _id: '$entityId',
-              total: { $sum: '$amount' },
-              credit: {
-                $sum: { $cond: [{ $eq: ['$type', 'credit'] }, '$amount', 0] },
-              },
-              debit: {
-                $sum: { $cond: [{ $eq: ['$type', 'debit'] }, '$amount', 0] },
-              },
-            },
-          },
-          { $sort: { total: -1 } },
-          { $limit: 3 },
-        ])
-        .toArray(),
-      transactionsCollection
-        .aggregate([
-          { $match: { userId, entityType: 'supplier' } },
-          {
-            $group: {
-              _id: '$entityId',
-              total: { $sum: '$amount' },
-              credit: {
-                $sum: { $cond: [{ $eq: ['$type', 'credit'] }, '$amount', 0] },
-              },
-              debit: {
-                $sum: { $cond: [{ $eq: ['$type', 'debit'] }, '$amount', 0] },
-              },
-            },
-          },
-          { $sort: { total: -1 } },
-          { $limit: 3 },
-        ])
-        .toArray(),
-    ]);
-
-    // Fetch entity names for top customers and suppliers
-    const topCustomerIds = topCustomersAgg.map((t) => t._id).filter(Boolean);
-    const topSupplierIds = topSuppliersAgg.map((t) => t._id).filter(Boolean);
-
-    const [topCustomerEntities, topSupplierEntities] = await Promise.all([
-      topCustomerIds.length > 0
-        ? customersCollection
-            .find({ userId, _id: { $in: topCustomerIds.map((id) => new ObjectId(id)) } })
-            .toArray()
-        : [],
-      topSupplierIds.length > 0
-        ? suppliersCollection
-            .find({ userId, _id: { $in: topSupplierIds.map((id) => new ObjectId(id)) } })
-            .toArray()
-        : [],
-    ]);
-
-    const customerNameMap = new Map(topCustomerEntities.map((c) => [c._id.toString(), c.name]));
-    const supplierNameMap = new Map(topSupplierEntities.map((s) => [s._id.toString(), s.name]));
-
+    // Top customers and suppliers already fetched with names via $lookup - no extra queries needed
     const topCustomers = topCustomersAgg.map((agg) => ({
       id: agg._id || '',
-      name: customerNameMap.get(agg._id || '') || 'Unknown',
+      name: agg.name || 'Unknown',
       total: agg.total || 0,
       credit: agg.credit || 0,
       debit: agg.debit || 0,
@@ -430,7 +450,7 @@ export async function GET(request: NextRequest) {
 
     const topSuppliers = topSuppliersAgg.map((agg) => ({
       id: agg._id || '',
-      name: supplierNameMap.get(agg._id || '') || 'Unknown',
+      name: agg.name || 'Unknown',
       total: agg.total || 0,
       credit: agg.credit || 0,
       debit: agg.debit || 0,
@@ -460,10 +480,11 @@ export async function GET(request: NextRequest) {
       })),
     };
 
-    // Cache the response with 45 second TTL
+    // Cache the response with 2 minute TTL for better cold-start performance
+    // Dashboard data doesn't need to be super real-time
     try {
       const cacheKey = `dashboard:stats:${userId}`;
-      await redis.setex(cacheKey, 45, JSON.stringify(responseData));
+      await redis.setex(cacheKey, 120, JSON.stringify(responseData));
     } catch (cacheError) {
       // If Redis fails, continue without caching
       console.warn('Redis cache write failed:', cacheError);

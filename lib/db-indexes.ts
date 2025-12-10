@@ -22,7 +22,11 @@ export async function initializeIndexes(db: Db): Promise<void> {
     const transactionsCollection = db.collection('transactions');
     await transactionsCollection.createIndex({ userId: 1, date: -1, createdAt: -1 });
     await transactionsCollection.createIndex({ userId: 1, entityId: 1, entityType: 1 });
-    console.log('✓ Created indexes on transactions: { userId: 1, date: -1, createdAt: -1 }, { userId: 1, entityId: 1, entityType: 1 }');
+    // Index for dashboard top customers/suppliers aggregation queries
+    await transactionsCollection.createIndex({ userId: 1, entityType: 1 });
+    // Index for sorting by createdAt (used in recent activities)
+    await transactionsCollection.createIndex({ userId: 1, createdAt: -1 });
+    console.log('✓ Created indexes on transactions: { userId: 1, date: -1, createdAt: -1 }, { userId: 1, entityId: 1, entityType: 1 }, { userId: 1, entityType: 1 }, { userId: 1, createdAt: -1 }');
 
     // Daily cash records collection indexes
     const dailyCashRecordsCollection = db.collection('dailyCashRecords');
