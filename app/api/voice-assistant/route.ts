@@ -10,15 +10,48 @@ const isHindiQuery = (text: string): boolean => {
   return hindiRegex.test(text);
 };
 
+// List available models for this API key
+async function listAvailableModels(): Promise<string[]> {
+  const maskedKey = GEMINI_API_KEY ? `${GEMINI_API_KEY.slice(0, 8)}...${GEMINI_API_KEY.slice(-4)}` : 'NOT SET';
+  console.log('🔑 Using API key:', maskedKey);
+  
+  try {
+    const url = `https://generativelanguage.googleapis.com/v1beta/models?key=${GEMINI_API_KEY}`;
+    const response = await fetch(url);
+    if (response.ok) {
+      const data = await response.json();
+      const models = data.models?.map((m: { name: string }) => m.name) || [];
+      console.log('📋 Available models:', models);
+      return models;
+    } else {
+      const error = await response.json().catch(() => ({}));
+      console.log('❌ Failed to list models:', error.error?.message);
+      return [];
+    }
+  } catch (err) {
+    console.log('❌ Error listing models:', err);
+    return [];
+  }
+}
+
 // Direct API call to Gemini using fetch
 async function callGeminiAPI(prompt: string): Promise<string> {
-  // Try multiple models - gemini-2.5-flash-lite has more generous limits
-  const models = ['gemini-2.5-flash-lite', 'gemini-2.5-flash'];
-  let lastError: Error | null = null;
+  // First, list available models
+  const availableModels = await listAvailableModels();
   
-  for (const model of models) {
+  // Use the NEW model names (old ones like gemini-1.5-flash are deprecated)
+  const endpoints = [
+    { version: 'v1beta', model: 'gemini-2.0-flash' },
+    { version: 'v1beta', model: 'gemini-flash-latest' },
+    { version: 'v1beta', model: 'gemini-2.5-flash' },
+    { version: 'v1beta', model: 'gemini-pro-latest' },
+  ];
+
+  let lastError: Error | null = null;
+
+  for (const { version, model: modelName } of endpoints) {
     try {
-      const url = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${GEMINI_API_KEY}`;
+      const url = `https://generativelanguage.googleapis.com/${version}/models/${modelName}:generateContent?key=${GEMINI_API_KEY}`;
       
       const response = await fetch(url, {
         method: 'POST',
@@ -33,7 +66,7 @@ async function callGeminiAPI(prompt: string): Promise<string> {
           }],
           generationConfig: {
             temperature: 0.7,
-            maxOutputTokens: 512,
+            maxOutputTokens: 1024,
           }
         }),
       });
@@ -42,32 +75,20 @@ async function callGeminiAPI(prompt: string): Promise<string> {
         const data = await response.json();
         const text = data.candidates?.[0]?.content?.parts?.[0]?.text;
         if (text) {
-          console.log(`✅ Success with ${model}`);
+          console.log(`✅ Successfully used: ${version}/${modelName}`);
           return text;
         }
+      } else {
+        const errorData = await response.json().catch(() => ({}));
+        console.log(`❌ ${version}/${modelName} failed:`, response.status, errorData.error?.message || 'Unknown error');
+        lastError = new Error(`${version}/${modelName}: ${errorData.error?.message || response.statusText}`);
       }
-      
-      const errorData = await response.json().catch(() => ({}));
-      console.log(`❌ ${model} failed:`, response.status, errorData.error?.message);
-      
-      // Handle rate limit - try next model
-      if (response.status === 429) {
-        lastError = new Error(errorData.error?.message || 'Rate limited');
-        continue; // Try next model
-      }
-      
-      lastError = new Error(errorData.error?.message || 'Gemini API error');
     } catch (err) {
-      console.log(`❌ ${model} error:`, err);
+      console.log(`❌ ${version}/${modelName} error:`, err);
       lastError = err as Error;
     }
   }
-  
-  // All models failed
-  if (lastError?.message?.includes('429') || lastError?.message?.includes('quota')) {
-    throw new Error('RATE_LIMIT:Please wait 1 minute before trying again. Free tier: 20 requests/minute.');
-  }
-  
+
   throw lastError || new Error('All models failed');
 }
 
@@ -480,17 +501,6 @@ Provide a helpful, conversational response:`;
     console.error('Voice assistant error:', error);
     
     const errorMessage = error instanceof Error ? error.message : 'Unknown error';
-    
-    // Handle rate limit with a friendly message
-    if (errorMessage.startsWith('RATE_LIMIT:')) {
-      return NextResponse.json(
-        { 
-          error: errorMessage.replace('RATE_LIMIT:', ''),
-          isRateLimit: true 
-        },
-        { status: 429 }
-      );
-    }
     
     return NextResponse.json(
       { error: `AI service error: ${errorMessage}` },
