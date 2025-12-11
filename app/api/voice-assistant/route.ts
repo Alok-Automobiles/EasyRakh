@@ -4,10 +4,36 @@ import { getUserIdFromRequest } from '@/lib/auth';
 
 const GEMINI_API_KEY = process.env.GEMINI_API_KEY || '';
 
-// Detect if the query is in Hindi
+// Detect if the query is in Hindi (Devanagari or romanized Hindi)
 const isHindiQuery = (text: string): boolean => {
+  // Check for Devanagari script
   const hindiRegex = /[\u0900-\u097F]/;
-  return hindiRegex.test(text);
+  if (hindiRegex.test(text)) return true;
+  
+  // Check for common romanized Hindi words/patterns
+  const lowerText = text.toLowerCase();
+  const hindiKeywords = [
+    'kya', 'hai', 'ka', 'ki', 'ke', 'ko', 'se', 'mein', 'aur', 'bhi',
+    'batao', 'bataiye', 'batana', 'dikhao', 'dikha', 'dena', 'lena',
+    'kitna', 'kitni', 'kitne', 'kaun', 'kaha', 'kaise', 'kyun', 'kab',
+    'khata', 'paisa', 'rupees', 'rupaye', 'balance', 
+    'aaj', 'kal', 'parso', 'abhi', 'baad', 'pehle',
+    'haan', 'nahi', 'theek', 'accha', 'sahi',
+    'grahak', 'supplier', 'customer',
+    'total', 'sum', 'jama', 'udhar',
+    'dena hai', 'lena hai', 'dene', 'lene'
+  ];
+  
+  // Count Hindi keyword matches
+  let hindiWordCount = 0;
+  for (const keyword of hindiKeywords) {
+    if (lowerText.includes(keyword)) {
+      hindiWordCount++;
+    }
+  }
+  
+  // If 2 or more Hindi keywords found, consider it Hindi
+  return hindiWordCount >= 2;
 };
 
 // List available models for this API key
@@ -317,29 +343,49 @@ async function getDashboardSummary(userId: string) {
   };
 }
 
+// Helper function to get today's date in IST as a UTC midnight Date
+// Daily cash records are stored with date normalized to UTC midnight (e.g., 2024-12-11T00:00:00.000Z)
+// So we need to find out what date it is in IST and query for that date at UTC midnight
+function getTodayDateIST(): Date {
+  const now = new Date();
+  
+  // Get current date parts in IST timezone
+  const istFormatter = new Intl.DateTimeFormat('en-CA', {
+    timeZone: 'Asia/Kolkata',
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+  });
+  
+  // Format gives us YYYY-MM-DD in IST
+  const istDateString = istFormatter.format(now);
+  const [year, month, day] = istDateString.split('-').map(Number);
+  
+  // Create a UTC midnight date for today in IST
+  return new Date(Date.UTC(year, month - 1, day, 0, 0, 0, 0));
+}
+
 // Helper function to get today's cash
 async function getTodayCash(userId: string) {
   const db = await getDb();
   const dailyCashCollection = db.collection('dailyCashRecords');
 
-  const today = new Date();
-  today.setHours(0, 0, 0, 0);
-  const tomorrow = new Date(today);
-  tomorrow.setDate(tomorrow.getDate() + 1);
+  // Get today's date in IST, normalized to UTC midnight (how records are stored)
+  const todayDate = getTodayDateIST();
+  
+  console.log('📅 Querying daily cash for IST date:', todayDate.toISOString());
 
-  const todayRecords = await dailyCashCollection
-    .find({
-      userId,
-      date: { $gte: today, $lt: tomorrow },
-    })
-    .toArray();
+  // Query for exact date match (records are stored with normalized UTC midnight dates)
+  const todayRecord = await dailyCashCollection.findOne({
+    userId,
+    date: todayDate,
+  });
 
-  const totalIn = todayRecords
-    .filter((r) => r.type === 'in')
-    .reduce((sum, r) => sum + r.amount, 0);
-  const totalOut = todayRecords
-    .filter((r) => r.type === 'out')
-    .reduce((sum, r) => sum + r.amount, 0);
+  // Daily cash records store totals directly on the record
+  const totalIn = todayRecord?.totalIn || 0;
+  const totalOut = todayRecord?.totalOut || 0;
+
+  console.log('📊 Today\'s cash:', { totalIn, totalOut, balance: totalIn - totalOut });
 
   return {
     success: true,
@@ -425,8 +471,24 @@ export async function POST(request: NextRequest) {
       }
     }
 
+    // Get current date in IST (Indian Standard Time)
+    const currentDate = new Date();
+    const istOptions: Intl.DateTimeFormatOptions = { 
+      timeZone: 'Asia/Kolkata', 
+      weekday: 'long', 
+      year: 'numeric', 
+      month: 'long', 
+      day: 'numeric' 
+    };
+    const todayDateString = currentDate.toLocaleDateString('en-IN', istOptions);
+    const todayDateStringHindi = currentDate.toLocaleDateString('hi-IN', istOptions);
+
     // Build context for Gemini
     const businessContext = `
+IMPORTANT - Current Date Information:
+- Today's Date: ${todayDateString}
+- आज की तारीख: ${todayDateStringHindi}
+
 Business Data Summary:
 - Total Customers: ${customersData.totalCustomers}
 - Total Suppliers: ${suppliersData.totalSuppliers}
@@ -457,13 +519,17 @@ ${JSON.stringify(specificData.data, null, 2)}
 `;
 
     const languageInstruction = isHindi
-      ? 'The user is asking in Hindi. You MUST respond in Hindi (Devanagari script). Use natural conversational Hindi.'
-      : 'The user is asking in English. Respond in clear, conversational English.';
+      ? `LANGUAGE: HINDI ONLY
+You MUST respond entirely in Hindi using Devanagari script (हिंदी में जवाब दें).
+Do NOT use English words or mix languages. Use natural conversational Hindi.`
+      : `LANGUAGE: ENGLISH ONLY
+You MUST respond entirely in English. Do NOT use Hindi or Devanagari script.
+Do NOT mix languages. Use clear, conversational English.`;
 
-    const systemPrompt = `You are a helpful voice assistant for a ledger/khata management system for an automobile business.
+    const systemPrompt = `${languageInstruction}
+
+You are a helpful voice assistant for a ledger/khata management system for an automobile business.
 You help users query their business data including customer ledgers, supplier ledgers, transactions, and cash flow.
-
-${languageInstruction}
 
 Important terms:
 - "khata" / "खाता" = ledger/account
@@ -480,6 +546,7 @@ Rules:
 3. If asked about a specific person, use the Specific Query Result data
 4. Always mention whether amount is receivable or payable
 5. Keep response under 3-4 sentences for simple queries
+6. CRITICAL: When user asks about "today" or "aaj", ALWAYS use the date provided in "Current Date Information" above. Do NOT use any other date.
 
 Here is the current business data:
 ${businessContext}
