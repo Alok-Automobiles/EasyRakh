@@ -1,36 +1,54 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# AlokAutomobiles Ledger
+
+A modern **Khata (Ledger) Management System** built with the Next.js App Router. This application streamlines daily business operations with customer/supplier tracking, daily cash records, and a specialized **Voice Assistant** powered by Google Gemini for hands-free operation in English and Hindi.
+
+---
+
+##  Key Features
+
+- **Ledger Management:** Maintain detailed debit/credit records for customers and suppliers.
+- **Daily Cash Book:** Track daily cash flow (Rokad) with date-wise filtering.
+- **Smart Dashboard:** Visual analytics for business health at a glance.
+- **AI Voice Assistant:**
+  - Powered by **Google Gemini** (`gemini-2.5-flash-lite` with fallback).
+  - Supports natural language queries in **English and Hindi**.
+  - Ask questions like _"What is today's total cash?"_ or _"Show me Rahul's ledger."_
+- **Performance & Storage:**
+  - **Redis** implementation for caching and API rate-limiting.
+  - **Cloudinary** integration for secure document/media uploads.
+
+---
+
+## Tech Stack
+
+- **Framework:** [Next.js 14+](https://nextjs.org/) (App Router)
+- **Runtime:** Node.js 20+
+- **Database:** MongoDB (Atlas or Local)
+- **Caching:** Redis
+- **AI Engine:** Google Gemini API
+- **Storage:** Cloudinary
+- **Package Manager:** pnpm
+
+---
+
+## Prerequisites
+
+Before you begin, ensure you have the following installed:
+
+- **Node.js 20+**
+- **pnpm** (Run `corepack enable` to activate)
+- **MongoDB Instance** (Local URL or MongoDB Atlas connection string)
+- **Redis Instance** (Local or Cloud)
+- **Google Gemini API Key** (Get it from [Google AI Studio](https://aistudio.google.com/app/apikey))
+
+---
 
 ## Getting Started
 
-First, run the development server:
+### 1. Installation
+
+Clone the repository and install dependencies using `pnpm`.
 
 ```bash
-npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
-```
-
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
-
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
-
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
-
-## Learn More
-
-To learn more about Next.js, take a look at the following resources:
-
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
-
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
-
-## Deploy on Vercel
-
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
-
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+# Install dependencies
+pnpm install
