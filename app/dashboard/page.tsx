@@ -5,7 +5,7 @@ import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { format } from 'date-fns';
 import toast from 'react-hot-toast';
-import { motion } from 'motion/react'
+import { motion } from 'motion/react';
 import {
   Area,
   AreaChart,
@@ -15,11 +15,23 @@ import {
   XAxis,
   YAxis,
 } from 'recharts';
-import ActivityCard from '@/components/ActivityCard';
 import { RecentActivity } from '@/lib/types';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
+import {
+  Users,
+  Truck,
+  TrendingUp,
+  TrendingDown,
+  Wallet,
+  ArrowUpRight,
+  ArrowDownRight,
+  UserPlus,
+  Building2,
+  ClipboardList,
+  StickyNote,
+  BarChart3,
+} from 'lucide-react';
 
 const currencyFormatter = new Intl.NumberFormat('en-IN', {
   style: 'currency',
@@ -82,6 +94,31 @@ const defaultStats: DashboardStats = {
 
 const formatCurrency = (value: number) => currencyFormatter.format(value || 0);
 
+// Animation variants for staggered children
+const containerVariants = {
+  hidden: { opacity: 0 },
+  visible: {
+    opacity: 1,
+    transition: {
+      staggerChildren: 0.1,
+      delayChildren: 0.1,
+    },
+  },
+};
+
+const itemVariants = {
+  hidden: { opacity: 0, y: 20 },
+  visible: {
+    opacity: 1,
+    y: 0,
+    transition: {
+      duration: 0.5,
+      ease: 'easeOut' as const,
+    },
+  },
+};
+
+
 type SalesTooltipPoint = {
   label: string;
   totalIn: number;
@@ -99,69 +136,198 @@ const SalesTooltip = ({ active, payload }: SalesTooltipProps) => {
   const point = payload[0].payload;
 
   return (
-    <div className="rounded-lg border bg-white/80 p-3 shadow-md backdrop-blur-sm">
-      <p className="text-sm font-semibold text-gray-900 mb-2">
-        {format(new Date(point.dateISO), 'MMM d, yyyy')}
+    <div className="glass-tooltip rounded-xl p-4 shadow-xl">
+      <p className="text-sm font-semibold text-gray-900 mb-3">
+        {format(new Date(point.dateISO), 'EEEE, MMM d')}
       </p>
-      <p className="text-xs text-gray-600">Cash In: {formatCurrency(point.totalIn)}</p>
-      <p className="text-xs text-gray-600">Cash Out: {formatCurrency(point.totalOut)}</p>
+      <div className="space-y-2">
+        <div className="flex items-center gap-2">
+          <div className="w-2 h-2 rounded-full bg-emerald-500" />
+          <span className="text-xs text-gray-600">Cash In:</span>
+          <span className="text-xs font-semibold text-emerald-600">{formatCurrency(point.totalIn)}</span>
+        </div>
+        <div className="flex items-center gap-2">
+          <div className="w-2 h-2 rounded-full bg-rose-500" />
+          <span className="text-xs text-gray-600">Cash Out:</span>
+          <span className="text-xs font-semibold text-rose-600">{formatCurrency(point.totalOut)}</span>
+        </div>
+      </div>
     </div>
   );
 };
 
+// Glass Card component
+const GlassCard = ({
+  children,
+  className = '',
+  hover = true,
+}: {
+  children: React.ReactNode;
+  className?: string;
+  hover?: boolean;
+}) => (
+  <div
+    className={`glass rounded-2xl shadow-xl shadow-emerald-500/5 ${hover ? 'glass-hover' : ''} ${className}`}
+  >
+    {children}
+  </div>
+);
+
+// Stat Card with Icon
 const StatCard = ({
   label,
   value,
-  helper,
+  icon,
+  iconBg,
+  delay = 0,
 }: {
   label: string;
   value: string;
-  helper?: string;
+  icon: React.ReactNode;
+  iconBg: string;
+  delay?: number;
 }) => (
-  <Card className="border-none bg-white shadow-sm">
-    <CardContent className="p-6">
-      <p className="text-sm font-medium text-gray-500">{label}</p>
-      <p className="text-3xl font-bold text-gray-900 mt-2">{value}</p>
-      {helper && <p className="text-xs text-emerald-600 mt-1">{helper}</p>}
-    </CardContent>
-  </Card>
+  <motion.div
+    variants={itemVariants}
+    custom={delay}
+  >
+    <GlassCard className="stat-glow p-5">
+      <div className="flex items-start justify-between">
+        <div>
+          <p className="text-sm font-medium text-gray-500">{label}</p>
+          <p className="text-3xl font-bold text-gray-900 mt-2 tracking-tight">{value}</p>
+        </div>
+        <div className={`p-2.5 rounded-xl ${iconBg}`}>
+          {icon}
+        </div>
+      </div>
+    </GlassCard>
+  </motion.div>
 );
 
-const TopEntityList = ({
-  title,
-  entities,
-}: {
-  title: string;
-  entities: TopEntity[];
-}) => (
-  <Card className="h-full border-none shadow-sm">
-    <CardHeader>
-      <CardTitle>{title}</CardTitle>
-    </CardHeader>
-    <CardContent className="space-y-4">
-      {entities.length === 0 ? (
-        <p className="text-sm text-muted-foreground">No data available yet.</p>
-      ) : (
-        entities.map((entity) => (
-          <div
-            key={entity.id}
-            className="flex items-center justify-between rounded-lg border px-4 py-3"
-          >
-            <div>
-              <p className="font-semibold text-gray-900">{entity.name}</p>
-              <p className="text-xs text-gray-500">
-                Debit {formatCurrency(entity.debit)} · Credit {formatCurrency(entity.credit)}
-              </p>
-            </div>
-            <span className="text-sm font-semibold text-emerald-600">
-              {formatCurrency(entity.total)}
-            </span>
-          </div>
-        ))
-      )}
-    </CardContent>
-  </Card>
+// Entity List Item
+const EntityListItem = ({ entity }: { entity: TopEntity }) => (
+  <div className="flex items-center justify-between rounded-xl bg-white/30 backdrop-blur-sm px-4 py-3 border border-white/20 transition-all hover:bg-white/50">
+    <div>
+      <p className="font-semibold text-gray-900">{entity.name}</p>
+      <p className="text-xs text-gray-500 mt-0.5">
+        Debit {formatCurrency(entity.debit)} · Credit {formatCurrency(entity.credit)}
+      </p>
+    </div>
+    <span className="text-sm font-bold text-emerald-600 bg-emerald-50/80 px-3 py-1 rounded-full">
+      {formatCurrency(entity.total)}
+    </span>
+  </div>
 );
+
+// Activity Row - Compact glass-styled activity item
+const ActivityRow = ({ 
+  activity, 
+  onClick 
+}: { 
+  activity: RecentActivity; 
+  onClick: () => void;
+}) => {
+  const isCredit = activity.transactionType === 'credit';
+  const isCustomerCreated = activity.type === 'customer_created';
+  const isSupplierCreated = activity.type === 'supplier_created';
+  
+  const getTypeIcon = () => {
+    if (isCustomerCreated) return <UserPlus className="w-5 h-5" />;
+    if (isSupplierCreated) return <Building2 className="w-5 h-5" />;
+    return isCredit ? <ArrowUpRight className="w-5 h-5" /> : <ArrowDownRight className="w-5 h-5" />;
+  };
+  
+  const getIconStyles = () => {
+    if (isCustomerCreated) return 'bg-blue-500/10 text-blue-600 border-blue-200/50';
+    if (isSupplierCreated) return 'bg-purple-500/10 text-purple-600 border-purple-200/50';
+    return isCredit 
+      ? 'bg-emerald-500/10 text-emerald-600 border-emerald-200/50' 
+      : 'bg-rose-500/10 text-rose-600 border-rose-200/50';
+  };
+
+  const disabled = !(activity.entityType && activity.entityId);
+
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      disabled={disabled}
+      className={`w-full group ${disabled ? 'cursor-default' : 'cursor-pointer'}`}
+    >
+      <div className="flex items-center gap-4 p-3 rounded-xl bg-white/40 backdrop-blur-sm border border-white/30 transition-all hover:bg-white/60 hover:shadow-md">
+        {/* Icon */}
+        <div className={`w-10 h-10 rounded-xl flex items-center justify-center border ${getIconStyles()}`}>
+          {getTypeIcon()}
+        </div>
+        
+        {/* Content */}
+        <div className="flex-1 min-w-0 text-left">
+          <div className="flex items-center gap-2">
+            <p className="font-semibold text-gray-900 truncate">{activity.entityName}</p>
+            {(isCustomerCreated || isSupplierCreated) && (
+              <span className="px-2 py-0.5 text-[10px] font-medium rounded-full bg-gray-100 text-gray-500">
+                New
+              </span>
+            )}
+          </div>
+          <p className="text-xs text-gray-500 truncate mt-0.5">{activity.description}</p>
+        </div>
+        
+        {/* Amount & Time */}
+        <div className="text-right shrink-0">
+          {activity.amount !== undefined ? (
+            <p className={`text-base font-bold ${isCredit ? 'text-emerald-600' : 'text-rose-600'}`}>
+              {isCredit ? '+' : '-'}₹{activity.amount.toLocaleString('en-IN')}
+            </p>
+          ) : (
+            <p className="text-sm font-medium text-gray-400">—</p>
+          )}
+          <p className="text-[10px] text-gray-400 mt-0.5">
+            {format(new Date(activity.createdAt), 'MMM d, h:mm a')}
+          </p>
+        </div>
+      </div>
+    </button>
+  );
+};
+
+// Note Card - Glass-styled note with color accent
+const NoteCard = ({ note }: { note: DashboardNote }) => {
+  // Convert hex/rgb color to a subtle tint
+  const accentColor = note.color || '#10b981';
+  
+  return (
+    <div 
+      className="group relative rounded-xl bg-white/50 backdrop-blur-sm border border-white/30 p-4 transition-all hover:bg-white/70 hover:shadow-lg overflow-hidden"
+    >
+      {/* Color accent bar */}
+      <div 
+        className="absolute left-0 top-0 bottom-0 w-1 rounded-l-xl"
+        style={{ backgroundColor: accentColor }}
+      />
+      
+      {/* Content */}
+      <div className="pl-3">
+        <div className="flex items-start justify-between gap-2">
+          <div className="flex-1 min-w-0">
+            <h4 className="font-semibold text-gray-900 truncate">{note.title}</h4>
+            <p className="text-xs text-gray-400 mt-0.5">
+              {format(new Date(note.updatedAt), 'MMM d, yyyy')}
+            </p>
+          </div>
+          <div 
+            className="w-3 h-3 rounded-full shrink-0 mt-1"
+            style={{ backgroundColor: accentColor }}
+          />
+        </div>
+        <p className="text-sm text-gray-600 mt-2 line-clamp-2 leading-relaxed">
+          {note.content || 'No description provided.'}
+        </p>
+      </div>
+    </div>
+  );
+};
 
 export default function Dashboard() {
   const router = useRouter();
@@ -172,7 +338,8 @@ export default function Dashboard() {
   const [topSuppliers, setTopSuppliers] = useState<TopEntity[]>([]);
   const [loading, setLoading] = useState(true);
   const [currentPage, setCurrentPage] = useState(1);
-  const activitiesPerPage = 7;
+  const [activeEntityTab, setActiveEntityTab] = useState<'customers' | 'suppliers'>('customers');
+  const activitiesPerPage = 5;
   const hasFetchedRef = useRef(false);
 
   const fetchDashboardData = useCallback(async () => {
@@ -242,289 +409,441 @@ export default function Dashboard() {
 
   if (loading) {
     return (
-      <motion.div
-        initial={{ opacity: 0 }}
-        animate={{ opacity: 1 }}
-        transition={{ duration: 1.3 }}
-        exit={{ opacity: 0 }}
-      >
+      <div className="min-h-screen relative overflow-hidden">
+        {/* Animated Background */}
+        <div className="fixed inset-0 -z-10">
+          <div className="absolute inset-0 bg-gradient-to-br from-gray-50 via-emerald-50/30 to-teal-50/20" />
+          <div className="orb orb-1" />
+          <div className="orb orb-2" />
+          <div className="orb orb-3" />
+          <div className="orb orb-4" />
+        </div>
+
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
           <div className="space-y-8">
-            <div>
-              <Skeleton className="h-9 w-48 mb-2" />
-              <Skeleton className="h-5 w-64" />
+            <div className="flex items-center gap-4">
+              <Skeleton className="h-12 w-12 rounded-xl" />
+              <div>
+                <Skeleton className="h-8 w-48 mb-2" />
+                <Skeleton className="h-4 w-64" />
+              </div>
             </div>
+            <Skeleton className="h-40 rounded-2xl" />
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
               {[1, 2, 3, 4].map((i) => (
-                <Skeleton key={i} className="h-32" />
+                <Skeleton key={i} className="h-28 rounded-2xl" />
               ))}
             </div>
           </div>
         </div>
-      </motion.div>
+      </div>
     );
   }
 
   return (
-    <motion.div
-      initial={{ opacity: 0 }}
-      animate={{ opacity: 1 }}
-      transition={{ duration: 1.3 }}
-      exit={{ opacity: 0 }}
-    >
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 space-y-8">
-        <div className="flex flex-wrap items-center justify-between gap-4">
-          <div>
-            <p className="text-sm uppercase tracking-wider text-emerald-600">Overview</p>
-            <h1 className="text-4xl font-bold text-gray-900 mt-1">Dashboard</h1>
-            <p className="text-gray-500 mt-2">
-              Plan, prioritize, and track every supplier & customer interaction in one place.
-            </p>
+    <div className="min-h-screen relative overflow-hidden">
+      {/* Animated Gradient Background */}
+      <div className="fixed inset-0 -z-10">
+        <div className="absolute inset-0 bg-gradient-to-br from-gray-50 via-emerald-50/30 to-teal-50/20" />
+        <div className="orb orb-1" />
+        <div className="orb orb-2" />
+        <div className="orb orb-3" />
+        <div className="orb orb-4" />
+      </div>
+
+      <motion.div
+        initial="hidden"
+        animate="visible"
+        variants={containerVariants}
+        className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 space-y-8 relative z-10"
+      >
+        {/* Header */}
+        <motion.div variants={itemVariants} className="flex flex-wrap items-center justify-between gap-4">
+          <div className="flex items-center gap-4">
+            <div className="p-3 rounded-2xl bg-gradient-to-br from-emerald-500 to-teal-600 text-white shadow-lg shadow-emerald-500/30">
+              <Wallet className="w-6 h-6" />
+            </div>
+            <div>
+              <h1 className="text-3xl font-bold text-gray-900">Dashboard</h1>
+              <p className="text-gray-500 text-sm mt-0.5">
+                {format(new Date(), 'EEEE, MMMM d, yyyy')}
+              </p>
+            </div>
           </div>
           <div className="flex flex-wrap gap-3">
-            <Button asChild variant="outline">
+            <Button asChild variant="outline" className="glass border-white/30 hover:bg-white/50">
               <Link href="/notes">Manage Notes</Link>
             </Button>
-            <Button asChild>
+            <Button asChild className="bg-gradient-to-r from-emerald-500 to-teal-600 hover:from-emerald-600 hover:to-teal-700 shadow-lg shadow-emerald-500/25">
               <Link href="/transactions/new">Record Transaction</Link>
             </Button>
           </div>
-        </div>
+        </motion.div>
 
-        <div className="grid grid-cols-1 gap-6 md:grid-cols-2 xl:grid-cols-4">
-          <StatCard label="Total Customers" value={stats.totalCustomers.toString()} />
-          <StatCard label="Total Suppliers" value={stats.totalSuppliers.toString()} />
-          <StatCard label="Total Credit" value={formatCurrency(stats.totalCredit)} />
-          <StatCard label="Total Debit" value={formatCurrency(stats.totalDebit)} />
-        </div>
-
-        <div className="grid gap-6 lg:grid-cols-2">
-          <Card className="border-none shadow-sm">
-            <CardHeader className="flex flex-row items-center justify-between">
-              <div>
-                <p className="text-sm text-gray-500">30-Day Sales Trend</p>
-                <CardTitle className="text-2xl">Monthly Sales</CardTitle>
-              </div>
-              <span className="rounded-full bg-emerald-100 px-3 py-1 text-xs font-semibold text-emerald-700">
-                {formatCurrency(stats.monthlyTotals.totalIn)}
-              </span>
-            </CardHeader>
-            <CardContent className="h-72">
-              {chartData.length === 0 ? (
-                <div className="flex h-full flex-col items-center justify-center text-muted-foreground">
-                  <p>No sales data for this period.</p>
+        {/* Hero Cash Flow Card + Notes Row */}
+        <div className="grid gap-6 lg:grid-cols-3">
+          {/* Hero Cash Flow Card */}
+          <motion.div variants={itemVariants} className="lg:col-span-2">
+            <GlassCard className="glass-strong p-6 md:p-8 h-full" hover={false}>
+              <div className="flex flex-col h-full justify-between">
+                <div>
+                  <p className="text-sm font-medium text-emerald-600 uppercase tracking-wider mb-2">
+                    Today&apos;s Cash Position
+                  </p>
+                  <p className="text-5xl md:text-6xl font-bold text-gray-900 tracking-tight">
+                    {formatCurrency(stats.todayCash.totalLeft)}
+                  </p>
+                  <p className="text-sm text-gray-500 mt-2">
+                    Final balance as of {format(new Date(), 'h:mm a')}
+                  </p>
                 </div>
-              ) : (
-                <ResponsiveContainer width="100%" height="100%">
-                  <AreaChart data={chartData}>
-                    <defs>
-                      <linearGradient id="colorIn" x1="0" y1="0" x2="0" y2="1">
-                        <stop offset="5%" stopColor="#10b981" stopOpacity={0.3} />
-                        <stop offset="95%" stopColor="#10b981" stopOpacity={0.05} />
-                      </linearGradient>
-                      <linearGradient id="colorOut" x1="0" y1="0" x2="0" y2="1">
-                        <stop offset="5%" stopColor="#ef4444" stopOpacity={0.3} />
-                        <stop offset="95%" stopColor="#ef4444" stopOpacity={0.05} />
-                      </linearGradient>
-                    </defs>
-                    <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" />
-                    <XAxis dataKey="label" tick={{ fill: '#6b7280', fontSize: 12 }} />
-                    <YAxis tickFormatter={(value) => `${Math.round(value / 1000)}k`} />
-                    <RechartsTooltip content={<SalesTooltip />} />
-                    <Area
-                      type="monotone"
-                      dataKey="totalIn"
-                      stroke="#059669"
-                      fill="url(#colorIn)"
-                      strokeWidth={2}
-                      name="Cash In"
-                    />
-                    <Area
-                      type="monotone"
-                      dataKey="totalOut"
-                      stroke="#dc2626"
-                      fill="url(#colorOut)"
-                      strokeWidth={2}
-                      name="Cash Out"
-                    />
-                  </AreaChart>
-                </ResponsiveContainer>
-              )}
-            </CardContent>
-          </Card>
-
-          <div className="grid gap-6">
-            <Card className="border-none shadow-sm">
-              <CardHeader>
-                <CardTitle>Today&apos;s Cash Flow</CardTitle>
-                <p className="text-sm text-muted-foreground">{format(new Date(), 'EEEE, MMM d')}</p>
-              </CardHeader>
-              <CardContent className="space-y-3">
-                <div className="flex items-center justify-between rounded-lg bg-emerald-50 px-4 py-3">
-                  <div>
-                    <p className="text-sm text-emerald-600">Cash In</p>
-                    <p className="text-2xl font-semibold text-emerald-700">
+                <div className="flex flex-wrap gap-4 mt-6">
+                  <div className="cash-in-badge rounded-2xl px-6 py-4 min-w-[160px]">
+                    <div className="flex items-center gap-2 text-emerald-700 mb-1">
+                      <ArrowUpRight className="w-5 h-5" />
+                      <span className="text-xs font-semibold uppercase tracking-wide">Cash In</span>
+                    </div>
+                    <p className="text-2xl font-bold text-emerald-700">
                       {formatCurrency(stats.todayCash.totalIn)}
                     </p>
                   </div>
-                </div>
-                <div className="flex items-center justify-between rounded-lg bg-rose-50 px-4 py-3">
-                  <div>
-                    <p className="text-sm text-rose-600">Cash Out</p>
-                    <p className="text-2xl font-semibold text-rose-700">
+                  <div className="cash-out-badge rounded-2xl px-6 py-4 min-w-[160px]">
+                    <div className="flex items-center gap-2 text-rose-700 mb-1">
+                      <ArrowDownRight className="w-5 h-5" />
+                      <span className="text-xs font-semibold uppercase tracking-wide">Cash Out</span>
+                    </div>
+                    <p className="text-2xl font-bold text-rose-700">
                       {formatCurrency(stats.todayCash.totalOut)}
                     </p>
                   </div>
                 </div>
-                <div className="flex items-center justify-between rounded-lg bg-gray-100 px-4 py-3">
-                  <div>
-                    <p className="text-sm text-gray-600">Final Balance</p>
-                    <p className="text-2xl font-semibold text-gray-900">
-                      {formatCurrency(stats.todayCash.totalLeft)}
-                    </p>
+              </div>
+            </GlassCard>
+          </motion.div>
+
+          {/* Dashboard Notes - Top Right */}
+          <motion.div variants={itemVariants}>
+            <GlassCard className="p-5 h-full">
+              <div className="flex items-center justify-between mb-4">
+                <div>
+                  <p className="text-xs font-medium text-gray-500 uppercase tracking-wider">Quick Notes</p>
+                  <h3 className="text-lg font-bold text-gray-900 mt-0.5">Pinned Notes</h3>
+                </div>
+                <Button asChild size="sm" variant="outline" className="glass border-white/30 hover:bg-white/50 h-8 text-xs">
+                  <Link href="/notes">Manage</Link>
+                </Button>
+              </div>
+
+              <div className="space-y-2.5 max-h-[200px] overflow-y-auto hide-scrollbar">
+                {dashboardNotes.length === 0 ? (
+                  <div className="rounded-xl border-2 border-dashed border-gray-200/50 p-6 text-center text-gray-400">
+                    <StickyNote className="w-8 h-8 mx-auto mb-2 opacity-50" strokeWidth={1} />
+                    <p className="text-xs">No notes pinned</p>
+                  </div>
+                ) : (
+                  dashboardNotes.map((note) => (
+                    <NoteCard key={note.id} note={note} />
+                  ))
+                )}
+              </div>
+            </GlassCard>
+          </motion.div>
+        </div>
+
+        {/* Stat Cards Row */}
+        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
+          <StatCard
+            label="Total Customers"
+            value={stats.totalCustomers.toString()}
+            icon={<Users className="w-5 h-5" />}
+            iconBg="bg-blue-100 text-blue-600"
+            delay={0}
+          />
+          <StatCard
+            label="Total Suppliers"
+            value={stats.totalSuppliers.toString()}
+            icon={<Truck className="w-5 h-5" />}
+            iconBg="bg-purple-100 text-purple-600"
+            delay={1}
+          />
+          <StatCard
+            label="Total Credit"
+            value={formatCurrency(stats.totalCredit)}
+            icon={<TrendingUp className="w-5 h-5" />}
+            iconBg="bg-emerald-100 text-emerald-600"
+            delay={2}
+          />
+          <StatCard
+            label="Total Debit"
+            value={formatCurrency(stats.totalDebit)}
+            icon={<TrendingDown className="w-5 h-5" />}
+            iconBg="bg-rose-100 text-rose-600"
+            delay={3}
+          />
+        </div>
+
+        {/* Chart and Monthly Summary Row */}
+        <div className="grid gap-6 lg:grid-cols-5">
+          {/* Sales Chart */}
+          <motion.div variants={itemVariants} className="lg:col-span-3">
+            <GlassCard className="p-6 h-full">
+              <div className="flex flex-wrap items-center justify-between gap-4 mb-6">
+                <div>
+                  <p className="text-xs font-medium text-gray-500 uppercase tracking-wider">30-Day Trend</p>
+                  <h3 className="text-xl font-bold text-gray-900 mt-1">Monthly Sales Overview</h3>
+                </div>
+                <div className="flex items-center gap-4 text-xs">
+                  <div className="flex items-center gap-1.5">
+                    <div className="w-2.5 h-2.5 rounded-full bg-emerald-500" />
+                    <span className="text-gray-600">Cash In</span>
+                  </div>
+                  <div className="flex items-center gap-1.5">
+                    <div className="w-2.5 h-2.5 rounded-full bg-rose-500" />
+                    <span className="text-gray-600">Cash Out</span>
                   </div>
                 </div>
-              </CardContent>
-            </Card>
+              </div>
+              <div className="h-72">
+                {chartData.length === 0 ? (
+                  <div className="flex h-full flex-col items-center justify-center text-gray-400">
+                    <BarChart3 className="w-12 h-12 mb-3 opacity-50" strokeWidth={1} />
+                    <p className="text-sm">No sales data for this period</p>
+                  </div>
+                ) : (
+                  <ResponsiveContainer width="100%" height="100%">
+                    <AreaChart data={chartData}>
+                      <defs>
+                        <linearGradient id="colorIn" x1="0" y1="0" x2="0" y2="1">
+                          <stop offset="5%" stopColor="#10b981" stopOpacity={0.4} />
+                          <stop offset="95%" stopColor="#10b981" stopOpacity={0.05} />
+                        </linearGradient>
+                        <linearGradient id="colorOut" x1="0" y1="0" x2="0" y2="1">
+                          <stop offset="5%" stopColor="#ef4444" stopOpacity={0.4} />
+                          <stop offset="95%" stopColor="#ef4444" stopOpacity={0.05} />
+                        </linearGradient>
+                      </defs>
+                      <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" strokeOpacity={0.5} />
+                      <XAxis
+                        dataKey="label"
+                        tick={{ fill: '#6b7280', fontSize: 11 }}
+                        tickLine={false}
+                        axisLine={false}
+                      />
+                      <YAxis
+                        tickFormatter={(value) => `${Math.round(value / 1000)}k`}
+                        tick={{ fill: '#6b7280', fontSize: 11 }}
+                        tickLine={false}
+                        axisLine={false}
+                      />
+                      <RechartsTooltip content={<SalesTooltip />} />
+                      <Area
+                        type="monotone"
+                        dataKey="totalIn"
+                        stroke="#059669"
+                        fill="url(#colorIn)"
+                        strokeWidth={2.5}
+                        name="Cash In"
+                      />
+                      <Area
+                        type="monotone"
+                        dataKey="totalOut"
+                        stroke="#dc2626"
+                        fill="url(#colorOut)"
+                        strokeWidth={2.5}
+                        name="Cash Out"
+                      />
+                    </AreaChart>
+                  </ResponsiveContainer>
+                )}
+              </div>
+            </GlassCard>
+          </motion.div>
 
-            <Card className="border-none shadow-sm">
-              <CardHeader className="flex flex-row items-center justify-between">
+          {/* Monthly Summary */}
+          <motion.div variants={itemVariants} className="lg:col-span-2">
+            <GlassCard className="p-6 h-full">
+              <div className="flex items-center justify-between mb-6">
                 <div>
-                  <CardTitle>Monthly Totals</CardTitle>
-                  <p className="text-sm text-muted-foreground">Based on daily cash entries</p>
+                  <p className="text-xs font-medium text-gray-500 uppercase tracking-wider">This Month</p>
+                  <h3 className="text-xl font-bold text-gray-900 mt-1">Monthly Summary</h3>
                 </div>
-                <span className="text-xs text-emerald-600">
+                <span className="px-3 py-1 rounded-full bg-emerald-100/80 text-emerald-700 text-xs font-semibold">
                   {formatCurrency(stats.monthlyTotals.totalLeft)} net
                 </span>
-              </CardHeader>
-              <CardContent className="space-y-3">
-                <div className="flex items-center justify-between">
-                  <span className="text-sm text-gray-500">Cash In</span>
-                  <span className="text-base font-semibold text-gray-900">
-                    {formatCurrency(stats.monthlyTotals.totalIn)}
-                  </span>
-                </div>
-                <div className="flex items-center justify-between">
-                  <span className="text-sm text-gray-500">Cash Out</span>
-                  <span className="text-base font-semibold text-gray-900">
-                    {formatCurrency(stats.monthlyTotals.totalOut)}
-                  </span>
-                </div>
-                <div className="flex items-center justify-between border-t pt-3">
-                  <span className="text-sm text-gray-500">Balance</span>
-                  <span className="text-lg font-semibold text-emerald-600">
-                    {formatCurrency(stats.monthlyTotals.totalLeft)}
-                  </span>
-                </div>
-              </CardContent>
-            </Card>
-          </div>
-        </div>
-
-        <div className="grid gap-6 lg:grid-cols-2">
-          <TopEntityList title="Top Customers" entities={topCustomers} />
-          <TopEntityList title="Top Suppliers" entities={topSuppliers} />
-        </div>
-
-        <div className="grid gap-6 xl:grid-cols-3">
-          <Card className="border-none shadow-sm xl:col-span-2">
-            <CardHeader className="flex flex-row items-center justify-between">
-              <div>
-                <CardTitle>Recent Activities</CardTitle>
-                <p className="text-sm text-muted-foreground">
-                  Showing {activitiesPerPage} per page · {recentActivities.length} total records
-                </p>
               </div>
-              <Button asChild variant="outline" size="sm">
-                <Link href="/transactions/new">Add Activity</Link>
-              </Button>
-            </CardHeader>
-            <CardContent>
-              {recentActivities.length === 0 ? (
-                <div className="text-center py-8 text-muted-foreground">
-                  No activities yet. Start by recording a transaction.
+
+              <div className="space-y-4">
+                <div className="flex items-center justify-between p-4 rounded-xl bg-emerald-50/50 border border-emerald-100/50">
+                  <div className="flex items-center gap-3">
+                    <div className="p-2 rounded-lg bg-emerald-100 text-emerald-600">
+                      <TrendingUp className="w-5 h-5" />
+                    </div>
+                    <div>
+                      <p className="text-xs text-gray-500">Total Cash In</p>
+                      <p className="text-lg font-bold text-gray-900">{formatCurrency(stats.monthlyTotals.totalIn)}</p>
+                    </div>
+                  </div>
+                </div>
+
+                <div className="flex items-center justify-between p-4 rounded-xl bg-rose-50/50 border border-rose-100/50">
+                  <div className="flex items-center gap-3">
+                    <div className="p-2 rounded-lg bg-rose-100 text-rose-600">
+                      <TrendingDown className="w-5 h-5" />
+                    </div>
+                    <div>
+                      <p className="text-xs text-gray-500">Total Cash Out</p>
+                      <p className="text-lg font-bold text-gray-900">{formatCurrency(stats.monthlyTotals.totalOut)}</p>
+                    </div>
+                  </div>
+                </div>
+
+                <div className="pt-4 border-t border-gray-200/50">
+                  <div className="flex items-center justify-between">
+                    <span className="text-sm text-gray-500">Net Balance</span>
+                    <span className={`text-2xl font-bold ${stats.monthlyTotals.totalLeft >= 0 ? 'text-emerald-600' : 'text-rose-600'}`}>
+                      {formatCurrency(stats.monthlyTotals.totalLeft)}
+                    </span>
+                  </div>
+                </div>
+              </div>
+            </GlassCard>
+          </motion.div>
+        </div>
+
+        {/* Top Entities - Tabbed Card */}
+        <motion.div variants={itemVariants}>
+          <GlassCard className="p-6">
+            <div className="flex flex-wrap items-center justify-between gap-4 mb-6">
+              <div>
+                <p className="text-xs font-medium text-gray-500 uppercase tracking-wider">Leaderboard</p>
+                <h3 className="text-xl font-bold text-gray-900 mt-1">Top Performers</h3>
+              </div>
+              <div className="flex rounded-xl bg-white/50 p-1 border border-white/30">
+                <button
+                  onClick={() => setActiveEntityTab('customers')}
+                  className={`px-4 py-2 rounded-lg text-sm font-medium transition-all ${
+                    activeEntityTab === 'customers'
+                      ? 'bg-white shadow-sm text-emerald-700'
+                      : 'text-gray-500 hover:text-gray-700'
+                  }`}
+                >
+                  Customers
+                </button>
+                <button
+                  onClick={() => setActiveEntityTab('suppliers')}
+                  className={`px-4 py-2 rounded-lg text-sm font-medium transition-all ${
+                    activeEntityTab === 'suppliers'
+                      ? 'bg-white shadow-sm text-emerald-700'
+                      : 'text-gray-500 hover:text-gray-700'
+                  }`}
+                >
+                  Suppliers
+                </button>
+              </div>
+            </div>
+
+            <div className="grid gap-3 md:grid-cols-2 lg:grid-cols-3">
+              {(activeEntityTab === 'customers' ? topCustomers : topSuppliers).length === 0 ? (
+                <div className="col-span-full text-center py-8 text-gray-400">
+                  <p className="text-sm">No {activeEntityTab} data available yet.</p>
                 </div>
               ) : (
-                <>
-                  <div className="space-y-4">
-                    {visibleActivities.map((activity) => (
-                      <ActivityCard key={activity.id} activity={activity} />
-                    ))}
-                  </div>
-                  {totalPages > 1 && (
-                    <div className="mt-6 flex items-center justify-between">
-                      <Button
-                        onClick={handlePreviousPage}
-                        disabled={currentPage === 1}
-                        variant="outline"
-                      >
-                        Previous
-                      </Button>
-                      <div className="flex items-center gap-2">
-                        {Array.from({ length: totalPages }, (_, i) => i + 1).map((page) => (
+                (activeEntityTab === 'customers' ? topCustomers : topSuppliers).map((entity) => (
+                  <EntityListItem key={entity.id} entity={entity} />
+                ))
+              )}
+            </div>
+          </GlassCard>
+        </motion.div>
+
+        {/* Recent Activities - Full Width */}
+        <motion.div variants={itemVariants}>
+          <GlassCard className="p-6">
+            <div className="flex flex-wrap items-center justify-between gap-4 mb-6">
+              <div>
+                <p className="text-xs font-medium text-gray-500 uppercase tracking-wider">Activity Feed</p>
+                <h3 className="text-xl font-bold text-gray-900 mt-1">Recent Transactions</h3>
+                <p className="text-xs text-gray-400 mt-1">
+                  {recentActivities.length} total records
+                </p>
+              </div>
+              <Button asChild variant="outline" size="sm" className="glass border-white/30 hover:bg-white/50">
+                <Link href="/transactions/new">Add Activity</Link>
+              </Button>
+            </div>
+
+            {recentActivities.length === 0 ? (
+              <div className="text-center py-12 text-gray-400">
+                <ClipboardList className="w-12 h-12 mx-auto mb-3 opacity-50" strokeWidth={1} />
+                <p className="text-sm">No activities yet. Start by recording a transaction.</p>
+              </div>
+            ) : (
+              <>
+                <div className="grid gap-2 md:grid-cols-2">
+                  {visibleActivities.map((activity) => (
+                    <ActivityRow 
+                      key={activity.id} 
+                      activity={activity}
+                      onClick={() => {
+                        if (activity.entityType && activity.entityId) {
+                          router.push(`/ledger/${activity.entityType}/${activity.entityId}`);
+                        }
+                      }}
+                    />
+                  ))}
+                </div>
+                {totalPages > 1 && (
+                  <div className="mt-6 flex items-center justify-between">
+                    <Button
+                      onClick={handlePreviousPage}
+                      disabled={currentPage === 1}
+                      variant="outline"
+                      size="sm"
+                      className="glass border-white/30"
+                    >
+                      Previous
+                    </Button>
+                    <div className="flex items-center gap-1.5">
+                      {Array.from({ length: Math.min(totalPages, 5) }, (_, i) => {
+                        let page: number;
+                        if (totalPages <= 5) {
+                          page = i + 1;
+                        } else if (currentPage <= 3) {
+                          page = i + 1;
+                        } else if (currentPage >= totalPages - 2) {
+                          page = totalPages - 4 + i;
+                        } else {
+                          page = currentPage - 2 + i;
+                        }
+                        return (
                           <Button
                             key={page}
                             onClick={() => handlePageClick(page)}
                             variant={currentPage === page ? 'default' : 'outline'}
                             size="sm"
-                            className="min-w-[40px]"
+                            className={`min-w-[36px] ${currentPage !== page ? 'glass border-white/30' : ''}`}
                           >
                             {page}
                           </Button>
-                        ))}
-                      </div>
-                      <Button
-                        onClick={handleNextPage}
-                        disabled={currentPage === totalPages}
-                        variant="outline"
-                      >
-                        Next
-                      </Button>
+                        );
+                      })}
                     </div>
-                  )}
-                </>
-              )}
-            </CardContent>
-          </Card>
-
-          <Card className="border-none shadow-sm">
-            <CardHeader className="flex flex-row items-center justify-between">
-              <div>
-                <CardTitle>Dashboard Notes</CardTitle>
-                <p className="text-sm text-muted-foreground">Pinned from notes module</p>
-              </div>
-              <Button asChild size="sm" variant="outline">
-                <Link href="/notes">Manage</Link>
-              </Button>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              {dashboardNotes.length === 0 ? (
-                <div className="rounded-lg border border-dashed p-6 text-center text-muted-foreground">
-                  No notes selected. Use “Add to dashboard” toggle inside your notes.
-                </div>
-              ) : (
-                dashboardNotes.map((note) => (
-                  <div
-                    key={note.id}
-                    className="rounded-2xl p-4 text-gray-900 shadow"
-                    style={{ backgroundColor: note.color }}
-                  >
-                    <p className="text-xs text-black/70">
-                      {format(new Date(note.updatedAt), 'MMM d, yyyy')}
-                    </p>
-                    <h4 className="text-lg font-semibold mt-1">{note.title}</h4>
-                    <p className="text-sm mt-2 line-clamp-3 text-black/80">
-                      {note.content || 'No description provided.'}
-                    </p>
+                    <Button
+                      onClick={handleNextPage}
+                      disabled={currentPage === totalPages}
+                      variant="outline"
+                      size="sm"
+                      className="glass border-white/30"
+                    >
+                      Next
+                    </Button>
                   </div>
-                ))
-              )}
-            </CardContent>
-          </Card>
-        </div>
-      </div>
-    </motion.div>
+                )}
+              </>
+            )}
+          </GlassCard>
+        </motion.div>
+      </motion.div>
+    </div>
   );
 }
-
-

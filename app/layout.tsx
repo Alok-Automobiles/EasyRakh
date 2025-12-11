@@ -4,6 +4,7 @@ import "./globals.css";
 import "react-day-picker/dist/style.css";
 import Header from "@/components/Header";
 import { Toaster } from "react-hot-toast";
+import VoiceAssistantWrapper from "@/components/VoiceAssistantWrapper";
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -38,6 +39,7 @@ export default function RootLayout({
           {children}
         </main>
         <Toaster position="top-right" />
+        <VoiceAssistantWrapper />
       </body>
     </html>
   );
