@@ -253,7 +253,8 @@ export default function VoiceAssistant() {
           isOpen ? 'scale-0 opacity-0' : 'scale-100 opacity-100'
         }`}
         style={{
-          background: 'linear-gradient(135deg, #059669 0%, #0d9488 50%, #0891b2 100%)',
+          background: '#111827',
+          boxShadow: '0 20px 45px rgba(17,24,39,0.25)',
         }}
         whileHover={{ scale: 1.1 }}
         whileTap={{ scale: 0.95 }}
@@ -287,16 +288,16 @@ export default function VoiceAssistant() {
             transition={{ type: 'spring', damping: 25, stiffness: 300 }}
             className="fixed bottom-6 right-6 z-50 w-[380px] max-w-[calc(100vw-3rem)] overflow-hidden rounded-3xl shadow-2xl"
             style={{
-              background: 'linear-gradient(180deg, rgba(255,255,255,0.98) 0%, rgba(240,253,250,0.98) 100%)',
-              backdropFilter: 'blur(20px)',
-              border: '1px solid rgba(16, 185, 129, 0.2)',
+              background: 'rgba(255,255,255,0.98)',
+              backdropFilter: 'blur(16px)',
+              border: '1px solid rgba(0,0,0,0.05)',
             }}
           >
             {/* Header */}
             <div
               className="relative px-5 py-4"
               style={{
-                background: 'linear-gradient(135deg, #059669 0%, #0d9488 50%, #0891b2 100%)',
+                background: '#0f172a',
               }}
             >
               <div className="flex items-center justify-between">
@@ -306,8 +307,8 @@ export default function VoiceAssistant() {
                   </div>
                   <div>
                     <h3 className="text-white font-bold text-lg">AI Assistant</h3>
-                    <p className="text-emerald-100 text-xs">
-                      हिंदी & English • Voice Enabled
+                    <p className="text-slate-200 text-xs">
+                      हिंदी & English · Voice Enabled
                     </p>
                   </div>
                 </div>
@@ -334,16 +335,15 @@ export default function VoiceAssistant() {
               {/* Animated wave effect when listening */}
               {pulseAnimation && (
                 <motion.div
-                  className="absolute bottom-0 left-0 right-0 h-1 bg-gradient-to-r from-amber-400 via-yellow-300 to-amber-400"
+                  className="absolute bottom-0 left-0 right-0 h-1 bg-sky-400"
                   animate={{
-                    backgroundPosition: ['0% 50%', '100% 50%', '0% 50%'],
+                    opacity: [0.3, 1, 0.3],
                   }}
                   transition={{
-                    duration: 1.5,
+                    duration: 1.4,
                     repeat: Infinity,
-                    ease: 'linear',
+                    ease: 'easeInOut',
                   }}
-                  style={{ backgroundSize: '200% 100%' }}
                 />
               )}
             </div>
@@ -352,8 +352,8 @@ export default function VoiceAssistant() {
             <div className="h-[320px] overflow-y-auto p-4 space-y-3">
               {messages.length === 0 ? (
                 <div className="h-full flex flex-col items-center justify-center text-center px-6">
-                  <div className="w-16 h-16 rounded-2xl bg-gradient-to-br from-emerald-100 to-teal-100 flex items-center justify-center mb-4">
-                    <Mic className="w-8 h-8 text-emerald-600" />
+                  <div className="w-16 h-16 rounded-2xl bg-slate-100 flex items-center justify-center mb-4 border border-slate-200">
+                    <Mic className="w-8 h-8 text-slate-700" />
                   </div>
                   <h4 className="text-gray-900 font-semibold mb-2">
                     Ask me anything!
@@ -362,13 +362,13 @@ export default function VoiceAssistant() {
                     Try asking in Hindi or English:
                   </p>
                   <div className="mt-3 space-y-2 text-xs">
-                    <p className="px-3 py-1.5 bg-emerald-50 text-emerald-700 rounded-full">
+                    <p className="px-3 py-1.5 bg-slate-100 text-slate-700 rounded-full border border-slate-200">
                       &ldquo;राम का खाता बताओ&rdquo;
                     </p>
-                    <p className="px-3 py-1.5 bg-teal-50 text-teal-700 rounded-full">
+                    <p className="px-3 py-1.5 bg-slate-100 text-slate-700 rounded-full border border-slate-200">
                       &ldquo;What&apos;s Sharma&apos;s balance?&rdquo;
                     </p>
-                    <p className="px-3 py-1.5 bg-cyan-50 text-cyan-700 rounded-full">
+                    <p className="px-3 py-1.5 bg-slate-100 text-slate-700 rounded-full border border-slate-200">
                       &ldquo;आज की कुल बिक्री&rdquo;
                     </p>
                   </div>
@@ -387,7 +387,7 @@ export default function VoiceAssistant() {
                       <div
                         className={`max-w-[85%] px-4 py-3 rounded-2xl ${
                           message.type === 'user'
-                            ? 'bg-gradient-to-br from-emerald-500 to-teal-600 text-white rounded-br-md'
+                            ? 'bg-slate-900 text-white rounded-br-md'
                             : 'bg-white shadow-md border border-gray-100 text-gray-800 rounded-bl-md'
                         }`}
                       >
@@ -397,7 +397,7 @@ export default function VoiceAssistant() {
                         <p
                           className={`text-[10px] mt-1.5 ${
                             message.type === 'user'
-                              ? 'text-emerald-100'
+                              ? 'text-slate-300'
                               : 'text-gray-400'
                           }`}
                         >
@@ -423,8 +423,8 @@ export default function VoiceAssistant() {
                   exit={{ opacity: 0, height: 0 }}
                   className="px-4 pb-2"
                 >
-                  <div className="px-4 py-2 bg-amber-50 border border-amber-200 rounded-xl">
-                    <p className="text-sm text-amber-800">
+                  <div className="px-4 py-2 bg-slate-100 border border-slate-200 rounded-xl">
+                    <p className="text-sm text-slate-800">
                       <span className="font-medium">Listening:</span> {transcript}
                     </p>
                   </div>
@@ -450,8 +450,8 @@ export default function VoiceAssistant() {
                   disabled={isProcessing}
                   className={`relative w-16 h-16 rounded-full flex items-center justify-center transition-all ${
                     isListening
-                      ? 'bg-gradient-to-br from-rose-500 to-red-600'
-                      : 'bg-gradient-to-br from-emerald-500 to-teal-600'
+                      ? 'bg-rose-600'
+                      : 'bg-slate-900'
                   } shadow-lg disabled:opacity-50 disabled:cursor-not-allowed`}
                   whileHover={{ scale: 1.05 }}
                   whileTap={{ scale: 0.95 }}
@@ -485,22 +485,22 @@ export default function VoiceAssistant() {
                 <div className="flex items-center gap-2">
                   {isSpeaking && (
                     <motion.div
-                      className="flex items-center gap-1 px-3 py-1.5 bg-teal-50 rounded-full"
+                      className="flex items-center gap-1 px-3 py-1.5 bg-slate-100 rounded-full"
                       initial={{ opacity: 0 }}
                       animate={{ opacity: 1 }}
                     >
-                      <Volume2 className="w-4 h-4 text-teal-600" />
-                      <span className="text-xs text-teal-700 font-medium">Speaking</span>
+                      <Volume2 className="w-4 h-4 text-slate-700" />
+                      <span className="text-xs text-slate-800 font-medium">Speaking</span>
                     </motion.div>
                   )}
                   {isProcessing && (
                     <motion.div
-                      className="flex items-center gap-1 px-3 py-1.5 bg-amber-50 rounded-full"
+                      className="flex items-center gap-1 px-3 py-1.5 bg-slate-100 rounded-full"
                       initial={{ opacity: 0 }}
                       animate={{ opacity: 1 }}
                     >
-                      <Loader2 className="w-4 h-4 text-amber-600 animate-spin" />
-                      <span className="text-xs text-amber-700 font-medium">Thinking</span>
+                      <Loader2 className="w-4 h-4 text-slate-700 animate-spin" />
+                      <span className="text-xs text-slate-800 font-medium">Thinking</span>
                     </motion.div>
                   )}
                 </div>

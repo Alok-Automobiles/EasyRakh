@@ -38,24 +38,18 @@ const isHindiQuery = (text: string): boolean => {
 
 // List available models for this API key
 async function listAvailableModels(): Promise<string[]> {
-  const maskedKey = GEMINI_API_KEY ? `${GEMINI_API_KEY.slice(0, 8)}...${GEMINI_API_KEY.slice(-4)}` : 'NOT SET';
-  console.log('🔑 Using API key:', maskedKey);
-  
   try {
     const url = `https://generativelanguage.googleapis.com/v1beta/models?key=${GEMINI_API_KEY}`;
     const response = await fetch(url);
     if (response.ok) {
       const data = await response.json();
       const models = data.models?.map((m: { name: string }) => m.name) || [];
-      console.log('📋 Available models:', models);
       return models;
     } else {
       const error = await response.json().catch(() => ({}));
-      console.log('❌ Failed to list models:', error.error?.message);
       return [];
     }
   } catch (err) {
-    console.log('❌ Error listing models:', err);
     return [];
   }
 }
@@ -100,17 +94,12 @@ async function callGeminiAPI(prompt: string): Promise<string> {
       if (response.ok) {
         const data = await response.json();
         const text = data.candidates?.[0]?.content?.parts?.[0]?.text;
-        if (text) {
-          console.log(`✅ Successfully used: ${version}/${modelName}`);
-          return text;
-        }
+        if (text) return text;
       } else {
         const errorData = await response.json().catch(() => ({}));
-        console.log(`❌ ${version}/${modelName} failed:`, response.status, errorData.error?.message || 'Unknown error');
         lastError = new Error(`${version}/${modelName}: ${errorData.error?.message || response.statusText}`);
       }
     } catch (err) {
-      console.log(`❌ ${version}/${modelName} error:`, err);
       lastError = err as Error;
     }
   }
@@ -373,8 +362,6 @@ async function getTodayCash(userId: string) {
   // Get today's date in IST, normalized to UTC midnight (how records are stored)
   const todayDate = getTodayDateIST();
   
-  console.log('📅 Querying daily cash for IST date:', todayDate.toISOString());
-
   // Query for exact date match (records are stored with normalized UTC midnight dates)
   const todayRecord = await dailyCashCollection.findOne({
     userId,
@@ -384,8 +371,6 @@ async function getTodayCash(userId: string) {
   // Daily cash records store totals directly on the record
   const totalIn = todayRecord?.totalIn || 0;
   const totalOut = todayRecord?.totalOut || 0;
-
-  console.log('📊 Today\'s cash:', { totalIn, totalOut, balance: totalIn - totalOut });
 
   return {
     success: true,

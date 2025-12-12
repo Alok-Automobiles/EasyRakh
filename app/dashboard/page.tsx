@@ -136,28 +136,28 @@ const SalesTooltip = ({ active, payload }: SalesTooltipProps) => {
   const point = payload[0].payload;
 
   return (
-    <div className="glass-tooltip rounded-xl p-4 shadow-xl">
+    <div className="rounded-xl p-4 shadow-xl border border-gray-200 bg-white">
       <p className="text-sm font-semibold text-gray-900 mb-3">
         {format(new Date(point.dateISO), 'EEEE, MMM d')}
       </p>
       <div className="space-y-2">
         <div className="flex items-center gap-2">
-          <div className="w-2 h-2 rounded-full bg-emerald-500" />
+          <div className="w-2 h-2 rounded-full bg-green-700" />
           <span className="text-xs text-gray-600">Cash In:</span>
-          <span className="text-xs font-semibold text-emerald-600">{formatCurrency(point.totalIn)}</span>
+          <span className="text-xs font-semibold text-green-700">{formatCurrency(point.totalIn)}</span>
         </div>
         <div className="flex items-center gap-2">
-          <div className="w-2 h-2 rounded-full bg-rose-500" />
+          <div className="w-2 h-2 rounded-full bg-red-700" />
           <span className="text-xs text-gray-600">Cash Out:</span>
-          <span className="text-xs font-semibold text-rose-600">{formatCurrency(point.totalOut)}</span>
+          <span className="text-xs font-semibold text-red-700">{formatCurrency(point.totalOut)}</span>
         </div>
       </div>
     </div>
   );
 };
 
-// Glass Card component
-const GlassCard = ({
+// Card component
+const Card = ({
   children,
   className = '',
   hover = true,
@@ -167,7 +167,7 @@ const GlassCard = ({
   hover?: boolean;
 }) => (
   <div
-    className={`glass rounded-2xl shadow-xl shadow-emerald-500/5 ${hover ? 'glass-hover' : ''} ${className}`}
+    className={`rounded-xl shadow-md border border-gray-200 bg-white ${hover ? 'hover:shadow-lg transition-shadow' : ''} ${className}`}
   >
     {children}
   </div>
@@ -191,30 +191,28 @@ const StatCard = ({
     variants={itemVariants}
     custom={delay}
   >
-    <GlassCard className="stat-glow p-5">
+    <Card className="p-5">
       <div className="flex items-start justify-between">
         <div>
-          <p className="text-sm font-medium text-gray-500">{label}</p>
-          <p className="text-3xl font-bold text-gray-900 mt-2 tracking-tight">{value}</p>
+          <p className="text-xs font-semibold uppercase tracking-wide text-gray-500">{label}</p>
+          <p className="text-2xl font-bold text-gray-900 mt-2 tracking-tight">{value}</p>
         </div>
         <div className={`p-2.5 rounded-xl ${iconBg}`}>
           {icon}
         </div>
       </div>
-    </GlassCard>
+    </Card>
   </motion.div>
 );
 
 // Entity List Item
 const EntityListItem = ({ entity }: { entity: TopEntity }) => (
-  <div className="flex items-center justify-between rounded-xl bg-white/30 backdrop-blur-sm px-4 py-3 border border-white/20 transition-all hover:bg-white/50">
+  <div className="flex items-center justify-between rounded-xl bg-gray-50 px-4 py-3 border border-gray-200 transition-all hover:bg-gray-100">
     <div>
       <p className="font-semibold text-gray-900">{entity.name}</p>
-      <p className="text-xs text-gray-500 mt-0.5">
-        Debit {formatCurrency(entity.debit)} · Credit {formatCurrency(entity.credit)}
-      </p>
+      <p className="text-xs text-gray-500 mt-0.5">Debit {formatCurrency(entity.debit)} · Credit {formatCurrency(entity.credit)}</p>
     </div>
-    <span className="text-sm font-bold text-emerald-600 bg-emerald-50/80 px-3 py-1 rounded-full">
+    <span className="text-sm font-bold text-green-700 bg-green-100 px-3 py-1 rounded-full">
       {formatCurrency(entity.total)}
     </span>
   </div>
@@ -239,11 +237,11 @@ const ActivityRow = ({
   };
   
   const getIconStyles = () => {
-    if (isCustomerCreated) return 'bg-blue-500/10 text-blue-600 border-blue-200/50';
-    if (isSupplierCreated) return 'bg-purple-500/10 text-purple-600 border-purple-200/50';
+    if (isCustomerCreated) return 'bg-blue-100 text-blue-700 border-blue-200';
+    if (isSupplierCreated) return 'bg-purple-100 text-purple-700 border-purple-200';
     return isCredit 
-      ? 'bg-emerald-500/10 text-emerald-600 border-emerald-200/50' 
-      : 'bg-rose-500/10 text-rose-600 border-rose-200/50';
+      ? 'bg-green-100 text-green-700 border-green-200' 
+      : 'bg-red-100 text-red-700 border-red-200';
   };
 
   const disabled = !(activity.entityType && activity.entityId);
@@ -255,7 +253,7 @@ const ActivityRow = ({
       disabled={disabled}
       className={`w-full group ${disabled ? 'cursor-default' : 'cursor-pointer'}`}
     >
-      <div className="flex items-center gap-4 p-3 rounded-xl bg-white/40 backdrop-blur-sm border border-white/30 transition-all hover:bg-white/60 hover:shadow-md">
+      <div className="flex items-center gap-4 p-3 rounded-xl bg-gray-50 border border-gray-200 transition-all hover:bg-gray-100">
         {/* Icon */}
         <div className={`w-10 h-10 rounded-xl flex items-center justify-center border ${getIconStyles()}`}>
           {getTypeIcon()}
@@ -277,7 +275,7 @@ const ActivityRow = ({
         {/* Amount & Time */}
         <div className="text-right shrink-0">
           {activity.amount !== undefined ? (
-            <p className={`text-base font-bold ${isCredit ? 'text-emerald-600' : 'text-rose-600'}`}>
+            <p className={`text-base font-bold ${isCredit ? 'text-green-700' : 'text-red-700'}`}>
               {isCredit ? '+' : '-'}₹{activity.amount.toLocaleString('en-IN')}
             </p>
           ) : (
@@ -292,14 +290,14 @@ const ActivityRow = ({
   );
 };
 
-// Note Card - Glass-styled note with color accent
+// Note Card - with color accent
 const NoteCard = ({ note }: { note: DashboardNote }) => {
   // Convert hex/rgb color to a subtle tint
-  const accentColor = note.color || '#10b981';
+  const accentColor = note.color || '#1f2937';
   
   return (
-    <div 
-      className="group relative rounded-xl bg-white/50 backdrop-blur-sm border border-white/30 p-4 transition-all hover:bg-white/70 hover:shadow-lg overflow-hidden"
+    <div
+      className="group relative rounded-xl bg-gray-50 border border-gray-200 p-4 transition-all hover:bg-gray-100 hover:shadow-md overflow-hidden"
     >
       {/* Color accent bar */}
       <div 
@@ -409,31 +407,20 @@ export default function Dashboard() {
 
   if (loading) {
     return (
-      <div className="min-h-screen relative overflow-hidden">
-        {/* Animated Background */}
-        <div className="fixed inset-0 -z-10">
-          <div className="absolute inset-0 bg-gradient-to-br from-gray-50 via-emerald-50/30 to-teal-50/20" />
-          <div className="orb orb-1" />
-          <div className="orb orb-2" />
-          <div className="orb orb-3" />
-          <div className="orb orb-4" />
-        </div>
-
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-          <div className="space-y-8">
-            <div className="flex items-center gap-4">
-              <Skeleton className="h-12 w-12 rounded-xl" />
-              <div>
-                <Skeleton className="h-8 w-48 mb-2" />
-                <Skeleton className="h-4 w-64" />
-              </div>
+      <div className="min-h-screen bg-slate-50">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 space-y-8">
+          <div className="flex items-center gap-4">
+            <Skeleton className="h-12 w-12 rounded-xl" />
+            <div>
+              <Skeleton className="h-8 w-48 mb-2" />
+              <Skeleton className="h-4 w-64" />
             </div>
-            <Skeleton className="h-40 rounded-2xl" />
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-              {[1, 2, 3, 4].map((i) => (
-                <Skeleton key={i} className="h-28 rounded-2xl" />
-              ))}
-            </div>
+          </div>
+          <Skeleton className="h-40 rounded-2xl" />
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-5">
+            {[1, 2, 3, 4].map((i) => (
+              <Skeleton key={i} className="h-28 rounded-2xl" />
+            ))}
           </div>
         </div>
       </div>
@@ -441,26 +428,17 @@ export default function Dashboard() {
   }
 
   return (
-    <div className="min-h-screen relative overflow-hidden">
-      {/* Animated Gradient Background */}
-      <div className="fixed inset-0 -z-10">
-        <div className="absolute inset-0 bg-gradient-to-br from-gray-50 via-emerald-50/30 to-teal-50/20" />
-        <div className="orb orb-1" />
-        <div className="orb orb-2" />
-        <div className="orb orb-3" />
-        <div className="orb orb-4" />
-      </div>
-
+    <div className="min-h-screen bg-slate-50">
       <motion.div
         initial="hidden"
         animate="visible"
         variants={containerVariants}
-        className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 space-y-8 relative z-10"
+        className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 space-y-6"
       >
         {/* Header */}
         <motion.div variants={itemVariants} className="flex flex-wrap items-center justify-between gap-4">
           <div className="flex items-center gap-4">
-            <div className="p-3 rounded-2xl bg-gradient-to-br from-emerald-500 to-teal-600 text-white shadow-lg shadow-emerald-500/30">
+            <div className="p-3 rounded-2xl bg-slate-900 text-white shadow-lg">
               <Wallet className="w-6 h-6" />
             </div>
             <div>
@@ -471,10 +449,10 @@ export default function Dashboard() {
             </div>
           </div>
           <div className="flex flex-wrap gap-3">
-            <Button asChild variant="outline" className="glass border-white/30 hover:bg-white/50">
+            <Button asChild variant="outline" className="border-gray-300 hover:bg-gray-100 text-sm">
               <Link href="/notes">Manage Notes</Link>
             </Button>
-            <Button asChild className="bg-gradient-to-r from-emerald-500 to-teal-600 hover:from-emerald-600 hover:to-teal-700 shadow-lg shadow-emerald-500/25">
+            <Button asChild className="bg-slate-900 hover:bg-slate-800 text-white text-sm">
               <Link href="/transactions/new">Record Transaction</Link>
             </Button>
           </div>
@@ -484,13 +462,13 @@ export default function Dashboard() {
         <div className="grid gap-6 lg:grid-cols-3">
           {/* Hero Cash Flow Card */}
           <motion.div variants={itemVariants} className="lg:col-span-2">
-            <GlassCard className="glass-strong p-6 md:p-8 h-full" hover={false}>
+            <Card className="p-6 md:p-8 h-full" hover={false}>
               <div className="flex flex-col h-full justify-between">
                 <div>
-                  <p className="text-sm font-medium text-emerald-600 uppercase tracking-wider mb-2">
+                  <p className="text-sm font-medium text-slate-700 uppercase tracking-wider mb-2">
                     Today&apos;s Cash Position
                   </p>
-                  <p className="text-5xl md:text-6xl font-bold text-gray-900 tracking-tight">
+          <p className="text-4xl md:text-5xl font-bold text-gray-900 tracking-tight">
                     {formatCurrency(stats.todayCash.totalLeft)}
                   </p>
                   <p className="text-sm text-gray-500 mt-2">
@@ -498,45 +476,45 @@ export default function Dashboard() {
                   </p>
                 </div>
                 <div className="flex flex-wrap gap-4 mt-6">
-                  <div className="cash-in-badge rounded-2xl px-6 py-4 min-w-[160px]">
-                    <div className="flex items-center gap-2 text-emerald-700 mb-1">
+                  <div className="rounded-2xl px-6 py-4 min-w-[160px] bg-green-100">
+                    <div className="flex items-center gap-2 text-green-700 mb-1">
                       <ArrowUpRight className="w-5 h-5" />
                       <span className="text-xs font-semibold uppercase tracking-wide">Cash In</span>
                     </div>
-                    <p className="text-2xl font-bold text-emerald-700">
+                    <p className="text-2xl font-bold text-green-700">
                       {formatCurrency(stats.todayCash.totalIn)}
                     </p>
                   </div>
-                  <div className="cash-out-badge rounded-2xl px-6 py-4 min-w-[160px]">
-                    <div className="flex items-center gap-2 text-rose-700 mb-1">
+                  <div className="rounded-2xl px-6 py-4 min-w-[160px] bg-red-100">
+                    <div className="flex items-center gap-2 text-red-700 mb-1">
                       <ArrowDownRight className="w-5 h-5" />
                       <span className="text-xs font-semibold uppercase tracking-wide">Cash Out</span>
                     </div>
-                    <p className="text-2xl font-bold text-rose-700">
+                    <p className="text-2xl font-bold text-red-700">
                       {formatCurrency(stats.todayCash.totalOut)}
                     </p>
                   </div>
                 </div>
               </div>
-            </GlassCard>
+            </Card>
           </motion.div>
 
           {/* Dashboard Notes - Top Right */}
           <motion.div variants={itemVariants}>
-            <GlassCard className="p-5 h-full">
+            <Card className="p-5 h-full">
               <div className="flex items-center justify-between mb-4">
                 <div>
                   <p className="text-xs font-medium text-gray-500 uppercase tracking-wider">Quick Notes</p>
                   <h3 className="text-lg font-bold text-gray-900 mt-0.5">Pinned Notes</h3>
                 </div>
-                <Button asChild size="sm" variant="outline" className="glass border-white/30 hover:bg-white/50 h-8 text-xs">
+                <Button asChild size="sm" variant="outline" className="border-gray-300 hover:bg-gray-100 h-8 text-xs">
                   <Link href="/notes">Manage</Link>
                 </Button>
               </div>
 
               <div className="space-y-2.5 max-h-[200px] overflow-y-auto hide-scrollbar">
                 {dashboardNotes.length === 0 ? (
-                  <div className="rounded-xl border-2 border-dashed border-gray-200/50 p-6 text-center text-gray-400">
+                  <div className="rounded-xl border-2 border-dashed border-gray-300 p-6 text-center text-gray-400">
                     <StickyNote className="w-8 h-8 mx-auto mb-2 opacity-50" strokeWidth={1} />
                     <p className="text-xs">No notes pinned</p>
                   </div>
@@ -546,38 +524,38 @@ export default function Dashboard() {
                   ))
                 )}
               </div>
-            </GlassCard>
+            </Card>
           </motion.div>
         </div>
 
         {/* Stat Cards Row */}
-        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
+            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
           <StatCard
             label="Total Customers"
             value={stats.totalCustomers.toString()}
             icon={<Users className="w-5 h-5" />}
-            iconBg="bg-blue-100 text-blue-600"
+            iconBg="bg-blue-100 text-blue-700"
             delay={0}
           />
           <StatCard
             label="Total Suppliers"
             value={stats.totalSuppliers.toString()}
             icon={<Truck className="w-5 h-5" />}
-            iconBg="bg-purple-100 text-purple-600"
+            iconBg="bg-purple-100 text-purple-700"
             delay={1}
           />
           <StatCard
             label="Total Credit"
             value={formatCurrency(stats.totalCredit)}
             icon={<TrendingUp className="w-5 h-5" />}
-            iconBg="bg-emerald-100 text-emerald-600"
+            iconBg="bg-green-100 text-green-700"
             delay={2}
           />
           <StatCard
             label="Total Debit"
             value={formatCurrency(stats.totalDebit)}
             icon={<TrendingDown className="w-5 h-5" />}
-            iconBg="bg-rose-100 text-rose-600"
+            iconBg="bg-red-100 text-red-700"
             delay={3}
           />
         </div>
@@ -586,7 +564,7 @@ export default function Dashboard() {
         <div className="grid gap-6 lg:grid-cols-5">
           {/* Sales Chart */}
           <motion.div variants={itemVariants} className="lg:col-span-3">
-            <GlassCard className="p-6 h-full">
+            <Card className="p-6 h-full">
               <div className="flex flex-wrap items-center justify-between gap-4 mb-6">
                 <div>
                   <p className="text-xs font-medium text-gray-500 uppercase tracking-wider">30-Day Trend</p>
@@ -594,11 +572,11 @@ export default function Dashboard() {
                 </div>
                 <div className="flex items-center gap-4 text-xs">
                   <div className="flex items-center gap-1.5">
-                    <div className="w-2.5 h-2.5 rounded-full bg-emerald-500" />
+                    <div className="w-2.5 h-2.5 rounded-full bg-green-700" />
                     <span className="text-gray-600">Cash In</span>
                   </div>
                   <div className="flex items-center gap-1.5">
-                    <div className="w-2.5 h-2.5 rounded-full bg-rose-500" />
+                    <div className="w-2.5 h-2.5 rounded-full bg-red-700" />
                     <span className="text-gray-600">Cash Out</span>
                   </div>
                 </div>
@@ -614,12 +592,12 @@ export default function Dashboard() {
                     <AreaChart data={chartData}>
                       <defs>
                         <linearGradient id="colorIn" x1="0" y1="0" x2="0" y2="1">
-                          <stop offset="5%" stopColor="#10b981" stopOpacity={0.4} />
-                          <stop offset="95%" stopColor="#10b981" stopOpacity={0.05} />
+                          <stop offset="5%" stopColor="#15803d" stopOpacity={0.3} />
+                          <stop offset="95%" stopColor="#15803d" stopOpacity={0.05} />
                         </linearGradient>
                         <linearGradient id="colorOut" x1="0" y1="0" x2="0" y2="1">
-                          <stop offset="5%" stopColor="#ef4444" stopOpacity={0.4} />
-                          <stop offset="95%" stopColor="#ef4444" stopOpacity={0.05} />
+                          <stop offset="5%" stopColor="#b91c1c" stopOpacity={0.3} />
+                          <stop offset="95%" stopColor="#b91c1c" stopOpacity={0.05} />
                         </linearGradient>
                       </defs>
                       <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" strokeOpacity={0.5} />
@@ -639,7 +617,7 @@ export default function Dashboard() {
                       <Area
                         type="monotone"
                         dataKey="totalIn"
-                        stroke="#059669"
+                        stroke="#15803d"
                         fill="url(#colorIn)"
                         strokeWidth={2.5}
                         name="Cash In"
@@ -647,7 +625,7 @@ export default function Dashboard() {
                       <Area
                         type="monotone"
                         dataKey="totalOut"
-                        stroke="#dc2626"
+                        stroke="#b91c1c"
                         fill="url(#colorOut)"
                         strokeWidth={2.5}
                         name="Cash Out"
@@ -656,26 +634,26 @@ export default function Dashboard() {
                   </ResponsiveContainer>
                 )}
               </div>
-            </GlassCard>
+            </Card>
           </motion.div>
 
           {/* Monthly Summary */}
           <motion.div variants={itemVariants} className="lg:col-span-2">
-            <GlassCard className="p-6 h-full">
+          <Card className="p-6 h-full">
               <div className="flex items-center justify-between mb-6">
                 <div>
                   <p className="text-xs font-medium text-gray-500 uppercase tracking-wider">This Month</p>
                   <h3 className="text-xl font-bold text-gray-900 mt-1">Monthly Summary</h3>
                 </div>
-                <span className="px-3 py-1 rounded-full bg-emerald-100/80 text-emerald-700 text-xs font-semibold">
+              <span className="px-3 py-1 rounded-full bg-green-100 text-green-700 text-xs font-semibold">
                   {formatCurrency(stats.monthlyTotals.totalLeft)} net
                 </span>
               </div>
 
               <div className="space-y-4">
-                <div className="flex items-center justify-between p-4 rounded-xl bg-emerald-50/50 border border-emerald-100/50">
+              <div className="flex items-center justify-between p-4 rounded-xl bg-green-50 border border-green-200">
                   <div className="flex items-center gap-3">
-                    <div className="p-2 rounded-lg bg-emerald-100 text-emerald-600">
+                  <div className="p-2 rounded-lg bg-green-100 text-green-700">
                       <TrendingUp className="w-5 h-5" />
                     </div>
                     <div>
@@ -685,9 +663,9 @@ export default function Dashboard() {
                   </div>
                 </div>
 
-                <div className="flex items-center justify-between p-4 rounded-xl bg-rose-50/50 border border-rose-100/50">
+                <div className="flex items-center justify-between p-4 rounded-xl bg-red-50 border border-red-200">
                   <div className="flex items-center gap-3">
-                    <div className="p-2 rounded-lg bg-rose-100 text-rose-600">
+                    <div className="p-2 rounded-lg bg-red-100 text-red-700">
                       <TrendingDown className="w-5 h-5" />
                     </div>
                     <div>
@@ -700,30 +678,30 @@ export default function Dashboard() {
                 <div className="pt-4 border-t border-gray-200/50">
                   <div className="flex items-center justify-between">
                     <span className="text-sm text-gray-500">Net Balance</span>
-                    <span className={`text-2xl font-bold ${stats.monthlyTotals.totalLeft >= 0 ? 'text-emerald-600' : 'text-rose-600'}`}>
+                    <span className={`text-2xl font-bold ${stats.monthlyTotals.totalLeft >= 0 ? 'text-green-700' : 'text-red-700'}`}>
                       {formatCurrency(stats.monthlyTotals.totalLeft)}
                     </span>
                   </div>
                 </div>
               </div>
-            </GlassCard>
+            </Card>
           </motion.div>
         </div>
 
         {/* Top Entities - Tabbed Card */}
         <motion.div variants={itemVariants}>
-          <GlassCard className="p-6">
+          <Card className="p-6">
             <div className="flex flex-wrap items-center justify-between gap-4 mb-6">
               <div>
                 <p className="text-xs font-medium text-gray-500 uppercase tracking-wider">Leaderboard</p>
                 <h3 className="text-xl font-bold text-gray-900 mt-1">Top Performers</h3>
               </div>
-              <div className="flex rounded-xl bg-white/50 p-1 border border-white/30">
+            <div className="flex rounded-xl bg-gray-100 p-1 border border-gray-200">
                 <button
                   onClick={() => setActiveEntityTab('customers')}
                   className={`px-4 py-2 rounded-lg text-sm font-medium transition-all ${
                     activeEntityTab === 'customers'
-                      ? 'bg-white shadow-sm text-emerald-700'
+                    ? 'bg-white shadow-sm text-slate-900'
                       : 'text-gray-500 hover:text-gray-700'
                   }`}
                 >
@@ -733,7 +711,7 @@ export default function Dashboard() {
                   onClick={() => setActiveEntityTab('suppliers')}
                   className={`px-4 py-2 rounded-lg text-sm font-medium transition-all ${
                     activeEntityTab === 'suppliers'
-                      ? 'bg-white shadow-sm text-emerald-700'
+                      ? 'bg-white shadow-sm text-slate-900'
                       : 'text-gray-500 hover:text-gray-700'
                   }`}
                 >
@@ -753,12 +731,12 @@ export default function Dashboard() {
                 ))
               )}
             </div>
-          </GlassCard>
+          </Card>
         </motion.div>
 
         {/* Recent Activities - Full Width */}
         <motion.div variants={itemVariants}>
-          <GlassCard className="p-6">
+          <Card className="p-6">
             <div className="flex flex-wrap items-center justify-between gap-4 mb-6">
               <div>
                 <p className="text-xs font-medium text-gray-500 uppercase tracking-wider">Activity Feed</p>
@@ -767,7 +745,7 @@ export default function Dashboard() {
                   {recentActivities.length} total records
                 </p>
               </div>
-              <Button asChild variant="outline" size="sm" className="glass border-white/30 hover:bg-white/50">
+              <Button asChild variant="outline" size="sm" className="border-gray-300 hover:bg-gray-100">
                 <Link href="/transactions/new">Add Activity</Link>
               </Button>
             </div>
@@ -799,7 +777,7 @@ export default function Dashboard() {
                       disabled={currentPage === 1}
                       variant="outline"
                       size="sm"
-                      className="glass border-white/30"
+                      className="border-gray-300"
                     >
                       Previous
                     </Button>
@@ -821,7 +799,7 @@ export default function Dashboard() {
                             onClick={() => handlePageClick(page)}
                             variant={currentPage === page ? 'default' : 'outline'}
                             size="sm"
-                            className={`min-w-[36px] ${currentPage !== page ? 'glass border-white/30' : ''}`}
+                            className={`min-w-[36px] ${currentPage !== page ? 'border-gray-300' : ''}`}
                           >
                             {page}
                           </Button>
@@ -833,7 +811,7 @@ export default function Dashboard() {
                       disabled={currentPage === totalPages}
                       variant="outline"
                       size="sm"
-                      className="glass border-white/30"
+                      className="border-gray-300"
                     >
                       Next
                     </Button>
@@ -841,7 +819,7 @@ export default function Dashboard() {
                 )}
               </>
             )}
-          </GlassCard>
+          </Card>
         </motion.div>
       </motion.div>
     </div>
