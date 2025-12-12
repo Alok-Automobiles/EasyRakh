@@ -41,8 +41,13 @@ export async function GET(request: NextRequest) {
       new Date(Date.UTC(date.getUTCFullYear(), date.getUTCMonth(), date.getUTCDate(), 0, 0, 0, 0));
     const dateKey = (date: Date) => normalizeToUTCStart(date).getTime();
 
-    const today = normalizeToUTCStart(new Date());
-    const thirtyDaysAgo = normalizeToUTCStart(subDays(today, 29));
+    // Get "today" based on local date, not UTC date
+    // This ensures that if it's Dec 13 locally, we look for Dec 13 records, even if UTC is still Dec 12
+    // Use local date components directly to create UTC date (avoiding timezone conversion issues)
+    const now = new Date();
+    const today = new Date(Date.UTC(now.getFullYear(), now.getMonth(), now.getDate(), 0, 0, 0, 0));
+    const tomorrow = new Date(Date.UTC(today.getUTCFullYear(), today.getUTCMonth(), today.getUTCDate() + 1, 0, 0, 0, 0));
+    const thirtyDaysAgo = new Date(Date.UTC(now.getFullYear(), now.getMonth(), now.getDate() - 29, 0, 0, 0, 0));
     const currentMonthStart = new Date(Date.UTC(today.getUTCFullYear(), today.getUTCMonth(), 1, 0, 0, 0, 0));
 
     // Use aggregation pipelines for efficient calculations - ALL queries in ONE Promise.all
@@ -177,9 +182,10 @@ export async function GET(request: NextRequest) {
         .limit(20)
         .toArray(),
       // Daily cash records for the last 30 days - use projection
+      // Use $lt: tomorrow to ensure we include all records for today
       dailyCashRecordsCollection
         .find(
-          { userId, date: { $gte: thirtyDaysAgo, $lte: today } },
+          { userId, date: { $gte: thirtyDaysAgo, $lt: tomorrow } },
           { projection: { date: 1, totalIn: 1, totalOut: 1, totalLeft: 1 } }
         )
         .sort({ date: 1 })
