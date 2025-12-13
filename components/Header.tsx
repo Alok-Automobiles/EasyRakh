@@ -177,35 +177,43 @@ export default function Header() {
                   {link.label}
                 </Link>
               ))}
-              {(topCollections.length > 0 || hasMoreCollections) && (
-                <DropdownMenu>
-                  <DropdownMenuTrigger asChild>
-                    <button className="text-gray-600 hover:text-gray-900 px-3 py-2 rounded-md text-sm font-medium whitespace-nowrap flex items-center gap-1">
-                      Collections
-                      <ChevronDown className="h-4 w-4" />
-                    </button>
-                  </DropdownMenuTrigger>
-                  <DropdownMenuContent align="start" className="w-56">
-                    {topCollections.map((ct) => (
-                      <DropdownMenuItem key={ct.id} asChild>
-                        <Link href={`/custom-entities/${ct.slug}`} className="cursor-pointer">
-                          {ct.name}
-                        </Link>
-                      </DropdownMenuItem>
-                    ))}
-                    {hasMoreCollections && (
-                      <>
-                        <DropdownMenuSeparator />
-                        <DropdownMenuItem asChild>
-                          <Link href="/collection-types" className="cursor-pointer">
-                            View All Collections
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <button className="text-gray-600 hover:text-gray-900 px-3 py-2 rounded-md text-sm font-medium whitespace-nowrap flex items-center gap-1">
+                    Collections
+                    <ChevronDown className="h-4 w-4" />
+                  </button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="start" className="w-56">
+                  {topCollections.length > 0 ? (
+                    <>
+                      {topCollections.map((ct) => (
+                        <DropdownMenuItem key={ct.id} asChild>
+                          <Link href={`/custom-entities/${ct.slug}`} className="cursor-pointer">
+                            {ct.name}
                           </Link>
                         </DropdownMenuItem>
-                      </>
-                    )}
-                  </DropdownMenuContent>
-                </DropdownMenu>
-              )}
+                      ))}
+                      {hasMoreCollections && (
+                        <>
+                          <DropdownMenuSeparator />
+                          <DropdownMenuItem asChild>
+                            <Link href="/collection-types" className="cursor-pointer">
+                              View All Collections
+                            </Link>
+                          </DropdownMenuItem>
+                        </>
+                      )}
+                    </>
+                  ) : (
+                    <DropdownMenuItem asChild>
+                      <Link href="/collection-types" className="cursor-pointer">
+                        View All Collections
+                      </Link>
+                    </DropdownMenuItem>
+                  )}
+                </DropdownMenuContent>
+              </DropdownMenu>
             </nav>
           </div>
           <div className="flex items-center space-x-4">
@@ -245,28 +253,37 @@ export default function Header() {
                 {link.label}
               </Link>
             ))}
-            {topCollections.length > 0 && (
-              <div className="px-3 py-2">
-                <div className="text-xs font-semibold text-gray-500 uppercase mb-2">Collections</div>
-                {topCollections.map((ct) => (
-                  <Link
-                    key={ct.id}
-                    href={`/custom-entities/${ct.slug}`}
-                    className="block px-3 py-2 rounded-md text-sm font-medium text-gray-700 hover:bg-gray-100"
-                  >
-                    {ct.name}
-                  </Link>
-                ))}
-                {hasMoreCollections && (
-                  <Link
-                    href="/collection-types"
-                    className="block px-3 py-2 rounded-md text-sm font-medium text-gray-700 hover:bg-gray-100"
-                  >
-                    View All Collections
-                  </Link>
-                )}
-              </div>
-            )}
+            <div className="px-3 py-2">
+              <div className="text-xs font-semibold text-gray-500 uppercase mb-2">Collections</div>
+              {topCollections.length > 0 ? (
+                <>
+                  {topCollections.map((ct) => (
+                    <Link
+                      key={ct.id}
+                      href={`/custom-entities/${ct.slug}`}
+                      className="block px-3 py-2 rounded-md text-sm font-medium text-gray-700 hover:bg-gray-100"
+                    >
+                      {ct.name}
+                    </Link>
+                  ))}
+                  {hasMoreCollections && (
+                    <Link
+                      href="/collection-types"
+                      className="block px-3 py-2 rounded-md text-sm font-medium text-gray-700 hover:bg-gray-100"
+                    >
+                      View All Collections
+                    </Link>
+                  )}
+                </>
+              ) : (
+                <Link
+                  href="/collection-types"
+                  className="block px-3 py-2 rounded-md text-sm font-medium text-gray-700 hover:bg-gray-100"
+                >
+                  View All Collections
+                </Link>
+              )}
+            </div>
             <Button
               onClick={handleLogout}
               variant="destructive"
