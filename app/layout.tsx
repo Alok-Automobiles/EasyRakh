@@ -3,6 +3,7 @@ import { Geist, Geist_Mono } from "next/font/google";
 import "./globals.css";
 import "react-day-picker/dist/style.css";
 import Sidebar from "@/components/Sidebar";
+import MainContent from "@/components/MainContent";
 import { Toaster } from "react-hot-toast";
 import VoiceAssistantWrapper from "@/components/VoiceAssistantWrapper";
 
@@ -35,9 +36,9 @@ export default function RootLayout({
         className={`${geistSans.variable} ${geistMono.variable} antialiased`}
       >
         <Sidebar />
-        <main className="lg:ml-64 min-h-screen bg-gray-50 pt-16 lg:pt-0">
+        <MainContent>
           {children}
-        </main>
+        </MainContent>
         <Toaster position="top-right" />
         <VoiceAssistantWrapper />
       </body>

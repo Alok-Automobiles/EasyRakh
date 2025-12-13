@@ -198,7 +198,7 @@ export default function Sidebar() {
       </div>
 
       {/* Navigation Links */}
-      <nav className="flex-1 overflow-y-auto px-4 py-6 space-y-1">
+      <nav className="flex-1 overflow-y-auto px-4 py-6 space-y-1 sidebar-scrollbar">
         {navLinks.map((link) => {
           const Icon = link.icon;
           const active = isActive(link.href);
@@ -343,7 +343,7 @@ export default function Sidebar() {
               <X className="h-5 w-5 text-gray-700" />
             </button>
           </div>
-          <div className="flex-1 overflow-y-auto">
+          <div className="flex-1 overflow-y-auto sidebar-scrollbar">
             <SidebarContent />
           </div>
         </div>
