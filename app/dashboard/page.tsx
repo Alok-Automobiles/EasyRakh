@@ -191,13 +191,13 @@ const StatCard = ({
     variants={itemVariants}
     custom={delay}
   >
-    <Card className="p-5">
-      <div className="flex items-start justify-between">
-        <div>
-          <p className="text-xs font-semibold uppercase tracking-wide text-gray-500">{label}</p>
-          <p className="text-2xl font-bold text-gray-900 mt-2 tracking-tight">{value}</p>
+    <Card className="p-2 sm:p-3 lg:p-4 xl:p-5">
+      <div className="flex items-start justify-between gap-1 sm:gap-2 lg:gap-3">
+        <div className="min-w-0 flex-1">
+          <p className="text-[9px] sm:text-[10px] lg:text-xs font-semibold uppercase tracking-wide text-gray-500 truncate">{label}</p>
+          <p className="text-base sm:text-lg lg:text-xl xl:text-2xl font-bold text-gray-900 mt-0.5 sm:mt-1 lg:mt-2 tracking-tight break-words">{value}</p>
         </div>
-        <div className={`p-2.5 rounded-xl ${iconBg}`}>
+        <div className={`p-1 sm:p-1.5 lg:p-2 xl:p-2.5 rounded-md sm:rounded-lg lg:rounded-xl shrink-0 ${iconBg}`}>
           {icon}
         </div>
       </div>
@@ -207,12 +207,12 @@ const StatCard = ({
 
 // Entity List Item
 const EntityListItem = ({ entity }: { entity: TopEntity }) => (
-  <div className="flex items-center justify-between rounded-xl bg-gray-50 px-4 py-3 border border-gray-200 transition-all hover:bg-gray-100">
-    <div>
-      <p className="font-semibold text-gray-900">{entity.name}</p>
-      <p className="text-xs text-gray-500 mt-0.5">Debit {formatCurrency(entity.debit)} · Credit {formatCurrency(entity.credit)}</p>
+  <div className="flex items-center justify-between rounded-lg sm:rounded-xl bg-gray-50 px-2 sm:px-3 lg:px-4 py-2 sm:py-2.5 lg:py-3 border border-gray-200 transition-all hover:bg-gray-100">
+    <div className="flex-1 min-w-0">
+      <p className="font-semibold text-gray-900 text-sm sm:text-base truncate">{entity.name}</p>
+      <p className="text-[10px] sm:text-xs text-gray-500 mt-0.5 truncate">Debit {formatCurrency(entity.debit)} · Credit {formatCurrency(entity.credit)}</p>
     </div>
-    <span className="text-sm font-bold text-green-700 bg-green-100 px-3 py-1 rounded-full">
+    <span className="text-xs sm:text-sm font-bold text-green-700 bg-green-100 px-2 sm:px-3 py-0.5 sm:py-1 rounded-full shrink-0 ml-2">
       {formatCurrency(entity.total)}
     </span>
   </div>
@@ -253,35 +253,35 @@ const ActivityRow = ({
       disabled={disabled}
       className={`w-full group ${disabled ? 'cursor-default' : 'cursor-pointer'}`}
     >
-      <div className="flex items-center gap-4 p-3 rounded-xl bg-gray-50 border border-gray-200 transition-all hover:bg-gray-100">
+      <div className="flex items-center gap-1.5 sm:gap-2 lg:gap-4 p-2 sm:p-2.5 lg:p-3 rounded-lg sm:rounded-xl bg-gray-50 border border-gray-200 transition-all hover:bg-gray-100 w-full">
         {/* Icon */}
-        <div className={`w-10 h-10 rounded-xl flex items-center justify-center border ${getIconStyles()}`}>
+        <div className={`w-7 h-7 sm:w-8 sm:h-8 lg:w-10 lg:h-10 rounded-lg sm:rounded-xl flex items-center justify-center border shrink-0 ${getIconStyles()}`}>
           {getTypeIcon()}
         </div>
         
         {/* Content */}
-        <div className="flex-1 min-w-0 text-left">
-          <div className="flex items-center gap-2">
-            <p className="font-semibold text-gray-900 truncate">{activity.entityName}</p>
+        <div className="flex-1 min-w-0 text-left overflow-hidden">
+          <div className="flex items-center gap-1 sm:gap-2 min-w-0">
+            <p className="font-semibold text-gray-900 truncate text-xs sm:text-sm lg:text-base">{activity.entityName}</p>
             {(isCustomerCreated || isSupplierCreated) && (
-              <span className="px-2 py-0.5 text-[10px] font-medium rounded-full bg-gray-100 text-gray-500">
+              <span className="px-1 sm:px-1.5 lg:px-2 py-0.5 text-[9px] sm:text-[10px] lg:text-xs font-medium rounded-full bg-gray-100 text-gray-500 shrink-0">
                 New
               </span>
             )}
           </div>
-          <p className="text-xs text-gray-500 truncate mt-0.5">{activity.description}</p>
+          <p className="text-[10px] sm:text-xs lg:text-sm text-gray-500 truncate mt-0.5">{activity.description}</p>
         </div>
         
         {/* Amount & Time */}
-        <div className="text-right shrink-0">
+        <div className="text-right shrink-0 ml-1 sm:ml-2 lg:ml-3">
           {activity.amount !== undefined ? (
-            <p className={`text-base font-bold ${isCredit ? 'text-green-700' : 'text-red-700'}`}>
+            <p className={`text-xs sm:text-sm lg:text-base font-bold ${isCredit ? 'text-green-700' : 'text-red-700'} break-words leading-tight`}>
               {isCredit ? '+' : '-'}₹{activity.amount.toLocaleString('en-IN')}
             </p>
           ) : (
-            <p className="text-sm font-medium text-gray-400">—</p>
+            <p className="text-xs sm:text-sm font-medium text-gray-400">—</p>
           )}
-          <p className="text-[10px] text-gray-400 mt-0.5">
+          <p className="text-[9px] sm:text-[10px] lg:text-xs text-gray-400 mt-0.5 whitespace-nowrap">
             {format(new Date(activity.createdAt), 'MMM d, h:mm a')}
           </p>
         </div>
@@ -297,7 +297,7 @@ const NoteCard = ({ note }: { note: DashboardNote }) => {
   
   return (
     <div
-      className="group relative rounded-xl bg-gray-50 border border-gray-200 p-4 transition-all hover:bg-gray-100 hover:shadow-md overflow-hidden"
+      className="group relative rounded-lg sm:rounded-xl bg-gray-50 border border-gray-200 p-2 sm:p-3 lg:p-4 transition-all hover:bg-gray-100 hover:shadow-md overflow-hidden"
     >
       {/* Color accent bar */}
       <div 
@@ -306,20 +306,20 @@ const NoteCard = ({ note }: { note: DashboardNote }) => {
       />
       
       {/* Content */}
-      <div className="pl-3">
-        <div className="flex items-start justify-between gap-2">
+      <div className="pl-2 sm:pl-3">
+        <div className="flex items-start justify-between gap-1.5 sm:gap-2">
           <div className="flex-1 min-w-0">
-            <h4 className="font-semibold text-gray-900 truncate">{note.title}</h4>
-            <p className="text-xs text-gray-400 mt-0.5">
+            <h4 className="font-semibold text-gray-900 truncate text-xs sm:text-sm">{note.title}</h4>
+            <p className="text-[10px] sm:text-xs text-gray-400 mt-0.5">
               {format(new Date(note.updatedAt), 'MMM d, yyyy')}
             </p>
           </div>
           <div 
-            className="w-3 h-3 rounded-full shrink-0 mt-1"
+            className="w-2.5 h-2.5 sm:w-3 sm:h-3 rounded-full shrink-0 mt-0.5 sm:mt-1"
             style={{ backgroundColor: accentColor }}
           />
         </div>
-        <p className="text-sm text-gray-600 mt-2 line-clamp-2 leading-relaxed">
+        <p className="text-xs sm:text-sm text-gray-600 mt-1.5 sm:mt-2 line-clamp-2 leading-relaxed">
           {note.content || 'No description provided.'}
         </p>
       </div>
@@ -428,69 +428,77 @@ export default function Dashboard() {
   }
 
   return (
-    <div className="min-h-screen bg-slate-50">
+    <div className="min-h-screen bg-slate-50 overflow-x-hidden">
       <motion.div
         initial="hidden"
         animate="visible"
         variants={containerVariants}
-        className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 space-y-6"
+        className="max-w-7xl mx-auto px-1.5 sm:px-4 lg:mx-0 lg:ml-0 lg:pl-6 lg:pr-6 xl:pl-8 xl:pr-8 py-3 sm:py-6 lg:py-8 space-y-2 sm:space-y-4 lg:space-y-6 w-full"
       >
         {/* Header */}
-        <motion.div variants={itemVariants} className="flex flex-wrap items-center justify-between gap-4">
-          <div className="flex items-center gap-4">
-            <div className="p-3 rounded-2xl bg-slate-900 text-white shadow-lg">
-              <Wallet className="w-6 h-6" />
+        <motion.div variants={itemVariants} className="flex flex-wrap items-center justify-between gap-2 sm:gap-4">
+          <div className="flex items-center gap-2 sm:gap-4">
+            <div className="p-2 sm:p-3 rounded-xl sm:rounded-2xl bg-slate-900 text-white shadow-lg">
+              <Wallet className="w-4 h-4 sm:w-6 sm:h-6" />
             </div>
-            <div>
-              <h1 className="text-3xl font-bold text-gray-900">Dashboard</h1>
-              <p className="text-gray-500 text-sm mt-0.5">
-                {format(new Date(), 'EEEE, MMMM d, yyyy')}
+            <div className="min-w-0">
+              <h1 className="text-lg sm:text-2xl lg:text-3xl font-bold text-gray-900 truncate">Dashboard</h1>
+              <p className="text-gray-500 text-[10px] sm:text-sm mt-0.5 truncate">
+                <span className="hidden sm:inline">{format(new Date(), 'EEEE, MMMM d, yyyy')}</span>
+                <span className="sm:hidden">{format(new Date(), 'MMM d, yyyy')}</span>
               </p>
             </div>
           </div>
-          <div className="flex flex-wrap gap-3">
-            <Button asChild variant="outline" className="border-gray-300 hover:bg-gray-100 text-sm">
-              <Link href="/notes">Manage Notes</Link>
+          <div className="flex flex-wrap gap-1 sm:gap-2 lg:gap-3">
+            <Button asChild variant="outline" size="sm" className="border-gray-300 hover:bg-gray-100 text-[10px] sm:text-xs lg:text-sm h-7 sm:h-8 lg:h-9 px-1.5 sm:px-3 lg:px-4">
+              <Link href="/notes" className="whitespace-nowrap">
+                <span className="sm:hidden">Notes</span>
+                <span className="hidden sm:inline">Manage Notes</span>
+              </Link>
             </Button>
-            <Button asChild className="bg-slate-900 hover:bg-slate-800 text-white text-sm">
-              <Link href="/transactions/new">Record Transaction</Link>
+            <Button asChild size="sm" className="bg-slate-900 hover:bg-slate-800 text-white text-[10px] sm:text-xs lg:text-sm h-7 sm:h-8 lg:h-9 px-1.5 sm:px-3 lg:px-4">
+              <Link href="/transactions/new" className="whitespace-nowrap">
+                <span className="sm:hidden">New</span>
+                <span className="hidden sm:inline lg:hidden">Record</span>
+                <span className="hidden lg:inline">Record Transaction</span>
+              </Link>
             </Button>
           </div>
         </motion.div>
 
         {/* Hero Cash Flow Card + Notes Row */}
-        <div className="grid gap-6 lg:grid-cols-3">
+        <div className="grid gap-3 sm:gap-4 lg:gap-6 lg:grid-cols-3">
           {/* Hero Cash Flow Card */}
           <motion.div variants={itemVariants} className="lg:col-span-2">
-            <Card className="p-6 md:p-8 h-full" hover={false}>
+            <Card className="p-2 sm:p-4 md:p-6 lg:p-8 h-full" hover={false}>
               <div className="flex flex-col h-full justify-between">
                 <div>
-                  <p className="text-sm font-medium text-slate-700 uppercase tracking-wider mb-2">
+                  <p className="text-[10px] sm:text-xs lg:text-sm font-medium text-slate-700 uppercase tracking-wider mb-1 sm:mb-2 lg:mb-3">
                     Today&apos;s Cash Position
                   </p>
-          <p className="text-4xl md:text-5xl font-bold text-gray-900 tracking-tight">
+          <p className="text-xl sm:text-2xl md:text-3xl lg:text-4xl xl:text-5xl font-bold text-gray-900 tracking-tight break-words">
                     {formatCurrency(stats.todayCash.totalLeft)}
                   </p>
-                  <p className="text-sm text-gray-500 mt-2">
+                  <p className="text-[10px] sm:text-xs lg:text-sm text-gray-500 mt-0.5 sm:mt-1 lg:mt-2">
                     Final balance as of {format(new Date(), 'h:mm a')}
                   </p>
                 </div>
-                <div className="flex flex-wrap gap-4 mt-6">
-                  <div className="rounded-2xl px-6 py-4 min-w-[160px] bg-green-100">
-                    <div className="flex items-center gap-2 text-green-700 mb-1">
-                      <ArrowUpRight className="w-5 h-5" />
-                      <span className="text-xs font-semibold uppercase tracking-wide">Cash In</span>
+                <div className="flex flex-wrap gap-1.5 sm:gap-3 lg:gap-4 mt-3 sm:mt-4 lg:mt-6">
+                  <div className="rounded-lg sm:rounded-xl lg:rounded-2xl px-2 sm:px-4 lg:px-6 py-2 sm:py-3 lg:py-4 flex-1 min-w-0 sm:min-w-[140px] lg:min-w-[160px] bg-green-100">
+                    <div className="flex items-center gap-1 sm:gap-2 text-green-700 mb-0.5 sm:mb-1">
+                      <ArrowUpRight className="w-3 h-3 sm:w-4 sm:h-4 lg:w-5 lg:h-5 shrink-0" />
+                      <span className="text-[9px] sm:text-[10px] lg:text-xs font-semibold uppercase tracking-wide">Cash In</span>
                     </div>
-                    <p className="text-2xl font-bold text-green-700">
+                    <p className="text-base sm:text-lg lg:text-xl xl:text-2xl font-bold text-green-700 break-words leading-tight">
                       {formatCurrency(stats.todayCash.totalIn)}
                     </p>
                   </div>
-                  <div className="rounded-2xl px-6 py-4 min-w-[160px] bg-red-100">
-                    <div className="flex items-center gap-2 text-red-700 mb-1">
-                      <ArrowDownRight className="w-5 h-5" />
-                      <span className="text-xs font-semibold uppercase tracking-wide">Cash Out</span>
+                  <div className="rounded-lg sm:rounded-xl lg:rounded-2xl px-2 sm:px-4 lg:px-6 py-2 sm:py-3 lg:py-4 flex-1 min-w-0 sm:min-w-[140px] lg:min-w-[160px] bg-red-100">
+                    <div className="flex items-center gap-1 sm:gap-2 text-red-700 mb-0.5 sm:mb-1">
+                      <ArrowDownRight className="w-3 h-3 sm:w-4 sm:h-4 lg:w-5 lg:h-5 shrink-0" />
+                      <span className="text-[9px] sm:text-[10px] lg:text-xs font-semibold uppercase tracking-wide">Cash Out</span>
                     </div>
-                    <p className="text-2xl font-bold text-red-700">
+                    <p className="text-base sm:text-lg lg:text-xl xl:text-2xl font-bold text-red-700 break-words leading-tight">
                       {formatCurrency(stats.todayCash.totalOut)}
                     </p>
                   </div>
@@ -501,22 +509,22 @@ export default function Dashboard() {
 
           {/* Dashboard Notes - Top Right */}
           <motion.div variants={itemVariants}>
-            <Card className="p-5 h-full">
-              <div className="flex items-center justify-between mb-4">
+            <Card className="p-3 sm:p-4 lg:p-5 h-full">
+              <div className="flex items-center justify-between mb-3 sm:mb-4">
                 <div>
-                  <p className="text-xs font-medium text-gray-500 uppercase tracking-wider">Quick Notes</p>
-                  <h3 className="text-lg font-bold text-gray-900 mt-0.5">Pinned Notes</h3>
+                  <p className="text-[10px] sm:text-xs font-medium text-gray-500 uppercase tracking-wider">Quick Notes</p>
+                  <h3 className="text-sm sm:text-base lg:text-lg font-bold text-gray-900 mt-0.5">Pinned Notes</h3>
                 </div>
-                <Button asChild size="sm" variant="outline" className="border-gray-300 hover:bg-gray-100 h-8 text-xs">
+                <Button asChild size="sm" variant="outline" className="border-gray-300 hover:bg-gray-100 h-7 sm:h-8 text-[10px] sm:text-xs px-2">
                   <Link href="/notes">Manage</Link>
                 </Button>
               </div>
 
-              <div className="space-y-2.5 max-h-[200px] overflow-y-auto hide-scrollbar">
+              <div className="space-y-2 sm:space-y-2.5 max-h-[180px] sm:max-h-[200px] overflow-y-auto hide-scrollbar">
                 {dashboardNotes.length === 0 ? (
-                  <div className="rounded-xl border-2 border-dashed border-gray-300 p-6 text-center text-gray-400">
-                    <StickyNote className="w-8 h-8 mx-auto mb-2 opacity-50" strokeWidth={1} />
-                    <p className="text-xs">No notes pinned</p>
+                  <div className="rounded-xl border-2 border-dashed border-gray-300 p-4 sm:p-6 text-center text-gray-400">
+                    <StickyNote className="w-6 h-6 sm:w-8 sm:h-8 mx-auto mb-2 opacity-50" strokeWidth={1} />
+                    <p className="text-[10px] sm:text-xs">No notes pinned</p>
                   </div>
                 ) : (
                   dashboardNotes.map((note) => (
@@ -529,7 +537,7 @@ export default function Dashboard() {
         </div>
 
         {/* Stat Cards Row */}
-            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
+            <div className="grid grid-cols-1 gap-2 sm:gap-3 lg:gap-4 sm:grid-cols-2 xl:grid-cols-4">
           <StatCard
             label="Total Customers"
             value={stats.totalCustomers.toString()}
@@ -561,27 +569,27 @@ export default function Dashboard() {
         </div>
 
         {/* Chart and Monthly Summary Row */}
-        <div className="grid gap-6 lg:grid-cols-5">
+        <div className="grid gap-3 sm:gap-4 lg:gap-6 lg:grid-cols-5">
           {/* Sales Chart */}
           <motion.div variants={itemVariants} className="lg:col-span-3">
-            <Card className="p-6 h-full">
-              <div className="flex flex-wrap items-center justify-between gap-4 mb-6">
+            <Card className="p-3 sm:p-4 lg:p-6 h-full">
+              <div className="flex flex-wrap items-center justify-between gap-2 sm:gap-3 lg:gap-4 mb-3 sm:mb-4 lg:mb-6">
                 <div>
-                  <p className="text-xs font-medium text-gray-500 uppercase tracking-wider">30-Day Trend</p>
-                  <h3 className="text-xl font-bold text-gray-900 mt-1">Monthly Sales Overview</h3>
+                  <p className="text-[10px] sm:text-xs font-medium text-gray-500 uppercase tracking-wider">30-Day Trend</p>
+                  <h3 className="text-base sm:text-lg lg:text-xl font-bold text-gray-900 mt-0.5 sm:mt-1">Monthly Sales Overview</h3>
                 </div>
-                <div className="flex items-center gap-4 text-xs">
-                  <div className="flex items-center gap-1.5">
-                    <div className="w-2.5 h-2.5 rounded-full bg-green-700" />
+                <div className="flex items-center gap-2 sm:gap-3 lg:gap-4 text-[10px] sm:text-xs">
+                  <div className="flex items-center gap-1 sm:gap-1.5">
+                    <div className="w-2 h-2 sm:w-2.5 sm:h-2.5 rounded-full bg-green-700" />
                     <span className="text-gray-600">Cash In</span>
                   </div>
-                  <div className="flex items-center gap-1.5">
-                    <div className="w-2.5 h-2.5 rounded-full bg-red-700" />
+                  <div className="flex items-center gap-1 sm:gap-1.5">
+                    <div className="w-2 h-2 sm:w-2.5 sm:h-2.5 rounded-full bg-red-700" />
                     <span className="text-gray-600">Cash Out</span>
                   </div>
                 </div>
               </div>
-              <div className="h-72">
+              <div className="h-48 sm:h-60 lg:h-72 w-full overflow-hidden">
                 {chartData.length === 0 ? (
                   <div className="flex h-full flex-col items-center justify-center text-gray-400">
                     <BarChart3 className="w-12 h-12 mb-3 opacity-50" strokeWidth={1} />
@@ -603,15 +611,17 @@ export default function Dashboard() {
                       <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" strokeOpacity={0.5} />
                       <XAxis
                         dataKey="label"
-                        tick={{ fill: '#6b7280', fontSize: 11 }}
+                        tick={{ fill: '#6b7280', fontSize: 10 }}
                         tickLine={false}
                         axisLine={false}
+                        interval="preserveStartEnd"
                       />
                       <YAxis
                         tickFormatter={(value) => `${Math.round(value / 1000)}k`}
-                        tick={{ fill: '#6b7280', fontSize: 11 }}
+                        tick={{ fill: '#6b7280', fontSize: 10 }}
                         tickLine={false}
                         axisLine={false}
+                        width={40}
                       />
                       <RechartsTooltip content={<SalesTooltip />} />
                       <Area
@@ -639,46 +649,46 @@ export default function Dashboard() {
 
           {/* Monthly Summary */}
           <motion.div variants={itemVariants} className="lg:col-span-2">
-          <Card className="p-6 h-full">
-              <div className="flex items-center justify-between mb-6">
+          <Card className="p-3 sm:p-4 lg:p-6 h-full">
+              <div className="flex items-center justify-between mb-3 sm:mb-4 lg:mb-6">
                 <div>
-                  <p className="text-xs font-medium text-gray-500 uppercase tracking-wider">This Month</p>
-                  <h3 className="text-xl font-bold text-gray-900 mt-1">Monthly Summary</h3>
+                  <p className="text-[10px] sm:text-xs font-medium text-gray-500 uppercase tracking-wider">This Month</p>
+                  <h3 className="text-base sm:text-lg lg:text-xl font-bold text-gray-900 mt-0.5 sm:mt-1">Monthly Summary</h3>
                 </div>
-              <span className="px-3 py-1 rounded-full bg-green-100 text-green-700 text-xs font-semibold">
+              <span className="px-1.5 sm:px-2 lg:px-3 py-0.5 sm:py-1 rounded-full bg-green-100 text-green-700 text-[9px] sm:text-[10px] lg:text-xs font-semibold whitespace-nowrap">
                   {formatCurrency(stats.monthlyTotals.totalLeft)} net
                 </span>
               </div>
 
-              <div className="space-y-4">
-              <div className="flex items-center justify-between p-4 rounded-xl bg-green-50 border border-green-200">
-                  <div className="flex items-center gap-3">
-                  <div className="p-2 rounded-lg bg-green-100 text-green-700">
-                      <TrendingUp className="w-5 h-5" />
+              <div className="space-y-2 sm:space-y-3 lg:space-y-4">
+              <div className="flex items-center justify-between p-2 sm:p-3 lg:p-4 rounded-lg sm:rounded-xl bg-green-50 border border-green-200">
+                  <div className="flex items-center gap-2 sm:gap-3">
+                  <div className="p-1.5 sm:p-2 rounded-lg bg-green-100 text-green-700">
+                      <TrendingUp className="w-4 h-4 sm:w-5 sm:h-5" />
                     </div>
                     <div>
-                      <p className="text-xs text-gray-500">Total Cash In</p>
-                      <p className="text-lg font-bold text-gray-900">{formatCurrency(stats.monthlyTotals.totalIn)}</p>
+                      <p className="text-[10px] sm:text-xs text-gray-500">Total Cash In</p>
+                      <p className="text-sm sm:text-base lg:text-lg font-bold text-gray-900">{formatCurrency(stats.monthlyTotals.totalIn)}</p>
                     </div>
                   </div>
                 </div>
 
-                <div className="flex items-center justify-between p-4 rounded-xl bg-red-50 border border-red-200">
-                  <div className="flex items-center gap-3">
-                    <div className="p-2 rounded-lg bg-red-100 text-red-700">
-                      <TrendingDown className="w-5 h-5" />
+                <div className="flex items-center justify-between p-2 sm:p-3 lg:p-4 rounded-lg sm:rounded-xl bg-red-50 border border-red-200">
+                  <div className="flex items-center gap-2 sm:gap-3">
+                    <div className="p-1.5 sm:p-2 rounded-lg bg-red-100 text-red-700">
+                      <TrendingDown className="w-4 h-4 sm:w-5 sm:h-5" />
                     </div>
                     <div>
-                      <p className="text-xs text-gray-500">Total Cash Out</p>
-                      <p className="text-lg font-bold text-gray-900">{formatCurrency(stats.monthlyTotals.totalOut)}</p>
+                      <p className="text-[10px] sm:text-xs text-gray-500">Total Cash Out</p>
+                      <p className="text-sm sm:text-base lg:text-lg font-bold text-gray-900">{formatCurrency(stats.monthlyTotals.totalOut)}</p>
                     </div>
                   </div>
                 </div>
 
-                <div className="pt-4 border-t border-gray-200/50">
+                <div className="pt-2 sm:pt-3 lg:pt-4 border-t border-gray-200/50">
                   <div className="flex items-center justify-between">
-                    <span className="text-sm text-gray-500">Net Balance</span>
-                    <span className={`text-2xl font-bold ${stats.monthlyTotals.totalLeft >= 0 ? 'text-green-700' : 'text-red-700'}`}>
+                    <span className="text-xs sm:text-sm text-gray-500">Net Balance</span>
+                    <span className={`text-lg sm:text-xl lg:text-2xl font-bold ${stats.monthlyTotals.totalLeft >= 0 ? 'text-green-700' : 'text-red-700'}`}>
                       {formatCurrency(stats.monthlyTotals.totalLeft)}
                     </span>
                   </div>
@@ -690,16 +700,16 @@ export default function Dashboard() {
 
         {/* Top Entities - Tabbed Card */}
         <motion.div variants={itemVariants}>
-          <Card className="p-6">
-            <div className="flex flex-wrap items-center justify-between gap-4 mb-6">
+          <Card className="p-3 sm:p-4 lg:p-6">
+            <div className="flex flex-wrap items-center justify-between gap-2 sm:gap-3 lg:gap-4 mb-3 sm:mb-4 lg:mb-6">
               <div>
-                <p className="text-xs font-medium text-gray-500 uppercase tracking-wider">Leaderboard</p>
-                <h3 className="text-xl font-bold text-gray-900 mt-1">Top Performers</h3>
+                <p className="text-[10px] sm:text-xs font-medium text-gray-500 uppercase tracking-wider">Leaderboard</p>
+                <h3 className="text-base sm:text-lg lg:text-xl font-bold text-gray-900 mt-0.5 sm:mt-1">Top Performers</h3>
               </div>
-            <div className="flex rounded-xl bg-gray-100 p-1 border border-gray-200">
+            <div className="flex rounded-lg sm:rounded-xl bg-gray-100 p-0.5 sm:p-1 border border-gray-200">
                 <button
                   onClick={() => setActiveEntityTab('customers')}
-                  className={`px-4 py-2 rounded-lg text-sm font-medium transition-all ${
+                  className={`px-2 sm:px-3 lg:px-4 py-1.5 sm:py-2 rounded-md sm:rounded-lg text-xs sm:text-sm font-medium transition-all ${
                     activeEntityTab === 'customers'
                     ? 'bg-white shadow-sm text-slate-900'
                       : 'text-gray-500 hover:text-gray-700'
@@ -709,7 +719,7 @@ export default function Dashboard() {
                 </button>
                 <button
                   onClick={() => setActiveEntityTab('suppliers')}
-                  className={`px-4 py-2 rounded-lg text-sm font-medium transition-all ${
+                  className={`px-2 sm:px-3 lg:px-4 py-1.5 sm:py-2 rounded-md sm:rounded-lg text-xs sm:text-sm font-medium transition-all ${
                     activeEntityTab === 'suppliers'
                       ? 'bg-white shadow-sm text-slate-900'
                       : 'text-gray-500 hover:text-gray-700'
@@ -720,7 +730,7 @@ export default function Dashboard() {
               </div>
             </div>
 
-            <div className="grid gap-3 md:grid-cols-2 lg:grid-cols-3">
+            <div className="grid gap-2 sm:gap-3 md:grid-cols-2 lg:grid-cols-3">
               {(activeEntityTab === 'customers' ? topCustomers : topSuppliers).length === 0 ? (
                 <div className="col-span-full text-center py-8 text-gray-400">
                   <p className="text-sm">No {activeEntityTab} data available yet.</p>
@@ -736,16 +746,16 @@ export default function Dashboard() {
 
         {/* Recent Activities - Full Width */}
         <motion.div variants={itemVariants}>
-          <Card className="p-6">
-            <div className="flex flex-wrap items-center justify-between gap-4 mb-6">
+          <Card className="p-3 sm:p-4 lg:p-6">
+            <div className="flex flex-wrap items-center justify-between gap-2 sm:gap-3 lg:gap-4 mb-3 sm:mb-4 lg:mb-6">
               <div>
-                <p className="text-xs font-medium text-gray-500 uppercase tracking-wider">Activity Feed</p>
-                <h3 className="text-xl font-bold text-gray-900 mt-1">Recent Transactions</h3>
-                <p className="text-xs text-gray-400 mt-1">
+                <p className="text-[10px] sm:text-xs font-medium text-gray-500 uppercase tracking-wider">Activity Feed</p>
+                <h3 className="text-base sm:text-lg lg:text-xl font-bold text-gray-900 mt-0.5 sm:mt-1">Recent Transactions</h3>
+                <p className="text-[10px] sm:text-xs text-gray-400 mt-0.5 sm:mt-1">
                   {recentActivities.length} total records
                 </p>
               </div>
-              <Button asChild variant="outline" size="sm" className="border-gray-300 hover:bg-gray-100">
+              <Button asChild variant="outline" size="sm" className="border-gray-300 hover:bg-gray-100 text-xs lg:text-sm h-8 lg:h-9 px-2 sm:px-3 lg:px-4">
                 <Link href="/transactions/new">Add Activity</Link>
               </Button>
             </div>

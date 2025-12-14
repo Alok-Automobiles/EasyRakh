@@ -3,7 +3,7 @@
 import Link from 'next/link';
 import Image from 'next/image';
 import { useRouter, usePathname } from 'next/navigation';
-import { useEffect, useState, useRef } from 'react';
+import { useEffect, useState, useRef, useMemo, useCallback } from 'react';
 import { Button } from '@/components/ui/button';
 import { 
   LayoutDashboard, 
@@ -20,13 +20,6 @@ import {
   FolderOpen,
   User
 } from 'lucide-react';
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuSeparator,
-  DropdownMenuTrigger,
-} from '@/components/ui/dropdown-menu';
 
 export default function Sidebar() {
   const router = useRouter();
@@ -43,8 +36,9 @@ export default function Sidebar() {
 
   useEffect(() => {
     if (isAuthPage) {
-      setLoading(false);
-      return;
+      // Use setTimeout to avoid synchronous setState in effect
+      const timer = setTimeout(() => setLoading(false), 0);
+      return () => clearTimeout(timer);
     }
 
     // Prevent duplicate calls for the same pathname
@@ -118,65 +112,52 @@ export default function Sidebar() {
         setLoading(false);
       })
       .catch(() => setLoading(false));
-  }, [pathname, router]);
+  }, [pathname, router, isAuthPage]);
 
   useEffect(() => {
-    setIsMobileOpen(false);
+    // Close mobile menu when pathname changes
+    const timer = setTimeout(() => setIsMobileOpen(false), 0);
+    return () => clearTimeout(timer);
   }, [pathname]);
 
-  const handleLogout = async () => {
+  // Prevent body scroll when mobile sidebar is open
+  useEffect(() => {
+    if (isMobileOpen) {
+      document.body.style.overflow = 'hidden';
+    } else {
+      document.body.style.overflow = '';
+    }
+    return () => {
+      document.body.style.overflow = '';
+    };
+  }, [isMobileOpen]);
+
+  const handleLogout = useCallback(async () => {
     await fetch('/api/auth/logout', { method: 'POST' });
     router.push('/login');
     router.refresh();
-  };
+  }, [router]);
 
-  if (isAuthPage) {
-    return null;
-  }
-
-  const navLinks = [
+  const navLinks = useMemo(() => [
     { href: '/dashboard', label: 'Dashboard', icon: LayoutDashboard },
     { href: '/customers', label: 'Customers', icon: Users },
     { href: '/suppliers', label: 'Suppliers', icon: Building2 },
     { href: '/transactions/new', label: 'New Transaction', icon: PlusCircle },
     { href: '/daily-cash-record', label: 'Cash Record', icon: Wallet },
     { href: '/notes', label: 'Notes', icon: StickyNote },
-  ];
+  ], []);
 
-  const isActive = (href: string) => {
+  const isActive = useCallback((href: string) => {
     if (href === '/dashboard') {
       return pathname === '/dashboard';
     }
     return pathname.startsWith(href);
-  };
+  }, [pathname]);
 
-  if (loading) {
+  const sidebarContent = useMemo(() => {
+    if (!user) return null;
+    
     return (
-      <>
-        {/* Mobile menu button */}
-        <button
-          type="button"
-          className="lg:hidden fixed top-4 left-4 z-50 p-2 rounded-lg bg-white shadow-lg border border-gray-200"
-          onClick={() => setIsMobileOpen(true)}
-          aria-label="Open menu"
-        >
-          <Menu className="h-5 w-5 text-gray-700" />
-        </button>
-        {/* Sidebar skeleton */}
-        <aside className="hidden lg:flex fixed left-0 top-0 h-screen w-64 bg-white border-r border-gray-200 flex-col">
-          <div className="p-4 border-b border-gray-200">
-            <div className="h-10 w-32 bg-gray-200 rounded animate-pulse" />
-          </div>
-        </aside>
-      </>
-    );
-  }
-
-  if (!user) {
-    return null;
-  }
-
-  const SidebarContent = () => (
     <>
       {/* Logo */}
       <div className="p-6 border-b border-gray-200">
@@ -198,7 +179,7 @@ export default function Sidebar() {
       </div>
 
       {/* Navigation Links */}
-      <nav className="flex-1 overflow-y-auto px-4 py-6 space-y-1 sidebar-scrollbar">
+      <nav className="flex-1 overflow-y-auto px-4 py-6 space-y-1 sidebar-scrollbar min-h-0">
         {navLinks.map((link) => {
           const Icon = link.icon;
           const active = isActive(link.href);
@@ -280,7 +261,7 @@ export default function Sidebar() {
       {/* User Section */}
       <div className="p-4 border-t border-gray-200 bg-gray-50">
         <div className="flex items-center space-x-3 mb-3 px-2">
-          <div className="flex-shrink-0">
+          <div className="shrink-0">
             <div className="h-10 w-10 rounded-full bg-blue-100 flex items-center justify-center">
               <User className="h-5 w-5 text-blue-600" />
             </div>
@@ -301,7 +282,38 @@ export default function Sidebar() {
         </Button>
       </div>
     </>
-  );
+    );
+  }, [user, navLinks, pathname, customCollectionTypes, expandedCollections, isActive, handleLogout]);
+
+  if (isAuthPage) {
+    return null;
+  }
+
+  if (loading) {
+    return (
+      <>
+        {/* Mobile menu button */}
+        <button
+          type="button"
+          className="lg:hidden fixed top-4 left-4 z-50 p-2 rounded-lg bg-white shadow-lg border border-gray-200"
+          onClick={() => setIsMobileOpen(true)}
+          aria-label="Open menu"
+        >
+          <Menu className="h-5 w-5 text-gray-700" />
+        </button>
+        {/* Sidebar skeleton */}
+        <aside className="hidden lg:flex fixed left-0 top-0 h-screen w-64 bg-white border-r border-gray-200 flex-col">
+          <div className="p-4 border-b border-gray-200">
+            <div className="h-10 w-32 bg-gray-200 rounded animate-pulse" />
+          </div>
+        </aside>
+      </>
+    );
+  }
+
+  if (!user) {
+    return null;
+  }
 
   return (
     <>
@@ -329,8 +341,8 @@ export default function Sidebar() {
           isMobileOpen ? 'translate-x-0' : '-translate-x-full'
         }`}
       >
-        <div className="flex flex-col h-full">
-          <div className="flex items-center justify-between p-4 border-b border-gray-200">
+        <div className="flex flex-col h-full overflow-hidden">
+          <div className="flex items-center justify-between p-4 border-b border-gray-200 shrink-0">
             <Link href="/" className="text-lg font-bold text-gray-900 hover:text-blue-600 transition-colors">
               Easy<span className="text-blue-600">Rakh</span>
             </Link>
@@ -343,15 +355,15 @@ export default function Sidebar() {
               <X className="h-5 w-5 text-gray-700" />
             </button>
           </div>
-          <div className="flex-1 overflow-y-auto sidebar-scrollbar">
-            <SidebarContent />
+          <div className="flex-1 overflow-y-auto sidebar-scrollbar min-h-0">
+            {sidebarContent}
           </div>
         </div>
       </aside>
 
       {/* Desktop sidebar */}
       <aside className="hidden lg:flex fixed left-0 top-0 h-screen w-64 bg-white border-r border-gray-200 flex-col shadow-sm">
-        <SidebarContent />
+        {sidebarContent}
       </aside>
     </>
   );
