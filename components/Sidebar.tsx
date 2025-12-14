@@ -160,20 +160,17 @@ export default function Sidebar() {
     return (
     <>
       {/* Logo */}
-      <div className="p-6 border-b border-gray-200">
-        <Link href="/" className="flex items-center space-x-3">
+      <div className="border-b border-gray-200 p-0 lg:p-4">
+        <Link href="/" className="flex items-center space-x-3 justify-center flex-col gap-2">
           <Image
             src="/logo.png"
             alt="EasyRakh logo"
-            width={40}
+            width={80}
             height={40}
-            className="rounded-full bg-white p-1 shadow-sm"
+           
           />
-          <div className="flex flex-col">
-            <span className="text-xl font-bold text-gray-900">
-              Easy<span className="text-blue-600">Rakh</span>
-            </span>
-            <span className="text-xs text-gray-500">Ledger Management</span>
+          <div>
+            <span className="text-xs text-gray-500">Ek ek rupaye ka hisaab, ek screen par.</span>
           </div>
         </Link>
       </div>
@@ -342,10 +339,7 @@ export default function Sidebar() {
         }`}
       >
         <div className="flex flex-col h-full overflow-hidden">
-          <div className="flex items-center justify-between p-4 border-b border-gray-200 shrink-0">
-            <Link href="/" className="text-lg font-bold text-gray-900 hover:text-blue-600 transition-colors">
-              Easy<span className="text-blue-600">Rakh</span>
-            </Link>
+          <div className="flex items-center justify-between  shrink-0">
             <button
               type="button"
               onClick={() => setIsMobileOpen(false)}
