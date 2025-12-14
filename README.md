@@ -1,54 +1,94 @@
-# AlokAutomobiles Ledger
+# Easy Rakh
 
-A modern **Khata (Ledger) Management System** built with the Next.js App Router. This application streamlines daily business operations with customer/supplier tracking, daily cash records, and a specialized **Voice Assistant** powered by Google Gemini for hands-free operation in English and Hindi.
-
----
-
-##  Key Features
-
-- **Ledger Management:** Maintain detailed debit/credit records for customers and suppliers.
-- **Daily Cash Book:** Track daily cash flow (Rokad) with date-wise filtering.
-- **Smart Dashboard:** Visual analytics for business health at a glance.
-- **AI Voice Assistant:**
-  - Powered by **Google Gemini** (`gemini-2.5-flash-lite` with fallback).
-  - Supports natural language queries in **English and Hindi**.
-  - Ask questions like _"What is today's total cash?"_ or _"Show me Rahul's ledger."_
-- **Performance & Storage:**
-  - **Redis** implementation for caching and API rate-limiting.
-  - **Cloudinary** integration for secure document/media uploads.
+A modern **Khata (Ledger) Management System** built with Next.js. Track customers, suppliers, daily cash records, and use an AI Voice Assistant powered by Google Gemini.
 
 ---
 
-## Tech Stack
+## Features
 
-- **Framework:** [Next.js 14+](https://nextjs.org/) (App Router)
-- **Runtime:** Node.js 20+
-- **Database:** MongoDB (Atlas or Local)
-- **Caching:** Redis
-- **AI Engine:** Google Gemini API
-- **Storage:** Cloudinary
-- **Package Manager:** pnpm
-
----
-
-## Prerequisites
-
-Before you begin, ensure you have the following installed:
-
-- **Node.js 20+**
-- **pnpm** (Run `corepack enable` to activate)
-- **MongoDB Instance** (Local URL or MongoDB Atlas connection string)
-- **Redis Instance** (Local or Cloud)
-- **Google Gemini API Key** (Get it from [Google AI Studio](https://aistudio.google.com/app/apikey))
+- **Ledger Management** - Track debit/credit for customers and suppliers
+- **Daily Cash Book** - Monitor daily cash flow
+- **Smart Dashboard** - Business analytics at a glance
+- **AI Voice Assistant** - Ask questions in English or Hindi
+- **Redis Caching** - Fast performance with rate limiting
+- **Cloudinary** - Secure file uploads
 
 ---
 
-## Getting Started
+## Quick Start
 
-### 1. Installation
-
-Clone the repository and install dependencies using `pnpm`.
+### 1. Install Dependencies
 
 ```bash
-# Install dependencies
+corepack enable
 pnpm install
+```
+
+### 2. Setup Environment Variables
+
+Create `.env.local` in the root directory:
+
+```bash
+MONGODB_URI=mongodb://localhost:27017/ledger
+REDIS_HOST=localhost
+REDIS_PORT=6379
+REDIS_PASSWORD=
+JWT_SECRET=your-secret-key-here
+GEMINI_API_KEY=your-gemini-api-key
+CLOUDINARY_CLOUD_NAME=your-cloud-name
+CLOUDINARY_API_KEY=your-api-key
+CLOUDINARY_API_SECRET=your-api-secret
+```
+
+### 3. Start Services
+
+Make sure MongoDB and Redis are running locally, or use cloud services (MongoDB Atlas, Redis Cloud).
+
+### 4. Run Development Server
+
+```bash
+pnpm dev
+```
+
+Open [http://localhost:3000](http://localhost:3000)
+
+---
+
+## Requirements
+
+- Node.js 20+
+- MongoDB (local or Atlas)
+- Redis (local or cloud)
+- Google Gemini API Key ([Get it here](https://aistudio.google.com/app/apikey))
+- Cloudinary Account ([Sign up here](https://cloudinary.com))
+
+---
+
+## Available Commands
+
+- `pnpm dev` - Start development server
+- `pnpm build` - Build for production
+- `pnpm start` - Start production server
+- `pnpm lint` - Run linter
+
+---
+
+## Contributing
+
+1. Fork the repository
+2. Create a feature branch: `git checkout -b feature/your-feature`
+3. Commit your changes: `git commit -m "Add your feature"`
+4. Push to the branch: `git push origin feature/your-feature`
+5. Open a Pull Request
+
+---
+
+## Reporting Issues
+
+If you find any issues or vulnerabilities, please raise an issue ticket in the repository. Your feedback helps make this project better for everyone.
+
+---
+
+> "Alone we can do so little; together we can do so much." - Helen Keller
+>
+> We believe in growing as a community. Every contribution, no matter how small, helps us build something great together.
