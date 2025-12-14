@@ -9,8 +9,10 @@ export default function MainContent({ children }: { children: React.ReactNode })
   const isAuthPage = pathname === '/login' || pathname === '/register' || pathname === '/';
   
   return (
-    <main className={`min-h-screen bg-gray-50 ${isAuthPage ? '' : 'lg:ml-64 pt-16 lg:pt-0'}`}>
-      {children}
+    <main className={`min-h-screen bg-gray-50 overflow-x-hidden w-full ${isAuthPage ? '' : 'lg:ml-64 pt-16 lg:pt-0'}`}>
+      <div className="w-full max-w-full overflow-x-hidden lg:pl-0">
+        {children}
+      </div>
     </main>
   );
 }
