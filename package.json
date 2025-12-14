@@ -9,6 +9,7 @@
     "lint": "eslint"
   },
   "dependencies": {
+    "@google/generative-ai": "^0.24.1",
     "@hookform/resolvers": "^3.3.4",
     "@lottiefiles/dotlottie-react": "^0.17.8",
     "@radix-ui/react-accordion": "^1.2.12",
@@ -33,7 +34,7 @@
     "lucide-react": "^0.553.0",
     "mongodb": "^6.3.0",
     "motion": "^12.23.24",
-    "next": "16.0.7",
+    "next": "16.0.10",
     "react": "19.2.1",
     "react-day-picker": "^9.11.1",
     "react-dom": "19.2.1",

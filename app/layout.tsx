@@ -2,8 +2,10 @@ import type { Metadata } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
 import "./globals.css";
 import "react-day-picker/dist/style.css";
-import Header from "@/components/Header";
+import Sidebar from "@/components/Sidebar";
+import MainContent from "@/components/MainContent";
 import { Toaster } from "react-hot-toast";
+import VoiceAssistantWrapper from "@/components/VoiceAssistantWrapper";
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -29,15 +31,16 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="en">
+    <html lang="en" className="overflow-x-hidden">
       <body
-        className={`${geistSans.variable} ${geistMono.variable} antialiased`}
+        className={`${geistSans.variable} ${geistMono.variable} antialiased overflow-x-hidden`}
       >
-        <Header />
-        <main className="min-h-screen bg-gray-50">
+        <Sidebar />
+        <MainContent>
           {children}
-        </main>
+        </MainContent>
         <Toaster position="top-right" />
+        <VoiceAssistantWrapper />
       </body>
     </html>
   );
