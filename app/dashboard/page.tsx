@@ -219,11 +219,11 @@ const EntityListItem = ({ entity }: { entity: TopEntity }) => (
 );
 
 // Activity Row - Compact glass-styled activity item
-const ActivityRow = ({ 
-  activity, 
-  onClick 
-}: { 
-  activity: RecentActivity; 
+const ActivityRow = ({
+  activity,
+  onClick
+}: {
+  activity: RecentActivity;
   onClick: () => void;
 }) => {
   const isCredit = activity.transactionType === 'credit';
@@ -253,7 +253,7 @@ const ActivityRow = ({
       disabled={disabled}
       className={`w-full group ${disabled ? 'cursor-default' : 'cursor-pointer'}`}
     >
-      <div className="flex items-center gap-1.5 sm:gap-2 lg:gap-4 p-2 sm:p-2.5 lg:p-3 rounded-lg sm:rounded-xl bg-gray-50 border border-gray-200 transition-all hover:bg-gray-100 w-full">
+      <div className="flex items-center gap-1.5 sm:gap-2 lg:gap-4 p-2 sm:p-2.5 lg:p-3 rounded-lg sm:rounded-xl bg-gray-50 border border-gray-200 transition-all hover:bg-gray-100 w-full overflow-hidden">
         {/* Icon */}
         <div className={`w-7 h-7 sm:w-8 sm:h-8 lg:w-10 lg:h-10 rounded-lg sm:rounded-xl flex items-center justify-center border shrink-0 ${getIconStyles()}`}>
           {getTypeIcon()}
@@ -433,34 +433,42 @@ export default function Dashboard() {
         initial="hidden"
         animate="visible"
         variants={containerVariants}
-        className="max-w-7xl mx-auto px-1.5 sm:px-4 lg:mx-0 lg:ml-0 lg:pl-6 lg:pr-6 xl:pl-8 xl:pr-8 py-3 sm:py-6 lg:py-8 space-y-2 sm:space-y-4 lg:space-y-6 w-full"
+        className="max-w-7xl mx-auto px-3 sm:px-4 lg:mx-0 lg:ml-0 lg:pl-6 lg:pr-6 xl:pl-8 xl:pr-8 py-1.5 sm:py-5 lg:py-8 space-y-3 sm:space-y-4 lg:space-y-6 w-full"
       >
         {/* Header */}
-        <motion.div variants={itemVariants} className="flex flex-wrap items-center justify-between gap-2 sm:gap-4">
-          <div className="flex items-center gap-2 sm:gap-4">
-            <div className="p-2 sm:p-3 rounded-xl sm:rounded-2xl bg-slate-900 text-white shadow-lg">
+        <motion.div variants={itemVariants} className="flex flex-wrap items-start justify-between gap-2 sm:gap-4">
+          <div className="flex items-center gap-2 sm:gap-4 flex-1 min-w-0">
+            <div className="p-2 sm:p-3 rounded-xl sm:rounded-2xl bg-slate-900 text-white shadow-lg shrink-0">
               <Wallet className="w-4 h-4 sm:w-6 sm:h-6" />
             </div>
             <div className="min-w-0">
-              <h1 className="text-lg sm:text-2xl lg:text-3xl font-bold text-gray-900 truncate">Dashboard</h1>
-              <p className="text-gray-500 text-[10px] sm:text-sm mt-0.5 truncate">
+              <h1 className="text-lg sm:text-2xl lg:text-3xl font-bold text-gray-900 truncate leading-tight">Dashboard</h1>
+              <p className="text-gray-500 text-[11px] sm:text-sm mt-0.5 truncate">
                 <span className="hidden sm:inline">{format(new Date(), 'EEEE, MMMM d, yyyy')}</span>
                 <span className="sm:hidden">{format(new Date(), 'MMM d, yyyy')}</span>
               </p>
             </div>
           </div>
-          <div className="flex flex-wrap gap-1 sm:gap-2 lg:gap-3">
-            <Button asChild variant="outline" size="sm" className="border-gray-300 hover:bg-gray-100 text-[10px] sm:text-xs lg:text-sm h-7 sm:h-8 lg:h-9 px-1.5 sm:px-3 lg:px-4">
-              <Link href="/notes" className="whitespace-nowrap">
+          <div className="flex flex-nowrap gap-2 sm:gap-2 lg:gap-3 w-full sm:w-auto">
+            <Button
+              asChild
+              variant="outline"
+              size="sm"
+              className="border-gray-300 hover:bg-gray-100 text-[11px] sm:text-xs lg:text-sm h-9 sm:h-8 lg:h-9 px-3 w-1/2 sm:w-auto basis-1/2 sm:basis-auto max-w-[50%] sm:max-w-none shrink-0"
+            >
+              <Link href="/notes" className="w-full text-center whitespace-nowrap">
                 <span className="sm:hidden">Notes</span>
                 <span className="hidden sm:inline">Manage Notes</span>
               </Link>
             </Button>
-            <Button asChild size="sm" className="bg-slate-900 hover:bg-slate-800 text-white text-[10px] sm:text-xs lg:text-sm h-7 sm:h-8 lg:h-9 px-1.5 sm:px-3 lg:px-4">
-              <Link href="/transactions/new" className="whitespace-nowrap">
-                <span className="sm:hidden">New</span>
-                <span className="hidden sm:inline lg:hidden">Record</span>
-                <span className="hidden lg:inline">Record Transaction</span>
+            <Button
+              asChild
+              size="sm"
+              className="bg-slate-900 hover:bg-slate-800 text-white text-[11px] sm:text-xs lg:text-sm h-9 sm:h-8 lg:h-9 px-3 w-1/2 sm:w-auto basis-1/2 sm:basis-auto max-w-[50%] sm:max-w-none shrink-0"
+            >
+              <Link href="/transactions/new" className="w-full text-center whitespace-nowrap">
+                <span className="sm:hidden">New Transaction</span>
+                <span className="hidden sm:inline">Record Transaction</span>
               </Link>
             </Button>
           </div>
@@ -537,7 +545,7 @@ export default function Dashboard() {
         </div>
 
         {/* Stat Cards Row */}
-            <div className="grid grid-cols-1 gap-2 sm:gap-3 lg:gap-4 sm:grid-cols-2 xl:grid-cols-4">
+        <div className="grid grid-cols-2 sm:grid-cols-2 xl:grid-cols-4 gap-2 sm:gap-3 lg:gap-4">
           <StatCard
             label="Total Customers"
             value={stats.totalCustomers.toString()}
@@ -730,14 +738,16 @@ export default function Dashboard() {
               </div>
             </div>
 
-            <div className="grid gap-2 sm:gap-3 md:grid-cols-2 lg:grid-cols-3">
+            <div className="grid gap-2 sm:gap-3 md:grid-cols-2 lg:grid-cols-3 min-h-[160px] sm:min-h-[180px]">
               {(activeEntityTab === 'customers' ? topCustomers : topSuppliers).length === 0 ? (
                 <div className="col-span-full text-center py-8 text-gray-400">
                   <p className="text-sm">No {activeEntityTab} data available yet.</p>
                 </div>
               ) : (
                 (activeEntityTab === 'customers' ? topCustomers : topSuppliers).map((entity) => (
-                  <EntityListItem key={entity.id} entity={entity} />
+                  <div key={entity.id} className="h-full min-h-[120px]">
+                    <EntityListItem entity={entity} />
+                  </div>
                 ))
               )}
             </div>
@@ -746,7 +756,7 @@ export default function Dashboard() {
 
         {/* Recent Activities - Full Width */}
         <motion.div variants={itemVariants}>
-          <Card className="p-3 sm:p-4 lg:p-6">
+          <Card className="p-3 sm:p-4 lg:p-6 overflow-hidden">
             <div className="flex flex-wrap items-center justify-between gap-2 sm:gap-3 lg:gap-4 mb-3 sm:mb-4 lg:mb-6">
               <div>
                 <p className="text-[10px] sm:text-xs font-medium text-gray-500 uppercase tracking-wider">Activity Feed</p>
@@ -767,7 +777,7 @@ export default function Dashboard() {
               </div>
             ) : (
               <>
-                <div className="grid gap-2 md:grid-cols-2">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
                   {visibleActivities.map((activity) => (
                     <ActivityRow 
                       key={activity.id} 
