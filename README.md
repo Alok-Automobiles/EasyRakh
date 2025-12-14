@@ -1,36 +1,94 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# Easy Rakh
 
-## Getting Started
+A modern **Khata (Ledger) Management System** built with Next.js. Track customers, suppliers, daily cash records, and use an AI Voice Assistant powered by Google Gemini.
 
-First, run the development server:
+---
+
+## Features
+
+- **Ledger Management** - Track debit/credit for customers and suppliers
+- **Daily Cash Book** - Monitor daily cash flow
+- **Smart Dashboard** - Business analytics at a glance
+- **AI Voice Assistant** - Ask questions in English or Hindi
+- **Redis Caching** - Fast performance with rate limiting
+- **Cloudinary** - Secure file uploads
+
+---
+
+## Quick Start
+
+### 1. Install Dependencies
 
 ```bash
-npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
+corepack enable
+pnpm install
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+### 2. Setup Environment Variables
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+Create `.env.local` in the root directory:
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+```bash
+MONGODB_URI=mongodb://localhost:27017/ledger
+REDIS_HOST=localhost
+REDIS_PORT=6379
+REDIS_PASSWORD=
+JWT_SECRET=your-secret-key-here
+GEMINI_API_KEY=your-gemini-api-key
+CLOUDINARY_CLOUD_NAME=your-cloud-name
+CLOUDINARY_API_KEY=your-api-key
+CLOUDINARY_API_SECRET=your-api-secret
+```
 
-## Learn More
+### 3. Start Services
 
-To learn more about Next.js, take a look at the following resources:
+Make sure MongoDB and Redis are running locally, or use cloud services (MongoDB Atlas, Redis Cloud).
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+### 4. Run Development Server
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+```bash
+pnpm dev
+```
 
-## Deploy on Vercel
+Open [http://localhost:3000](http://localhost:3000)
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+---
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+## Requirements
+
+- Node.js 20+
+- MongoDB (local or Atlas)
+- Redis (local or cloud)
+- Google Gemini API Key ([Get it here](https://aistudio.google.com/app/apikey))
+- Cloudinary Account ([Sign up here](https://cloudinary.com))
+
+---
+
+## Available Commands
+
+- `pnpm dev` - Start development server
+- `pnpm build` - Build for production
+- `pnpm start` - Start production server
+- `pnpm lint` - Run linter
+
+---
+
+## Contributing
+
+1. Fork the repository
+2. Create a feature branch: `git checkout -b feature/your-feature`
+3. Commit your changes: `git commit -m "Add your feature"`
+4. Push to the branch: `git push origin feature/your-feature`
+5. Open a Pull Request
+
+---
+
+## Reporting Issues
+
+If you find any issues or vulnerabilities, please raise an issue ticket in the repository. Your feedback helps make this project better for everyone.
+
+---
+
+> "Alone we can do so little; together we can do so much." - Helen Keller
+>
+> We believe in growing as a community. Every contribution, no matter how small, helps us build something great together.
