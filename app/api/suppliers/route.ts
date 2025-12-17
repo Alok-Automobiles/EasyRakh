@@ -39,23 +39,58 @@ export async function GET(request: NextRequest) {
 
     const db = await getDb();
     const suppliersCollection = db.collection('suppliers');
+    const transactionsCollection = db.collection('transactions');
 
     const suppliers = await suppliersCollection
       .find({ userId })
       .sort({ createdAt: -1 })
       .toArray();
 
+    // Calculate total balance for each supplier
+    const suppliersWithBalance = await Promise.all(
+      suppliers.map(async (supplier) => {
+        const supplierId = supplier._id.toString();
+        
+        // Get all transactions for this supplier
+        const transactions = await transactionsCollection
+          .find({
+            entityId: supplierId,
+            entityType: 'supplier',
+            userId,
+          })
+          .toArray();
+
+        // Calculate totals
+        const totalCredit = transactions
+          .filter((t) => t.type === 'credit')
+          .reduce((sum, t) => sum + t.amount, 0);
+        const totalDebit = transactions
+          .filter((t) => t.type === 'debit')
+          .reduce((sum, t) => sum + t.amount, 0);
+
+        // Calculate final balance
+        let totalBalance = supplier.openingBalance;
+        if (supplier.balanceType === 'credit') {
+          totalBalance = -totalBalance;
+        }
+        totalBalance = totalBalance - totalCredit + totalDebit;
+
+        return {
+          id: supplierId,
+          name: supplier.name,
+          phone: supplier.phone,
+          email: supplier.email,
+          address: supplier.address,
+          openingBalance: supplier.openingBalance,
+          balanceType: supplier.balanceType,
+          totalBalance,
+          createdAt: supplier.createdAt,
+        };
+      })
+    );
+
     const responseData = {
-      suppliers: suppliers.map((supplier) => ({
-        id: supplier._id.toString(),
-        name: supplier.name,
-        phone: supplier.phone,
-        email: supplier.email,
-        address: supplier.address,
-        openingBalance: supplier.openingBalance,
-        balanceType: supplier.balanceType,
-        createdAt: supplier.createdAt,
-      })),
+      suppliers: suppliersWithBalance,
     };
 
     // Cache the response with 5 minute TTL

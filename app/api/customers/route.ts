@@ -22,45 +22,79 @@ export async function GET(request: NextRequest) {
     if (!userId) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
-    const cachedCustomers = await redis.get(`customers:${userId}`);
-    if (cachedCustomers) {
-      return NextResponse.json(JSON.parse(cachedCustomers) as { customers: Customer[] }, { status: 200 });
+    
+    // Try to get from cache
+    try {
+      const cachedCustomers = await redis.get(`customers:${userId}`);
+      if (cachedCustomers) {
+        return NextResponse.json(JSON.parse(cachedCustomers), { status: 200 });
+      }
+    } catch (cacheError) {
+      console.warn('Redis cache read failed, falling back to DB:', cacheError);
     }
+
     const db = await getDb();
     const customersCollection = db.collection("customers");
+    const transactionsCollection = db.collection("transactions");
 
     const customers = await customersCollection
       .find({ userId })
       .sort({ createdAt: -1 })
       .toArray();
 
-    await redis.set(
-      `customers:${userId}`,
-      JSON.stringify({
-        customers: customers.map((customer) => ({
-          id: customer._id.toString(),
+    // Calculate total balance for each customer
+    const customersWithBalance = await Promise.all(
+      customers.map(async (customer) => {
+        const customerId = customer._id.toString();
+        
+        // Get all transactions for this customer
+        const transactions = await transactionsCollection
+          .find({
+            entityId: customerId,
+            entityType: 'customer',
+            userId,
+          })
+          .toArray();
+
+        // Calculate totals
+        const totalCredit = transactions
+          .filter((t) => t.type === 'credit')
+          .reduce((sum, t) => sum + t.amount, 0);
+        const totalDebit = transactions
+          .filter((t) => t.type === 'debit')
+          .reduce((sum, t) => sum + t.amount, 0);
+
+        // Calculate final balance
+        let totalBalance = customer.openingBalance;
+        if (customer.balanceType === 'credit') {
+          totalBalance = -totalBalance;
+        }
+        totalBalance = totalBalance - totalCredit + totalDebit;
+
+        return {
+          id: customerId,
           name: customer.name,
           phone: customer.phone,
           email: customer.email,
           address: customer.address,
           openingBalance: customer.openingBalance,
           balanceType: customer.balanceType,
+          totalBalance,
           createdAt: customer.createdAt,
-        })),
+        };
       })
     );
-    return NextResponse.json({
-      customers: customers.map((customer) => ({
-        id: customer._id.toString(),
-        name: customer.name,
-        phone: customer.phone,
-        email: customer.email,
-        address: customer.address,
-        openingBalance: customer.openingBalance,
-        balanceType: customer.balanceType,
-        createdAt: customer.createdAt,
-      })),
-    }, { status: 200 });
+
+    const responseData = { customers: customersWithBalance };
+
+    // Cache the response
+    try {
+      await redis.setex(`customers:${userId}`, 300, JSON.stringify(responseData));
+    } catch (cacheError) {
+      console.warn('Redis cache write failed:', cacheError);
+    }
+
+    return NextResponse.json(responseData, { status: 200 });
   } catch (error) {
     console.error("Get customers error:", error);
     return NextResponse.json(

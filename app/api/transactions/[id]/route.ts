@@ -223,9 +223,26 @@ export async function PUT(
         `dashboard:stats:${userId}`,
         `ledger:${validatedData.entityType}:${validatedData.entityId}:${userId}`,
       ];
-      // If entity changed, also invalidate old entity's ledger
+      
+      // Invalidate entity list cache based on entity type
+      if (validatedData.entityType === 'customer') {
+        keysToDelete.push(`customers:${userId}`);
+      } else if (validatedData.entityType === 'supplier') {
+        keysToDelete.push(`suppliers:${userId}`);
+      } else {
+        keysToDelete.push(`customEntities:${validatedData.entityType}:${userId}`);
+      }
+      
+      // If entity changed, also invalidate old entity's ledger and list cache
       if (oldEntityId !== validatedData.entityId || oldEntityType !== validatedData.entityType) {
         keysToDelete.push(`ledger:${oldEntityType}:${oldEntityId}:${userId}`);
+        if (oldEntityType === 'customer') {
+          keysToDelete.push(`customers:${userId}`);
+        } else if (oldEntityType === 'supplier') {
+          keysToDelete.push(`suppliers:${userId}`);
+        } else {
+          keysToDelete.push(`customEntities:${oldEntityType}:${userId}`);
+        }
       }
       await redis.del(...keysToDelete);
     } catch (cacheError) {
@@ -316,10 +333,21 @@ export async function DELETE(
     try {
       const entityId = transaction.entityId || transaction.customerId || transaction.supplierId;
       const entityType = transaction.entityType || (transaction.customerId ? 'customer' : 'supplier');
-      await redis.del(
+      const keysToDelete = [
         `dashboard:stats:${userId}`,
         `ledger:${entityType}:${entityId}:${userId}`
-      );
+      ];
+      
+      // Invalidate entity list cache based on entity type
+      if (entityType === 'customer') {
+        keysToDelete.push(`customers:${userId}`);
+      } else if (entityType === 'supplier') {
+        keysToDelete.push(`suppliers:${userId}`);
+      } else {
+        keysToDelete.push(`customEntities:${entityType}:${userId}`);
+      }
+      
+      await redis.del(...keysToDelete);
     } catch (cacheError) {
       console.warn('Redis cache invalidation failed:', cacheError);
     }

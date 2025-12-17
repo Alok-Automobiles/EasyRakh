@@ -6,7 +6,7 @@ import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import toast from 'react-hot-toast';
-import CustomerCard from '@/components/CustomerCard';
+import EntityCard from '@/components/EntityCard';
 import {
   Dialog,
   DialogContent,
@@ -51,10 +51,12 @@ type CustomerForm = z.infer<typeof customerSchema>;
 
 export default function CustomersPage() {
   const router = useRouter();
-  const [customers, setCustomers] = useState<(Customer & { id: string })[]>([]);
+  const [customers, setCustomers] = useState<(Customer & { id: string; totalBalance: number })[]>([]);
   const [loading, setLoading] = useState(true);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingCustomer, setEditingCustomer] = useState<string | null>(null);
+  const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
+  const [deletingCustomer, setDeletingCustomer] = useState<{ id: string; name: string } | null>(null);
   const hasFetchedRef = useRef(false);
   const form = useForm<CustomerForm>({
     resolver: zodResolver(customerSchema),
@@ -131,18 +133,26 @@ export default function CustomersPage() {
     }
   };
 
-  const handleDelete = async (id: string) => {
-    if (!confirm('Are you sure you want to delete this customer?')) {
-      return;
+  const openDeleteDialog = (id: string) => {
+    const customer = customers.find(c => c.id === id);
+    if (customer) {
+      setDeletingCustomer({ id: customer.id, name: customer.name });
+      setDeleteDialogOpen(true);
     }
+  };
+
+  const handleDelete = async () => {
+    if (!deletingCustomer) return;
 
     try {
-      const response = await fetch(`/api/customers/${id}`, {
+      const response = await fetch(`/api/customers/${deletingCustomer.id}`, {
         method: 'DELETE',
       });
 
       if (response.ok) {
         toast.success('Customer deleted successfully!');
+        setDeleteDialogOpen(false);
+        setDeletingCustomer(null);
         fetchCustomers();
       } else {
         const result = await response.json();
@@ -215,20 +225,20 @@ export default function CustomersPage() {
         ) : (
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
             {customers.map((customer) => (
-              <div key={customer.id} className="relative">
-                <CustomerCard
-                  customer={customer}
-                  onDelete={handleDelete}
-                />
-                <Button
-                  onClick={() => handleEdit(customer)}
-                  variant="ghost"
-                  size="sm"
-                  className="absolute top-2 right-2"
-                >
-                  Edit
-                </Button>
-              </div>
+              <EntityCard
+                key={customer.id}
+                entity={{
+                  id: customer.id,
+                  name: customer.name,
+                  phone: customer.phone,
+                  email: customer.email,
+                  address: customer.address,
+                  totalBalance: customer.totalBalance,
+                }}
+                entityType="customer"
+                onEdit={() => handleEdit(customer)}
+                onDelete={openDeleteDialog}
+              />
             ))}
           </div>
         )}
@@ -352,6 +362,45 @@ export default function CustomersPage() {
                 </DialogFooter>
               </form>
             </Form>
+          </DialogContent>
+        </Dialog>
+
+        {/* Delete Confirmation Dialog */}
+        <Dialog open={deleteDialogOpen} onOpenChange={setDeleteDialogOpen}>
+          <DialogContent>
+            <DialogHeader>
+              <DialogTitle >Delete Customer</DialogTitle>
+              <DialogDescription asChild>
+                <div className="pt-2 space-y-2 text-sm text-muted-foreground">
+                  <p>
+                    Are you sure you want to delete <span className="font-semibold text-red-700">{deletingCustomer?.name}</span>?
+                  </p>
+                  <p className=" font-medium text-gray-500 ">
+                    This will permanently delete the customer and ALL associated transactions. This action cannot be undone and your data will be lost forever.
+                  </p>
+                </div>
+              </DialogDescription>
+            </DialogHeader>
+            <DialogFooter className="gap-2 sm:gap-0">
+              <Button
+                type="button"
+                variant="outline"
+                onClick={() => {
+                  setDeleteDialogOpen(false);
+                  setDeletingCustomer(null);
+                }}
+              >
+                Cancel
+              </Button>
+              <Button
+                type="button"
+                variant="destructive"
+                onClick={handleDelete}
+                className="bg-red-700 hover:bg-red-800"
+              >
+                Delete Permanently
+              </Button>
+            </DialogFooter>
           </DialogContent>
         </Dialog>
       </div>
