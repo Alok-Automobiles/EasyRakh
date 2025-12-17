@@ -226,8 +226,8 @@ export default function Sidebar({ collapsed = false }: SidebarProps) {
               )}
             </button>
 
-            {expandedCollections && (
-              <div className="mt-2 space-y-1 pl-4">
+          {expandedCollections && (
+            <div className="mt-2 space-y-1 pl-4 max-h-48 overflow-y-auto sidebar-scrollbar pr-1">
                 {customCollectionTypes.length > 0 ? (
                   <>
                     {customCollectionTypes.slice(0, 5).map((ct) => {
@@ -270,7 +270,7 @@ export default function Sidebar({ collapsed = false }: SidebarProps) {
       </nav>
 
       {/* User Section */}
-      <div className="p-4 border-t border-gray-200 bg-gray-50">
+      <div className="p-4 border-t border-gray-200 bg-gray-50 sticky bottom-0 lg:static">
         <div className={`flex items-center ${effectiveCollapsed ? 'justify-center' : 'space-x-3 mb-3 px-2'}`}>
           <div className="shrink-0">
             <div className="h-10 w-10 rounded-full bg-blue-100 flex items-center justify-center">

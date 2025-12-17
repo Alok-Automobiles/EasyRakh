@@ -425,10 +425,10 @@ export default function NotesPage() {
                       </button>
                       <button
                         onClick={() => handleDeleteNote(note.id)}
-                        className="p-1 hover:bg-black/10 rounded transition-colors"
+                        className="p-1 rounded transition-colors bg-red-600 hover:bg-red-700 text-white"
                         title="Delete note"
                       >
-                        <X className="w-4 h-4 text-gray-600" />
+                        <X className="w-4 h-4" />
                       </button>
                     </div>
                   </div>

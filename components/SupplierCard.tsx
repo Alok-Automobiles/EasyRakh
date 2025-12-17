@@ -51,9 +51,9 @@ export default function SupplierCard({ supplier, onDelete }: SupplierCardProps) 
           {onDelete && (
             <Button
               onClick={() => onDelete(supplier.id)}
-              variant="ghost"
+              variant="destructive"
               size="sm"
-              className="ml-4 text-destructive hover:text-destructive"
+              className="ml-4 bg-red-600 hover:bg-red-700 text-white"
             >
               Delete
             </Button>

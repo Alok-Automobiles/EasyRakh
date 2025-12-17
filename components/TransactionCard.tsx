@@ -64,9 +64,9 @@ export default function TransactionCard({
               {onDelete && (
                 <Button
                   onClick={() => onDelete(transaction.id)}
-                  variant="ghost"
+                  variant="destructive"
                   size="sm"
-                  className="text-destructive hover:text-destructive"
+                  className="bg-red-600 hover:bg-red-700 text-white"
                 >
                   Delete
                 </Button>
