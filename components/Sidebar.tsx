@@ -21,7 +21,12 @@ import {
   User
 } from 'lucide-react';
 
-export default function Sidebar() {
+type SidebarProps = {
+  collapsed?: boolean;
+  onToggleCollapse?: () => void;
+};
+
+export default function Sidebar({ collapsed = false }: SidebarProps) {
   const router = useRouter();
   const pathname = usePathname();
   const [user, setUser] = useState<{ name: string; email: string } | null>(null);
@@ -33,6 +38,7 @@ export default function Sidebar() {
 
   // Don't show sidebar on login/register pages or landing page
   const isAuthPage = pathname === '/login' || pathname === '/register' || pathname === '/';
+  const effectiveCollapsed = isMobileOpen ? false : collapsed;
 
   useEffect(() => {
     if (isAuthPage) {
@@ -160,23 +166,28 @@ export default function Sidebar() {
     return (
     <>
       {/* Logo */}
-      <div className="border-b border-gray-200 p-0 lg:p-4">
-        <Link href="/" className="flex items-center space-x-3 justify-center flex-col gap-2">
+      <div className="border-b border-gray-200 p-3 lg:p-4 flex items-center justify-center">
+        <Link
+          href="/"
+          className={`flex ${effectiveCollapsed ? 'items-center justify-center gap-2 w-full' : 'flex-col items-center justify-center gap-2 w-full text-center'}`}
+        >
           <Image
             src="/logo.png"
             alt="EasyRakh logo"
-            width={80}
-            height={40}
-           
+            width={effectiveCollapsed ? 36 : 80}
+            height={effectiveCollapsed ? 36 : 40}
           />
-          <div>
-            <span className="text-xs text-gray-500">Ek ek rupaye ka hisaab, ek screen par.</span>
-          </div>
+          {!effectiveCollapsed && (
+            <div className="flex flex-col">
+              <span className="text-xs text-gray-500">Ek ek rupaye ka hisaab,</span>
+              <span className="text-xs text-gray-500">ek screen par.</span>
+            </div>
+          )}
         </Link>
       </div>
 
       {/* Navigation Links */}
-      <nav className="flex-1 overflow-y-auto px-4 py-6 space-y-1 sidebar-scrollbar min-h-0">
+      <nav className="flex-1 overflow-y-auto px-2 lg:px-3 py-6 space-y-1 sidebar-scrollbar min-h-0">
         {navLinks.map((link) => {
           const Icon = link.icon;
           const active = isActive(link.href);
@@ -184,103 +195,108 @@ export default function Sidebar() {
             <Link
               key={link.href}
               href={link.href}
-              className={`flex items-center space-x-3 px-4 py-3 rounded-lg text-sm font-medium transition-all duration-200 ${
+              className={`flex items-center ${effectiveCollapsed ? 'justify-center px-3' : 'space-x-3 px-4'} py-3 rounded-lg text-sm font-medium transition-all duration-200 ${
                 active
                   ? 'bg-blue-50 text-blue-700 border border-blue-200'
                   : 'text-gray-700 hover:bg-gray-50 hover:text-gray-900'
               }`}
             >
               <Icon className={`h-5 w-5 ${active ? 'text-blue-600' : 'text-gray-500'}`} />
-              <span>{link.label}</span>
+              {!effectiveCollapsed && <span>{link.label}</span>}
+              {effectiveCollapsed && <span className="sr-only">{link.label}</span>}
             </Link>
           );
         })}
 
         {/* Collections Section */}
-        <div className="pt-4 mt-4 border-t border-gray-200">
-          <button
-            onClick={() => setExpandedCollections(!expandedCollections)}
-            className="flex items-center justify-between w-full px-4 py-3 rounded-lg text-sm font-medium text-gray-700 hover:bg-gray-50 transition-all duration-200"
-          >
-            <div className="flex items-center space-x-3">
-              <FolderOpen className="h-5 w-5 text-gray-500" />
-              <span>Collections</span>
-            </div>
-            {expandedCollections ? (
-              <ChevronDown className="h-4 w-4 text-gray-500" />
-            ) : (
-              <ChevronRight className="h-4 w-4 text-gray-500" />
-            )}
-          </button>
+        {!effectiveCollapsed && (
+          <div className="pt-4 mt-4 border-t border-gray-200">
+            <button
+              onClick={() => setExpandedCollections(!expandedCollections)}
+              className="flex items-center justify-between w-full px-4 py-3 rounded-lg text-sm font-medium text-gray-700 hover:bg-gray-50 transition-all duration-200"
+            >
+              <div className="flex items-center space-x-3">
+                <FolderOpen className="h-5 w-5 text-gray-500" />
+                <span>Collections</span>
+              </div>
+              {expandedCollections ? (
+                <ChevronDown className="h-4 w-4 text-gray-500" />
+              ) : (
+                <ChevronRight className="h-4 w-4 text-gray-500" />
+              )}
+            </button>
 
-          {expandedCollections && (
-            <div className="mt-2 space-y-1 pl-4">
-              {customCollectionTypes.length > 0 ? (
-                <>
-                  {customCollectionTypes.slice(0, 5).map((ct) => {
-                    const active = pathname.startsWith(`/custom-entities/${ct.slug}`);
-                    return (
-                      <Link
-                        key={ct.id}
-                        href={`/custom-entities/${ct.slug}`}
-                        className={`block px-4 py-2 rounded-lg text-sm transition-all duration-200 ${
-                          active
-                            ? 'bg-blue-50 text-blue-700 font-medium'
-                            : 'text-gray-600 hover:bg-gray-50 hover:text-gray-900'
-                        }`}
-                      >
-                        {ct.name}
-                      </Link>
-                    );
-                  })}
+            {expandedCollections && (
+              <div className="mt-2 space-y-1 pl-4">
+                {customCollectionTypes.length > 0 ? (
+                  <>
+                    {customCollectionTypes.slice(0, 5).map((ct) => {
+                      const active = pathname.startsWith(`/custom-entities/${ct.slug}`);
+                      return (
+                        <Link
+                          key={ct.id}
+                          href={`/custom-entities/${ct.slug}`}
+                          className={`block px-4 py-2 rounded-lg text-sm transition-all duration-200 ${
+                            active
+                              ? 'bg-blue-50 text-blue-700 font-medium'
+                              : 'text-gray-600 hover:bg-gray-50 hover:text-gray-900'
+                          }`}
+                        >
+                          {ct.name}
+                        </Link>
+                      );
+                    })}
+                    <Link
+                      href="/collection-types"
+                      className="block px-4 py-2 rounded-lg text-sm text-blue-600 hover:bg-blue-50 hover:text-blue-700 transition-all duration-200 font-medium"
+                    >
+                      {customCollectionTypes.length > 5 
+                        ? `View All (${customCollectionTypes.length})` 
+                        : 'Manage Collections'}
+                    </Link>
+                  </>
+                ) : (
                   <Link
                     href="/collection-types"
-                    className="block px-4 py-2 rounded-lg text-sm text-blue-600 hover:bg-blue-50 hover:text-blue-700 transition-all duration-200 font-medium"
+                    className="block px-4 py-2 rounded-lg text-sm text-gray-600 hover:bg-gray-50 hover:text-gray-900 transition-all duration-200"
                   >
-                    {customCollectionTypes.length > 5 
-                      ? `View All (${customCollectionTypes.length})` 
-                      : 'Manage Collections'}
+                    Manage Collections
                   </Link>
-                </>
-              ) : (
-                <Link
-                  href="/collection-types"
-                  className="block px-4 py-2 rounded-lg text-sm text-gray-600 hover:bg-gray-50 hover:text-gray-900 transition-all duration-200"
-                >
-                  Manage Collections
-                </Link>
-              )}
-            </div>
-          )}
-        </div>
+                )}
+              </div>
+            )}
+          </div>
+        )}
       </nav>
 
       {/* User Section */}
       <div className="p-4 border-t border-gray-200 bg-gray-50">
-        <div className="flex items-center space-x-3 mb-3 px-2">
+        <div className={`flex items-center ${effectiveCollapsed ? 'justify-center' : 'space-x-3 mb-3 px-2'}`}>
           <div className="shrink-0">
             <div className="h-10 w-10 rounded-full bg-blue-100 flex items-center justify-center">
               <User className="h-5 w-5 text-blue-600" />
             </div>
           </div>
-          <div className="flex-1 min-w-0">
-            <p className="text-sm font-medium text-gray-900 truncate">{user.name}</p>
-            <p className="text-xs text-gray-500 truncate">{user.email}</p>
-          </div>
+          {!effectiveCollapsed && (
+            <div className="flex-1 min-w-0">
+              <p className="text-sm font-medium text-gray-900 truncate">{user.name}</p>
+              <p className="text-xs text-gray-500 truncate">{user.email}</p>
+            </div>
+          )}
         </div>
         <Button
           onClick={handleLogout}
           variant="destructive"
           size="sm"
-          className="w-full bg-red-600 hover:bg-red-700 focus-visible:ring-red-500/30"
+          className={`w-full bg-red-600 hover:bg-red-700 focus-visible:ring-red-500/30 ${effectiveCollapsed ? 'justify-center px-0' : ''}`}
         >
-          <LogOut className="h-4 w-4 mr-2" />
-          Logout
+          <LogOut className={`h-4 w-4 ${effectiveCollapsed ? '' : 'mr-2'}`} />
+          {!effectiveCollapsed && 'Logout'}
         </Button>
       </div>
     </>
     );
-  }, [user, navLinks, pathname, customCollectionTypes, expandedCollections, isActive, handleLogout]);
+  }, [user, navLinks, pathname, customCollectionTypes, expandedCollections, isActive, handleLogout, collapsed, effectiveCollapsed]);
 
   if (isAuthPage) {
     return null;
@@ -356,7 +372,10 @@ export default function Sidebar() {
       </aside>
 
       {/* Desktop sidebar */}
-      <aside className="hidden lg:flex fixed left-0 top-0 h-screen w-64 bg-white border-r border-gray-200 flex-col shadow-sm">
+      <aside
+        className="hidden lg:flex fixed left-0 top-0 h-screen shrink-0 bg-white border-r border-gray-200 flex-col shadow-sm transition-[width] duration-300"
+        style={{ width: effectiveCollapsed ? '5rem' : '16rem' }}
+      >
         {sidebarContent}
       </aside>
     </>
