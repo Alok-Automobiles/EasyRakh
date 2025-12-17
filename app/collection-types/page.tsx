@@ -221,9 +221,9 @@ export default function CollectionTypesPage() {
                       </Button>
                       <Button
                         onClick={() => handleDelete(collectionType.id)}
-                        variant="ghost"
+                        variant="destructive"
                         size="sm"
-                        className="text-destructive hover:text-destructive"
+                        className="bg-red-600 hover:bg-red-700 text-white"
                       >
                         Delete
                       </Button>

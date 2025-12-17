@@ -6,7 +6,7 @@ import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import toast from 'react-hot-toast';
-import SupplierCard from '@/components/SupplierCard';
+import EntityCard from '@/components/EntityCard';
 import {
   Dialog,
   DialogContent,
@@ -50,10 +50,12 @@ type SupplierForm = z.infer<typeof supplierSchema>;
 
 export default function SuppliersPage() {
   const router = useRouter();
-  const [suppliers, setSuppliers] = useState<(Supplier & { id: string })[]>([]);
+  const [suppliers, setSuppliers] = useState<(Supplier & { id: string; totalBalance: number })[]>([]);
   const [loading, setLoading] = useState(true);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingSupplier, setEditingSupplier] = useState<string | null>(null);
+  const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
+  const [deletingSupplier, setDeletingSupplier] = useState<{ id: string; name: string } | null>(null);
   const hasFetchedRef = useRef(false);
   const form = useForm<SupplierForm>({
     resolver: zodResolver(supplierSchema),
@@ -130,18 +132,26 @@ export default function SuppliersPage() {
     }
   };
 
-  const handleDelete = async (id: string) => {
-    if (!confirm('Are you sure you want to delete this supplier?')) {
-      return;
+  const openDeleteDialog = (id: string) => {
+    const supplier = suppliers.find(s => s.id === id);
+    if (supplier) {
+      setDeletingSupplier({ id: supplier.id, name: supplier.name });
+      setDeleteDialogOpen(true);
     }
+  };
+
+  const handleDelete = async () => {
+    if (!deletingSupplier) return;
 
     try {
-      const response = await fetch(`/api/suppliers/${id}`, {
+      const response = await fetch(`/api/suppliers/${deletingSupplier.id}`, {
         method: 'DELETE',
       });
 
       if (response.ok) {
         toast.success('Supplier deleted successfully!');
+        setDeleteDialogOpen(false);
+        setDeletingSupplier(null);
         fetchSuppliers();
       } else {
         const result = await response.json();
@@ -214,20 +224,20 @@ export default function SuppliersPage() {
         ) : (
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
             {suppliers.map((supplier) => (
-              <div key={supplier.id} className="relative">
-                <SupplierCard
-                  supplier={supplier}
-                  onDelete={handleDelete}
-                />
-                <Button
-                  onClick={() => handleEdit(supplier)}
-                  variant="ghost"
-                  size="sm"
-                  className="absolute top-2 right-2"
-                >
-                  Edit
-                </Button>
-              </div>
+              <EntityCard
+                key={supplier.id}
+                entity={{
+                  id: supplier.id,
+                  name: supplier.name,
+                  phone: supplier.phone,
+                  email: supplier.email,
+                  address: supplier.address,
+                  totalBalance: supplier.totalBalance,
+                }}
+                entityType="supplier"
+                onEdit={() => handleEdit(supplier)}
+                onDelete={openDeleteDialog}
+              />
             ))}
           </div>
         )}
@@ -351,6 +361,44 @@ export default function SuppliersPage() {
                 </DialogFooter>
               </form>
             </Form>
+          </DialogContent>
+        </Dialog>
+
+        {/* Delete Confirmation Dialog */}
+        <Dialog open={deleteDialogOpen} onOpenChange={setDeleteDialogOpen}>
+          <DialogContent>
+            <DialogHeader>
+              <DialogTitle className="text-destructive">Delete Supplier</DialogTitle>
+              <DialogDescription asChild>
+                <div className="pt-2 space-y-2 text-sm text-muted-foreground">
+                  <p>
+                    Are you sure you want to delete <span className="font-semibold">{deletingSupplier?.name}</span>?
+                  </p>
+                  <p className="text-destructive font-medium">
+                    This will permanently delete the supplier and ALL associated transactions. This action cannot be undone and your data will be lost forever.
+                  </p>
+                </div>
+              </DialogDescription>
+            </DialogHeader>
+            <DialogFooter className="gap-2 sm:gap-0">
+              <Button
+                type="button"
+                variant="outline"
+                onClick={() => {
+                  setDeleteDialogOpen(false);
+                  setDeletingSupplier(null);
+                }}
+              >
+                Cancel
+              </Button>
+              <Button
+                type="button"
+                variant="destructive"
+                onClick={handleDelete}
+              >
+                Delete Permanently
+              </Button>
+            </DialogFooter>
           </DialogContent>
         </Dialog>
       </div>

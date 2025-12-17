@@ -213,19 +213,12 @@ export async function DELETE(
       );
     }
 
-    // Check if entity has transactions
-    const transactionCount = await transactionsCollection.countDocuments({
+    // Delete all transactions associated with this entity
+    await transactionsCollection.deleteMany({
       entityId: id,
       entityType: entity.collectionType,
       userId,
     });
-
-    if (transactionCount > 0) {
-      return NextResponse.json(
-        { error: 'Cannot delete entity with existing transactions' },
-        { status: 400 }
-      );
-    }
 
     const result = await customEntitiesCollection.deleteOne({
       _id: new ObjectId(id),
@@ -251,7 +244,7 @@ export async function DELETE(
     }
 
     return NextResponse.json({
-      message: 'Entity deleted successfully',
+      message: 'Entity and all associated transactions deleted successfully',
     });
   } catch (error) {
     console.error('Delete custom entity error:', error);

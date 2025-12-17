@@ -404,7 +404,7 @@ export default function DailyCashRecordPage() {
         <Separator className="mb-6" />
 
         {/* Buttons Section */}
-        <div className="flex gap-4 mb-6">
+        <div className="flex flex-col gap-3 mb-6 sm:flex-row sm:items-center">
           <Dialog open={createNewRecordOpen} onOpenChange={(open) => {
             setCreateNewRecordOpen(open);
             if (!open) setShowCreateCalendar(false);
@@ -413,7 +413,7 @@ export default function DailyCashRecordPage() {
               <Button
                 onClick={handleCreateRecordForToday}
                 variant="outline"
-                className="rounded-lg"
+                className="rounded-lg w-full sm:w-auto"
               >
                 create new record for today
               </Button>
@@ -499,7 +499,7 @@ export default function DailyCashRecordPage() {
             <DialogTrigger asChild>
               <Button
                 variant="outline"
-                className="rounded-lg"
+                className="rounded-lg w-full sm:w-auto"
               >
                 <CalendarIcon className="h-4 w-4 mr-2" />
                 select date to prev records

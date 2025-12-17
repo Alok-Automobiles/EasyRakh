@@ -215,10 +215,22 @@ export async function POST(request: NextRequest) {
 
     // Invalidate related caches
     try {
-      await redis.del(
+      const cachesToInvalidate = [
         `dashboard:stats:${userId}`,
         `ledger:${validatedData.entityType}:${validatedData.entityId}:${userId}`
-      );
+      ];
+      
+      // Also invalidate the entity list cache based on entity type
+      if (validatedData.entityType === 'customer') {
+        cachesToInvalidate.push(`customers:${userId}`);
+      } else if (validatedData.entityType === 'supplier') {
+        cachesToInvalidate.push(`suppliers:${userId}`);
+      } else {
+        // Custom entity type
+        cachesToInvalidate.push(`customEntities:${validatedData.entityType}:${userId}`);
+      }
+      
+      await redis.del(...cachesToInvalidate);
     } catch (cacheError) {
       console.warn('Redis cache invalidation failed:', cacheError);
     }

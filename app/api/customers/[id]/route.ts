@@ -159,18 +159,13 @@ export async function DELETE(
     const customersCollection = db.collection('customers');
     const transactionsCollection = db.collection('transactions');
 
-    // Check if customer has transactions
-    const transactionCount = await transactionsCollection.countDocuments({
-      customerId: id,
-      userId,
+    // Delete all transactions associated with this customer
+    await transactionsCollection.deleteMany({
+      $or: [
+        { customerId: id, userId },
+        { entityId: id, entityType: 'customer', userId }
+      ]
     });
-
-    if (transactionCount > 0) {
-      return NextResponse.json(
-        { error: 'Cannot delete customer with existing transactions' },
-        { status: 400 }
-      );
-    }
 
     const result = await customersCollection.deleteOne({
       _id: new ObjectId(id),
@@ -192,7 +187,7 @@ export async function DELETE(
     }
 
     return NextResponse.json({
-      message: 'Customer deleted successfully',
+      message: 'Customer and all associated transactions deleted successfully',
     });
   } catch (error) {
     console.error('Delete customer error:', error);

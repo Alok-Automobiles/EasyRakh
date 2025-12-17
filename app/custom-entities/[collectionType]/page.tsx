@@ -6,7 +6,7 @@ import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import toast from 'react-hot-toast';
-import CustomEntityCard from '@/components/CustomEntityCard';
+import EntityCard from '@/components/EntityCard';
 import {
   Dialog,
   DialogContent,
@@ -59,11 +59,13 @@ export default function CustomEntitiesPage() {
   const router = useRouter();
   const params = useParams();
   const collectionTypeSlug = params.collectionType as string;
-  const [entities, setEntities] = useState<(CustomEntity & { id: string })[]>([]);
+  const [entities, setEntities] = useState<(CustomEntity & { id: string; totalBalance: number })[]>([]);
   const [collectionType, setCollectionType] = useState<CollectionType | null>(null);
   const [loading, setLoading] = useState(true);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingEntity, setEditingEntity] = useState<string | null>(null);
+  const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
+  const [deletingEntity, setDeletingEntity] = useState<{ id: string; name: string } | null>(null);
   const hasFetchedRef = useRef(false);
   const form = useForm<CustomEntityForm>({
     resolver: zodResolver(customEntitySchema),
@@ -167,18 +169,26 @@ export default function CustomEntitiesPage() {
     }
   };
 
-  const handleDelete = async (id: string) => {
-    if (!confirm('Are you sure you want to delete this entity?')) {
-      return;
+  const openDeleteDialog = (id: string) => {
+    const entity = entities.find(e => e.id === id);
+    if (entity) {
+      setDeletingEntity({ id: entity.id, name: entity.name });
+      setDeleteDialogOpen(true);
     }
+  };
+
+  const handleDelete = async () => {
+    if (!deletingEntity) return;
 
     try {
-      const response = await fetch(`/api/custom-entities/${id}`, {
+      const response = await fetch(`/api/custom-entities/${deletingEntity.id}`, {
         method: 'DELETE',
       });
 
       if (response.ok) {
         toast.success('Entity deleted successfully!');
+        setDeleteDialogOpen(false);
+        setDeletingEntity(null);
         fetchEntities();
       } else {
         const result = await response.json();
@@ -263,21 +273,20 @@ export default function CustomEntitiesPage() {
         ) : (
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
             {entities.map((entity) => (
-              <div key={entity.id} className="relative">
-                <CustomEntityCard
-                  entity={entity}
-                  collectionTypeSlug={collectionTypeSlug}
-                  onDelete={handleDelete}
-                />
-                <Button
-                  onClick={() => handleEdit(entity)}
-                  variant="ghost"
-                  size="sm"
-                  className="absolute top-2 right-2"
-                >
-                  Edit
-                </Button>
-              </div>
+              <EntityCard
+                key={entity.id}
+                entity={{
+                  id: entity.id,
+                  name: entity.name,
+                  phone: entity.phone,
+                  email: entity.email,
+                  address: entity.address,
+                  totalBalance: entity.totalBalance,
+                }}
+                entityType={collectionTypeSlug}
+                onEdit={() => handleEdit(entity)}
+                onDelete={openDeleteDialog}
+              />
             ))}
           </div>
         )}
@@ -403,6 +412,44 @@ export default function CustomEntitiesPage() {
                 </DialogFooter>
               </form>
             </Form>
+          </DialogContent>
+        </Dialog>
+
+        {/* Delete Confirmation Dialog */}
+        <Dialog open={deleteDialogOpen} onOpenChange={setDeleteDialogOpen}>
+          <DialogContent>
+            <DialogHeader>
+              <DialogTitle className="text-destructive">Delete {collectionType.name.slice(0, -1) || 'Entity'}</DialogTitle>
+              <DialogDescription asChild>
+                <div className="pt-2 space-y-2 text-sm text-muted-foreground">
+                  <p>
+                    Are you sure you want to delete <span className="font-semibold">{deletingEntity?.name}</span>?
+                  </p>
+                  <p className="text-destructive font-medium">
+                    This will permanently delete the {collectionType.name.slice(0, -1).toLowerCase() || 'entity'} and ALL associated transactions. This action cannot be undone and your data will be lost forever.
+                  </p>
+                </div>
+              </DialogDescription>
+            </DialogHeader>
+            <DialogFooter className="gap-2 sm:gap-0">
+              <Button
+                type="button"
+                variant="outline"
+                onClick={() => {
+                  setDeleteDialogOpen(false);
+                  setDeletingEntity(null);
+                }}
+              >
+                Cancel
+              </Button>
+              <Button
+                type="button"
+                variant="destructive"
+                onClick={handleDelete}
+              >
+                Delete Permanently
+              </Button>
+            </DialogFooter>
           </DialogContent>
         </Dialog>
       </div>

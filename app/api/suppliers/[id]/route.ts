@@ -159,19 +159,13 @@ export async function DELETE(
     const suppliersCollection = db.collection('suppliers');
     const transactionsCollection = db.collection('transactions');
 
-    // Check if supplier has transactions
-    const transactionCount = await transactionsCollection.countDocuments({
-      entityId: id,
-      entityType: 'supplier',
-      userId,
+    // Delete all transactions associated with this supplier
+    await transactionsCollection.deleteMany({
+      $or: [
+        { supplierId: id, userId },
+        { entityId: id, entityType: 'supplier', userId }
+      ]
     });
-
-    if (transactionCount > 0) {
-      return NextResponse.json(
-        { error: 'Cannot delete supplier with existing transactions' },
-        { status: 400 }
-      );
-    }
 
     const result = await suppliersCollection.deleteOne({
       _id: new ObjectId(id),
@@ -193,7 +187,7 @@ export async function DELETE(
     }
 
     return NextResponse.json({
-      message: 'Supplier deleted successfully',
+      message: 'Supplier and all associated transactions deleted successfully',
     });
   } catch (error) {
     console.error('Delete supplier error:', error);

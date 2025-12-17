@@ -2,8 +2,7 @@ import type { Metadata } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
 import "./globals.css";
 import "react-day-picker/dist/style.css";
-import Sidebar from "@/components/Sidebar";
-import MainContent from "@/components/MainContent";
+import AppShell from "@/components/AppShell";
 import { Toaster } from "react-hot-toast";
 import VoiceAssistantWrapper from "@/components/VoiceAssistantWrapper";
 
@@ -35,10 +34,9 @@ export default function RootLayout({
       <body
         className={`${geistSans.variable} ${geistMono.variable} antialiased overflow-x-hidden`}
       >
-        <Sidebar />
-        <MainContent>
+        <AppShell>
           {children}
-        </MainContent>
+        </AppShell>
         <Toaster position="top-right" />
         <VoiceAssistantWrapper />
       </body>

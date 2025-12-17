@@ -68,18 +68,54 @@ export async function GET(request: NextRequest) {
       .sort({ createdAt: -1 })
       .toArray();
 
+    const transactionsCollection = db.collection('transactions');
+
+    // Calculate total balance for each entity
+    const entitiesWithBalance = await Promise.all(
+      entities.map(async (entity) => {
+        const entityId = entity._id.toString();
+        
+        // Get all transactions for this entity
+        const transactions = await transactionsCollection
+          .find({
+            entityId: entityId,
+            entityType: collectionType,
+            userId,
+          })
+          .toArray();
+
+        // Calculate totals
+        const totalCredit = transactions
+          .filter((t) => t.type === 'credit')
+          .reduce((sum, t) => sum + t.amount, 0);
+        const totalDebit = transactions
+          .filter((t) => t.type === 'debit')
+          .reduce((sum, t) => sum + t.amount, 0);
+
+        // Calculate final balance
+        let totalBalance = entity.openingBalance;
+        if (entity.balanceType === 'credit') {
+          totalBalance = -totalBalance;
+        }
+        totalBalance = totalBalance - totalCredit + totalDebit;
+
+        return {
+          id: entityId,
+          collectionType: entity.collectionType,
+          name: entity.name,
+          phone: entity.phone,
+          email: entity.email,
+          address: entity.address,
+          openingBalance: entity.openingBalance,
+          balanceType: entity.balanceType,
+          totalBalance,
+          createdAt: entity.createdAt,
+        };
+      })
+    );
+
     const responseData = {
-      entities: entities.map((entity) => ({
-        id: entity._id.toString(),
-        collectionType: entity.collectionType,
-        name: entity.name,
-        phone: entity.phone,
-        email: entity.email,
-        address: entity.address,
-        openingBalance: entity.openingBalance,
-        balanceType: entity.balanceType,
-        createdAt: entity.createdAt,
-      })),
+      entities: entitiesWithBalance,
     };
 
     // Cache the response with 5 minute TTL
