@@ -5,6 +5,7 @@ import "react-day-picker/dist/style.css";
 import AppShell from "@/components/AppShell";
 import { Toaster } from "react-hot-toast";
 import VoiceAssistantWrapper from "@/components/VoiceAssistantWrapper";
+import { Analytics } from "@vercel/analytics/next";
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -39,6 +40,7 @@ export default function RootLayout({
         </AppShell>
         <Toaster position="top-right" />
         <VoiceAssistantWrapper />
+        <Analytics />
       </body>
     </html>
   );
