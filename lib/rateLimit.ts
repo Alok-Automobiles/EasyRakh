@@ -28,7 +28,6 @@ export async function checkRateLimit(
       ...config,
     };
 
-    // Generate rate limit key
     let userId = 'anonymous';
     try {
       const token = request.cookies.get('token')?.value;
@@ -37,26 +36,21 @@ export async function checkRateLimit(
         userId = getUserIdFromRequest(request) || 'anonymous';
       }
     } catch {
-      // If auth check fails, use anonymous
     }
 
     const key = keyGenerator
       ? keyGenerator(request)
       : `rateLimit:${userId}:${request.nextUrl.pathname}`;
 
-    // Get current count from Redis
     const current = await redis.incr(key);
     
-    // Set expiration on first request
     if (current === 1) {
       await redis.pexpire(key, windowMs);
     }
 
-    // Get TTL to calculate remaining time
     const ttl = await redis.pttl(key);
     const resetTime = Date.now() + (ttl > 0 ? ttl : windowMs);
 
-    // Check if limit exceeded
     if (current > maxRequests) {
       const retryAfter = Math.ceil((ttl > 0 ? ttl : windowMs) / 1000);
       return NextResponse.json(
@@ -77,10 +71,8 @@ export async function checkRateLimit(
       );
     }
 
-    // Request allowed - return null to proceed
     return null;
   } catch (error) {
-    // If Redis fails, allow request (fail open)
     console.warn('Rate limit check failed, allowing request:', error);
     return null;
   }

@@ -89,7 +89,6 @@ export async function PUT(
     const collectionTypesCollection = db.collection('collectionTypes');
     const customEntitiesCollection = db.collection('customEntities');
 
-    // Verify collection type exists
     const collectionTypeDoc = await collectionTypesCollection.findOne({
       userId,
       slug: validatedData.collectionType,
@@ -102,7 +101,6 @@ export async function PUT(
       );
     }
 
-    // Get existing entity to check collectionType change
     const existingEntity = await customEntitiesCollection.findOne({
       _id: new ObjectId(id),
       userId,
@@ -140,14 +138,12 @@ export async function PUT(
       );
     }
 
-    // Invalidate related caches
     try {
       await redis.del(
         `customEntities:${validatedData.collectionType}:${userId}`,
         `dashboard:stats:${userId}`,
         `ledger:${validatedData.collectionType}:${id}:${userId}`
       );
-      // If collectionType changed, invalidate old cache too
       if (existingEntity.collectionType !== validatedData.collectionType) {
         await redis.del(
           `customEntities:${existingEntity.collectionType}:${userId}`,
@@ -200,7 +196,6 @@ export async function DELETE(
     const customEntitiesCollection = db.collection('customEntities');
     const transactionsCollection = db.collection('transactions');
 
-    // Get entity to check collectionType for cache invalidation
     const entity = await customEntitiesCollection.findOne({
       _id: new ObjectId(id),
       userId,
@@ -213,7 +208,6 @@ export async function DELETE(
       );
     }
 
-    // Delete all transactions associated with this entity
     await transactionsCollection.deleteMany({
       entityId: id,
       entityType: entity.collectionType,
@@ -232,7 +226,6 @@ export async function DELETE(
       );
     }
 
-    // Invalidate related caches
     try {
       await redis.del(
         `customEntities:${entity.collectionType}:${userId}`,

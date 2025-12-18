@@ -84,7 +84,6 @@ export default function DailyCashRecordPage() {
   const hasFetchedRef = useRef(false);
   const prevPageRef = useRef<number | null>(null);
 
-  // Form states
   const [amount, setAmount] = useState('');
   const [description, setDescription] = useState('');
   const [entryType, setEntryType] = useState<'in' | 'out'>('in');
@@ -128,7 +127,6 @@ export default function DailyCashRecordPage() {
   const fetchRecordForDate = async (date: Date, useCache: boolean = true) => {
     const dateString = format(date, 'dd-MM-yyyy');
 
-    // Check cache first
     if (useCache && recordsCache.has(dateString)) {
       return recordsCache.get(dateString)!;
     }
@@ -142,7 +140,6 @@ export default function DailyCashRecordPage() {
       const data = await response.json();
       const record = data.record;
 
-      // Update cache if record exists
       if (record) {
         setRecordsCache((prev) => {
           const newCache = new Map(prev);
@@ -205,7 +202,6 @@ export default function DailyCashRecordPage() {
         setEntryType('in');
         setCreateNewRecordOpen(false);
 
-        // Update cache with the new record
         if (data.record) {
           setRecordsCache((prev) => {
             const newCache = new Map(prev);
@@ -214,7 +210,6 @@ export default function DailyCashRecordPage() {
           });
         }
 
-        // Refresh summary list - reset to first page after creating new record
         setCurrentPage(1);
         fetchData(1);
       } else {
@@ -284,7 +279,6 @@ export default function DailyCashRecordPage() {
         setEntryType('in');
         setAddTransactionOpen(false);
 
-        // Update cache with the updated record
         if (data.record) {
           setRecordsCache((prev) => {
             const newCache = new Map(prev);
@@ -294,7 +288,6 @@ export default function DailyCashRecordPage() {
           setViewingRecord(data.record);
         }
 
-        // Refresh summary list - keep current page
         fetchData(currentPage);
       } else {
         toast.error(data.error || 'Failed to add transaction');
@@ -345,7 +338,6 @@ export default function DailyCashRecordPage() {
         setEditingEntry(null);
         setEditEntryOpen(false);
 
-        // Invalidate cache for this date and fetch fresh data
         setRecordsCache((prev) => {
           const newCache = new Map(prev);
           newCache.delete(dateString);

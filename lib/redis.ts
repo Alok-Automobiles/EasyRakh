@@ -17,7 +17,6 @@ const redis = new Redis(Number(process.env.REDIS_PORT), process.env.REDIS_HOST, 
   lazyConnect: false,
 });
 
-// Connection event listeners for monitoring
 redis.on('connect', () => {
   console.log('✅ Redis connected');
 });

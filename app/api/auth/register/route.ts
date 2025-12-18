@@ -17,7 +17,6 @@ const registerSchema = z.object({
 });
 
 export async function POST(request: NextRequest) {
-  // Rate limiting for auth endpoints
   const rateLimitResponse = await checkRateLimit(request, rateLimitConfigs.auth);
   if (rateLimitResponse) {
     return rateLimitResponse;
@@ -30,7 +29,6 @@ export async function POST(request: NextRequest) {
     const db = await getDb();
     const usersCollection = db.collection('users');
 
-    // Check if user already exists
     const existingUser = await usersCollection.findOne({
       email: validatedData.email.toLowerCase(),
     });
@@ -42,10 +40,8 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Hash password
     const hashedPassword = await bcrypt.hash(validatedData.password, 10);
 
-    // Create user
     const userData: any = {
       name: validatedData.name,
       email: validatedData.email.toLowerCase(),
@@ -53,7 +49,6 @@ export async function POST(request: NextRequest) {
       createdAt: new Date(),
     };
 
-    // Only include firm fields if they are provided and not empty
     if (validatedData.firmTitle?.trim()) userData.firmTitle = validatedData.firmTitle.trim();
     if (validatedData.gstNumber?.trim()) userData.gstNumber = validatedData.gstNumber.trim();
     if (validatedData.firmPhone?.trim()) userData.firmPhone = validatedData.firmPhone.trim();
@@ -62,7 +57,6 @@ export async function POST(request: NextRequest) {
 
     const result = await usersCollection.insertOne(userData);
 
-    // Generate token
     const token = generateToken({
       userId: result.insertedId.toString(),
       email: validatedData.email.toLowerCase(),
@@ -85,12 +79,11 @@ export async function POST(request: NextRequest) {
       { status: 201 }
     );
 
-    // Set cookie
     response.cookies.set('token', token, {
       httpOnly: true,
       secure: process.env.NODE_ENV === 'production',
       sameSite: 'lax',
-      maxAge: 60 * 60 * 24 * 7, // 7 days
+      maxAge: 60 * 60 * 24 * 7,
     });
 
     return response;

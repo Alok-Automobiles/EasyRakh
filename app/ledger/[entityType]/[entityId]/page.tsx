@@ -125,7 +125,6 @@ export default function LedgerPage() {
     fetchLedger();
   }, [entityId, entityType, fetchLedger]);
 
-  // Fetch collection type name for custom entity types
   useEffect(() => {
     if (entityType && entityType !== 'customer' && entityType !== 'supplier') {
       fetch(`/api/collection-types`)
@@ -381,7 +380,6 @@ export default function LedgerPage() {
   const { entity, openingBalance, entries, totals } = ledgerData;
   const finalBalanceColor = totals.balance >= 0 ? 'text-green-600' : 'text-red-600';
 
-  // Determine entity name and back link
   let entityName = 'Entities';
   let backLink = '/';
   if (entityType === 'customer') {
@@ -391,7 +389,6 @@ export default function LedgerPage() {
     entityName = 'Suppliers';
     backLink = '/suppliers';
   } else {
-    // Custom entity type
     entityName = collectionTypeName || 'Entities';
     backLink = `/custom-entities/${entityType}`;
   }

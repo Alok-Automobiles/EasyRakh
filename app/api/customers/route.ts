@@ -23,7 +23,6 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
     
-    // Try to get from cache
     try {
       const cachedCustomers = await redis.get(`customers:${userId}`);
       if (cachedCustomers) {
@@ -42,12 +41,10 @@ export async function GET(request: NextRequest) {
       .sort({ createdAt: -1 })
       .toArray();
 
-    // Calculate total balance for each customer
     const customersWithBalance = await Promise.all(
       customers.map(async (customer) => {
         const customerId = customer._id.toString();
         
-        // Get all transactions for this customer
         const transactions = await transactionsCollection
           .find({
             entityId: customerId,
@@ -56,7 +53,6 @@ export async function GET(request: NextRequest) {
           })
           .toArray();
 
-        // Calculate totals
         const totalCredit = transactions
           .filter((t) => t.type === 'credit')
           .reduce((sum, t) => sum + t.amount, 0);
@@ -64,7 +60,6 @@ export async function GET(request: NextRequest) {
           .filter((t) => t.type === 'debit')
           .reduce((sum, t) => sum + t.amount, 0);
 
-        // Calculate final balance
         let totalBalance = customer.openingBalance;
         if (customer.balanceType === 'credit') {
           totalBalance = -totalBalance;
@@ -87,7 +82,6 @@ export async function GET(request: NextRequest) {
 
     const responseData = { customers: customersWithBalance };
 
-    // Cache the response
     try {
       await redis.setex(`customers:${userId}`, 300, JSON.stringify(responseData));
     } catch (cacheError) {
@@ -129,7 +123,6 @@ export async function POST(request: NextRequest) {
       createdAt: new Date(),
     });
 
-    // Invalidate related caches
     try {
       await redis.del(`customers:${userId}`, `dashboard:stats:${userId}`);
     } catch (cacheError) {

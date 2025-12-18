@@ -120,7 +120,6 @@ export async function PUT(
       );
     }
 
-    // Get old transaction to know which entity's cache to invalidate
     const oldTransaction = await transactionsCollection.findOne({
       _id: new ObjectId(id),
       userId,
@@ -133,7 +132,6 @@ export async function PUT(
       );
     }
 
-    // Verify entity exists and belongs to user
     let entity;
     if (validatedData.entityType === 'customer') {
       entity = await customersCollection.findOne({
@@ -215,7 +213,6 @@ export async function PUT(
       );
     }
 
-    // Invalidate related caches
     try {
       const oldEntityId = oldTransaction.entityId || oldTransaction.customerId || oldTransaction.supplierId;
       const oldEntityType = oldTransaction.entityType || (oldTransaction.customerId ? 'customer' : 'supplier');
@@ -224,7 +221,6 @@ export async function PUT(
         `ledger:${validatedData.entityType}:${validatedData.entityId}:${userId}`,
       ];
       
-      // Invalidate entity list cache based on entity type
       if (validatedData.entityType === 'customer') {
         keysToDelete.push(`customers:${userId}`);
       } else if (validatedData.entityType === 'supplier') {
@@ -233,7 +229,6 @@ export async function PUT(
         keysToDelete.push(`customEntities:${validatedData.entityType}:${userId}`);
       }
       
-      // If entity changed, also invalidate old entity's ledger and list cache
       if (oldEntityId !== validatedData.entityId || oldEntityType !== validatedData.entityType) {
         keysToDelete.push(`ledger:${oldEntityType}:${oldEntityId}:${userId}`);
         if (oldEntityType === 'customer') {
@@ -329,7 +324,6 @@ export async function DELETE(
       );
     }
 
-    // Invalidate related caches
     try {
       const entityId = transaction.entityId || transaction.customerId || transaction.supplierId;
       const entityType = transaction.entityType || (transaction.customerId ? 'customer' : 'supplier');
@@ -338,7 +332,6 @@ export async function DELETE(
         `ledger:${entityType}:${entityId}:${userId}`
       ];
       
-      // Invalidate entity list cache based on entity type
       if (entityType === 'customer') {
         keysToDelete.push(`customers:${userId}`);
       } else if (entityType === 'supplier') {

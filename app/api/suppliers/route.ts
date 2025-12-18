@@ -25,7 +25,6 @@ export async function GET(request: NextRequest) {
       );
     }
 
-    // Try to get from cache
     try {
       const cacheKey = `suppliers:${userId}`;
       const cached = await redis.get(cacheKey);
@@ -33,7 +32,6 @@ export async function GET(request: NextRequest) {
         return NextResponse.json(JSON.parse(cached));
       }
     } catch (cacheError) {
-      // If Redis fails, continue to DB query
       console.warn('Redis cache read failed, falling back to DB:', cacheError);
     }
 
@@ -46,12 +44,10 @@ export async function GET(request: NextRequest) {
       .sort({ createdAt: -1 })
       .toArray();
 
-    // Calculate total balance for each supplier
     const suppliersWithBalance = await Promise.all(
       suppliers.map(async (supplier) => {
         const supplierId = supplier._id.toString();
         
-        // Get all transactions for this supplier
         const transactions = await transactionsCollection
           .find({
             entityId: supplierId,
@@ -60,7 +56,6 @@ export async function GET(request: NextRequest) {
           })
           .toArray();
 
-        // Calculate totals
         const totalCredit = transactions
           .filter((t) => t.type === 'credit')
           .reduce((sum, t) => sum + t.amount, 0);
@@ -68,7 +63,6 @@ export async function GET(request: NextRequest) {
           .filter((t) => t.type === 'debit')
           .reduce((sum, t) => sum + t.amount, 0);
 
-        // Calculate final balance
         let totalBalance = supplier.openingBalance;
         if (supplier.balanceType === 'credit') {
           totalBalance = -totalBalance;
@@ -93,12 +87,10 @@ export async function GET(request: NextRequest) {
       suppliers: suppliersWithBalance,
     };
 
-    // Cache the response with 5 minute TTL
     try {
       const cacheKey = `suppliers:${userId}`;
       await redis.setex(cacheKey, 300, JSON.stringify(responseData));
     } catch (cacheError) {
-      // If Redis fails, continue without caching
       console.warn('Redis cache write failed:', cacheError);
     }
 
@@ -140,7 +132,6 @@ export async function POST(request: NextRequest) {
       createdAt: new Date(),
     });
 
-    // Invalidate related caches
     try {
       await redis.del(`suppliers:${userId}`, `dashboard:stats:${userId}`);
     } catch (cacheError) {

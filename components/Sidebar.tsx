@@ -36,18 +36,15 @@ export default function Sidebar({ collapsed = false }: SidebarProps) {
   const [customCollectionTypes, setCustomCollectionTypes] = useState<Array<{ id: string; name: string; slug: string; lastTransactionDate?: Date }>>([]);
   const [expandedCollections, setExpandedCollections] = useState(false);
 
-  // Don't show sidebar on login/register pages or landing page
   const isAuthPage = pathname === '/login' || pathname === '/register' || pathname === '/';
   const effectiveCollapsed = isMobileOpen ? false : collapsed;
 
   useEffect(() => {
     if (isAuthPage) {
-      // Use setTimeout to avoid synchronous setState in effect
       const timer = setTimeout(() => setLoading(false), 0);
       return () => clearTimeout(timer);
     }
 
-    // Prevent duplicate calls for the same pathname
     if (lastPathnameRef.current === pathname) return;
     lastPathnameRef.current = pathname;
 
@@ -83,11 +80,9 @@ export default function Sidebar({ collapsed = false }: SidebarProps) {
           const collections = collectionTypesData.collectionTypes;
           const transactions = transactionsData?.transactions || [];
           
-          // Create a map of collection slugs to their most recent transaction date
           const collectionLastTransactionMap = new Map<string, Date>();
           
           transactions.forEach((tx: { entityType: string; date: string | Date; createdAt: string | Date }) => {
-            // Only process custom entity types (not 'customer' or 'supplier')
             if (tx.entityType && tx.entityType !== 'customer' && tx.entityType !== 'supplier') {
               const txDate = new Date(tx.date || tx.createdAt);
               const existing = collectionLastTransactionMap.get(tx.entityType);
@@ -97,20 +92,18 @@ export default function Sidebar({ collapsed = false }: SidebarProps) {
             }
           });
           
-          // Add last transaction date to each collection and sort by most recent
           const collectionsWithDates = collections.map((ct: { id: string; name: string; slug: string }) => ({
             ...ct,
             lastTransactionDate: collectionLastTransactionMap.get(ct.slug),
           }));
           
-          // Sort: collections with recent transactions first, then by creation date
           collectionsWithDates.sort((a: { id: string; name: string; slug: string; lastTransactionDate?: Date }, b: { id: string; name: string; slug: string; lastTransactionDate?: Date }) => {
             if (a.lastTransactionDate && b.lastTransactionDate) {
               return b.lastTransactionDate.getTime() - a.lastTransactionDate.getTime();
             }
             if (a.lastTransactionDate) return -1;
             if (b.lastTransactionDate) return 1;
-            return 0; // Keep original order if neither has transactions
+            return 0;
           });
           
           setCustomCollectionTypes(collectionsWithDates);
@@ -121,12 +114,10 @@ export default function Sidebar({ collapsed = false }: SidebarProps) {
   }, [pathname, router, isAuthPage]);
 
   useEffect(() => {
-    // Close mobile menu when pathname changes
     const timer = setTimeout(() => setIsMobileOpen(false), 0);
     return () => clearTimeout(timer);
   }, [pathname]);
 
-  // Prevent body scroll when mobile sidebar is open
   useEffect(() => {
     if (isMobileOpen) {
       document.body.style.overflow = 'hidden';
@@ -165,7 +156,6 @@ export default function Sidebar({ collapsed = false }: SidebarProps) {
     
     return (
     <>
-      {/* Logo */}
       <div className="border-b border-gray-200 p-3 lg:p-4 flex items-center justify-center">
         <Link
           href="/"
@@ -186,7 +176,6 @@ export default function Sidebar({ collapsed = false }: SidebarProps) {
         </Link>
       </div>
 
-      {/* Navigation Links */}
       <nav className="flex-1 overflow-y-auto px-2 lg:px-3 py-6 space-y-1 sidebar-scrollbar min-h-0">
         {navLinks.map((link) => {
           const Icon = link.icon;
@@ -208,7 +197,6 @@ export default function Sidebar({ collapsed = false }: SidebarProps) {
           );
         })}
 
-        {/* Collections Section */}
         {!effectiveCollapsed && (
           <div className="pt-4 mt-4 border-t border-gray-200">
             <button
@@ -269,7 +257,6 @@ export default function Sidebar({ collapsed = false }: SidebarProps) {
         )}
       </nav>
 
-      {/* User Section */}
       <div className="p-4 border-t border-gray-200 bg-gray-50 sticky bottom-0 lg:static">
         <div className={`flex items-center ${effectiveCollapsed ? 'justify-center' : 'space-x-3 mb-3 px-2'}`}>
           <div className="shrink-0">
@@ -305,7 +292,6 @@ export default function Sidebar({ collapsed = false }: SidebarProps) {
   if (loading) {
     return (
       <>
-        {/* Mobile menu button */}
         <button
           type="button"
           className="lg:hidden fixed top-4 left-4 z-50 p-2 rounded-lg bg-white shadow-lg border border-gray-200"
@@ -314,7 +300,6 @@ export default function Sidebar({ collapsed = false }: SidebarProps) {
         >
           <Menu className="h-5 w-5 text-gray-700" />
         </button>
-        {/* Sidebar skeleton */}
         <aside className="hidden lg:flex fixed left-0 top-0 h-screen w-64 bg-white border-r border-gray-200 flex-col">
           <div className="p-4 border-b border-gray-200">
             <div className="h-10 w-32 bg-gray-200 rounded animate-pulse" />
@@ -330,7 +315,6 @@ export default function Sidebar({ collapsed = false }: SidebarProps) {
 
   return (
     <>
-      {/* Mobile menu button */}
       <button
         type="button"
         className="lg:hidden fixed top-4 left-4 z-50 p-2 rounded-lg bg-white shadow-lg border border-gray-200 hover:bg-gray-50 transition-colors"
@@ -340,7 +324,6 @@ export default function Sidebar({ collapsed = false }: SidebarProps) {
         <Menu className="h-5 w-5 text-gray-700" />
       </button>
 
-      {/* Mobile overlay */}
       {isMobileOpen && (
         <div
           className="lg:hidden fixed inset-0 bg-black/50 z-40 transition-opacity"
@@ -348,7 +331,6 @@ export default function Sidebar({ collapsed = false }: SidebarProps) {
         />
       )}
 
-      {/* Mobile sidebar */}
       <aside
         className={`lg:hidden fixed left-0 top-0 h-screen w-72 bg-white shadow-xl z-50 transform transition-transform duration-300 ease-in-out ${
           isMobileOpen ? 'translate-x-0' : '-translate-x-full'
@@ -371,7 +353,6 @@ export default function Sidebar({ collapsed = false }: SidebarProps) {
         </div>
       </aside>
 
-      {/* Desktop sidebar */}
       <aside
         className="hidden lg:flex fixed left-0 top-0 h-screen shrink-0 bg-white border-r border-gray-200 flex-col shadow-sm transition-[width] duration-300"
         style={{ width: effectiveCollapsed ? '5rem' : '16rem' }}

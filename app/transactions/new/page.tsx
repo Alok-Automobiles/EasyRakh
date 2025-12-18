@@ -190,13 +190,11 @@ function NewTransactionPageContent() {
     }
   };
 
-  // Check for entityType and entityId in query params (from ledger page)
   useEffect(() => {
     const urlEntityType = searchParams.get('entityType');
     const urlEntityId = searchParams.get('entityId');
 
     if (urlEntityType && urlEntityId) {
-      // Skip selection step and go directly to form
       setEntityType(urlEntityType);
       setValue('entityType', urlEntityType);
       if (urlEntityType !== 'customer' && urlEntityType !== 'supplier') {
@@ -207,14 +205,12 @@ function NewTransactionPageContent() {
     }
   }, [searchParams, setValue]);
 
-  // Ensure entityId is set after entities are loaded (for pre-selection in dropdown)
   useEffect(() => {
     const urlEntityType = searchParams.get('entityType') as 'customer' | 'supplier' | null;
     const urlEntityId = searchParams.get('entityId');
 
     if (urlEntityType && urlEntityId && (urlEntityType === 'customer' || urlEntityType === 'supplier')) {
       const entities = urlEntityType === 'customer' ? customers : suppliers;
-      // If entities are loaded and the entityId exists in the list, ensure it's set
       if (entities.length > 0 && entities.some(e => e.id === urlEntityId)) {
         setValue('entityId', urlEntityId);
       }
@@ -526,7 +522,6 @@ function NewTransactionPageContent() {
       ? 'Supplier'
       : collectionType?.name || 'Entity';
 
-  // Check if we came from a ledger page
   const urlEntityType = searchParams.get('entityType');
   const urlEntityId = searchParams.get('entityId');
   const cameFromLedger = urlEntityType && urlEntityId;
