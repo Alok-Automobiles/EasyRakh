@@ -3,6 +3,7 @@
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
+import Image from 'next/image';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
@@ -73,6 +74,15 @@ export default function LoginPage() {
       <div className="min-h-screen flex items-center justify-center bg-gray-50 py-12 px-4 sm:px-6 lg:px-8">
         <Card className="w-full max-w-md">
           <CardHeader>
+            <div className="flex justify-center mb-4">
+              <Image
+                src="/logo.png"
+                alt="EasyRakh logo"
+                width={60}
+                height={60}
+                
+              />
+            </div>
             <CardTitle className="text-3xl font-extrabold text-center">
               Sign in to your account
             </CardTitle>
