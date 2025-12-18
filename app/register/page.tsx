@@ -3,6 +3,7 @@
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
+import Image from 'next/image';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
@@ -24,11 +25,11 @@ const registerSchema = z.object({
   name: z.string().min(1, 'Name is required'),
   email: z.string().email('Invalid email address'),
   password: z.string().min(6, 'Password must be at least 6 characters'),
-  firmTitle: z.string().min(1, 'Firm title is required'),
-  gstNumber: z.string().min(1, 'GST number is required'),
-  firmPhone: z.string().min(1, 'Phone number is required'),
-  firmEmail: z.string().email('Invalid firm email address'),
-  firmAddress: z.string().min(1, 'Address is required'),
+  firmTitle: z.string().default(''),
+  gstNumber: z.string().default(''),
+  firmPhone: z.string().default(''),
+  firmEmail: z.union([z.string().email('Invalid firm email address'), z.literal('')]).default(''),
+  firmAddress: z.string().default(''),
 });
 
 type RegisterForm = z.infer<typeof registerSchema>;
@@ -38,15 +39,35 @@ export default function RegisterPage() {
   const [loading, setLoading] = useState(false);
   const form = useForm<RegisterForm>({
     resolver: zodResolver(registerSchema),
+    defaultValues: {
+      name: '',
+      email: '',
+      password: '',
+      firmTitle: '',
+      gstNumber: '',
+      firmPhone: '',
+      firmEmail: '',
+      firmAddress: '',
+    },
   });
 
   const onSubmit = async (data: RegisterForm) => {
     setLoading(true);
     try {
+      // Normalize empty strings to undefined for optional fields
+      const submitData = {
+        ...data,
+        firmTitle: data.firmTitle?.trim() || undefined,
+        gstNumber: data.gstNumber?.trim() || undefined,
+        firmPhone: data.firmPhone?.trim() || undefined,
+        firmEmail: data.firmEmail?.trim() || undefined,
+        firmAddress: data.firmAddress?.trim() || undefined,
+      };
+
       const response = await fetch('/api/auth/register', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(data),
+        body: JSON.stringify(submitData),
       });
 
       const result = await response.json();
@@ -58,7 +79,7 @@ export default function RegisterPage() {
       } else {
         toast.error(result.error || 'Registration failed');
       }
-    } catch (error) {
+    } catch {
       toast.error('An error occurred. Please try again.');
     } finally {
       setLoading(false);
@@ -72,13 +93,22 @@ export default function RegisterPage() {
       transition={{ duration: 1.3 }}
       exit={{ opacity: 0 }}
     >
-      <div className="min-h-screen flex items-center justify-center bg-gray-50 py-12 px-4 sm:px-6 lg:px-8">
-        <Card className="w-full max-w-2xl">
-          <CardHeader>
-            <CardTitle className="text-3xl font-extrabold text-center">
+      <div className="min-h-screen flex items-center justify-center bg-gray-50 py-4 px-3 sm:py-6 sm:px-4 lg:px-6">
+        <Card className="w-full max-w-5xl">
+          <CardHeader className="pb-3 sm:pb-4">
+            <div className="flex justify-center mb-3 sm:mb-4">
+              <Image
+                src="/logo.png"
+                alt="EasyRakh logo"
+                width={60}
+                height={60}
+        
+              />
+            </div>
+            <CardTitle className="text-xl sm:text-2xl font-bold text-center">
               Create your account
             </CardTitle>
-            <CardDescription className="text-center">
+            <CardDescription className="text-center text-xs sm:text-sm">
               Or{' '}
               <Link
                 href="/login"
@@ -88,160 +118,200 @@ export default function RegisterPage() {
               </Link>
             </CardDescription>
           </CardHeader>
-          <CardContent>
+          <CardContent className="px-3 sm:px-6 pb-4 sm:pb-6">
             <Form {...form}>
-              <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
-                <FormField
-                  control={form.control}
-                  name="name"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Full Name</FormLabel>
-                      <FormControl>
-                        <Input
-                          type="text"
-                          autoComplete="name"
-                          placeholder="Full Name"
-                          {...field}
-                        />
-                      </FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-                <FormField
-                  control={form.control}
-                  name="email"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Email address</FormLabel>
-                      <FormControl>
-                        <Input
-                          type="email"
-                          autoComplete="email"
-                          placeholder="Email address"
-                          {...field}
-                        />
-                      </FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-                <FormField
-                  control={form.control}
-                  name="password"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Password</FormLabel>
-                      <FormControl>
-                        <Input
-                          type="password"
-                          autoComplete="new-password"
-                          placeholder="Password"
-                          {...field}
-                        />
-                      </FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-                <div className="pt-6 border-t space-y-4">
-                  <h3 className="text-lg font-semibold">Firm Information</h3>
-                  <FormField
-                    control={form.control}
-                    name="firmTitle"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>Firm Title</FormLabel>
-                        <FormControl>
-                          <Input
-                            type="text"
-                            placeholder="Your Firm Name"
-                            {...field}
-                          />
-                        </FormControl>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
-                  <div className="grid gap-4 sm:grid-cols-2">
-                  <FormField
-                    control={form.control}
-                    name="gstNumber"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>GST Number</FormLabel>
-                        <FormControl>
-                          <Input
-                            type="text"
-                            placeholder="GST Number"
-                            {...field}
-                          />
-                        </FormControl>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
-                  <FormField
-                    control={form.control}
-                    name="firmPhone"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>Phone Number</FormLabel>
-                        <FormControl>
-                          <Input
-                            type="tel"
-                            placeholder="Phone Number"
-                            {...field}
-                          />
-                        </FormControl>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
+              <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-3 sm:space-y-4">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4 sm:gap-6">
+                  {/* Personal Information Section - Required Fields */}
+                  <div className="space-y-3 sm:space-y-4 p-4 sm:p-5 bg-blue-50/50 border-2 border-blue-200 rounded-lg">
+                    <div className="flex items-center gap-2 pb-2 border-b-2 border-blue-300">
+                      <h3 className="text-sm font-bold text-blue-700">Required Information</h3>
+                      <span className="text-xs font-semibold text-blue-600 bg-blue-200 px-2 py-0.5 rounded">* Required</span>
+                    </div>
+                    <FormField
+                      control={form.control}
+                      name="name"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel className="text-xs sm:text-sm font-semibold">
+                            Full Name <span className="text-red-500">*</span>
+                          </FormLabel>
+                          <FormControl>
+                            <Input
+                              type="text"
+                              autoComplete="name"
+                              placeholder="Full Name"
+                              className="h-9 sm:h-10 text-sm border-blue-300 focus:border-blue-500"
+                              {...field}
+                            />
+                          </FormControl>
+                          <FormMessage className="text-xs" />
+                        </FormItem>
+                      )}
+                    />
+                    <FormField
+                      control={form.control}
+                      name="email"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel className="text-xs sm:text-sm font-semibold">
+                            Email address <span className="text-red-500">*</span>
+                          </FormLabel>
+                          <FormControl>
+                            <Input
+                              type="email"
+                              autoComplete="email"
+                              placeholder="Email address"
+                              className="h-9 sm:h-10 text-sm border-blue-300 focus:border-blue-500"
+                              {...field}
+                            />
+                          </FormControl>
+                          <FormMessage className="text-xs" />
+                        </FormItem>
+                      )}
+                    />
+                    <FormField
+                      control={form.control}
+                      name="password"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel className="text-xs sm:text-sm font-semibold">
+                            Password <span className="text-red-500">*</span>
+                          </FormLabel>
+                          <FormControl>
+                            <Input
+                              type="password"
+                              autoComplete="new-password"
+                              placeholder="Password"
+                              className="h-9 sm:h-10 text-sm border-blue-300 focus:border-blue-500"
+                              {...field}
+                            />
+                          </FormControl>
+                          <FormMessage className="text-xs" />
+                        </FormItem>
+                      )}
+                    />
                   </div>
-                  <FormField
-                    control={form.control}
-                    name="firmEmail"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>Firm Email</FormLabel>
-                        <FormControl>
-                          <Input
-                            type="email"
-                            placeholder="Firm Email Address"
-                            {...field}
-                          />
-                        </FormControl>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
-                  <FormField
-                    control={form.control}
-                    name="firmAddress"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>Address</FormLabel>
-                        <FormControl>
-                          <Textarea
-                            placeholder="Firm Address"
-                            rows={3}
-                            {...field}
-                          />
-                        </FormControl>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
+
+                  {/* Firm Information Section - Optional Fields */}
+                  <div className="space-y-3 sm:space-y-4 p-4 sm:p-5 bg-gray-50/50 border-2 border-dashed border-gray-300 rounded-lg">
+                    <div className="flex items-center gap-2 pb-2 border-b-2 border-dashed border-gray-400">
+                      <h3 className="text-sm font-semibold text-gray-600">Firm Information</h3>
+                      <span className="text-xs font-medium text-gray-500 bg-gray-200 px-2 py-0.5 rounded">Optional</span>
+                    </div>
+                    <FormField
+                      control={form.control}
+                      name="firmTitle"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel className="text-xs sm:text-sm text-gray-600">
+                            Firm Title
+                          </FormLabel>
+                          <FormControl>
+                            <Input
+                              type="text"
+                              placeholder="Your Firm Name"
+                              className="h-9 sm:h-10 text-sm border-gray-300 focus:border-gray-400 bg-white/80"
+                              {...field}
+                            />
+                          </FormControl>
+                          <FormMessage className="text-xs" />
+                        </FormItem>
+                      )}
+                    />
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4">
+                      <FormField
+                        control={form.control}
+                        name="gstNumber"
+                        render={({ field }) => (
+                          <FormItem>
+                            <FormLabel className="text-xs sm:text-sm text-gray-600">
+                              GST Number
+                            </FormLabel>
+                            <FormControl>
+                              <Input
+                                type="text"
+                                placeholder="GST Number"
+                                className="h-9 sm:h-10 text-sm border-gray-300 focus:border-gray-400 bg-white/80"
+                                {...field}
+                              />
+                            </FormControl>
+                            <FormMessage className="text-xs" />
+                          </FormItem>
+                        )}
+                      />
+                      <FormField
+                        control={form.control}
+                        name="firmPhone"
+                        render={({ field }) => (
+                          <FormItem>
+                            <FormLabel className="text-xs sm:text-sm text-gray-600">
+                              Phone Number
+                            </FormLabel>
+                            <FormControl>
+                              <Input
+                                type="tel"
+                                placeholder="Phone Number"
+                                className="h-9 sm:h-10 text-sm border-gray-300 focus:border-gray-400 bg-white/80"
+                                {...field}
+                              />
+                            </FormControl>
+                            <FormMessage className="text-xs" />
+                          </FormItem>
+                        )}
+                      />
+                    </div>
+                    <FormField
+                      control={form.control}
+                      name="firmEmail"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel className="text-xs sm:text-sm text-gray-600">
+                            Firm Email
+                          </FormLabel>
+                          <FormControl>
+                            <Input
+                              type="email"
+                              placeholder="Firm Email Address"
+                              className="h-9 sm:h-10 text-sm border-gray-300 focus:border-gray-400 bg-white/80"
+                              {...field}
+                            />
+                          </FormControl>
+                          <FormMessage className="text-xs" />
+                        </FormItem>
+                      )}
+                    />
+                    <FormField
+                      control={form.control}
+                      name="firmAddress"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel className="text-xs sm:text-sm text-gray-600">
+                            Address
+                          </FormLabel>
+                          <FormControl>
+                            <Textarea
+                              placeholder="Firm Address"
+                              rows={2}
+                              className="text-sm resize-none border-gray-300 focus:border-gray-400 bg-white/80"
+                              {...field}
+                            />
+                          </FormControl>
+                          <FormMessage className="text-xs" />
+                        </FormItem>
+                      )}
+                    />
+                  </div>
                 </div>
-                <Button
-                  type="submit"
-                  disabled={loading}
-                  className="w-full"
-                >
-                  {loading ? 'Creating account...' : 'Create account'}
-                </Button>
+                <div className="flex justify-center mt-2 sm:mt-4">
+                  <Button
+                    type="submit"
+                    disabled={loading}
+                    className="w-auto min-w-[200px] sm:min-w-[250px] h-9 sm:h-10 text-sm font-medium px-6 sm:px-8"
+                  >
+                    {loading ? 'Creating account...' : 'Create account'}
+                  </Button>
+                </div>
               </form>
             </Form>
           </CardContent>

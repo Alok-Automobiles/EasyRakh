@@ -9,11 +9,11 @@ const registerSchema = z.object({
   name: z.string().min(1, 'Name is required'),
   email: z.string().email('Invalid email address'),
   password: z.string().min(6, 'Password must be at least 6 characters'),
-  firmTitle: z.string().min(1, 'Firm title is required'),
-  gstNumber: z.string().min(1, 'GST number is required'),
-  firmPhone: z.string().min(1, 'Phone number is required'),
-  firmEmail: z.string().email('Invalid firm email address'),
-  firmAddress: z.string().min(1, 'Address is required'),
+  firmTitle: z.string().default(''),
+  gstNumber: z.string().default(''),
+  firmPhone: z.string().default(''),
+  firmEmail: z.union([z.string().email('Invalid firm email address'), z.literal('')]).default(''),
+  firmAddress: z.string().default(''),
 });
 
 export async function POST(request: NextRequest) {
@@ -46,17 +46,21 @@ export async function POST(request: NextRequest) {
     const hashedPassword = await bcrypt.hash(validatedData.password, 10);
 
     // Create user
-    const result = await usersCollection.insertOne({
+    const userData: any = {
       name: validatedData.name,
       email: validatedData.email.toLowerCase(),
       password: hashedPassword,
-      firmTitle: validatedData.firmTitle,
-      gstNumber: validatedData.gstNumber,
-      firmPhone: validatedData.firmPhone,
-      firmEmail: validatedData.firmEmail,
-      firmAddress: validatedData.firmAddress,
       createdAt: new Date(),
-    });
+    };
+
+    // Only include firm fields if they are provided and not empty
+    if (validatedData.firmTitle?.trim()) userData.firmTitle = validatedData.firmTitle.trim();
+    if (validatedData.gstNumber?.trim()) userData.gstNumber = validatedData.gstNumber.trim();
+    if (validatedData.firmPhone?.trim()) userData.firmPhone = validatedData.firmPhone.trim();
+    if (validatedData.firmEmail?.trim()) userData.firmEmail = validatedData.firmEmail.trim();
+    if (validatedData.firmAddress?.trim()) userData.firmAddress = validatedData.firmAddress.trim();
+
+    const result = await usersCollection.insertOne(userData);
 
     // Generate token
     const token = generateToken({
@@ -71,11 +75,11 @@ export async function POST(request: NextRequest) {
           id: result.insertedId.toString(),
           name: validatedData.name,
           email: validatedData.email.toLowerCase(),
-          firmTitle: validatedData.firmTitle,
-          gstNumber: validatedData.gstNumber,
-          firmPhone: validatedData.firmPhone,
-          firmEmail: validatedData.firmEmail,
-          firmAddress: validatedData.firmAddress,
+          firmTitle: validatedData.firmTitle?.trim() || undefined,
+          gstNumber: validatedData.gstNumber?.trim() || undefined,
+          firmPhone: validatedData.firmPhone?.trim() || undefined,
+          firmEmail: validatedData.firmEmail?.trim() || undefined,
+          firmAddress: validatedData.firmAddress?.trim() || undefined,
         },
       },
       { status: 201 }

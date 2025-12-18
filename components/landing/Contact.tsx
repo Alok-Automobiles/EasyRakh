@@ -45,7 +45,7 @@ export default function Contact() {
 
           <div className="grid gap-4 sm:grid-cols-2">
             <Link
-              href="https://wa.me/9555213876"
+              href="https://wa.me/919555213876"
               target="_blank"
               rel="noopener noreferrer"
               className="flex w-full items-center gap-3 rounded-xl border border-gray-100 bg-white px-4 py-3 shadow-sm transition-colors hover:border-emerald-200 hover:bg-emerald-50 min-w-0"
