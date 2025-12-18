@@ -35,7 +35,6 @@ export async function GET(request: NextRequest) {
       );
     }
 
-    // Try to get from cache
     try {
       const cacheKey = `customEntities:${collectionType}:${userId}`;
       const cached = await redis.get(cacheKey);
@@ -50,7 +49,6 @@ export async function GET(request: NextRequest) {
     const collectionTypesCollection = db.collection('collectionTypes');
     const customEntitiesCollection = db.collection('customEntities');
 
-    // Verify collection type exists and belongs to user
     const collectionTypeDoc = await collectionTypesCollection.findOne({
       userId,
       slug: collectionType,
@@ -70,12 +68,10 @@ export async function GET(request: NextRequest) {
 
     const transactionsCollection = db.collection('transactions');
 
-    // Calculate total balance for each entity
     const entitiesWithBalance = await Promise.all(
       entities.map(async (entity) => {
         const entityId = entity._id.toString();
         
-        // Get all transactions for this entity
         const transactions = await transactionsCollection
           .find({
             entityId: entityId,
@@ -84,7 +80,6 @@ export async function GET(request: NextRequest) {
           })
           .toArray();
 
-        // Calculate totals
         const totalCredit = transactions
           .filter((t) => t.type === 'credit')
           .reduce((sum, t) => sum + t.amount, 0);
@@ -92,7 +87,6 @@ export async function GET(request: NextRequest) {
           .filter((t) => t.type === 'debit')
           .reduce((sum, t) => sum + t.amount, 0);
 
-        // Calculate final balance
         let totalBalance = entity.openingBalance;
         if (entity.balanceType === 'credit') {
           totalBalance = -totalBalance;
@@ -118,7 +112,6 @@ export async function GET(request: NextRequest) {
       entities: entitiesWithBalance,
     };
 
-    // Cache the response with 5 minute TTL
     try {
       const cacheKey = `customEntities:${collectionType}:${userId}`;
       await redis.setex(cacheKey, 300, JSON.stringify(responseData));
@@ -154,7 +147,6 @@ export async function POST(request: NextRequest) {
     const collectionTypesCollection = db.collection('collectionTypes');
     const customEntitiesCollection = db.collection('customEntities');
 
-    // Verify collection type exists and belongs to user
     const collectionTypeDoc = await collectionTypesCollection.findOne({
       userId,
       slug: validatedData.collectionType,
@@ -179,7 +171,6 @@ export async function POST(request: NextRequest) {
       createdAt: new Date(),
     });
 
-    // Invalidate related caches
     try {
       await redis.del(
         `customEntities:${validatedData.collectionType}:${userId}`,

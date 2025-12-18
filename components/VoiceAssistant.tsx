@@ -56,7 +56,6 @@ export default function VoiceAssistant() {
   const synthRef = useRef<SpeechSynthesis | null>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
-  // Initialize speech recognition and synthesis
   useEffect(() => {
     if (typeof window !== 'undefined') {
       const SpeechRecognitionAPI = window.SpeechRecognition || window.webkitSpeechRecognition;
@@ -64,23 +63,19 @@ export default function VoiceAssistant() {
         recognitionRef.current = new SpeechRecognitionAPI();
         recognitionRef.current.continuous = false;
         recognitionRef.current.interimResults = true;
-        // Support both Hindi and English
-        recognitionRef.current.lang = 'hi-IN'; // Default to Hindi, will also recognize English
+        recognitionRef.current.lang = 'hi-IN';
       }
       synthRef.current = window.speechSynthesis;
     }
   }, []);
 
-  // Scroll to bottom of messages
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [messages]);
 
-  // Speak text using TTS
   const speak = useCallback((text: string, lang: string = 'hi-IN') => {
     if (!synthRef.current || isMuted) return;
 
-    // Cancel any ongoing speech
     synthRef.current.cancel();
 
     const utterance = new SpeechSynthesisUtterance(text);
@@ -88,7 +83,6 @@ export default function VoiceAssistant() {
     utterance.rate = 0.9;
     utterance.pitch = 1;
 
-    // Try to find appropriate voice
     const voices = synthRef.current.getVoices();
     const preferredVoice = voices.find(
       (v) => v.lang.startsWith(lang === 'hi' ? 'hi' : 'en') && v.name.includes('India')
@@ -105,11 +99,9 @@ export default function VoiceAssistant() {
     synthRef.current.speak(utterance);
   }, [isMuted]);
 
-  // Process voice query
   const processQuery = useCallback(async (query: string) => {
     if (!query.trim()) return;
 
-    // Add user message
     const userMessage: Message = {
       id: Date.now().toString(),
       type: 'user',
@@ -132,7 +124,6 @@ export default function VoiceAssistant() {
         throw new Error(data.error || 'Failed to process query');
       }
 
-      // Add assistant message
       const assistantMessage: Message = {
         id: (Date.now() + 1).toString(),
         type: 'assistant',
@@ -141,7 +132,6 @@ export default function VoiceAssistant() {
       };
       setMessages((prev) => [...prev, assistantMessage]);
 
-      // Speak the response
       speak(data.response, data.language);
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : 'Something went wrong';
@@ -170,14 +160,12 @@ export default function VoiceAssistant() {
     }
   }, [speak]);
 
-  // Start listening
   const startListening = useCallback(() => {
     if (!recognitionRef.current) {
       toast.error('Speech recognition not supported in this browser');
       return;
     }
 
-    // Stop any ongoing speech
     synthRef.current?.cancel();
 
     setTranscript('');
@@ -220,7 +208,6 @@ export default function VoiceAssistant() {
     }
   }, [processQuery]);
 
-  // Stop listening
   const stopListening = useCallback(() => {
     recognitionRef.current?.stop();
     setIsListening(false);
@@ -236,7 +223,6 @@ export default function VoiceAssistant() {
     setIsMuted((prev) => !prev);
   }, [isSpeaking]);
 
-  // Clear conversation
   const clearConversation = useCallback(() => {
     setMessages([]);
     setTranscript('');
@@ -246,7 +232,6 @@ export default function VoiceAssistant() {
 
   return (
     <>
-      {/* Floating Action Button */}
       <motion.button
         onClick={() => setIsOpen(true)}
         className={`fixed bottom-6 right-6 z-50 w-16 h-16 rounded-full shadow-2xl flex items-center justify-center transition-all duration-300 ${
@@ -278,7 +263,6 @@ export default function VoiceAssistant() {
         </span>
       </motion.button>
 
-      {/* Voice Assistant Panel */}
       <AnimatePresence>
         {isOpen && (
           <motion.div
@@ -293,7 +277,6 @@ export default function VoiceAssistant() {
               border: '1px solid rgba(0,0,0,0.05)',
             }}
           >
-            {/* Header */}
             <div
               className="relative px-5 py-4"
               style={{
@@ -332,7 +315,6 @@ export default function VoiceAssistant() {
                 </div>
               </div>
 
-              {/* Animated wave effect when listening */}
               {pulseAnimation && (
                 <motion.div
                   className="absolute bottom-0 left-0 right-0 h-1 bg-sky-400"
@@ -348,7 +330,6 @@ export default function VoiceAssistant() {
               )}
             </div>
 
-            {/* Messages Area */}
             <div className="h-[320px] overflow-y-auto p-4 space-y-3">
               {messages.length === 0 ? (
                 <div className="h-full flex flex-col items-center justify-center text-center px-6">
@@ -414,7 +395,6 @@ export default function VoiceAssistant() {
               )}
             </div>
 
-            {/* Live Transcript */}
             <AnimatePresence>
               {transcript && (
                 <motion.div
@@ -432,10 +412,8 @@ export default function VoiceAssistant() {
               )}
             </AnimatePresence>
 
-            {/* Bottom Controls */}
             <div className="p-4 border-t border-gray-100">
               <div className="flex items-center justify-between gap-3">
-                {/* Clear button */}
                 <button
                   onClick={clearConversation}
                   disabled={messages.length === 0 || isProcessing}
@@ -444,7 +422,6 @@ export default function VoiceAssistant() {
                   Clear
                 </button>
 
-                {/* Main Mic Button */}
                 <motion.button
                   onClick={isListening ? stopListening : startListening}
                   disabled={isProcessing}
@@ -456,7 +433,6 @@ export default function VoiceAssistant() {
                   whileHover={{ scale: 1.05 }}
                   whileTap={{ scale: 0.95 }}
                 >
-                  {/* Pulse rings when listening */}
                   {isListening && (
                     <>
                       <motion.span
@@ -481,7 +457,6 @@ export default function VoiceAssistant() {
                   )}
                 </motion.button>
 
-                {/* Speaking indicator */}
                 <div className="flex items-center gap-2">
                   {isSpeaking && (
                     <motion.div
@@ -506,7 +481,6 @@ export default function VoiceAssistant() {
                 </div>
               </div>
 
-              {/* Status text */}
               <p className="text-center text-xs text-gray-400 mt-3">
                 {isListening
                   ? 'Listening... Tap to stop'

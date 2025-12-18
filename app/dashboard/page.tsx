@@ -94,7 +94,6 @@ const defaultStats: DashboardStats = {
 
 const formatCurrency = (value: number) => currencyFormatter.format(value || 0);
 
-// Animation variants for staggered children
 const containerVariants = {
   hidden: { opacity: 0 },
   visible: {
@@ -156,7 +155,6 @@ const SalesTooltip = ({ active, payload }: SalesTooltipProps) => {
   );
 };
 
-// Card component
 const Card = ({
   children,
   className = '',
@@ -173,7 +171,6 @@ const Card = ({
   </div>
 );
 
-// Stat Card with Icon
 const StatCard = ({
   label,
   value,
@@ -205,7 +202,6 @@ const StatCard = ({
   </motion.div>
 );
 
-// Entity List Item
 const EntityListItem = ({ entity }: { entity: TopEntity }) => (
   <div className="flex items-center justify-between rounded-lg sm:rounded-xl bg-gray-50 px-2 sm:px-3 lg:px-4 py-2 sm:py-2.5 lg:py-3 border border-gray-200 transition-all hover:bg-gray-100">
     <div className="flex-1 min-w-0">
@@ -218,7 +214,6 @@ const EntityListItem = ({ entity }: { entity: TopEntity }) => (
   </div>
 );
 
-// Activity Row - Compact glass-styled activity item
 const ActivityRow = ({
   activity,
   onClick
@@ -290,22 +285,18 @@ const ActivityRow = ({
   );
 };
 
-// Note Card - with color accent
 const NoteCard = ({ note }: { note: DashboardNote }) => {
-  // Convert hex/rgb color to a subtle tint
   const accentColor = note.color || '#1f2937';
   
   return (
     <div
       className="group relative rounded-lg sm:rounded-xl bg-gray-50 border border-gray-200 p-2 sm:p-3 lg:p-4 transition-all hover:bg-gray-100 hover:shadow-md overflow-hidden"
     >
-      {/* Color accent bar */}
       <div 
         className="absolute left-0 top-0 bottom-0 w-1 rounded-l-xl"
         style={{ backgroundColor: accentColor }}
       />
       
-      {/* Content */}
       <div className="pl-2 sm:pl-3">
         <div className="flex items-start justify-between gap-1.5 sm:gap-2">
           <div className="flex-1 min-w-0">
@@ -435,7 +426,6 @@ export default function Dashboard() {
         variants={containerVariants}
         className="max-w-7xl mx-auto px-3 sm:px-4 lg:mx-0 lg:ml-0 lg:pl-6 lg:pr-6 xl:pl-8 xl:pr-8 py-1.5 sm:py-5 lg:py-8 space-y-3 sm:space-y-4 lg:space-y-6 w-full"
       >
-        {/* Header */}
         <motion.div variants={itemVariants} className="flex flex-wrap items-start justify-between gap-2 sm:gap-4">
           <div className="flex items-center gap-2 sm:gap-4 flex-1 min-w-0">
             <div className="p-2 sm:p-3 rounded-xl sm:rounded-2xl bg-slate-900 text-white shadow-lg shrink-0">
@@ -474,9 +464,7 @@ export default function Dashboard() {
           </div>
         </motion.div>
 
-        {/* Hero Cash Flow Card + Notes Row */}
         <div className="grid gap-3 sm:gap-4 lg:gap-6 lg:grid-cols-3">
-          {/* Hero Cash Flow Card */}
           <motion.div variants={itemVariants} className="lg:col-span-2">
             <Card className="p-2 sm:p-4 md:p-6 lg:p-8 h-full" hover={false}>
               <div className="flex flex-col h-full justify-between">
@@ -515,7 +503,6 @@ export default function Dashboard() {
             </Card>
           </motion.div>
 
-          {/* Dashboard Notes - Top Right */}
           <motion.div variants={itemVariants}>
             <Card className="p-3 sm:p-4 lg:p-5 h-full">
               <div className="flex items-center justify-between mb-3 sm:mb-4">
@@ -544,7 +531,6 @@ export default function Dashboard() {
           </motion.div>
         </div>
 
-        {/* Stat Cards Row */}
         <div className="grid grid-cols-2 sm:grid-cols-2 xl:grid-cols-4 gap-2 sm:gap-3 lg:gap-4">
           <StatCard
             label="Total Customers"
@@ -576,9 +562,7 @@ export default function Dashboard() {
           />
         </div>
 
-        {/* Chart and Monthly Summary Row */}
         <div className="grid gap-3 sm:gap-4 lg:gap-6 lg:grid-cols-5">
-          {/* Sales Chart */}
           <motion.div variants={itemVariants} className="lg:col-span-3">
             <Card className="p-3 sm:p-4 lg:p-6 h-full">
               <div className="flex flex-wrap items-center justify-between gap-2 sm:gap-3 lg:gap-4 mb-3 sm:mb-4 lg:mb-6">
@@ -655,7 +639,6 @@ export default function Dashboard() {
             </Card>
           </motion.div>
 
-          {/* Monthly Summary */}
           <motion.div variants={itemVariants} className="lg:col-span-2">
           <Card className="p-3 sm:p-4 lg:p-6 h-full">
               <div className="flex items-center justify-between mb-3 sm:mb-4 lg:mb-6">
@@ -706,7 +689,6 @@ export default function Dashboard() {
           </motion.div>
         </div>
 
-        {/* Top Entities - Tabbed Card */}
         <motion.div variants={itemVariants}>
           <Card className="p-3 sm:p-4 lg:p-6">
             <div className="flex flex-wrap items-center justify-between gap-2 sm:gap-3 lg:gap-4 mb-3 sm:mb-4 lg:mb-6">
@@ -754,7 +736,6 @@ export default function Dashboard() {
           </Card>
         </motion.div>
 
-        {/* Recent Activities - Full Width */}
         <motion.div variants={itemVariants}>
           <Card className="p-3 sm:p-4 lg:p-6 overflow-hidden">
             <div className="flex flex-wrap items-center justify-between gap-2 sm:gap-3 lg:gap-4 mb-3 sm:mb-4 lg:mb-6">

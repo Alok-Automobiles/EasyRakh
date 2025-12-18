@@ -47,11 +47,10 @@ export async function GET(request: NextRequest) {
     const startDate = searchParams.get('startDate');
     const endDate = searchParams.get('endDate');
     
-    // Pagination parameters
     const pageParam = Number(searchParams.get('page') || '1');
     const limitParam = Number(searchParams.get('limit') || '50');
     const page = Number.isNaN(pageParam) || pageParam < 1 ? 1 : pageParam;
-    const limit = Number.isNaN(limitParam) || limitParam < 1 ? 50 : Math.min(limitParam, 100); // Max 100 per page
+    const limit = Number.isNaN(limitParam) || limitParam < 1 ? 50 : Math.min(limitParam, 100);
     const skip = (page - 1) * limit;
 
     const db = await getDb();
@@ -88,7 +87,6 @@ export async function GET(request: NextRequest) {
       }
     }
 
-    // Get total count and paginated transactions in parallel
     const [total, transactions] = await Promise.all([
       transactionsCollection.countDocuments(query),
       transactionsCollection
@@ -152,7 +150,6 @@ export async function POST(request: NextRequest) {
     const suppliersCollection = db.collection('suppliers');
     const customEntitiesCollection = db.collection('customEntities');
 
-    // Verify entity exists and belongs to user
     let entity;
     let entityDisplayName = 'Entity';
     
@@ -169,13 +166,11 @@ export async function POST(request: NextRequest) {
       });
       entityDisplayName = 'Supplier';
     } else {
-      // Custom entity type
       entity = await customEntitiesCollection.findOne({
         _id: new ObjectId(validatedData.entityId),
         collectionType: validatedData.entityType,
         userId,
       });
-      // Get collection type name for display
       const collectionTypesCollection = db.collection('collectionTypes');
       const collectionType = await collectionTypesCollection.findOne({
         userId,
@@ -213,20 +208,17 @@ export async function POST(request: NextRequest) {
       createdAt: new Date(),
     });
 
-    // Invalidate related caches
     try {
       const cachesToInvalidate = [
         `dashboard:stats:${userId}`,
         `ledger:${validatedData.entityType}:${validatedData.entityId}:${userId}`
       ];
       
-      // Also invalidate the entity list cache based on entity type
       if (validatedData.entityType === 'customer') {
         cachesToInvalidate.push(`customers:${userId}`);
       } else if (validatedData.entityType === 'supplier') {
         cachesToInvalidate.push(`suppliers:${userId}`);
       } else {
-        // Custom entity type
         cachesToInvalidate.push(`customEntities:${validatedData.entityType}:${userId}`);
       }
       

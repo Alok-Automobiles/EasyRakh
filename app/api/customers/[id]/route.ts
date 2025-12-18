@@ -110,7 +110,6 @@ export async function PUT(
       );
     }
 
-    // Invalidate related caches
     try {
       await redis.del(`customers:${userId}`, `dashboard:stats:${userId}`, `ledger:customer:${id}:${userId}`);
     } catch (cacheError) {
@@ -159,7 +158,6 @@ export async function DELETE(
     const customersCollection = db.collection('customers');
     const transactionsCollection = db.collection('transactions');
 
-    // Delete all transactions associated with this customer
     await transactionsCollection.deleteMany({
       $or: [
         { customerId: id, userId },
@@ -179,7 +177,6 @@ export async function DELETE(
       );
     }
 
-    // Invalidate related caches
     try {
       await redis.del(`customers:${userId}`, `dashboard:stats:${userId}`, `ledger:customer:${id}:${userId}`);
     } catch (cacheError) {

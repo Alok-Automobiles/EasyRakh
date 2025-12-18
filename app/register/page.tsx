@@ -54,7 +54,6 @@ export default function RegisterPage() {
   const onSubmit = async (data: RegisterForm) => {
     setLoading(true);
     try {
-      // Normalize empty strings to undefined for optional fields
       const submitData = {
         ...data,
         firmTitle: data.firmTitle?.trim() || undefined,

@@ -74,7 +74,6 @@ export default function NotesPage() {
     };
   }, [isColorDropdownOpen]);
 
-  // Focus input/textarea when editing starts
   useEffect(() => {
     if (editingNoteId && editingField === 'title' && titleInputRef.current) {
       titleInputRef.current.focus();
@@ -103,7 +102,6 @@ export default function NotesPage() {
         setNotes([data.note, ...notes]);
         setIsColorDropdownOpen(false);
         toast.success('Note created');
-        // Start editing the title immediately
         setTimeout(() => {
           setEditingNoteId(data.note.id);
           setEditingField('title');
@@ -133,7 +131,6 @@ export default function NotesPage() {
     const newTitle = editingField === 'title' ? editTitle : note.title;
     const newContent = editingField === 'content' ? editContent : note.content;
 
-    // Only save if something changed
     if (newTitle === note.title && newContent === (note.content || '')) {
       setEditingNoteId(null);
       setEditingField(null);

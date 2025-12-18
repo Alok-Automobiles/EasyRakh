@@ -11,7 +11,6 @@ const loginSchema = z.object({
 });
 
 export async function POST(request: NextRequest) {
-  // Rate limiting for auth endpoints
   const rateLimitResponse = await checkRateLimit(request, rateLimitConfigs.auth);
   if (rateLimitResponse) {
     return rateLimitResponse;
@@ -24,7 +23,6 @@ export async function POST(request: NextRequest) {
     const db = await getDb();
     const usersCollection = db.collection('users');
 
-    // Find user
     const user = await usersCollection.findOne({
       email: validatedData.email.toLowerCase(),
     });
@@ -36,7 +34,6 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Verify password
     const isValidPassword = await bcrypt.compare(
       validatedData.password,
       user.password
@@ -49,7 +46,6 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Generate token
     const token = generateToken({
       userId: user._id.toString(),
       email: user.email,
@@ -67,12 +63,11 @@ export async function POST(request: NextRequest) {
       { status: 200 }
     );
 
-    // Set cookie
     response.cookies.set('token', token, {
       httpOnly: true,
       secure: process.env.NODE_ENV === 'production',
       sameSite: 'lax',
-      maxAge: 60 * 60 * 24 * 7, // 7 days
+      maxAge: 60 * 60 * 24 * 7,
     });
 
     return response;
