@@ -5,8 +5,15 @@ export function middleware(request: NextRequest) {
   const token = request.cookies.get('token')?.value;
   const { pathname } = request.nextUrl;
 
-  const publicRoutes = ['/', '/login', '/register'];
-  const isPublicRoute = publicRoutes.includes(pathname);
+  if (pathname === '/forgot-password' || pathname.startsWith('/forgot-password/')) {
+    return NextResponse.next();
+  }
+
+  const publicRoutes = ['/', '/login', '/register', '/forgot-password'];
+  const isPublicRoute = publicRoutes.some((route) => {
+    if (route === '/') return pathname === '/';
+    return pathname === route || pathname.startsWith(`${route}/`);
+  });
 
   if (!token && !isPublicRoute) {
     return NextResponse.redirect(new URL('/login', request.url));
@@ -28,8 +35,9 @@ export const config = {
      * - _next/image (image optimization files)
      * - favicon.ico (favicon file)
      * - public folder
+     * - forgot-password flow (handled client-side)
      */
-    '/((?!api|_next/static|_next/image|favicon.ico|.*\\.(?:svg|png|jpg|jpeg|gif|webp)$).*)',
+    '/((?!api|_next/static|_next/image|favicon.ico|forgot-password|.*\\.(?:svg|png|jpg|jpeg|gif|webp)$).*)',
   ],
 };
 

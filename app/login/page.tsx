@@ -93,6 +93,13 @@ export default function LoginPage() {
               >
                 create a new account
               </Link>
+              <span className="mx-1">•</span>
+              <Link
+                href="/forgot-password"
+                className="font-medium text-primary hover:underline"
+              >
+                forgot password
+              </Link>
             </CardDescription>
           </CardHeader>
           <CardContent>
