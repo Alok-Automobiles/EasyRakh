@@ -19,6 +19,22 @@ import { RecentActivity } from '@/lib/types';
 import { Button } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
 import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+} from '@/components/ui/dialog';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
+import {
   Users,
   Truck,
   TrendingUp,
@@ -31,6 +47,7 @@ import {
   ClipboardList,
   StickyNote,
   BarChart3,
+  Plus,
 } from 'lucide-react';
 
 const currencyFormatter = new Intl.NumberFormat('en-IN', {
@@ -192,7 +209,7 @@ const StatCard = ({
       <div className="flex items-start justify-between gap-1 sm:gap-2 lg:gap-3">
         <div className="min-w-0 flex-1">
           <p className="text-[9px] sm:text-[10px] lg:text-xs font-semibold uppercase tracking-wide text-gray-500 truncate">{label}</p>
-          <p className="text-base sm:text-lg lg:text-xl xl:text-2xl font-bold text-gray-900 mt-0.5 sm:mt-1 lg:mt-2 tracking-tight break-words">{value}</p>
+          <p className="text-base sm:text-lg lg:text-xl xl:text-2xl font-bold text-gray-900 mt-0.5 sm:mt-1 lg:mt-2 tracking-tight wrap-break-word">{value}</p>
         </div>
         <div className={`p-1 sm:p-1.5 lg:p-2 xl:p-2.5 rounded-md sm:rounded-lg lg:rounded-xl shrink-0 ${iconBg}`}>
           {icon}
@@ -270,7 +287,7 @@ const ActivityRow = ({
         {/* Amount & Time */}
         <div className="text-right shrink-0 ml-1 sm:ml-2 lg:ml-3">
           {activity.amount !== undefined ? (
-            <p className={`text-xs sm:text-sm lg:text-base font-bold ${isCredit ? 'text-green-700' : 'text-red-700'} break-words leading-tight`}>
+            <p className={`text-xs sm:text-sm lg:text-base font-bold ${isCredit ? 'text-green-700' : 'text-red-700'} wrap-break-word leading-tight`}>
               {isCredit ? '+' : '-'}₹{activity.amount.toLocaleString('en-IN')}
             </p>
           ) : (
@@ -328,6 +345,11 @@ export default function Dashboard() {
   const [loading, setLoading] = useState(true);
   const [currentPage, setCurrentPage] = useState(1);
   const [activeEntityTab, setActiveEntityTab] = useState<'customers' | 'suppliers'>('customers');
+  const [addTransactionOpen, setAddTransactionOpen] = useState(false);
+  const [entryType, setEntryType] = useState<'in' | 'out'>('in');
+  const [amount, setAmount] = useState('');
+  const [description, setDescription] = useState('');
+  const [addingTransaction, setAddingTransaction] = useState(false);
   const activitiesPerPage = 5;
   const hasFetchedRef = useRef(false);
 
@@ -395,6 +417,64 @@ export default function Dashboard() {
     totalOut: point.totalOut,
     dateISO: point.dateLabel,
   }));
+
+  const resetAddTransactionForm = () => {
+    setEntryType('in');
+    setAmount('');
+    setDescription('');
+  };
+
+  const handleAddTodayTransaction = async () => {
+    if (!amount || !description) {
+      toast.error('Please fill in all fields');
+      return;
+    }
+
+    const amountNum = parseFloat(amount);
+    if (Number.isNaN(amountNum) || amountNum <= 0) {
+      toast.error('Please enter a valid amount');
+      return;
+    }
+
+    try {
+      setAddingTransaction(true);
+      const dateString = format(new Date(), 'dd-MM-yyyy');
+      const response = await fetch('/api/daily-cash-records', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          amount: amountNum,
+          type: entryType,
+          description,
+          date: dateString,
+        }),
+      });
+
+      if (response.status === 401) {
+        router.push('/login');
+        return;
+      }
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        toast.error(data.error || 'Failed to add transaction');
+        return;
+      }
+
+      toast.success(`Money ${entryType === 'in' ? 'added' : 'deducted'} successfully`);
+      resetAddTransactionForm();
+      setAddTransactionOpen(false);
+      fetchDashboardData();
+    } catch (error) {
+      console.error('Error adding transaction:', error);
+      toast.error('Failed to add transaction');
+    } finally {
+      setAddingTransaction(false);
+    }
+  };
 
   if (loading) {
     return (
@@ -468,24 +548,116 @@ export default function Dashboard() {
           <motion.div variants={itemVariants} className="lg:col-span-2">
             <Card className="p-2 sm:p-4 md:p-6 lg:p-8 h-full" hover={false}>
               <div className="flex flex-col h-full justify-between">
-                <div>
-                  <p className="text-[10px] sm:text-xs lg:text-sm font-medium text-slate-700 uppercase tracking-wider mb-1 sm:mb-2 lg:mb-3">
-                    Today&apos;s Cash Position
-                  </p>
-          <p className="text-xl sm:text-2xl md:text-3xl lg:text-4xl xl:text-5xl font-bold text-gray-900 tracking-tight break-words">
-                    {formatCurrency(stats.todayCash.totalLeft)}
-                  </p>
-                  <p className="text-[10px] sm:text-xs lg:text-sm text-gray-500 mt-0.5 sm:mt-1 lg:mt-2">
-                    Final balance as of {format(new Date(), 'h:mm a')}
-                  </p>
-                </div>
+                <Dialog
+                  open={addTransactionOpen}
+                  onOpenChange={(open) => {
+                    setAddTransactionOpen(open);
+                    if (!open) {
+                      resetAddTransactionForm();
+                    }
+                  }}
+                >
+                  <div className="flex flex-wrap items-start justify-between gap-2 sm:gap-3">
+                    <div className="min-w-0 flex-1">
+                      <p className="text-[10px] sm:text-xs lg:text-sm font-medium text-slate-700 uppercase tracking-wider mb-1 sm:mb-2 lg:mb-3">
+                        Today&apos;s Cash Position
+                      </p>
+                      <p className="text-xl sm:text-2xl md:text-3xl lg:text-4xl xl:text-5xl font-bold text-gray-900 tracking-tight wrap-break-word">
+                        {formatCurrency(stats.todayCash.totalLeft)}
+                      </p>
+                      <p className="text-[10px] sm:text-xs lg:text-sm text-gray-500 mt-0.5 sm:mt-1 lg:mt-2">
+                        Final balance as of {format(new Date(), 'h:mm a')}
+                      </p>
+                    </div>
+                    <div className="flex flex-col items-end gap-2 shrink-0">
+                      <DialogTrigger asChild>
+                        <Button
+                          size="sm"
+                          className="bg-slate-900 hover:bg-slate-800 text-white h-9 sm:h-9"
+                        >
+                          <Plus className="w-4 h-4 mr-1" />
+                          Add Transaction
+                        </Button>
+                      </DialogTrigger>
+                      <Link
+                        href="/daily-cash-record"
+                        className="text-[11px] sm:text-xs text-blue-700 hover:text-blue-800 underline-offset-4 hover:underline"
+                      >
+                        View daily cash record
+                      </Link>
+                    </div>
+                  </div>
+
+                  <DialogContent className="max-w-[90vw] sm:max-w-md">
+                    <DialogHeader>
+                      <DialogTitle>Add today&apos;s cash transaction</DialogTitle>
+                    </DialogHeader>
+                    <div className="space-y-4">
+                      <div className="grid gap-2">
+                        <Label>Transaction type *</Label>
+                        <Select
+                          value={entryType}
+                          onValueChange={(value: 'in' | 'out') => setEntryType(value)}
+                        >
+                          <SelectTrigger className="w-full">
+                            <SelectValue placeholder="Select type" />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="in">Money In</SelectItem>
+                            <SelectItem value="out">Money Out</SelectItem>
+                          </SelectContent>
+                        </Select>
+                      </div>
+
+                      <div className="grid gap-2">
+                        <Label htmlFor="today-amount">Amount *</Label>
+                        <Input
+                          id="today-amount"
+                          type="number"
+                          inputMode="decimal"
+                          placeholder="Enter amount"
+                          value={amount}
+                          onChange={(e) => setAmount(e.target.value)}
+                        />
+                      </div>
+
+                      <div className="grid gap-2">
+                        <Label htmlFor="today-description">Description *</Label>
+                        <Input
+                          id="today-description"
+                          placeholder="Enter description"
+                          value={description}
+                          onChange={(e) => setDescription(e.target.value)}
+                        />
+                      </div>
+
+                      <div className="grid gap-2">
+                        <Label>Date</Label>
+                        <Input
+                          value={format(new Date(), 'dd-MM-yyyy')}
+                          readOnly
+                          className="bg-gray-50"
+                        />
+                      </div>
+
+                      <Button
+                        className="w-full bg-slate-900 hover:bg-slate-800 text-white"
+                        onClick={handleAddTodayTransaction}
+                        disabled={addingTransaction}
+                      >
+                        {addingTransaction ? 'Adding...' : 'Add Transaction'}
+                      </Button>
+                    </div>
+                  </DialogContent>
+                </Dialog>
+
                 <div className="flex flex-wrap gap-1.5 sm:gap-3 lg:gap-4 mt-3 sm:mt-4 lg:mt-6">
                   <div className="rounded-lg sm:rounded-xl lg:rounded-2xl px-2 sm:px-4 lg:px-6 py-2 sm:py-3 lg:py-4 flex-1 min-w-0 sm:min-w-[140px] lg:min-w-[160px] bg-green-100">
                     <div className="flex items-center gap-1 sm:gap-2 text-green-700 mb-0.5 sm:mb-1">
                       <ArrowUpRight className="w-3 h-3 sm:w-4 sm:h-4 lg:w-5 lg:h-5 shrink-0" />
                       <span className="text-[9px] sm:text-[10px] lg:text-xs font-semibold uppercase tracking-wide">Cash In</span>
                     </div>
-                    <p className="text-base sm:text-lg lg:text-xl xl:text-2xl font-bold text-green-700 break-words leading-tight">
+                    <p className="text-base sm:text-lg lg:text-xl xl:text-2xl font-bold text-green-700 wrap-break-word leading-tight">
                       {formatCurrency(stats.todayCash.totalIn)}
                     </p>
                   </div>
@@ -494,7 +666,7 @@ export default function Dashboard() {
                       <ArrowDownRight className="w-3 h-3 sm:w-4 sm:h-4 lg:w-5 lg:h-5 shrink-0" />
                       <span className="text-[9px] sm:text-[10px] lg:text-xs font-semibold uppercase tracking-wide">Cash Out</span>
                     </div>
-                    <p className="text-base sm:text-lg lg:text-xl xl:text-2xl font-bold text-red-700 break-words leading-tight">
+                    <p className="text-base sm:text-lg lg:text-xl xl:text-2xl font-bold text-red-700 wrap-break-word leading-tight">
                       {formatCurrency(stats.todayCash.totalOut)}
                     </p>
                   </div>
