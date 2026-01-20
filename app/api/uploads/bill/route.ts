@@ -35,7 +35,10 @@ export async function POST(request: NextRequest) {
     }
 
     if (file.size > MAX_FILE_SIZE_BYTES) {
-      return NextResponse.json({ error: 'File size exceeds 5MB limit.' }, { status: 400 });
+      return NextResponse.json(
+        { error: 'File size exceeds 5MB limit. For images, try refreshing the page and uploading again.' },
+        { status: 400 }
+      );
     }
 
     const arrayBuffer = await file.arrayBuffer();
