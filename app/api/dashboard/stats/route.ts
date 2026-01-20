@@ -391,6 +391,9 @@ export async function GET(request: NextRequest) {
     );
 
     for (const transaction of recentTransactions) {
+      const transactionId =
+        (transaction._id && transaction._id.toString()) ||
+        `${transaction.entityId || transaction.customerId || transaction.supplierId || 'tx'}_${transaction.date?.toString() || Date.now()}`;
       const entityId = transaction.entityId || transaction.customerId || transaction.supplierId || '';
       const entityType = transaction.entityType || (transaction.customerId ? 'customer' : 'supplier');
       
@@ -405,7 +408,7 @@ export async function GET(request: NextRequest) {
       }
       
       activities.push({
-        id: transaction._id.toString(),
+        id: transactionId,
         type: 'transaction',
         entityName: entityName,
         description: transaction.description || `Transaction of ₹${transaction.amount}`,
