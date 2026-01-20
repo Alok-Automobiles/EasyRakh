@@ -19,6 +19,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Skeleton } from '@/components/ui/skeleton';
 import { motion } from 'motion/react'
 import PrintLedgerOverlay from '@/components/PrintLedgerOverlay';
+import { compressImage, isCompressibleImage, formatFileSize } from '@/lib/imageCompression';
 
 interface LedgerEntry {
   date: Date;
@@ -31,7 +32,7 @@ interface LedgerEntry {
   transactionId?: string;
 }
 
-const MAX_BILL_SIZE_BYTES = 5 * 1024 * 1024;
+const MAX_BILL_SIZE_BYTES = 5 * 1024 * 1024; // 5MB - used for compression target
 const ACCEPTED_BILL_TYPES = [
   'image/jpeg',
   'image/png',
@@ -275,17 +276,34 @@ export default function LedgerPage() {
       return;
     }
 
-    if (file.size > MAX_BILL_SIZE_BYTES) {
-      toast.error('File size exceeds 5MB limit.');
-      event.target.value = '';
-      return;
-    }
-
     setBillModalUploading(true);
-    const formData = new FormData();
-    formData.append('file', file);
 
     try {
+      let fileToUpload = file;
+
+      // Compress image if it's too large and is a compressible type
+      if (file.size > MAX_BILL_SIZE_BYTES && isCompressibleImage(file)) {
+        toast.loading('Compressing image...', { id: 'compress' });
+        const compressionResult = await compressImage(file, MAX_BILL_SIZE_BYTES);
+        toast.dismiss('compress');
+        
+        if (compressionResult.wasCompressed) {
+          fileToUpload = compressionResult.file;
+          toast.success(
+            `Image compressed: ${formatFileSize(compressionResult.originalSize)} → ${formatFileSize(compressionResult.compressedSize)}`
+          );
+        }
+      } else if (file.size > MAX_BILL_SIZE_BYTES) {
+        // Non-compressible files (PDF, HEIC) that are too large
+        toast.error('PDF and HEIC files must be under 5MB. Please reduce the file size manually.');
+        event.target.value = '';
+        setBillModalUploading(false);
+        return;
+      }
+
+      const formData = new FormData();
+      formData.append('file', fileToUpload);
+
       const response = await fetch('/api/uploads/bill', {
         method: 'POST',
         body: formData,
