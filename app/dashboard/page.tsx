@@ -1,4 +1,4 @@
-import { cookies } from 'next/headers';
+import { headers } from 'next/headers';
 import DashboardClient from './DashboardClient';
 
 export const revalidate = 0;
@@ -13,11 +13,8 @@ async function fetchDashboardDataServer() {
 
     let cookieHeader = '';
     try {
-      const cookieStore = cookies();
-      cookieHeader = cookieStore
-        .getAll()
-        .map(({ name, value }) => `${name}=${value}`)
-        .join('; ');
+      const hdrs = await headers();
+      cookieHeader = hdrs.get('cookie') || '';
     } catch {
       // If cookies() fails (e.g., Turbopack dev), skip server prefetch to avoid errors
       return null;
