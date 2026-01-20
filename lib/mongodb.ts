@@ -17,22 +17,20 @@ let client: MongoClient;
 let clientPromise: Promise<MongoClient>;
 let indexesInitialized = false;
 
-if (process.env.NODE_ENV === 'development') {
-  let globalWithMongo = global as typeof globalThis & {
-    _mongoClientPromise?: Promise<MongoClient>;
-    _indexesInitialized?: boolean;
-  };
+type GlobalWithMongo = typeof globalThis & {
+  _mongoClientPromise?: Promise<MongoClient>;
+  _indexesInitialized?: boolean;
+};
 
-  if (!globalWithMongo._mongoClientPromise) {
-    client = new MongoClient(uri, options);
-    globalWithMongo._mongoClientPromise = client.connect();
-  }
-  clientPromise = globalWithMongo._mongoClientPromise;
-  indexesInitialized = globalWithMongo._indexesInitialized || false;
-} else {
+const globalWithMongo = global as GlobalWithMongo;
+
+if (!globalWithMongo._mongoClientPromise) {
   client = new MongoClient(uri, options);
-  clientPromise = client.connect();
+  globalWithMongo._mongoClientPromise = client.connect();
 }
+
+clientPromise = globalWithMongo._mongoClientPromise;
+indexesInitialized = globalWithMongo._indexesInitialized || false;
 
 export async function getDb(): Promise<Db> {
   const client = await clientPromise;
@@ -41,13 +39,8 @@ export async function getDb(): Promise<Db> {
   if (!indexesInitialized) {
     await initializeIndexes(db);
     indexesInitialized = true;
-    
-    if (process.env.NODE_ENV === 'development') {
-      let globalWithMongo = global as typeof globalThis & {
-        _indexesInitialized?: boolean;
-      };
-      globalWithMongo._indexesInitialized = true;
-    }
+
+    globalWithMongo._indexesInitialized = true;
   }
   
   return db;
