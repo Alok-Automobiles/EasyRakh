@@ -345,6 +345,7 @@ export default function DashboardClient({ initialData }: { initialData?: Dashboa
   const [topCustomers, setTopCustomers] = useState<TopEntity[]>(initialData?.topCustomers || []);
   const [topSuppliers, setTopSuppliers] = useState<TopEntity[]>(initialData?.topSuppliers || []);
   const [loading, setLoading] = useState(!initialData);
+  const [isRefreshing, setIsRefreshing] = useState(false);
   const [currentPage, setCurrentPage] = useState(1);
   const [activeEntityTab, setActiveEntityTab] = useState<'customers' | 'suppliers'>('customers');
   const [addTransactionOpen, setAddTransactionOpen] = useState(false);
@@ -355,9 +356,13 @@ export default function DashboardClient({ initialData }: { initialData?: Dashboa
   const activitiesPerPage = 5;
   const hasFetchedRef = useRef(Boolean(initialData));
 
-  const fetchDashboardData = useCallback(async () => {
+  const fetchDashboardData = useCallback(async (showLoading = true) => {
     try {
-      setLoading(true);
+      if (showLoading) {
+        setLoading(true);
+      } else {
+        setIsRefreshing(true);
+      }
       const response = await fetch('/api/dashboard/stats', {
         cache: 'no-store',
         keepalive: true,
@@ -381,9 +386,12 @@ export default function DashboardClient({ initialData }: { initialData?: Dashboa
       setTopSuppliers(data.topSuppliers || []);
     } catch (error) {
       console.error('Failed to fetch dashboard data', error);
-      toast.error('Failed to fetch dashboard data');
+      if (showLoading) {
+        toast.error('Failed to fetch dashboard data');
+      }
     } finally {
       setLoading(false);
+      setIsRefreshing(false);
     }
   }, [router]);
 
@@ -443,6 +451,21 @@ export default function DashboardClient({ initialData }: { initialData?: Dashboa
       return;
     }
 
+    // Save previous state for rollback on error
+    const previousStats = stats;
+
+    // Optimistically update todayCash immediately
+    const newTodayCash = {
+      totalIn: stats.todayCash.totalIn + (entryType === 'in' ? amountNum : 0),
+      totalOut: stats.todayCash.totalOut + (entryType === 'out' ? amountNum : 0),
+      totalLeft: stats.todayCash.totalLeft + (entryType === 'in' ? amountNum : -amountNum),
+    };
+    setStats((prev) => ({ ...prev, todayCash: newTodayCash }));
+
+    // Close dialog and reset form immediately for snappy UX
+    resetAddTransactionForm();
+    setAddTransactionOpen(false);
+
     try {
       setAddingTransaction(true);
       const dateString = format(new Date(), 'dd-MM-yyyy');
@@ -460,6 +483,7 @@ export default function DashboardClient({ initialData }: { initialData?: Dashboa
       });
 
       if (response.status === 401) {
+        setStats(previousStats);
         router.push('/login');
         return;
       }
@@ -467,15 +491,18 @@ export default function DashboardClient({ initialData }: { initialData?: Dashboa
       const data = await response.json();
 
       if (!response.ok) {
+        // Rollback on error
+        setStats(previousStats);
         toast.error(data.error || 'Failed to add transaction');
         return;
       }
 
       toast.success(`Money ${entryType === 'in' ? 'added' : 'deducted'} successfully`);
-      resetAddTransactionForm();
-      setAddTransactionOpen(false);
-      fetchDashboardData();
+      // Background refresh without skeleton to sync other data (activities, monthly totals)
+      fetchDashboardData(false);
     } catch (error) {
+      // Rollback on network error
+      setStats(previousStats);
       console.error('Error adding transaction:', error);
       toast.error('Failed to add transaction');
     } finally {
