@@ -114,7 +114,7 @@ export async function GET(request: NextRequest) {
       // Cache the response with 3 minute TTL
       try {
         const cacheKey = `daily-cash:date:${userId}:${dateKey}`;
-        await redis.setex(cacheKey, 180, JSON.stringify(responseData));
+        await redis.setex(cacheKey, 300, JSON.stringify(responseData));
       } catch (cacheError) {
         console.warn('Redis cache write failed:', cacheError);
       }
@@ -171,7 +171,7 @@ export async function GET(request: NextRequest) {
       // Cache the response with 3 minute TTL
       try {
         const cacheKey = `daily-cash:list:${userId}:page:${page}`;
-        await redis.setex(cacheKey, 180, JSON.stringify(responseData));
+        await redis.setex(cacheKey, 300, JSON.stringify(responseData));
       } catch (cacheError) {
         console.warn('Redis cache write failed:', cacheError);
       }

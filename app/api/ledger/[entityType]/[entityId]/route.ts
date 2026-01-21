@@ -155,7 +155,7 @@ export async function GET(
     // Cache the response with 90 second TTL
     try {
       const cacheKey = `ledger:${entityType}:${entityId}:${userId}`;
-      await redis.setex(cacheKey, 90, JSON.stringify(responseData));
+      await redis.setex(cacheKey, 180, JSON.stringify(responseData));
     } catch (cacheError) {
       // If Redis fails, continue without caching
       console.warn('Redis cache write failed:', cacheError);

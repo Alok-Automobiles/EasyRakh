@@ -1,11 +1,12 @@
 'use client';
 
-import { useState, useEffect, useRef } from 'react';
+import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import toast from 'react-hot-toast';
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import EntityCard from '@/components/EntityCard';
 import {
   Dialog,
@@ -50,13 +51,12 @@ type SupplierForm = z.infer<typeof supplierSchema>;
 
 export default function SuppliersPage() {
   const router = useRouter();
-  const [suppliers, setSuppliers] = useState<(Supplier & { id: string; totalBalance: number })[]>([]);
-  const [loading, setLoading] = useState(true);
+  const queryClient = useQueryClient();
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingSupplier, setEditingSupplier] = useState<string | null>(null);
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [deletingSupplier, setDeletingSupplier] = useState<{ id: string; name: string } | null>(null);
-  const hasFetchedRef = useRef(false);
+
   const form = useForm<SupplierForm>({
     resolver: zodResolver(supplierSchema),
     defaultValues: {
@@ -69,97 +69,93 @@ export default function SuppliersPage() {
     },
   });
 
-  useEffect(() => {
-    if (hasFetchedRef.current) return;
-    hasFetchedRef.current = true;
-    fetchSuppliers();
-  }, []);
-
-  const fetchSuppliers = async () => {
-    try {
+  // React Query for fetching suppliers - cached across navigation
+  const { data, isLoading, error } = useQuery<{ suppliers: (Supplier & { id: string; totalBalance: number })[] }>({
+    queryKey: ['suppliers'],
+    queryFn: async () => {
       const response = await fetch('/api/suppliers');
-      if (response.ok) {
-        const data = await response.json();
-        setSuppliers(data.suppliers);
-      } else if (response.status === 401) {
+      if (response.status === 401) {
         router.push('/login');
+        throw new Error('Unauthorized');
       }
-    } catch (error) {
-      toast.error('Failed to fetch suppliers');
-    } finally {
-      setLoading(false);
-    }
-  };
+      if (!response.ok) throw new Error('Failed to fetch suppliers');
+      return response.json();
+    },
+  });
 
-  const onSubmit = async (data: SupplierForm) => {
-    try {
-      const url = editingSupplier
-        ? `/api/suppliers/${editingSupplier}`
-        : '/api/suppliers';
-      const method = editingSupplier ? 'PUT' : 'POST';
+  const suppliers = data?.suppliers ?? [];
 
+  // Mutation for creating/updating suppliers
+  const saveMutation = useMutation({
+    mutationFn: async (formData: SupplierForm & { id?: string }) => {
+      const url = formData.id ? `/api/suppliers/${formData.id}` : '/api/suppliers';
+      const method = formData.id ? 'PUT' : 'POST';
       const response = await fetch(url, {
         method,
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(data),
+        body: JSON.stringify(formData),
       });
-
-      if (response.ok) {
+      if (!response.ok) {
         const result = await response.json();
-        const nextSupplierId = editingSupplier ?? result.supplier?.id;
-
-        toast.success(
-          editingSupplier
-            ? 'Supplier updated successfully!'
-            : 'Supplier created successfully!'
-        );
-        setIsModalOpen(false);
-        form.reset();
-        setEditingSupplier(null);
-
-        if (!editingSupplier && nextSupplierId) {
-          router.push(`/ledger/supplier/${nextSupplierId}`);
-          return;
-        }
-
-        fetchSuppliers();
-      } else {
-        const result = await response.json();
-        toast.error(result.error || 'Failed to save supplier');
+        throw new Error(result.error || 'Failed to save supplier');
       }
-    } catch (error) {
-      toast.error('An error occurred. Please try again.');
-    }
+      return response.json();
+    },
+    onSuccess: (result, variables) => {
+      toast.success(variables.id ? 'Supplier updated successfully!' : 'Supplier created successfully!');
+      setIsModalOpen(false);
+      form.reset();
+      setEditingSupplier(null);
+      // Invalidate cache to refetch
+      queryClient.invalidateQueries({ queryKey: ['suppliers'] });
+      queryClient.invalidateQueries({ queryKey: ['dashboard'] });
+      
+      if (!variables.id && result.supplier?.id) {
+        router.push(`/ledger/supplier/${result.supplier.id}`);
+      }
+    },
+    onError: (error: Error) => {
+      toast.error(error.message || 'An error occurred. Please try again.');
+    },
+  });
+
+  // Mutation for deleting suppliers
+  const deleteMutation = useMutation({
+    mutationFn: async (id: string) => {
+      const response = await fetch(`/api/suppliers/${id}`, { method: 'DELETE' });
+      if (!response.ok) {
+        const result = await response.json();
+        throw new Error(result.error || 'Failed to delete supplier');
+      }
+      return response.json();
+    },
+    onSuccess: () => {
+      toast.success('Supplier deleted successfully!');
+      setDeleteDialogOpen(false);
+      setDeletingSupplier(null);
+      queryClient.invalidateQueries({ queryKey: ['suppliers'] });
+      queryClient.invalidateQueries({ queryKey: ['dashboard'] });
+    },
+    onError: (error: Error) => {
+      toast.error(error.message || 'An error occurred. Please try again.');
+    },
+  });
+
+  const onSubmit = (data: SupplierForm) => {
+    saveMutation.mutate({ ...data, id: editingSupplier || undefined });
   };
 
   const openDeleteDialog = (id: string) => {
-    const supplier = suppliers.find(s => s.id === id);
+    const supplier = suppliers.find((s: Supplier & { id: string }) => s.id === id);
     if (supplier) {
       setDeletingSupplier({ id: supplier.id, name: supplier.name });
       setDeleteDialogOpen(true);
     }
   };
 
-  const handleDelete = async () => {
+  const handleDelete = () => {
     if (!deletingSupplier) return;
-
-    try {
-      const response = await fetch(`/api/suppliers/${deletingSupplier.id}`, {
-        method: 'DELETE',
-      });
-
-      if (response.ok) {
-        toast.success('Supplier deleted successfully!');
-        setDeleteDialogOpen(false);
-        setDeletingSupplier(null);
-        fetchSuppliers();
-      } else {
-        const result = await response.json();
-        toast.error(result.error || 'Failed to delete supplier');
-      }
-    } catch (error) {
-      toast.error('An error occurred. Please try again.');
-    }
+    deleteMutation.mutate(deletingSupplier.id);
   };
 
   const handleEdit = (supplier: Supplier & { id: string }) => {
@@ -175,7 +171,7 @@ export default function SuppliersPage() {
     setIsModalOpen(true);
   };
 
-  if (loading) {
+  if (isLoading) {
     return (
       <motion.div
         initial={{ opacity: 0 }}

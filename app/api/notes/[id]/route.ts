@@ -96,12 +96,10 @@ export async function PUT(
       userId,
     });
 
-    // Invalidate dashboard stats cache (notes are included in dashboard)
-    try {
-      await redis.del(`dashboard:stats:${userId}`);
-    } catch (cacheError) {
-      console.warn('Redis cache invalidation failed:', cacheError);
-    }
+    // Non-blocking cache invalidation
+    redis.del(`dashboard:stats:${userId}`).catch((err) => {
+      console.warn('Redis cache invalidation failed:', err);
+    });
 
     return NextResponse.json({
       message: 'Note updated successfully',
@@ -169,12 +167,10 @@ export async function DELETE(
       userId,
     });
 
-    // Invalidate dashboard stats cache (notes are included in dashboard)
-    try {
-      await redis.del(`dashboard:stats:${userId}`);
-    } catch (cacheError) {
-      console.warn('Redis cache invalidation failed:', cacheError);
-    }
+    // Non-blocking cache invalidation
+    redis.del(`dashboard:stats:${userId}`).catch((err) => {
+      console.warn('Redis cache invalidation failed:', err);
+    });
 
     return NextResponse.json({
       message: 'Note deleted successfully',

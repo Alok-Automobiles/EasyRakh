@@ -208,24 +208,23 @@ export async function POST(request: NextRequest) {
       createdAt: new Date(),
     });
 
-    try {
-      const cachesToInvalidate = [
-        `dashboard:stats:${userId}`,
-        `ledger:${validatedData.entityType}:${validatedData.entityId}:${userId}`
-      ];
-      
-      if (validatedData.entityType === 'customer') {
-        cachesToInvalidate.push(`customers:${userId}`);
-      } else if (validatedData.entityType === 'supplier') {
-        cachesToInvalidate.push(`suppliers:${userId}`);
-      } else {
-        cachesToInvalidate.push(`customEntities:${validatedData.entityType}:${userId}`);
-      }
-      
-      await redis.del(...cachesToInvalidate);
-    } catch (cacheError) {
-      console.warn('Redis cache invalidation failed:', cacheError);
+    // Non-blocking cache invalidation
+    const cachesToInvalidate = [
+      `dashboard:stats:${userId}`,
+      `ledger:${validatedData.entityType}:${validatedData.entityId}:${userId}`
+    ];
+    
+    if (validatedData.entityType === 'customer') {
+      cachesToInvalidate.push(`customers:${userId}`);
+    } else if (validatedData.entityType === 'supplier') {
+      cachesToInvalidate.push(`suppliers:${userId}`);
+    } else {
+      cachesToInvalidate.push(`customEntities:${validatedData.entityType}:${userId}`);
     }
+    
+    redis.del(...cachesToInvalidate).catch((err) => {
+      console.warn('Redis cache invalidation failed:', err);
+    });
 
     return NextResponse.json(
       {

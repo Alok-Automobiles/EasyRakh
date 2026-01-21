@@ -6,6 +6,7 @@ import AppShell from "@/components/AppShell";
 import { Toaster } from "react-hot-toast";
 import VoiceAssistantWrapper from "@/components/VoiceAssistantWrapper";
 import { Analytics } from "@vercel/analytics/next";
+import { Providers } from "./providers";
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -35,11 +36,13 @@ export default function RootLayout({
       <body
         className={`${geistSans.variable} ${geistMono.variable} antialiased overflow-x-hidden`}
       >
-        <AppShell>
-          {children}
-        </AppShell>
-        <Toaster position="top-right" />
-        <VoiceAssistantWrapper />
+        <Providers>
+          <AppShell>
+            {children}
+          </AppShell>
+          <Toaster position="top-right" />
+          <VoiceAssistantWrapper />
+        </Providers>
         <Analytics />
       </body>
     </html>

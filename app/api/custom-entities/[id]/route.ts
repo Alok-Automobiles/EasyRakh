@@ -138,21 +138,21 @@ export async function PUT(
       );
     }
 
-    try {
-      await redis.del(
-        `customEntities:${validatedData.collectionType}:${userId}`,
-        `dashboard:stats:${userId}`,
-        `ledger:${validatedData.collectionType}:${id}:${userId}`
+    // Non-blocking cache invalidation
+    const keysToInvalidate = [
+      `customEntities:${validatedData.collectionType}:${userId}`,
+      `dashboard:stats:${userId}`,
+      `ledger:${validatedData.collectionType}:${id}:${userId}`
+    ];
+    if (existingEntity.collectionType !== validatedData.collectionType) {
+      keysToInvalidate.push(
+        `customEntities:${existingEntity.collectionType}:${userId}`,
+        `ledger:${existingEntity.collectionType}:${id}:${userId}`
       );
-      if (existingEntity.collectionType !== validatedData.collectionType) {
-        await redis.del(
-          `customEntities:${existingEntity.collectionType}:${userId}`,
-          `ledger:${existingEntity.collectionType}:${id}:${userId}`
-        );
-      }
-    } catch (cacheError) {
-      console.warn('Redis cache invalidation failed:', cacheError);
     }
+    redis.del(...keysToInvalidate).catch((err) => {
+      console.warn('Redis cache invalidation failed:', err);
+    });
 
     return NextResponse.json({
       message: 'Entity updated successfully',
@@ -226,15 +226,14 @@ export async function DELETE(
       );
     }
 
-    try {
-      await redis.del(
-        `customEntities:${entity.collectionType}:${userId}`,
-        `dashboard:stats:${userId}`,
-        `ledger:${entity.collectionType}:${id}:${userId}`
-      );
-    } catch (cacheError) {
-      console.warn('Redis cache invalidation failed:', cacheError);
-    }
+    // Non-blocking cache invalidation
+    redis.del(
+      `customEntities:${entity.collectionType}:${userId}`,
+      `dashboard:stats:${userId}`,
+      `ledger:${entity.collectionType}:${id}:${userId}`
+    ).catch((err) => {
+      console.warn('Redis cache invalidation failed:', err);
+    });
 
     return NextResponse.json({
       message: 'Entity and all associated transactions deleted successfully',

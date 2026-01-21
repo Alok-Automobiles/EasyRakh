@@ -91,12 +91,10 @@ export async function POST(request: NextRequest) {
       updatedAt: now,
     });
 
-    // Invalidate dashboard stats cache (notes are included in dashboard)
-    try {
-      await redis.del(`dashboard:stats:${userId}`);
-    } catch (cacheError) {
-      console.warn('Redis cache invalidation failed:', cacheError);
-    }
+    // Non-blocking cache invalidation
+    redis.del(`dashboard:stats:${userId}`).catch((err) => {
+      console.warn('Redis cache invalidation failed:', err);
+    });
 
     return NextResponse.json(
       {
