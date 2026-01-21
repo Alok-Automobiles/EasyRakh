@@ -225,22 +225,48 @@ export async function POST(request: NextRequest) {
       updatedAt: new Date(),
     };
 
+    const dateKey = format(normalizedDate, 'dd-MM-yyyy');
+    let responseRecord: {
+      id: string;
+      date: string;
+      entries: any[];
+      totalIn: number;
+      totalOut: number;
+      totalLeft: number;
+    };
+
     if (!record) {
       // Create new record
+      const totalIn = validatedData.type === 'in' ? validatedData.amount : 0;
+      const totalOut = validatedData.type === 'out' ? validatedData.amount : 0;
+      const totalLeft = validatedData.type === 'in' ? validatedData.amount : -validatedData.amount;
+
       const result = await dailyCashRecordsCollection.insertOne({
         userId,
         date: normalizedDate,
         entries: [newEntry],
-        totalIn: validatedData.type === 'in' ? validatedData.amount : 0,
-        totalOut: validatedData.type === 'out' ? validatedData.amount : 0,
-        totalLeft: validatedData.type === 'in' ? validatedData.amount : -validatedData.amount,
+        totalIn,
+        totalOut,
+        totalLeft,
         createdAt: new Date(),
         updatedAt: new Date(),
       });
 
-      record = await dailyCashRecordsCollection.findOne({
-        _id: result.insertedId,
-      });
+      responseRecord = {
+        id: result.insertedId.toString(),
+        date: dateKey,
+        entries: [{
+          id: newEntry._id.toString(),
+          amount: newEntry.amount,
+          type: newEntry.type,
+          description: newEntry.description,
+          createdAt: newEntry.createdAt,
+          updatedAt: newEntry.updatedAt,
+        }],
+        totalIn,
+        totalOut,
+        totalLeft,
+      };
     } else {
       // Update existing record
       const updatedEntries = [...record.entries, newEntry];
@@ -267,59 +293,39 @@ export async function POST(request: NextRequest) {
         }
       );
 
-      record = await dailyCashRecordsCollection.findOne({
-        _id: record._id,
-      });
+      responseRecord = {
+        id: record._id.toString(),
+        date: dateKey,
+        entries: updatedEntries.map((entry: any) => ({
+          id: entry._id.toString(),
+          amount: entry.amount,
+          type: entry.type,
+          description: entry.description,
+          createdAt: entry.createdAt,
+          updatedAt: entry.updatedAt,
+        })),
+        totalIn,
+        totalOut,
+        totalLeft,
+      };
     }
 
-    if (!record) {
-      return NextResponse.json(
-        { error: 'Failed to retrieve record after creation/update' },
-        { status: 500 }
-      );
+    // Invalidate related caches (non-blocking, fire and forget)
+    const keysToDelete = [
+      `daily-cash:date:${userId}:${dateKey}`,
+      `dashboard:stats:${userId}`,
+    ];
+    for (let i = 1; i <= 10; i++) {
+      keysToDelete.push(`daily-cash:list:${userId}:page:${i}`);
     }
-
-    const dateKey = format(record.date, 'dd-MM-yyyy');
-
-    // Invalidate related caches
-    // Note: We invalidate all paginated list caches since a new record could affect any page
-    try {
-      // Get all cache keys for paginated lists (we'll use a pattern match approach)
-      // Since we can't easily get all keys, we'll just invalidate the first few pages
-      // The cache will naturally expire after 3 minutes anyway
-      const keysToDelete = [
-        `daily-cash:date:${userId}:${dateKey}`,
-        `dashboard:stats:${userId}`,
-      ];
-      
-      // Delete first 10 pages (covers most common use cases)
-      for (let i = 1; i <= 10; i++) {
-        keysToDelete.push(`daily-cash:list:${userId}:page:${i}`);
-      }
-      
-      await redis.del(...keysToDelete);
-    } catch (cacheError) {
-      console.warn('Redis cache invalidation failed:', cacheError);
-    }
+    redis.del(...keysToDelete).catch((err) => {
+      console.warn('Redis cache invalidation failed:', err);
+    });
 
     return NextResponse.json(
       {
         message: 'Entry created successfully',
-        record: {
-          id: record._id.toString(),
-          date: dateKey,
-          entries: record.entries.map((entry: any) => ({
-            id: entry._id.toString(),
-            amount: entry.amount,
-            type: entry.type,
-            description: entry.description,
-            createdAt: entry.createdAt,
-            updatedAt: entry.updatedAt,
-          })),
-          totalIn: record.totalIn,
-          totalOut: record.totalOut,
-          totalLeft: record.totalLeft,
-        },
+        record: responseRecord,
       },
       { status: 201 }
     );
