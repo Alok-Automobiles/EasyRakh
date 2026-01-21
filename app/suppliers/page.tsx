@@ -70,7 +70,7 @@ export default function SuppliersPage() {
   });
 
   // React Query for fetching suppliers - cached across navigation
-  const { data, isLoading, error } = useQuery({
+  const { data, isLoading, error } = useQuery<{ suppliers: (Supplier & { id: string; totalBalance: number })[] }>({
     queryKey: ['suppliers'],
     queryFn: async () => {
       const response = await fetch('/api/suppliers');

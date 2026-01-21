@@ -70,7 +70,7 @@ export default function CustomersPage() {
   });
 
   // React Query for fetching customers - cached across navigation
-  const { data, isLoading, error } = useQuery({
+  const { data, isLoading, error } = useQuery<{ customers: (Customer & { id: string; totalBalance: number })[] }>({
     queryKey: ['customers'],
     queryFn: async () => {
       const response = await fetch('/api/customers');
