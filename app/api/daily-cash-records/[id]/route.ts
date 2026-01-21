@@ -145,16 +145,14 @@ export async function PUT(
 
     const dateKey = format(updatedRecord.date, 'dd-MM-yyyy');
 
-    // Invalidate related caches
-    try {
-      await redis.del(
-        `daily-cash:list:${userId}`,
-        `daily-cash:date:${userId}:${dateKey}`,
-        `dashboard:stats:${userId}`
-      );
-    } catch (cacheError) {
-      console.warn('Redis cache invalidation failed:', cacheError);
-    }
+    // Non-blocking cache invalidation
+    redis.del(
+      `daily-cash:list:${userId}`,
+      `daily-cash:date:${userId}:${dateKey}`,
+      `dashboard:stats:${userId}`
+    ).catch((err) => {
+      console.warn('Redis cache invalidation failed:', err);
+    });
 
     return NextResponse.json({
       message: 'Entry updated successfully',

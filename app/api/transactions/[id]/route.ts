@@ -213,36 +213,35 @@ export async function PUT(
       );
     }
 
-    try {
-      const oldEntityId = oldTransaction.entityId || oldTransaction.customerId || oldTransaction.supplierId;
-      const oldEntityType = oldTransaction.entityType || (oldTransaction.customerId ? 'customer' : 'supplier');
-      const keysToDelete = [
-        `dashboard:stats:${userId}`,
-        `ledger:${validatedData.entityType}:${validatedData.entityId}:${userId}`,
-      ];
-      
-      if (validatedData.entityType === 'customer') {
+    // Non-blocking cache invalidation
+    const oldEntityId = oldTransaction.entityId || oldTransaction.customerId || oldTransaction.supplierId;
+    const oldEntityType = oldTransaction.entityType || (oldTransaction.customerId ? 'customer' : 'supplier');
+    const keysToDelete = [
+      `dashboard:stats:${userId}`,
+      `ledger:${validatedData.entityType}:${validatedData.entityId}:${userId}`,
+    ];
+    
+    if (validatedData.entityType === 'customer') {
+      keysToDelete.push(`customers:${userId}`);
+    } else if (validatedData.entityType === 'supplier') {
+      keysToDelete.push(`suppliers:${userId}`);
+    } else {
+      keysToDelete.push(`customEntities:${validatedData.entityType}:${userId}`);
+    }
+    
+    if (oldEntityId !== validatedData.entityId || oldEntityType !== validatedData.entityType) {
+      keysToDelete.push(`ledger:${oldEntityType}:${oldEntityId}:${userId}`);
+      if (oldEntityType === 'customer') {
         keysToDelete.push(`customers:${userId}`);
-      } else if (validatedData.entityType === 'supplier') {
+      } else if (oldEntityType === 'supplier') {
         keysToDelete.push(`suppliers:${userId}`);
       } else {
-        keysToDelete.push(`customEntities:${validatedData.entityType}:${userId}`);
+        keysToDelete.push(`customEntities:${oldEntityType}:${userId}`);
       }
-      
-      if (oldEntityId !== validatedData.entityId || oldEntityType !== validatedData.entityType) {
-        keysToDelete.push(`ledger:${oldEntityType}:${oldEntityId}:${userId}`);
-        if (oldEntityType === 'customer') {
-          keysToDelete.push(`customers:${userId}`);
-        } else if (oldEntityType === 'supplier') {
-          keysToDelete.push(`suppliers:${userId}`);
-        } else {
-          keysToDelete.push(`customEntities:${oldEntityType}:${userId}`);
-        }
-      }
-      await redis.del(...keysToDelete);
-    } catch (cacheError) {
-      console.warn('Redis cache invalidation failed:', cacheError);
     }
+    redis.del(...keysToDelete).catch((err) => {
+      console.warn('Redis cache invalidation failed:', err);
+    });
 
     return NextResponse.json({
       message: 'Transaction updated successfully',
@@ -324,26 +323,25 @@ export async function DELETE(
       );
     }
 
-    try {
-      const entityId = transaction.entityId || transaction.customerId || transaction.supplierId;
-      const entityType = transaction.entityType || (transaction.customerId ? 'customer' : 'supplier');
-      const keysToDelete = [
-        `dashboard:stats:${userId}`,
-        `ledger:${entityType}:${entityId}:${userId}`
-      ];
-      
-      if (entityType === 'customer') {
-        keysToDelete.push(`customers:${userId}`);
-      } else if (entityType === 'supplier') {
-        keysToDelete.push(`suppliers:${userId}`);
-      } else {
-        keysToDelete.push(`customEntities:${entityType}:${userId}`);
-      }
-      
-      await redis.del(...keysToDelete);
-    } catch (cacheError) {
-      console.warn('Redis cache invalidation failed:', cacheError);
+    // Non-blocking cache invalidation
+    const entityId = transaction.entityId || transaction.customerId || transaction.supplierId;
+    const entityType = transaction.entityType || (transaction.customerId ? 'customer' : 'supplier');
+    const keysToDelete = [
+      `dashboard:stats:${userId}`,
+      `ledger:${entityType}:${entityId}:${userId}`
+    ];
+    
+    if (entityType === 'customer') {
+      keysToDelete.push(`customers:${userId}`);
+    } else if (entityType === 'supplier') {
+      keysToDelete.push(`suppliers:${userId}`);
+    } else {
+      keysToDelete.push(`customEntities:${entityType}:${userId}`);
     }
+    
+    redis.del(...keysToDelete).catch((err) => {
+      console.warn('Redis cache invalidation failed:', err);
+    });
 
     return NextResponse.json({
       message: 'Transaction deleted successfully',

@@ -1,11 +1,12 @@
 'use client';
 
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { format } from 'date-fns';
 import toast from 'react-hot-toast';
 import { motion } from 'motion/react';
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import {
   Area,
   AreaChart,
@@ -339,71 +340,91 @@ const NoteCard = ({ note }: { note: DashboardNote }) => {
 
 export default function DashboardClient({ initialData }: { initialData?: DashboardResponse | null }) {
   const router = useRouter();
-  const [stats, setStats] = useState<DashboardStats>(initialData?.stats || defaultStats);
-  const [recentActivities, setRecentActivities] = useState<RecentActivity[]>(initialData?.activities || []);
-  const [dashboardNotes, setDashboardNotes] = useState<DashboardNote[]>(initialData?.dashboardNotes || []);
-  const [topCustomers, setTopCustomers] = useState<TopEntity[]>(initialData?.topCustomers || []);
-  const [topSuppliers, setTopSuppliers] = useState<TopEntity[]>(initialData?.topSuppliers || []);
-  const [loading, setLoading] = useState(!initialData);
-  const [isRefreshing, setIsRefreshing] = useState(false);
+  const queryClient = useQueryClient();
   const [currentPage, setCurrentPage] = useState(1);
   const [activeEntityTab, setActiveEntityTab] = useState<'customers' | 'suppliers'>('customers');
   const [addTransactionOpen, setAddTransactionOpen] = useState(false);
   const [entryType, setEntryType] = useState<'in' | 'out'>('in');
   const [amount, setAmount] = useState('');
   const [description, setDescription] = useState('');
-  const [addingTransaction, setAddingTransaction] = useState(false);
   const activitiesPerPage = 5;
-  const hasFetchedRef = useRef(Boolean(initialData));
 
-  const fetchDashboardData = useCallback(async (showLoading = true) => {
-    try {
-      if (showLoading) {
-        setLoading(true);
-      } else {
-        setIsRefreshing(true);
-      }
+  // React Query for dashboard data - cached across navigation
+  const { data, isLoading, isFetching } = useQuery({
+    queryKey: ['dashboard'],
+    queryFn: async () => {
       const response = await fetch('/api/dashboard/stats', {
         cache: 'no-store',
-        keepalive: true,
       });
-
       if (response.status === 401) {
         router.push('/login');
-        return;
+        throw new Error('Unauthorized');
       }
+      if (!response.ok) throw new Error('Failed to fetch dashboard data');
+      return response.json() as Promise<DashboardResponse>;
+    },
+    initialData: initialData || undefined,
+    staleTime: 2 * 60 * 1000, // 2 minutes
+  });
 
-      if (!response.ok) {
-        throw new Error('Failed to fetch dashboard data');
+  const stats = data?.stats || defaultStats;
+  const recentActivities = data?.activities || [];
+  const dashboardNotes = data?.dashboardNotes || [];
+  const topCustomers = data?.topCustomers || [];
+  const topSuppliers = data?.topSuppliers || [];
+  const loading = isLoading && !data;
+
+  // Mutation for adding daily cash transactions with optimistic updates
+  const addTransactionMutation = useMutation({
+    mutationFn: async ({ amountNum, type, desc }: { amountNum: number; type: 'in' | 'out'; desc: string }) => {
+      const dateString = format(new Date(), 'dd-MM-yyyy');
+      const response = await fetch('/api/daily-cash-records', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ amount: amountNum, type, description: desc, date: dateString }),
+      });
+      if (response.status === 401) {
+        router.push('/login');
+        throw new Error('Unauthorized');
       }
-
-      const data: DashboardResponse = await response.json();
-
-      setStats(data.stats || defaultStats);
-      setRecentActivities(data.activities || []);
-      setDashboardNotes(data.dashboardNotes || []);
-      setTopCustomers(data.topCustomers || []);
-      setTopSuppliers(data.topSuppliers || []);
-    } catch (error) {
-      console.error('Failed to fetch dashboard data', error);
-      if (showLoading) {
-        toast.error('Failed to fetch dashboard data');
+      const result = await response.json();
+      if (!response.ok) throw new Error(result.error || 'Failed to add transaction');
+      return result;
+    },
+    onMutate: async ({ amountNum, type }) => {
+      // Cancel outgoing refetches
+      await queryClient.cancelQueries({ queryKey: ['dashboard'] });
+      // Snapshot previous value
+      const previousData = queryClient.getQueryData<DashboardResponse>(['dashboard']);
+      // Optimistically update
+      if (previousData) {
+        queryClient.setQueryData<DashboardResponse>(['dashboard'], {
+          ...previousData,
+          stats: {
+            ...previousData.stats,
+            todayCash: {
+              totalIn: previousData.stats.todayCash.totalIn + (type === 'in' ? amountNum : 0),
+              totalOut: previousData.stats.todayCash.totalOut + (type === 'out' ? amountNum : 0),
+              totalLeft: previousData.stats.todayCash.totalLeft + (type === 'in' ? amountNum : -amountNum),
+            },
+          },
+        });
       }
-    } finally {
-      setLoading(false);
-      setIsRefreshing(false);
-    }
-  }, [router]);
-
-  useEffect(() => {
-    if (hasFetchedRef.current) return;
-    hasFetchedRef.current = true;
-    fetchDashboardData();
-  }, [fetchDashboardData]);
-
-  useEffect(() => {
-    setCurrentPage(1);
-  }, [recentActivities.length]);
+      return { previousData };
+    },
+    onError: (err, variables, context) => {
+      // Rollback on error
+      if (context?.previousData) {
+        queryClient.setQueryData(['dashboard'], context.previousData);
+      }
+      toast.error(err instanceof Error ? err.message : 'Failed to add transaction');
+    },
+    onSuccess: (data, variables) => {
+      toast.success(`Money ${variables.type === 'in' ? 'added' : 'deducted'} successfully`);
+      // Background refetch to sync activities, monthly totals, etc.
+      queryClient.invalidateQueries({ queryKey: ['dashboard'] });
+    },
+  });
 
   const totalPages = Math.ceil(recentActivities.length / activitiesPerPage) || 1;
   const startIndex = (currentPage - 1) * activitiesPerPage;
@@ -439,7 +460,7 @@ export default function DashboardClient({ initialData }: { initialData?: Dashboa
     setDescription('');
   };
 
-  const handleAddTodayTransaction = async () => {
+  const handleAddTodayTransaction = () => {
     if (!amount || !description) {
       toast.error('Please fill in all fields');
       return;
@@ -451,63 +472,14 @@ export default function DashboardClient({ initialData }: { initialData?: Dashboa
       return;
     }
 
-    // Save previous state for rollback on error
-    const previousStats = stats;
-
-    // Optimistically update todayCash immediately
-    const newTodayCash = {
-      totalIn: stats.todayCash.totalIn + (entryType === 'in' ? amountNum : 0),
-      totalOut: stats.todayCash.totalOut + (entryType === 'out' ? amountNum : 0),
-      totalLeft: stats.todayCash.totalLeft + (entryType === 'in' ? amountNum : -amountNum),
-    };
-    setStats((prev) => ({ ...prev, todayCash: newTodayCash }));
-
     // Close dialog and reset form immediately for snappy UX
+    const currentType = entryType;
+    const currentDesc = description;
     resetAddTransactionForm();
     setAddTransactionOpen(false);
 
-    try {
-      setAddingTransaction(true);
-      const dateString = format(new Date(), 'dd-MM-yyyy');
-      const response = await fetch('/api/daily-cash-records', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          amount: amountNum,
-          type: entryType,
-          description,
-          date: dateString,
-        }),
-      });
-
-      if (response.status === 401) {
-        setStats(previousStats);
-        router.push('/login');
-        return;
-      }
-
-      const data = await response.json();
-
-      if (!response.ok) {
-        // Rollback on error
-        setStats(previousStats);
-        toast.error(data.error || 'Failed to add transaction');
-        return;
-      }
-
-      toast.success(`Money ${entryType === 'in' ? 'added' : 'deducted'} successfully`);
-      // Background refresh without skeleton to sync other data (activities, monthly totals)
-      fetchDashboardData(false);
-    } catch (error) {
-      // Rollback on network error
-      setStats(previousStats);
-      console.error('Error adding transaction:', error);
-      toast.error('Failed to add transaction');
-    } finally {
-      setAddingTransaction(false);
-    }
+    // Fire mutation with optimistic update
+    addTransactionMutation.mutate({ amountNum, type: currentType, desc: currentDesc });
   };
 
   if (loading) {
@@ -677,9 +649,9 @@ export default function DashboardClient({ initialData }: { initialData?: Dashboa
                       <Button
                         className="w-full bg-slate-900 hover:bg-slate-800 text-white"
                         onClick={handleAddTodayTransaction}
-                        disabled={addingTransaction}
+                        disabled={addTransactionMutation.isPending}
                       >
-                        {addingTransaction ? 'Adding...' : 'Add Transaction'}
+                        {addTransactionMutation.isPending ? 'Adding...' : 'Add Transaction'}
                       </Button>
                     </div>
                   </DialogContent>

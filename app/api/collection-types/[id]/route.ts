@@ -141,15 +141,11 @@ export async function PUT(
       );
     }
 
-    // Invalidate caches
-    try {
-      await redis.del(`collectionTypes:${userId}`);
-      // Also invalidate custom entities cache for this collection type
-      const pattern = `customEntities:${existing.slug}:${userId}`;
-      await redis.del(pattern);
-    } catch (cacheError) {
-      console.warn('Redis cache invalidation failed:', cacheError);
-    }
+    // Non-blocking cache invalidation
+    const pattern = `customEntities:${existing.slug}:${userId}`;
+    redis.del(`collectionTypes:${userId}`, pattern).catch((err) => {
+      console.warn('Redis cache invalidation failed:', err);
+    });
 
     return NextResponse.json({
       message: 'Collection type updated successfully',
@@ -232,12 +228,10 @@ export async function DELETE(
       );
     }
 
-    // Invalidate cache
-    try {
-      await redis.del(`collectionTypes:${userId}`);
-    } catch (cacheError) {
-      console.warn('Redis cache invalidation failed:', cacheError);
-    }
+    // Non-blocking cache invalidation
+    redis.del(`collectionTypes:${userId}`).catch((err) => {
+      console.warn('Redis cache invalidation failed:', err);
+    });
 
     return NextResponse.json({
       message: 'Collection type deleted successfully',

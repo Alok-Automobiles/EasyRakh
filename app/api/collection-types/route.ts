@@ -60,7 +60,7 @@ export async function GET(request: NextRequest) {
     // Cache the response with 5 minute TTL
     try {
       const cacheKey = `collectionTypes:${userId}`;
-      await redis.setex(cacheKey, 300, JSON.stringify(responseData));
+      await redis.setex(cacheKey, 600, JSON.stringify(responseData));
     } catch (cacheError) {
       console.warn('Redis cache write failed:', cacheError);
     }
@@ -119,12 +119,10 @@ export async function POST(request: NextRequest) {
       createdAt: new Date(),
     });
 
-    // Invalidate cache
-    try {
-      await redis.del(`collectionTypes:${userId}`);
-    } catch (cacheError) {
-      console.warn('Redis cache invalidation failed:', cacheError);
-    }
+    // Non-blocking cache invalidation
+    redis.del(`collectionTypes:${userId}`).catch((err) => {
+      console.warn('Redis cache invalidation failed:', err);
+    });
 
     return NextResponse.json(
       {

@@ -471,7 +471,7 @@ export async function GET(request: NextRequest) {
 
     try {
       const cacheKey = `dashboard:stats:${userId}`;
-      await redis.setex(cacheKey, 120, JSON.stringify(responseData));
+      await redis.setex(cacheKey, 300, JSON.stringify(responseData));
     } catch (cacheError) {
       console.warn('Redis cache write failed:', cacheError);
     }

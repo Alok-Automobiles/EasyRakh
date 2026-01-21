@@ -114,7 +114,7 @@ export async function GET(request: NextRequest) {
 
     try {
       const cacheKey = `customEntities:${collectionType}:${userId}`;
-      await redis.setex(cacheKey, 300, JSON.stringify(responseData));
+      await redis.setex(cacheKey, 600, JSON.stringify(responseData));
     } catch (cacheError) {
       console.warn('Redis cache write failed:', cacheError);
     }
@@ -171,14 +171,13 @@ export async function POST(request: NextRequest) {
       createdAt: new Date(),
     });
 
-    try {
-      await redis.del(
-        `customEntities:${validatedData.collectionType}:${userId}`,
-        `dashboard:stats:${userId}`
-      );
-    } catch (cacheError) {
-      console.warn('Redis cache invalidation failed:', cacheError);
-    }
+    // Non-blocking cache invalidation
+    redis.del(
+      `customEntities:${validatedData.collectionType}:${userId}`,
+      `dashboard:stats:${userId}`
+    ).catch((err) => {
+      console.warn('Redis cache invalidation failed:', err);
+    });
 
     return NextResponse.json(
       {

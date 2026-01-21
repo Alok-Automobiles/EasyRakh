@@ -4,6 +4,7 @@ import { useState, useEffect, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 import { format, parse } from 'date-fns';
 import toast from 'react-hot-toast';
+import { useQueryClient } from '@tanstack/react-query';
 import { Calendar } from '@/components/ui/calendar';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -67,6 +68,7 @@ interface PaginationInfo {
 
 export default function DailyCashRecordPage() {
   const router = useRouter();
+  const queryClient = useQueryClient();
   const [selectedDate, setSelectedDate] = useState<Date>(new Date());
   const [currentRecord, setCurrentRecord] = useState<DailyRecord | null>(null);
   const [summaryRecords, setSummaryRecords] = useState<SummaryRecord[]>([]);
@@ -210,6 +212,9 @@ export default function DailyCashRecordPage() {
           });
         }
 
+        // Invalidate dashboard cache so daily cash totals update
+        queryClient.invalidateQueries({ queryKey: ['dashboard'] });
+
         setCurrentPage(1);
         fetchData(1);
       } else {
@@ -288,6 +293,9 @@ export default function DailyCashRecordPage() {
           setViewingRecord(data.record);
         }
 
+        // Invalidate dashboard cache so daily cash totals update
+        queryClient.invalidateQueries({ queryKey: ['dashboard'] });
+
         fetchData(currentPage);
       } else {
         toast.error(data.error || 'Failed to add transaction');
@@ -343,6 +351,9 @@ export default function DailyCashRecordPage() {
           newCache.delete(dateString);
           return newCache;
         });
+
+        // Invalidate dashboard cache so daily cash totals update
+        queryClient.invalidateQueries({ queryKey: ['dashboard'] });
 
         if (viewingRecord) {
           const updatedRecord = await fetchRecordForDate(recordDate, false);
