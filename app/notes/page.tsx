@@ -4,6 +4,7 @@ import { useState, useEffect, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 import { format } from 'date-fns';
 import toast from 'react-hot-toast';
+import { useQueryClient } from '@tanstack/react-query';
 import { motion, AnimatePresence } from 'motion/react';
 import { Plus, Star, X, LayoutDashboard } from 'lucide-react';
 import { Note } from '@/lib/types';
@@ -22,6 +23,7 @@ interface NoteWithId extends Note {
 
 export default function NotesPage() {
   const router = useRouter();
+  const queryClient = useQueryClient();
   const [notes, setNotes] = useState<NoteWithId[]>([]);
   const [loading, setLoading] = useState(true);
   const [isColorDropdownOpen, setIsColorDropdownOpen] = useState(false);
@@ -223,6 +225,8 @@ export default function NotesPage() {
       if (response.ok) {
         const data = await response.json();
         setNotes(notes.map((n) => (n.id === note.id ? data.note : n)));
+        // Invalidate dashboard cache so the note appears/disappears on dashboard
+        queryClient.invalidateQueries({ queryKey: ['dashboard'] });
         toast.success(
           !note.showOnDashboard
             ? 'Note added to dashboard'

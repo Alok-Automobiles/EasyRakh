@@ -110,11 +110,10 @@ export async function PUT(
       );
     }
 
-    try {
-      await redis.del(`suppliers:${userId}`, `dashboard:stats:${userId}`, `ledger:supplier:${id}:${userId}`);
-    } catch (cacheError) {
-      console.warn('Redis cache invalidation failed:', cacheError);
-    }
+    // Non-blocking cache invalidation
+    redis.del(`suppliers:${userId}`, `dashboard:stats:${userId}`, `ledger:supplier:${id}:${userId}`).catch((err) => {
+      console.warn('Redis cache invalidation failed:', err);
+    });
 
     return NextResponse.json({
       message: 'Supplier updated successfully',
@@ -177,11 +176,10 @@ export async function DELETE(
       );
     }
 
-    try {
-      await redis.del(`suppliers:${userId}`, `dashboard:stats:${userId}`, `ledger:supplier:${id}:${userId}`);
-    } catch (cacheError) {
-      console.warn('Redis cache invalidation failed:', cacheError);
-    }
+    // Non-blocking cache invalidation
+    redis.del(`suppliers:${userId}`, `dashboard:stats:${userId}`, `ledger:supplier:${id}:${userId}`).catch((err) => {
+      console.warn('Redis cache invalidation failed:', err);
+    });
 
     return NextResponse.json({
       message: 'Supplier and all associated transactions deleted successfully',

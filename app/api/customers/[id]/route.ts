@@ -110,11 +110,10 @@ export async function PUT(
       );
     }
 
-    try {
-      await redis.del(`customers:${userId}`, `dashboard:stats:${userId}`, `ledger:customer:${id}:${userId}`);
-    } catch (cacheError) {
-      console.warn('Redis cache invalidation failed:', cacheError);
-    }
+    // Non-blocking cache invalidation
+    redis.del(`customers:${userId}`, `dashboard:stats:${userId}`, `ledger:customer:${id}:${userId}`).catch((err) => {
+      console.warn('Redis cache invalidation failed:', err);
+    });
 
     return NextResponse.json({
       message: 'Customer updated successfully',
@@ -177,11 +176,10 @@ export async function DELETE(
       );
     }
 
-    try {
-      await redis.del(`customers:${userId}`, `dashboard:stats:${userId}`, `ledger:customer:${id}:${userId}`);
-    } catch (cacheError) {
-      console.warn('Redis cache invalidation failed:', cacheError);
-    }
+    // Non-blocking cache invalidation
+    redis.del(`customers:${userId}`, `dashboard:stats:${userId}`, `ledger:customer:${id}:${userId}`).catch((err) => {
+      console.warn('Redis cache invalidation failed:', err);
+    });
 
     return NextResponse.json({
       message: 'Customer and all associated transactions deleted successfully',

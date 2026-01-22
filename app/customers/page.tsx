@@ -1,11 +1,12 @@
 'use client';
 
-import { useState, useEffect, useRef } from 'react';
+import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import toast from 'react-hot-toast';
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import EntityCard from '@/components/EntityCard';
 import {
   Dialog,
@@ -17,7 +18,6 @@ import {
 } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import {
   Select,
@@ -51,13 +51,12 @@ type CustomerForm = z.infer<typeof customerSchema>;
 
 export default function CustomersPage() {
   const router = useRouter();
-  const [customers, setCustomers] = useState<(Customer & { id: string; totalBalance: number })[]>([]);
-  const [loading, setLoading] = useState(true);
+  const queryClient = useQueryClient();
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingCustomer, setEditingCustomer] = useState<string | null>(null);
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [deletingCustomer, setDeletingCustomer] = useState<{ id: string; name: string } | null>(null);
-  const hasFetchedRef = useRef(false);
+
   const form = useForm<CustomerForm>({
     resolver: zodResolver(customerSchema),
     defaultValues: {
@@ -70,97 +69,93 @@ export default function CustomersPage() {
     },
   });
 
-  useEffect(() => {
-    if (hasFetchedRef.current) return;
-    hasFetchedRef.current = true;
-    fetchCustomers();
-  }, []);
-
-  const fetchCustomers = async () => {
-    try {
+  // React Query for fetching customers - cached across navigation
+  const { data, isLoading, error } = useQuery<{ customers: (Customer & { id: string; totalBalance: number })[] }>({
+    queryKey: ['customers'],
+    queryFn: async () => {
       const response = await fetch('/api/customers');
-      if (response.ok) {
-        const data = await response.json();
-        setCustomers(data.customers);
-      } else if (response.status === 401) {
+      if (response.status === 401) {
         router.push('/login');
+        throw new Error('Unauthorized');
       }
-    } catch (error) {
-      toast.error('Failed to fetch customers');
-    } finally {
-      setLoading(false);
-    }
-  };
+      if (!response.ok) throw new Error('Failed to fetch customers');
+      return response.json();
+    },
+  });
 
-  const onSubmit = async (data: CustomerForm) => {
-    try {
-      const url = editingCustomer
-        ? `/api/customers/${editingCustomer}`
-        : '/api/customers';
-      const method = editingCustomer ? 'PUT' : 'POST';
+  const customers = data?.customers ?? [];
 
+  // Mutation for creating/updating customers
+  const saveMutation = useMutation({
+    mutationFn: async (formData: CustomerForm & { id?: string }) => {
+      const url = formData.id ? `/api/customers/${formData.id}` : '/api/customers';
+      const method = formData.id ? 'PUT' : 'POST';
       const response = await fetch(url, {
         method,
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(data),
+        body: JSON.stringify(formData),
       });
-
-      if (response.ok) {
+      if (!response.ok) {
         const result = await response.json();
-        const nextCustomerId = editingCustomer ?? result.customer?.id;
-
-        toast.success(
-          editingCustomer
-            ? 'Customer updated successfully!'
-            : 'Customer created successfully!'
-        );
-        setIsModalOpen(false);
-        form.reset();
-        setEditingCustomer(null);
-
-        if (!editingCustomer && nextCustomerId) {
-          router.push(`/ledger/customer/${nextCustomerId}`);
-          return;
-        }
-
-        fetchCustomers();
-      } else {
-        const result = await response.json();
-        toast.error(result.error || 'Failed to save customer');
+        throw new Error(result.error || 'Failed to save customer');
       }
-    } catch (error) {
-      toast.error('An error occurred. Please try again.');
-    }
+      return response.json();
+    },
+    onSuccess: (result, variables) => {
+      toast.success(variables.id ? 'Customer updated successfully!' : 'Customer created successfully!');
+      setIsModalOpen(false);
+      form.reset();
+      setEditingCustomer(null);
+      // Invalidate cache to refetch
+      queryClient.invalidateQueries({ queryKey: ['customers'] });
+      queryClient.invalidateQueries({ queryKey: ['dashboard'] });
+      
+      if (!variables.id && result.customer?.id) {
+        router.push(`/ledger/customer/${result.customer.id}`);
+      }
+    },
+    onError: (error: Error) => {
+      toast.error(error.message || 'An error occurred. Please try again.');
+    },
+  });
+
+  // Mutation for deleting customers
+  const deleteMutation = useMutation({
+    mutationFn: async (id: string) => {
+      const response = await fetch(`/api/customers/${id}`, { method: 'DELETE' });
+      if (!response.ok) {
+        const result = await response.json();
+        throw new Error(result.error || 'Failed to delete customer');
+      }
+      return response.json();
+    },
+    onSuccess: () => {
+      toast.success('Customer deleted successfully!');
+      setDeleteDialogOpen(false);
+      setDeletingCustomer(null);
+      queryClient.invalidateQueries({ queryKey: ['customers'] });
+      queryClient.invalidateQueries({ queryKey: ['dashboard'] });
+    },
+    onError: (error: Error) => {
+      toast.error(error.message || 'An error occurred. Please try again.');
+    },
+  });
+
+  const onSubmit = (data: CustomerForm) => {
+    saveMutation.mutate({ ...data, id: editingCustomer || undefined });
   };
 
   const openDeleteDialog = (id: string) => {
-    const customer = customers.find(c => c.id === id);
+    const customer = customers.find((c: Customer & { id: string }) => c.id === id);
     if (customer) {
       setDeletingCustomer({ id: customer.id, name: customer.name });
       setDeleteDialogOpen(true);
     }
   };
 
-  const handleDelete = async () => {
+  const handleDelete = () => {
     if (!deletingCustomer) return;
-
-    try {
-      const response = await fetch(`/api/customers/${deletingCustomer.id}`, {
-        method: 'DELETE',
-      });
-
-      if (response.ok) {
-        toast.success('Customer deleted successfully!');
-        setDeleteDialogOpen(false);
-        setDeletingCustomer(null);
-        fetchCustomers();
-      } else {
-        const result = await response.json();
-        toast.error(result.error || 'Failed to delete customer');
-      }
-    } catch (error) {
-      toast.error('An error occurred. Please try again.');
-    }
+    deleteMutation.mutate(deletingCustomer.id);
   };
 
   const handleEdit = (customer: Customer & { id: string }) => {
@@ -176,7 +171,7 @@ export default function CustomersPage() {
     setIsModalOpen(true);
   };
 
-  if (loading) {
+  if (isLoading) {
     return (
       <motion.div
         initial={{ opacity: 0 }}

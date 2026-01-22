@@ -2,9 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { getDb } from "@/lib/mongodb";
 import { getUserIdFromRequest } from "@/lib/auth";
 import { z } from "zod";
-import { ObjectId } from "mongodb";
 import redis from "@/lib/redis";
-import { Customer } from "@/lib/types";
 
 const customerSchema = z.object({
   name: z.string().min(1, "Name is required"),
@@ -34,56 +32,74 @@ export async function GET(request: NextRequest) {
 
     const db = await getDb();
     const customersCollection = db.collection("customers");
-    const transactionsCollection = db.collection("transactions");
 
-    const customers = await customersCollection
-      .find({ userId })
-      .sort({ createdAt: -1 })
-      .toArray();
-
-    const customersWithBalance = await Promise.all(
-      customers.map(async (customer) => {
-        const customerId = customer._id.toString();
-        
-        const transactions = await transactionsCollection
-          .find({
-            entityId: customerId,
-            entityType: 'customer',
-            userId,
-          })
-          .toArray();
-
-        const totalCredit = transactions
-          .filter((t) => t.type === 'credit')
-          .reduce((sum, t) => sum + t.amount, 0);
-        const totalDebit = transactions
-          .filter((t) => t.type === 'debit')
-          .reduce((sum, t) => sum + t.amount, 0);
-
-        let totalBalance = customer.openingBalance;
-        if (customer.balanceType === 'credit') {
-          totalBalance = -totalBalance;
-        }
-        totalBalance = totalBalance - totalCredit + totalDebit;
-
-        return {
-          id: customerId,
-          name: customer.name,
-          phone: customer.phone,
-          email: customer.email,
-          address: customer.address,
-          openingBalance: customer.openingBalance,
-          balanceType: customer.balanceType,
-          totalBalance,
-          createdAt: customer.createdAt,
-        };
-      })
-    );
+    // Single aggregation query replaces N+1 queries
+    const customersWithBalance = await customersCollection.aggregate([
+      { $match: { userId } },
+      { $sort: { createdAt: -1 } },
+      {
+        $lookup: {
+          from: 'transactions',
+          let: { customerId: { $toString: '$_id' } },
+          pipeline: [
+            {
+              $match: {
+                $expr: {
+                  $and: [
+                    { $eq: ['$entityId', '$$customerId'] },
+                    { $eq: ['$entityType', 'customer'] },
+                    { $eq: ['$userId', userId] },
+                  ],
+                },
+              },
+            },
+            {
+              $group: {
+                _id: null,
+                totalCredit: {
+                  $sum: { $cond: [{ $eq: ['$type', 'credit'] }, '$amount', 0] },
+                },
+                totalDebit: {
+                  $sum: { $cond: [{ $eq: ['$type', 'debit'] }, '$amount', 0] },
+                },
+              },
+            },
+          ],
+          as: 'txSummary',
+        },
+      },
+      { $unwind: { path: '$txSummary', preserveNullAndEmptyArrays: true } },
+      {
+        $project: {
+          id: { $toString: '$_id' },
+          name: 1,
+          phone: 1,
+          email: 1,
+          address: 1,
+          openingBalance: 1,
+          balanceType: 1,
+          createdAt: 1,
+          totalBalance: {
+            $add: [
+              {
+                $cond: [
+                  { $eq: ['$balanceType', 'credit'] },
+                  { $multiply: ['$openingBalance', -1] },
+                  '$openingBalance',
+                ],
+              },
+              { $ifNull: ['$txSummary.totalDebit', 0] },
+              { $multiply: [{ $ifNull: ['$txSummary.totalCredit', 0] }, -1] },
+            ],
+          },
+        },
+      },
+    ]).toArray();
 
     const responseData = { customers: customersWithBalance };
 
     try {
-      await redis.setex(`customers:${userId}`, 300, JSON.stringify(responseData));
+      await redis.setex(`customers:${userId}`, 600, JSON.stringify(responseData));
     } catch (cacheError) {
       console.warn('Redis cache write failed:', cacheError);
     }
@@ -123,11 +139,10 @@ export async function POST(request: NextRequest) {
       createdAt: new Date(),
     });
 
-    try {
-      await redis.del(`customers:${userId}`, `dashboard:stats:${userId}`);
-    } catch (cacheError) {
-      console.warn("Redis cache invalidation failed:", cacheError);
-    }
+    // Non-blocking cache invalidation
+    redis.del(`customers:${userId}`, `dashboard:stats:${userId}`).catch((err) => {
+      console.warn('Redis cache invalidation failed:', err);
+    });
 
     return NextResponse.json(
       {
