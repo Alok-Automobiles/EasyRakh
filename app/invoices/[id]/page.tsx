@@ -210,121 +210,103 @@ export default function InvoiceDetailPage() {
       const doc = new jsPDF('p', 'mm', 'a4');
       const pageWidth = doc.internal.pageSize.getWidth();
       const margin = 18;
-      const primaryBlue: [number, number, number] = [59, 130, 246];
-      const darkBlue: [number, number, number] = [37, 99, 235];
+      const black: [number, number, number] = [0, 0, 0];
       const mutedText: [number, number, number] = [75, 85, 99];
 
-      // Header background
-      doc.setFillColor(primaryBlue[0], primaryBlue[1], primaryBlue[2]);
-      doc.rect(0, 0, pageWidth, 38, 'F');
-      doc.setFillColor(darkBlue[0], darkBlue[1], darkBlue[2]);
-      doc.triangle(0, 0, 70, 0, 0, 38, 'F');
-      doc.triangle(pageWidth, 0, pageWidth - 80, 0, pageWidth, 38, 'F');
+      // Header with black background
+      const headerHeight = 45;
+      doc.setFillColor(black[0], black[1], black[2]);
+      doc.rect(0, 0, pageWidth, headerHeight, 'F');
 
-      // Header text
+      // Large "INVOICE" title on the left (white text on black background)
       doc.setTextColor(255, 255, 255);
       doc.setFont('helvetica', 'bold');
-      doc.setFontSize(14);
-      doc.text(useFirmInfo.firmTitle, margin, 16);
+      doc.setFontSize(36);
+      const invoiceTitleWidth = doc.getTextWidth('INVOICE');
+      const invoiceBoxWidth = invoiceTitleWidth + 20;
+      doc.setFillColor(black[0], black[1], black[2]);
+      doc.rect(margin, 10, invoiceBoxWidth, 25, 'F');
+      doc.text('INVOICE', margin + 10, 26);
+
+      // Firm info on the right side of header
+      // Calculate available width (from right margin to left of INVOICE box)
+      const rightMargin = pageWidth - margin;
+      const leftOfInvoiceBox = margin + invoiceBoxWidth + 10;
+      const availableWidth = rightMargin - leftOfInvoiceBox;
+      
+      doc.setFont('helvetica', 'bold');
+      doc.setFontSize(16);
+      const firmNameX = pageWidth - margin;
+      doc.text(useFirmInfo.firmTitle, firmNameX, 20, { align: 'right', maxWidth: availableWidth });
+      
       doc.setFont('helvetica', 'normal');
       doc.setFontSize(9);
-      if (useFirmInfo.firmAddress) {
-        const headerLines = doc.splitTextToSize(useFirmInfo.firmAddress, 80);
-        doc.text(headerLines, margin, 23);
+      let firmInfoY = 28;
+      if (useFirmInfo.gstNumber) {
+        doc.text(`GST: ${useFirmInfo.gstNumber}`, firmNameX, firmInfoY, { align: 'right', maxWidth: availableWidth });
+        firmInfoY += 4;
       }
-
-      doc.setFont('helvetica', 'bold');
-      doc.setFontSize(28);
-      doc.text('INVOICE', pageWidth - margin, 20, { align: 'right' });
+      if (useFirmInfo.firmPhone) {
+        doc.text(`Phone: ${useFirmInfo.firmPhone}`, firmNameX, firmInfoY, { align: 'right', maxWidth: availableWidth });
+        firmInfoY += 4;
+      }
+      if (useFirmInfo.firmEmail) {
+        doc.text(useFirmInfo.firmEmail, firmNameX, firmInfoY, { align: 'right', maxWidth: availableWidth });
+        firmInfoY += 4;
+      }
+      if (useFirmInfo.firmAddress) {
+        // Split address to fit within available width and header height
+        const addrLines = doc.splitTextToSize(useFirmInfo.firmAddress, availableWidth);
+        // Ensure address doesn't overflow header height
+        const maxLines = Math.floor((headerHeight - firmInfoY) / 4);
+        const displayLines = addrLines.slice(0, maxLines);
+        doc.text(displayLines, firmNameX, firmInfoY, { align: 'right', maxWidth: availableWidth });
+      }
 
       // Reset text color
       doc.setTextColor(17, 24, 39);
-      let yPos = 50;
+      let yPos = headerHeight + 15;
 
-      // Invoice meta
+      // Invoice To section on the left
+      doc.setFont('helvetica', 'bold');
       doc.setFontSize(11);
-      doc.setFont('helvetica', 'bold');
-      doc.text('Invoice #:', margin, yPos);
+      doc.text('Invoice To:', margin, yPos);
+      yPos += 6;
       doc.setFont('helvetica', 'normal');
-      doc.text(invoice.invoiceNumber, margin + 25, yPos);
-
-      doc.setFont('helvetica', 'bold');
-      doc.text('Date:', pageWidth - margin - 50, yPos);
-      doc.setFont('helvetica', 'normal');
-      doc.text(format(new Date(invoice.createdAt), 'dd MMM yyyy'), pageWidth - margin, yPos, { align: 'right' });
-      yPos += 8;
-
-      // Status
-      doc.setFont('helvetica', 'bold');
-      doc.text('Status:', margin, yPos);
-      doc.setFont('helvetica', 'normal');
-      const statusText = invoice.status === 'paid' ? 'PAID' : invoice.status === 'partial' ? 'PARTIAL' : 'UNPAID';
-      doc.setTextColor(
-        invoice.status === 'paid' ? 34 : invoice.status === 'partial' ? 217 : 220,
-        invoice.status === 'paid' ? 197 : invoice.status === 'partial' ? 119 : 38,
-        invoice.status === 'paid' ? 94 : invoice.status === 'partial' ? 6 : 38
-      );
-      doc.text(statusText, margin + 18, yPos);
-      doc.setTextColor(17, 24, 39);
-      yPos += 10;
-
-      doc.setDrawColor(229, 231, 235);
-      doc.line(margin, yPos, pageWidth - margin, yPos);
-      yPos += 10;
-
-      // Firm and Customer info side by side
-      const colWidth = (pageWidth - margin * 2 - 10) / 2;
-
-      // Firm Info
-      doc.setFont('helvetica', 'bold');
       doc.setFontSize(10);
-      doc.text('From:', margin, yPos);
+      doc.text(invoice.customerName, margin, yPos);
       yPos += 5;
-      doc.setFont('helvetica', 'normal');
-      doc.setFontSize(9);
-      doc.setTextColor(mutedText[0], mutedText[1], mutedText[2]);
-      doc.text(useFirmInfo.firmTitle, margin, yPos);
-      yPos += 4;
-      if (useFirmInfo.gstNumber) {
-        doc.text(`GST: ${useFirmInfo.gstNumber}`, margin, yPos);
-        yPos += 4;
-      }
-      if (useFirmInfo.firmPhone) {
-        doc.text(`Phone: ${useFirmInfo.firmPhone}`, margin, yPos);
-        yPos += 4;
-      }
-      if (useFirmInfo.firmEmail) {
-        doc.text(`Email: ${useFirmInfo.firmEmail}`, margin, yPos);
-        yPos += 4;
-      }
-      if (useFirmInfo.firmAddress) {
-        const addrLines = doc.splitTextToSize(useFirmInfo.firmAddress, colWidth);
-        doc.text(addrLines, margin, yPos);
-        yPos += addrLines.length * 4;
-      }
-
-      // Customer Info - positioned to the right
-      let custY = yPos - 20;
-      doc.setTextColor(17, 24, 39);
-      doc.setFont('helvetica', 'bold');
-      doc.setFontSize(10);
-      doc.text('Bill To:', margin + colWidth + 10, custY - 5);
-      doc.setFont('helvetica', 'normal');
-      doc.setFontSize(9);
-      doc.setTextColor(mutedText[0], mutedText[1], mutedText[2]);
-      doc.text(invoice.customerName, margin + colWidth + 10, custY);
-      custY += 4;
       if (invoice.customerPhone) {
-        doc.text(`Phone: ${invoice.customerPhone}`, margin + colWidth + 10, custY);
-        custY += 4;
+        doc.text(`Phone: ${invoice.customerPhone}`, margin, yPos);
+        yPos += 5;
       }
       if (invoice.customerAddress) {
-        const custAddrLines = doc.splitTextToSize(invoice.customerAddress, colWidth);
-        doc.text(custAddrLines, margin + colWidth + 10, custY);
+        const custAddrLines = doc.splitTextToSize(invoice.customerAddress, 70);
+        doc.text(custAddrLines, margin, yPos);
+        yPos += custAddrLines.length * 5;
       }
 
-      doc.setTextColor(17, 24, 39);
-      yPos += 10;
+      // Invoice Number and Date on the right
+      const invoiceMetaY = headerHeight + 15;
+      const labelX = pageWidth - margin - 80; // More space for label
+      const valueX = pageWidth - margin; // Right aligned values
+      
+      doc.setFont('helvetica', 'normal');
+      doc.setFontSize(10);
+      doc.text('Invoice Number :', labelX, invoiceMetaY);
+      doc.setFont('helvetica', 'bold');
+      // Get label width to position value after it with spacing
+      const labelWidth = doc.getTextWidth('Invoice Number :');
+      doc.text(invoice.invoiceNumber, labelX + labelWidth + 5, invoiceMetaY);
+      
+      doc.setFont('helvetica', 'normal');
+      doc.text('Invoice Date :', labelX, invoiceMetaY + 7);
+      doc.setFont('helvetica', 'bold');
+      const dateLabelWidth = doc.getTextWidth('Invoice Date :');
+      doc.text(format(new Date(invoice.createdAt), 'MMMM dd, yyyy'), labelX + dateLabelWidth + 5, invoiceMetaY + 7);
+
+      // Move yPos to below customer info or invoice meta, whichever is lower
+      yPos = Math.max(yPos, invoiceMetaY + 15) + 10;
 
       // Items table
       const tableRows = invoice.items.map((item, idx) => [
@@ -335,83 +317,139 @@ export default function InvoiceDetailPage() {
 
       autoTable(doc, {
         startY: yPos,
-        head: [['#', 'Description', 'Amount']],
+        head: [['Item', 'Description', 'Amount']],
         body: tableRows,
         headStyles: {
-          fillColor: primaryBlue,
+          fillColor: black,
           textColor: 255,
           fontSize: 10,
           fontStyle: 'bold',
           halign: 'left',
-          cellPadding: 4,
+          cellPadding: 5,
         },
         bodyStyles: {
           fontSize: 9,
-          textColor: [31, 41, 55],
-          lineColor: [229, 231, 235],
-          lineWidth: 0.1,
+          textColor: [0, 0, 0],
+          lineColor: [200, 200, 200],
+          lineWidth: 0.2,
         },
         alternateRowStyles: {
-          fillColor: [247, 247, 247],
+          fillColor: [255, 255, 255],
         },
         columnStyles: {
-          0: { cellWidth: 15, halign: 'center' },
+          0: { cellWidth: 20, halign: 'center' },
           1: { cellWidth: 'auto' },
-          2: { cellWidth: 40, halign: 'right' },
+          2: { cellWidth: 50, halign: 'right' },
         },
         margin: { left: margin, right: margin },
         theme: 'plain',
+        // Enable multi-page support
+        showHead: 'everyPage', // Show header on every page
+        pageBreak: 'auto', // Automatic page breaks
+        rowPageBreak: 'avoid', // Try to avoid breaking rows across pages
       });
 
       // Get final Y position after table
-      const finalY = (doc as unknown as { lastAutoTable: { finalY: number } }).lastAutoTable.finalY + 10;
+      const finalY = (doc as unknown as { lastAutoTable: { finalY: number } }).lastAutoTable.finalY + 5;
+      const pageHeight = doc.internal.pageSize.getHeight();
+      const minFooterSpace = 40; // Minimum space needed for totals and footer
 
-      // Totals section
-      const totalsX = pageWidth - margin - 60;
-      let totalsY = finalY;
-
-      doc.setFontSize(10);
-      doc.setFont('helvetica', 'normal');
-      doc.text('Subtotal:', totalsX, totalsY);
-      doc.text(`Rs ${invoice.totalAmount.toLocaleString('en-IN')}`, pageWidth - margin, totalsY, { align: 'right' });
-      totalsY += 6;
-
-      if (invoice.paidAmount > 0) {
-        doc.setTextColor(34, 197, 94);
-        doc.text('Paid:', totalsX, totalsY);
-        doc.text(`Rs ${invoice.paidAmount.toLocaleString('en-IN')}`, pageWidth - margin, totalsY, { align: 'right' });
-        doc.setTextColor(17, 24, 39);
-        totalsY += 6;
+      // Check if we need a new page for totals section
+      let currentY = finalY;
+      if (currentY + minFooterSpace > pageHeight) {
+        doc.addPage();
+        currentY = margin + 10;
       }
 
-      doc.setDrawColor(229, 231, 235);
-      doc.line(totalsX - 10, totalsY, pageWidth - margin, totalsY);
-      totalsY += 6;
-
+      // Total Amount row (styled like table row)
+      doc.setFillColor(255, 255, 255);
+      doc.setDrawColor(200, 200, 200);
+      doc.setLineWidth(0.2);
+      const totalRowHeight = 10;
+      doc.rect(margin, currentY, pageWidth - margin * 2, totalRowHeight, 'FD');
+      
       doc.setFont('helvetica', 'bold');
-      doc.setFontSize(12);
-      const balanceDue = invoice.totalAmount - invoice.paidAmount;
-      if (balanceDue > 0) {
-        doc.setTextColor(220, 38, 38);
-      } else {
-        doc.setTextColor(34, 197, 94);
-      }
-      doc.text('Balance Due:', totalsX, totalsY);
-      doc.text(`Rs ${balanceDue.toLocaleString('en-IN')}`, pageWidth - margin, totalsY, { align: 'right' });
+      doc.setFontSize(10);
+      doc.setTextColor(0, 0, 0);
+      
+      // "Total Amount" text spanning Description column
+      doc.text('Total Amount', margin + 25, currentY + 7);
+      
+      // Total amount value aligned right
+      doc.text(`Rs ${invoice.totalAmount.toLocaleString('en-IN')}`, pageWidth - margin, currentY + 7, { align: 'right' });
+      
+      let totalsY = currentY + totalRowHeight + 8;
 
-      // Notes
-      if (invoice.notes) {
+      // Payment details if applicable
+      if (invoice.paidAmount > 0) {
+        doc.setFont('helvetica', 'normal');
+        doc.setFontSize(9);
+        doc.text('Paid:', margin + 25, totalsY);
+        doc.text(`Rs ${invoice.paidAmount.toLocaleString('en-IN')}`, pageWidth - margin, totalsY, { align: 'right' });
+        totalsY += 6;
+        
+        const balanceDue = invoice.totalAmount - invoice.paidAmount;
+        if (balanceDue > 0) {
+          doc.setFont('helvetica', 'bold');
+          doc.text('Balance Due:', margin + 25, totalsY);
+          doc.text(`Rs ${balanceDue.toLocaleString('en-IN')}`, pageWidth - margin, totalsY, { align: 'right' });
+          totalsY += 8;
+        }
+      }
+
+      // Notes section (if exists and space available)
+      if (invoice.notes && totalsY < pageHeight - 35) {
         doc.setTextColor(17, 24, 39);
         doc.setFont('helvetica', 'bold');
         doc.setFontSize(10);
-        totalsY += 15;
+        totalsY += 10;
         doc.text('Notes:', margin, totalsY);
         doc.setFont('helvetica', 'normal');
         doc.setFontSize(9);
         doc.setTextColor(mutedText[0], mutedText[1], mutedText[2]);
         const notesLines = doc.splitTextToSize(invoice.notes, pageWidth - margin * 2);
+        // Check if notes fit on current page
+        const notesHeight = notesLines.length * 5;
+        if (totalsY + notesHeight > pageHeight - 30) {
+          doc.addPage();
+          totalsY = margin + 10;
+        }
         doc.text(notesLines, margin, totalsY + 5);
+        totalsY += notesHeight + 5;
       }
+
+      // Payment Information section at bottom of last page
+      // Check if footer fits on current page, if not add new page
+      const footerY = pageHeight - 30;
+      if (totalsY > footerY - 15) {
+        doc.addPage();
+      }
+      
+      // Get current Y position (might be on new page now)
+      const currentPageY = totalsY > footerY - 15 ? margin + 10 : totalsY;
+      const finalFooterY = pageHeight - 30;
+      
+      doc.setFont('helvetica', 'bold');
+      doc.setFontSize(9);
+      doc.setTextColor(0, 0, 0);
+      doc.text('Payment Information', margin, finalFooterY);
+      
+      doc.setFont('helvetica', 'normal');
+      doc.setFontSize(8);
+      doc.setTextColor(mutedText[0], mutedText[1], mutedText[2]);
+      const paymentInfoY = finalFooterY + 5;
+      if (invoice.status === 'paid') {
+        doc.text('Status: Paid', margin, paymentInfoY);
+      } else if (invoice.status === 'partial') {
+        doc.text(`Status: Partial Payment (Rs ${invoice.paidAmount.toLocaleString('en-IN')} paid)`, margin, paymentInfoY);
+      } else {
+        doc.text('Status: Unpaid', margin, paymentInfoY);
+      }
+
+      // Date at bottom right
+      doc.setFont('helvetica', 'normal');
+      doc.setFontSize(8);
+      doc.text(`Date: ${format(new Date(invoice.createdAt), 'MMMM dd, yyyy')}`, pageWidth - margin, finalFooterY, { align: 'right' });
 
       // File name and action
       const fileName = `${invoice.invoiceNumber.replace(/[^a-z0-9]/gi, '_')}.pdf`;
@@ -456,9 +494,26 @@ export default function InvoiceDetailPage() {
   }, [shouldDownload, invoice, firmInfo, generatePDF, isFirmInfoComplete]);
 
   // Edit handlers
-  const addEditItem = () => {
-    setEditItems([...editItems, { id: Date.now().toString(), description: '', amount: 0 }]);
-  };
+  const addEditItem = useCallback(() => {
+    setEditItems((prev) => [...prev, { id: Date.now().toString(), description: '', amount: 0 }]);
+  }, []);
+
+  // Shortcut: Ctrl+Enter / Cmd+Enter to add item (edit mode)
+  useEffect(() => {
+    if (!isEditing) return;
+    if (showFirmInfoModal) return;
+
+    const onKeyDown = (e: KeyboardEvent) => {
+      const isCmdOrCtrlEnter = (e.ctrlKey || e.metaKey) && e.key === 'Enter';
+      if (!isCmdOrCtrlEnter) return;
+
+      e.preventDefault();
+      addEditItem();
+    };
+
+    window.addEventListener('keydown', onKeyDown);
+    return () => window.removeEventListener('keydown', onKeyDown);
+  }, [isEditing, showFirmInfoModal, addEditItem]);
 
   const removeEditItem = (itemId: string) => {
     if (editItems.length === 1) {
@@ -673,48 +728,51 @@ export default function InvoiceDetailPage() {
           <div className="bg-white rounded-xl border border-gray-200 shadow-sm p-5">
             <div className="flex items-center justify-between mb-4">
               <h2 className="text-lg font-semibold text-gray-900">Items</h2>
-              {isEditing && (
-                <Button type="button" variant="outline" size="sm" onClick={addEditItem}>
-                  <Plus className="w-4 h-4 mr-1" />
-                  Add Item
-                </Button>
-              )}
             </div>
 
             {isEditing ? (
-              <div className="space-y-3">
-                {editItems.map((item, index) => (
-                  <div key={item.id} className="flex items-start gap-3 p-3 bg-gray-50 rounded-lg">
-                    <div className="flex-1">
-                      <Label className="text-xs text-gray-500">Description</Label>
-                      <Input
-                        value={item.description}
-                        onChange={(e) => updateEditItem(item.id, 'description', e.target.value)}
-                        placeholder={`Item ${index + 1}`}
-                        className="mt-1"
-                      />
+              <>
+                <div className="space-y-3">
+                  {editItems.map((item, index) => (
+                    <div key={item.id} className="flex items-start gap-3 p-3 bg-gray-50 rounded-lg">
+                      <div className="flex-1">
+                        <Label className="text-xs text-gray-500">Description</Label>
+                        <Input
+                          value={item.description}
+                          onChange={(e) => updateEditItem(item.id, 'description', e.target.value)}
+                          placeholder={`Item ${index + 1}`}
+                          className="mt-1"
+                        />
+                      </div>
+                      <div className="w-32">
+                        <Label className="text-xs text-gray-500">Amount (₹)</Label>
+                        <Input
+                          type="number"
+                          value={item.amount || ''}
+                          onChange={(e) => updateEditItem(item.id, 'amount', parseFloat(e.target.value) || 0)}
+                          className="mt-1"
+                        />
+                      </div>
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="icon"
+                        className="mt-6 text-red-500 hover:text-red-700"
+                        onClick={() => removeEditItem(item.id)}
+                      >
+                        <Trash2 className="w-4 h-4" />
+                      </Button>
                     </div>
-                    <div className="w-32">
-                      <Label className="text-xs text-gray-500">Amount (₹)</Label>
-                      <Input
-                        type="number"
-                        value={item.amount || ''}
-                        onChange={(e) => updateEditItem(item.id, 'amount', parseFloat(e.target.value) || 0)}
-                        className="mt-1"
-                      />
-                    </div>
-                    <Button
-                      type="button"
-                      variant="ghost"
-                      size="icon"
-                      className="mt-6 text-red-500 hover:text-red-700"
-                      onClick={() => removeEditItem(item.id)}
-                    >
-                      <Trash2 className="w-4 h-4" />
-                    </Button>
-                  </div>
-                ))}
-              </div>
+                  ))}
+                </div>
+
+                <div className="mt-4 flex justify-end">
+                  <Button type="button" variant="outline" size="sm" onClick={addEditItem}>
+                    <Plus className="w-4 h-4 mr-1" />
+                    Add Item (Ctrl+Enter)
+                  </Button>
+                </div>
+              </>
             ) : (
               <div className="space-y-2">
                 {invoice.items.map((item, index) => (
