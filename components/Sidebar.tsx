@@ -18,7 +18,8 @@ import {
   X,
   LogOut,
   FolderOpen,
-  User
+  User,
+  FileText
 } from 'lucide-react';
 
 type SidebarProps = {
@@ -140,6 +141,7 @@ export default function Sidebar({ collapsed = false }: SidebarProps) {
     { href: '/customers', label: 'Customers', icon: Users },
     { href: '/suppliers', label: 'Suppliers', icon: Building2 },
     { href: '/transactions/new', label: 'New Transaction', icon: PlusCircle },
+    { href: '/invoices', label: 'Invoices', icon: FileText },
     { href: '/daily-cash-record', label: 'Cash Record', icon: Wallet },
     { href: '/notes', label: 'Notes', icon: StickyNote },
   ], []);

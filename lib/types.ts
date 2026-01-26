@@ -108,3 +108,27 @@ export interface Note {
   updatedAt: Date;
 }
 
+export interface InvoiceItem {
+  description: string;
+  amount: number;
+}
+
+export interface Invoice {
+  _id?: string;
+  userId: string;
+  invoiceNumber: string; // e.g., INV-2026-01-0001
+  customerId?: string; // linked customer if exists
+  customerName: string;
+  customerPhone?: string;
+  customerAddress?: string;
+  items: InvoiceItem[];
+  totalAmount: number;
+  paidAmount: number;
+  status: 'paid' | 'unpaid' | 'partial';
+  notes?: string;
+  addedToLedger: boolean;
+  transactionId?: string; // linked transaction if added to ledger
+  createdAt: Date;
+  updatedAt: Date;
+}
+
