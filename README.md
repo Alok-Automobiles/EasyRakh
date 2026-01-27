@@ -38,6 +38,11 @@ GEMINI_API_KEY=your-gemini-api-key
 CLOUDINARY_CLOUD_NAME=your-cloud-name
 CLOUDINARY_API_KEY=your-api-key
 CLOUDINARY_API_SECRET=your-api-secret
+SMTP_HOST=smtp.gmail.com
+SMTP_PORT=port number
+SMTP_USER=your email address
+SMTP_PASS=your email password
+SMTP_FROM=your email address
 ```
 
 ### 3. Start Services
