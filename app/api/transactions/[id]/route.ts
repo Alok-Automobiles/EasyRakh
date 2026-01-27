@@ -213,7 +213,6 @@ export async function PUT(
       );
     }
 
-    // Non-blocking cache invalidation
     const oldEntityId = oldTransaction.entityId || oldTransaction.customerId || oldTransaction.supplierId;
     const oldEntityType = oldTransaction.entityType || (oldTransaction.customerId ? 'customer' : 'supplier');
     const keysToDelete = [
@@ -323,7 +322,6 @@ export async function DELETE(
       );
     }
 
-    // Non-blocking cache invalidation
     const entityId = transaction.entityId || transaction.customerId || transaction.supplierId;
     const entityType = transaction.entityType || (transaction.customerId ? 'customer' : 'supplier');
     const keysToDelete = [

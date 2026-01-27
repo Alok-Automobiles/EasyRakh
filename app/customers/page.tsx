@@ -69,7 +69,6 @@ export default function CustomersPage() {
     },
   });
 
-  // React Query for fetching customers - cached across navigation
   const { data, isLoading, error } = useQuery<{ customers: (Customer & { id: string; totalBalance: number })[] }>({
     queryKey: ['customers'],
     queryFn: async () => {
@@ -85,7 +84,6 @@ export default function CustomersPage() {
 
   const customers = data?.customers ?? [];
 
-  // Mutation for creating/updating customers
   const saveMutation = useMutation({
     mutationFn: async (formData: CustomerForm & { id?: string }) => {
       const url = formData.id ? `/api/customers/${formData.id}` : '/api/customers';
@@ -106,7 +104,6 @@ export default function CustomersPage() {
       setIsModalOpen(false);
       form.reset();
       setEditingCustomer(null);
-      // Invalidate cache to refetch
       queryClient.invalidateQueries({ queryKey: ['customers'] });
       queryClient.invalidateQueries({ queryKey: ['dashboard'] });
       
@@ -119,7 +116,6 @@ export default function CustomersPage() {
     },
   });
 
-  // Mutation for deleting customers
   const deleteMutation = useMutation({
     mutationFn: async (id: string) => {
       const response = await fetch(`/api/customers/${id}`, { method: 'DELETE' });

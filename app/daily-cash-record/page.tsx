@@ -212,7 +212,6 @@ export default function DailyCashRecordPage() {
           });
         }
 
-        // Invalidate dashboard cache so daily cash totals update
         queryClient.invalidateQueries({ queryKey: ['dashboard'] });
 
         setCurrentPage(1);
@@ -293,7 +292,6 @@ export default function DailyCashRecordPage() {
           setViewingRecord(data.record);
         }
 
-        // Invalidate dashboard cache so daily cash totals update
         queryClient.invalidateQueries({ queryKey: ['dashboard'] });
 
         fetchData(currentPage);
@@ -352,7 +350,6 @@ export default function DailyCashRecordPage() {
           return newCache;
         });
 
-        // Invalidate dashboard cache so daily cash totals update
         queryClient.invalidateQueries({ queryKey: ['dashboard'] });
 
         if (viewingRecord) {

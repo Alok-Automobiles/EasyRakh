@@ -33,7 +33,6 @@ export async function GET(request: NextRequest) {
     const db = await getDb();
     const customersCollection = db.collection("customers");
 
-    // Single aggregation query replaces N+1 queries
     const customersWithBalance = await customersCollection.aggregate([
       { $match: { userId } },
       { $sort: { createdAt: -1 } },
@@ -139,7 +138,6 @@ export async function POST(request: NextRequest) {
       createdAt: new Date(),
     });
 
-    // Non-blocking cache invalidation
     redis.del(`customers:${userId}`, `dashboard:stats:${userId}`).catch((err) => {
       console.warn('Redis cache invalidation failed:', err);
     });

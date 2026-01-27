@@ -88,12 +88,10 @@ export default function InvoicesPage() {
   const [deletingInvoice, setDeletingInvoice] = useState<{ id: string; invoiceNumber: string; addedToLedger: boolean } | null>(null);
   const [deleteTransactions, setDeleteTransactions] = useState(false);
 
-  // Reset to page 1 when filters change
   useEffect(() => {
     setCurrentPage(1);
   }, [searchQuery, statusFilter]);
 
-  // Keyboard shortcut: Ctrl+N / Cmd+N to create a new invoice
   useEffect(() => {
     const onKeyDown = (e: KeyboardEvent) => {
       const isCtrlOrCmd = e.ctrlKey || e.metaKey;
@@ -109,7 +107,6 @@ export default function InvoicesPage() {
     return () => window.removeEventListener('keydown', onKeyDown);
   }, [router]);
 
-  // Fetch invoices
   const { data, isLoading } = useQuery<InvoicesResponse>({
     queryKey: ['invoices', searchQuery, statusFilter, currentPage],
     queryFn: async () => {
@@ -131,7 +128,6 @@ export default function InvoicesPage() {
 
   const invoices = data?.invoices ?? [];
 
-  // Delete mutation
   const deleteMutation = useMutation({
     mutationFn: async ({ id, deleteTransactions }: { id: string; deleteTransactions: boolean }) => {
       const url = `/api/invoices/${id}?deleteTransactions=${deleteTransactions}`;
@@ -169,7 +165,6 @@ export default function InvoicesPage() {
     deleteMutation.mutate({ id: deletingInvoice.id, deleteTransactions });
   };
 
-  // Pagination handlers
   const handlePageClick = (page: number) => {
     setCurrentPage(page);
   };

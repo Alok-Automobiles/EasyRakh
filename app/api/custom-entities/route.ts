@@ -171,7 +171,6 @@ export async function POST(request: NextRequest) {
       createdAt: new Date(),
     });
 
-    // Non-blocking cache invalidation
     redis.del(
       `customEntities:${validatedData.collectionType}:${userId}`,
       `dashboard:stats:${userId}`

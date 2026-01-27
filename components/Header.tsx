@@ -23,7 +23,6 @@ export default function Header() {
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const [customCollectionTypes, setCustomCollectionTypes] = useState<Array<{ id: string; name: string; slug: string; lastTransactionDate?: Date }>>([]);
 
-  // Don't show header on login/register pages or landing page
   const isAuthPage = pathname === '/login' || pathname === '/register' || pathname === '/';
 
   useEffect(() => {
@@ -32,7 +31,6 @@ export default function Header() {
       return;
     }
 
-    // Prevent duplicate calls for the same pathname
     if (lastPathnameRef.current === pathname) return;
     lastPathnameRef.current = pathname;
 
@@ -68,11 +66,9 @@ export default function Header() {
           const collections = collectionTypesData.collectionTypes;
           const transactions = transactionsData?.transactions || [];
           
-          // Create a map of collection slugs to their most recent transaction date
           const collectionLastTransactionMap = new Map<string, Date>();
           
           transactions.forEach((tx: { entityType: string; date: string | Date; createdAt: string | Date }) => {
-            // Only process custom entity types (not 'customer' or 'supplier')
             if (tx.entityType && tx.entityType !== 'customer' && tx.entityType !== 'supplier') {
               const txDate = new Date(tx.date || tx.createdAt);
               const existing = collectionLastTransactionMap.get(tx.entityType);
@@ -82,20 +78,19 @@ export default function Header() {
             }
           });
           
-          // Add last transaction date to each collection and sort by most recent
           const collectionsWithDates = collections.map((ct: { id: string; name: string; slug: string }) => ({
             ...ct,
             lastTransactionDate: collectionLastTransactionMap.get(ct.slug),
           }));
           
-          // Sort: collections with recent transactions first, then by creation date
+
           collectionsWithDates.sort((a: { id: string; name: string; slug: string; lastTransactionDate?: Date }, b: { id: string; name: string; slug: string; lastTransactionDate?: Date }) => {
             if (a.lastTransactionDate && b.lastTransactionDate) {
               return b.lastTransactionDate.getTime() - a.lastTransactionDate.getTime();
             }
             if (a.lastTransactionDate) return -1;
             if (b.lastTransactionDate) return 1;
-            return 0; // Keep original order if neither has transactions
+            return 0;
           });
           
           setCustomCollectionTypes(collectionsWithDates);
@@ -122,7 +117,6 @@ export default function Header() {
   const headerClasses =
     'sticky top-0 z-50 w-full border-b border-white/40 bg-white/70 backdrop-blur-xl shadow-[0_10px_30px_rgba(15,23,42,0.08)] supports-[backdrop-filter]:bg-white/60';
 
-  // Get top 2 most recently used collections
   const topCollections = customCollectionTypes.slice(0, 2);
   const hasMoreCollections = customCollectionTypes.length > 2;
 

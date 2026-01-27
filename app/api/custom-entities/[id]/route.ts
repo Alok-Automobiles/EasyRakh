@@ -138,7 +138,6 @@ export async function PUT(
       );
     }
 
-    // Non-blocking cache invalidation
     const keysToInvalidate = [
       `customEntities:${validatedData.collectionType}:${userId}`,
       `dashboard:stats:${userId}`,
@@ -226,7 +225,6 @@ export async function DELETE(
       );
     }
 
-    // Non-blocking cache invalidation
     redis.del(
       `customEntities:${entity.collectionType}:${userId}`,
       `dashboard:stats:${userId}`,

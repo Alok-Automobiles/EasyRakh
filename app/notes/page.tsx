@@ -62,7 +62,6 @@ export default function NotesPage() {
     };
 
     fetchNotes();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   useEffect(() => {
@@ -74,11 +73,9 @@ export default function NotesPage() {
     }
   }, [editingNoteId, editingField]);
 
-  // Focus draft title input only when a NEW draft is created
   useEffect(() => {
     if (draftNote && draftNote.id !== draftIdRef.current) {
       draftIdRef.current = draftNote.id;
-      // Use setTimeout to ensure the input is rendered
       setTimeout(() => {
         draftTitleRef.current?.focus();
       }, 0);
@@ -88,7 +85,6 @@ export default function NotesPage() {
     }
   }, [draftNote?.id]);
 
-  // Create a new draft note (no API call)
   const handleCreateDraft = useCallback(() => {
     if (draftNote) return; // Already have a draft
 
@@ -103,7 +99,6 @@ export default function NotesPage() {
     });
   }, [draftNote]);
 
-  // Keyboard shortcut: Ctrl+N for new note
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
       if ((e.ctrlKey || e.metaKey) && e.key === 'n') {
@@ -116,14 +111,12 @@ export default function NotesPage() {
     return () => document.removeEventListener('keydown', handleKeyDown);
   }, [handleCreateDraft]);
 
-  // Save draft to database (only if has content)
   const handleSaveDraft = async () => {
     if (!draftNote) return;
 
     const title = draftNote.title.trim();
     const content = draftNote.content.trim();
 
-    // If both title and content are empty, discard the draft
     if (!title && !content) {
       setDraftNote(null);
       return;
@@ -155,17 +148,14 @@ export default function NotesPage() {
     }
   };
 
-  // Handle clicking outside draft note
   const handleDraftBlur = (e: React.FocusEvent) => {
-    // Check if the new focus target is still within the draft card
     const relatedTarget = e.relatedTarget as HTMLElement;
     const draftCard = e.currentTarget.closest('[data-draft-card]');
     
     if (draftCard && relatedTarget && draftCard.contains(relatedTarget)) {
-      return; // Still within draft card, don't save yet
+      return;
     }
 
-    // Clicked outside, save or discard
     handleSaveDraft();
   };
 
@@ -183,7 +173,6 @@ export default function NotesPage() {
     const newTitle = editingField === 'title' ? editTitle.trim() : note.title;
     const newContent = editingField === 'content' ? editContent : note.content;
 
-    // If nothing changed, just close edit mode
     if (newTitle === note.title && newContent === (note.content || '')) {
       setEditingNoteId(null);
       setEditingField(null);
@@ -289,7 +278,6 @@ export default function NotesPage() {
     }
   };
 
-  // Loading skeleton with masonry layout
   if (loading) {
     return (
       <div className="min-h-screen bg-slate-50">

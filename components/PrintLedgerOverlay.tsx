@@ -75,14 +75,12 @@ export default function PrintLedgerOverlay({
     firmAddress: '',
   });
 
-  // Initialize firm info from props when overlay opens
   useEffect(() => {
     if (open && initialFirmInfo) {
       setFirmInfo(initialFirmInfo);
     }
   }, [open, initialFirmInfo]);
 
-  // Lock body scroll when overlay is open
   useEffect(() => {
     if (open) {
       document.body.style.overflow = 'hidden';
@@ -90,13 +88,11 @@ export default function PrintLedgerOverlay({
       document.body.style.overflow = '';
     }
 
-    // Cleanup on unmount
     return () => {
       document.body.style.overflow = '';
     };
   }, [open]);
 
-  // Handle ESC key to close
   useEffect(() => {
     if (!open) return;
 
@@ -146,7 +142,6 @@ export default function PrintLedgerOverlay({
     }
 
     try {
-      // A4 portrait document
       const doc = new jsPDF('p', 'mm', 'a4');
       const pageWidth = doc.internal.pageSize.getWidth();
       const margin = 18;
@@ -154,14 +149,12 @@ export default function PrintLedgerOverlay({
       const darkGreen: [number, number, number] = [16, 185, 129];
       const mutedText: [number, number, number] = [75, 85, 99];
 
-      // Decorative green header
       doc.setFillColor(primaryGreen[0], primaryGreen[1], primaryGreen[2]);
       doc.rect(0, 0, pageWidth, 38, 'F');
       doc.setFillColor(darkGreen[0], darkGreen[1], darkGreen[2]);
       doc.triangle(0, 0, 70, 0, 0, 38, 'F');
       doc.triangle(pageWidth, 0, pageWidth - 80, 0, pageWidth, 38, 'F');
 
-      // Header text
       doc.setTextColor(255, 255, 255);
       doc.setFont('helvetica', 'bold');
       doc.setFontSize(14);
@@ -177,11 +170,9 @@ export default function PrintLedgerOverlay({
       doc.setFontSize(30);
       doc.text('LEDGER', pageWidth - margin, 20, { align: 'right' });
 
-      // Reset text color for body content
       doc.setTextColor(17, 24, 39);
       let yPos = 50;
 
-      // Invoice meta
       const formattedDate = format(new Date(), 'dd MMMM yyyy');
       doc.setFontSize(11);
       doc.setFont('helvetica', 'bold');
@@ -241,7 +232,6 @@ export default function PrintLedgerOverlay({
 
       yPos += 2;
 
-      // Prepare table data
       const tableRows: (string | number)[][] = [];
       const formatAmount = (amount: number) => `Rs ${amount.toLocaleString('en-IN')}`;
 
@@ -317,11 +307,9 @@ export default function PrintLedgerOverlay({
         theme: 'plain',
       });
 
-      // Generate filename
       const entityName = ledgerData.entity.name.replace(/[^a-z0-9]/gi, '_').toLowerCase();
       const fileName = `ledger_${entityName}_${format(new Date(), 'yyyy-MM-dd')}.pdf`;
 
-      // Save PDF
       doc.save(fileName);
       toast.success('PDF generated successfully');
     } catch (error) {
@@ -348,7 +336,6 @@ export default function PrintLedgerOverlay({
         <div
           className="fixed inset-0 z-50 flex items-center justify-center"
           onClick={(e) => {
-            // Close when clicking backdrop
             if (e.target === e.currentTarget) {
               onClose();
             }

@@ -13,10 +13,7 @@ const updateEntrySchema = z.object({
   date: z.string().min(1, 'Date is required'),
 });
 
-// Helper function to parse date from dd-mm-yyyy or YYYY-MM-DD format
-// Returns a UTC date at start of day
 function parseDate(dateString: string): Date {
-  // Try dd-mm-yyyy format first
   if (dateString.includes('-') && dateString.split('-')[0].length <= 2) {
     try {
       const parts = dateString.split('-');
@@ -25,10 +22,8 @@ function parseDate(dateString: string): Date {
       const year = parseInt(parts[2], 10);
       return new Date(Date.UTC(year, month, day, 0, 0, 0, 0));
     } catch {
-      // Fall through to try YYYY-MM-DD
     }
   }
-  // Try YYYY-MM-DD format
   try {
     const parts = dateString.split('-');
     const year = parseInt(parts[0], 10);
@@ -40,7 +35,6 @@ function parseDate(dateString: string): Date {
   }
 }
 
-// Helper function to normalize date to start of day in UTC
 function normalizeDate(date: Date): Date {
   const year = date.getUTCFullYear();
   const month = date.getUTCMonth();
@@ -69,11 +63,9 @@ export async function PUT(
     const db = await getDb();
     const dailyCashRecordsCollection = db.collection('dailyCashRecords');
 
-    // Parse and normalize date
     const parsedDate = parseDate(validatedData.date);
     const normalizedDate = normalizeDate(parsedDate);
 
-    // Find daily record by date and userId
     const record = await dailyCashRecordsCollection.findOne({
       userId,
       date: normalizedDate,
@@ -86,7 +78,6 @@ export async function PUT(
       );
     }
 
-    // Find entry by entryId
     const entryIndex = record.entries.findIndex(
       (entry: any) => entry._id.toString() === entryId
     );
@@ -98,7 +89,6 @@ export async function PUT(
       );
     }
 
-    // Update entry
     const updatedEntries = [...record.entries];
     updatedEntries[entryIndex] = {
       ...updatedEntries[entryIndex],
@@ -108,7 +98,6 @@ export async function PUT(
       updatedAt: new Date(),
     };
 
-    // Recalculate totals
     const totalIn = updatedEntries
       .filter((e: any) => e.type === 'in')
       .reduce((sum: number, e: any) => sum + e.amount, 0);
@@ -117,7 +106,6 @@ export async function PUT(
       .reduce((sum: number, e: any) => sum + e.amount, 0);
     const totalLeft = totalIn - totalOut;
 
-    // Update record in database
     await dailyCashRecordsCollection.updateOne(
       { _id: record._id },
       {
@@ -131,7 +119,6 @@ export async function PUT(
       }
     );
 
-    // Fetch updated record
     const updatedRecord = await dailyCashRecordsCollection.findOne({
       _id: record._id,
     });
@@ -145,7 +132,6 @@ export async function PUT(
 
     const dateKey = format(updatedRecord.date, 'dd-MM-yyyy');
 
-    // Non-blocking cache invalidation
     redis.del(
       `daily-cash:list:${userId}`,
       `daily-cash:date:${userId}:${dateKey}`,

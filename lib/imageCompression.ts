@@ -99,7 +99,6 @@ export async function compressImage(
 ): Promise<CompressionResult> {
   const originalSize = file.size;
 
-  // If file is already under the limit and is a supported image, return as-is
   if (file.size <= maxSizeBytes) {
     return {
       file,
@@ -109,8 +108,6 @@ export async function compressImage(
     };
   }
 
-  // If it's not a compressible image type (e.g., PDF, HEIC), return as-is
-  // The server will handle the rejection
   if (!isCompressibleImage(file)) {
     return {
       file,
@@ -120,14 +117,11 @@ export async function compressImage(
     };
   }
 
-  // Load the image
   const dataUrl = await fileToDataUrl(file);
   const img = await loadImage(dataUrl);
 
-  // Calculate dimensions (reduce if image is very large)
   const { width, height } = calculateDimensions(img.width, img.height);
 
-  // Create canvas and draw image
   const canvas = document.createElement('canvas');
   canvas.width = width;
   canvas.height = height;
@@ -139,10 +133,8 @@ export async function compressImage(
 
   ctx.drawImage(img, 0, 0, width, height);
 
-  // Determine output format (prefer JPEG for photos as it compresses better)
   const outputType = file.type === 'image/png' ? 'image/png' : 'image/jpeg';
   
-  // Start with high quality and reduce until we're under the limit
   let quality = 0.9;
   let blob: Blob;
 
@@ -155,12 +147,10 @@ export async function compressImage(
 
     quality -= QUALITY_STEP;
 
-    // If we've gone too low on quality, try reducing dimensions
     if (quality < MIN_QUALITY && canvas.width > 800) {
       const newWidth = Math.round(canvas.width * 0.8);
       const newHeight = Math.round(canvas.height * 0.8);
       
-      // Create a new canvas with smaller dimensions
       const tempCanvas = document.createElement('canvas');
       tempCanvas.width = newWidth;
       tempCanvas.height = newHeight;
@@ -173,11 +163,10 @@ export async function compressImage(
         ctx.drawImage(tempCanvas, 0, 0);
       }
       
-      quality = 0.7; // Reset quality after dimension reduction
+      quality = 0.7;
     }
   } while (blob.size > maxSizeBytes && quality >= MIN_QUALITY);
 
-  // Create a new File from the blob
   const extension = outputType === 'image/png' ? 'png' : 'jpg';
   const newFileName = file.name.replace(/\.[^/.]+$/, '') + `_compressed.${extension}`;
   

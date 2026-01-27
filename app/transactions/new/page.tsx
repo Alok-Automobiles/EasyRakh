@@ -260,7 +260,6 @@ function NewTransactionPageContent() {
     try {
       let fileToUpload = file;
 
-      // Compress image if it's too large and is a compressible type
       if (file.size > MAX_BILL_SIZE_BYTES && isCompressibleImage(file)) {
         toast.loading('Compressing image...', { id: 'compress' });
         const compressionResult = await compressImage(file, MAX_BILL_SIZE_BYTES);
@@ -273,7 +272,6 @@ function NewTransactionPageContent() {
           );
         }
       } else if (file.size > MAX_BILL_SIZE_BYTES) {
-        // Non-compressible files (PDF, HEIC) that are too large
         toast.error('PDF and HEIC files must be under 5MB. Please reduce the file size manually.');
         event.target.value = '';
         setBillUploading(false);

@@ -68,7 +68,6 @@ export async function POST(request: NextRequest) {
     const body = await request.json();
     const validatedData = noteSchema.parse(body);
 
-    // Validate color is in palette
     if (!colorPalette.includes(validatedData.color)) {
       return NextResponse.json(
         { error: 'Invalid color. Color must be from the allowed palette.' },
@@ -91,7 +90,6 @@ export async function POST(request: NextRequest) {
       updatedAt: now,
     });
 
-    // Non-blocking cache invalidation
     redis.del(`dashboard:stats:${userId}`).catch((err) => {
       console.warn('Redis cache invalidation failed:', err);
     });

@@ -69,7 +69,6 @@ export default function SuppliersPage() {
     },
   });
 
-  // React Query for fetching suppliers - cached across navigation
   const { data, isLoading, error } = useQuery<{ suppliers: (Supplier & { id: string; totalBalance: number })[] }>({
     queryKey: ['suppliers'],
     queryFn: async () => {
@@ -85,7 +84,6 @@ export default function SuppliersPage() {
 
   const suppliers = data?.suppliers ?? [];
 
-  // Mutation for creating/updating suppliers
   const saveMutation = useMutation({
     mutationFn: async (formData: SupplierForm & { id?: string }) => {
       const url = formData.id ? `/api/suppliers/${formData.id}` : '/api/suppliers';
@@ -106,7 +104,6 @@ export default function SuppliersPage() {
       setIsModalOpen(false);
       form.reset();
       setEditingSupplier(null);
-      // Invalidate cache to refetch
       queryClient.invalidateQueries({ queryKey: ['suppliers'] });
       queryClient.invalidateQueries({ queryKey: ['dashboard'] });
       
@@ -119,7 +116,6 @@ export default function SuppliersPage() {
     },
   });
 
-  // Mutation for deleting suppliers
   const deleteMutation = useMutation({
     mutationFn: async (id: string) => {
       const response = await fetch(`/api/suppliers/${id}`, { method: 'DELETE' });
