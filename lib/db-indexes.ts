@@ -46,6 +46,13 @@ export async function initializeIndexes(db: Db): Promise<void> {
     const customEntitiesCollection = db.collection('customEntities');
     await customEntitiesCollection.createIndex({ userId: 1, collectionType: 1, createdAt: -1 });
     await customEntitiesCollection.createIndex({ userId: 1, collectionType: 1 });
+
+    // Invoices collection indexes
+    const invoicesCollection = db.collection('invoices');
+    await invoicesCollection.createIndex({ userId: 1, createdAt: -1 });
+    await invoicesCollection.createIndex({ userId: 1, invoiceNumber: 1 }, { unique: true });
+    await invoicesCollection.createIndex({ userId: 1, customerId: 1 });
+    await invoicesCollection.createIndex({ userId: 1, status: 1 });
   } catch (error) {
     console.error('❌ Error initializing database indexes:', error);
     // Don't throw - allow app to continue even if index creation fails
