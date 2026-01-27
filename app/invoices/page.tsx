@@ -93,6 +93,22 @@ export default function InvoicesPage() {
     setCurrentPage(1);
   }, [searchQuery, statusFilter]);
 
+  // Keyboard shortcut: Ctrl+N / Cmd+N to create a new invoice
+  useEffect(() => {
+    const onKeyDown = (e: KeyboardEvent) => {
+      const isCtrlOrCmd = e.ctrlKey || e.metaKey;
+      if (!isCtrlOrCmd) return;
+
+      if (e.key.toLowerCase() === 'n') {
+        e.preventDefault();
+        router.push('/invoices/new');
+      }
+    };
+
+    window.addEventListener('keydown', onKeyDown);
+    return () => window.removeEventListener('keydown', onKeyDown);
+  }, [router]);
+
   // Fetch invoices
   const { data, isLoading } = useQuery<InvoicesResponse>({
     queryKey: ['invoices', searchQuery, statusFilter, currentPage],
@@ -212,7 +228,11 @@ export default function InvoicesPage() {
               </p>
             </div>
           </div>
-          <Button asChild className="bg-slate-900 hover:bg-slate-800">
+          <Button
+            asChild
+            className="bg-slate-900 hover:bg-slate-800"
+            title="Shortcut: Ctrl+N / Cmd+N"
+          >
             <Link href="/invoices/new">
               <Plus className="w-4 h-4 mr-2" />
               Create Invoice
@@ -255,7 +275,11 @@ export default function InvoicesPage() {
             <p className="text-gray-500 mb-6 max-w-sm mx-auto">
               Create your first invoice to start tracking your sales and payments.
             </p>
-            <Button asChild className="bg-slate-900 hover:bg-slate-800">
+            <Button
+              asChild
+              className="bg-slate-900 hover:bg-slate-800"
+              title="Shortcut: Ctrl+N / Cmd+N"
+            >
               <Link href="/invoices/new">
                 <Plus className="w-4 h-4 mr-2" />
                 Create your first invoice

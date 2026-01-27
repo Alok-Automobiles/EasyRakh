@@ -78,6 +78,9 @@ export default function NewInvoicePage() {
   const [notes, setNotes] = useState('');
   const [addToLedger, setAddToLedger] = useState(false);
 
+  // Refs for item input fields (Tally-like navigation)
+  const inputRefs = useRef<Record<string, { description: HTMLInputElement | null; amount: HTMLInputElement | null }>>({});
+
   const totalAmount = items.reduce((sum, item) => sum + (item.amount || 0), 0);
 
   // Fetch initial data
@@ -159,12 +162,40 @@ export default function NewInvoicePage() {
   };
 
   // Item handlers
-  const addItem = () => {
-    setItems([
-      ...items,
-      { id: Date.now().toString(), description: '', amount: 0 },
+  const addItem = useCallback(() => {
+    const newId = Date.now().toString();
+    setItems((prevItems) => [
+      ...prevItems,
+      { id: newId, description: '', amount: 0 },
     ]);
-  };
+    // Auto-focus the new item's description field after a brief delay
+    setTimeout(() => {
+      const newDescriptionInput = inputRefs.current[newId]?.description;
+      if (newDescriptionInput) {
+        newDescriptionInput.focus();
+      }
+    }, 0);
+  }, []);
+
+  // Shortcut: Ctrl+Enter / Cmd+Enter to add item
+  useEffect(() => {
+    const onKeyDown = (e: KeyboardEvent) => {
+      const isCmdOrCtrlEnter = (e.ctrlKey || e.metaKey) && e.key === 'Enter';
+      if (!isCmdOrCtrlEnter) return;
+
+      // Don't trigger if user is typing in an input or textarea
+      const target = e.target as HTMLElement;
+      if (target.tagName === 'INPUT' || target.tagName === 'TEXTAREA') {
+        return;
+      }
+
+      e.preventDefault();
+      addItem();
+    };
+
+    window.addEventListener('keydown', onKeyDown);
+    return () => window.removeEventListener('keydown', onKeyDown);
+  }, [addItem]);
 
   const removeItem = (id: string) => {
     if (items.length === 1) {
@@ -273,6 +304,67 @@ export default function NewInvoicePage() {
     createNewCustomer,
     router,
   ]);
+
+  // Shortcut: Ctrl+S / Cmd+S to save invoice
+  useEffect(() => {
+    const onKeyDown = (e: KeyboardEvent) => {
+      const isCtrlOrCmd = e.ctrlKey || e.metaKey;
+      if (!isCtrlOrCmd) return;
+
+      if (e.key.toLowerCase() === 's') {
+        e.preventDefault();
+        if (!submitting) {
+          handleSubmit();
+        }
+      }
+    };
+
+    window.addEventListener('keydown', onKeyDown);
+    return () => window.removeEventListener('keydown', onKeyDown);
+  }, [handleSubmit, submitting]);
+
+  // Tally-like navigation handler
+  const handleItemKeyDown = useCallback((itemId: string, field: 'description' | 'amount', e: React.KeyboardEvent<HTMLInputElement>) => {
+    // Only handle Enter and Tab keys
+    if (e.key !== 'Enter' && e.key !== 'Tab') return;
+
+    // Don't handle Shift+Tab (backward navigation)
+    if (e.key === 'Tab' && e.shiftKey) return;
+
+    const currentIndex = items.findIndex((item) => item.id === itemId);
+    if (currentIndex === -1) return;
+
+    if (field === 'description') {
+      // Move to amount field of same item
+      e.preventDefault();
+      const amountInput = inputRefs.current[itemId]?.amount;
+      if (amountInput) {
+        amountInput.focus();
+        amountInput.select();
+      }
+    } else if (field === 'amount') {
+      // Check if this is the last item
+      const isLastItem = currentIndex === items.length - 1;
+      
+      if (isLastItem && e.key === 'Enter') {
+        // Save invoice when Enter is pressed on last item's amount field
+        e.preventDefault();
+        handleSubmit();
+      } else if (isLastItem && e.key === 'Tab') {
+        // Allow default Tab behavior to move to next section
+        return;
+      } else if (!isLastItem) {
+        // Move to next item's description field
+        e.preventDefault();
+        const nextItem = items[currentIndex + 1];
+        const nextDescriptionInput = inputRefs.current[nextItem.id]?.description;
+        if (nextDescriptionInput) {
+          nextDescriptionInput.focus();
+          nextDescriptionInput.select();
+        }
+      }
+    }
+  }, [items, handleSubmit]);
 
   if (loading) {
     return (
@@ -426,18 +518,9 @@ export default function NewInvoicePage() {
           <div className="bg-white rounded-xl border border-gray-200 shadow-sm p-5">
             <div className="flex items-center justify-between mb-4">
               <h2 className="text-lg font-semibold text-gray-900">Invoice Items</h2>
-              <Button
-                type="button"
-                variant="outline"
-                size="sm"
-                onClick={addItem}
-              >
-                <Plus className="w-4 h-4 mr-1" />
-                Add Item
-              </Button>
             </div>
 
-            <div className="space-y-3">
+            <div className="space-y-3 max-h-[calc(100vh-320px)] overflow-y-auto pr-2">
               {items.map((item, index) => (
                 <div
                   key={item.id}
@@ -446,8 +529,15 @@ export default function NewInvoicePage() {
                   <div className="flex-1">
                     <Label className="text-xs text-gray-500">Description</Label>
                     <Input
+                      ref={(el) => {
+                        if (!inputRefs.current[item.id]) {
+                          inputRefs.current[item.id] = { description: null, amount: null };
+                        }
+                        inputRefs.current[item.id].description = el;
+                      }}
                       value={item.description}
                       onChange={(e) => updateItem(item.id, 'description', e.target.value)}
+                      onKeyDown={(e) => handleItemKeyDown(item.id, 'description', e)}
                       placeholder={`Item ${index + 1} description`}
                       className="mt-1"
                     />
@@ -455,9 +545,16 @@ export default function NewInvoicePage() {
                   <div className="w-32">
                     <Label className="text-xs text-gray-500">Amount (₹)</Label>
                     <Input
+                      ref={(el) => {
+                        if (!inputRefs.current[item.id]) {
+                          inputRefs.current[item.id] = { description: null, amount: null };
+                        }
+                        inputRefs.current[item.id].amount = el;
+                      }}
                       type="number"
                       value={item.amount || ''}
                       onChange={(e) => updateItem(item.id, 'amount', parseFloat(e.target.value) || 0)}
+                      onKeyDown={(e) => handleItemKeyDown(item.id, 'amount', e)}
                       placeholder="0"
                       className="mt-1"
                     />
@@ -473,6 +570,13 @@ export default function NewInvoicePage() {
                   </Button>
                 </div>
               ))}
+            </div>
+
+            <div className="mt-4 flex justify-end">
+              <Button type="button" variant="outline" size="sm" onClick={addItem}>
+                <Plus className="w-4 h-4 mr-1" />
+                Add Item (Ctrl+Enter)
+              </Button>
             </div>
 
             {/* Total */}
@@ -625,6 +729,7 @@ export default function NewInvoicePage() {
               onClick={handleSubmit}
               disabled={submitting}
               className="bg-slate-900 hover:bg-slate-800"
+              title="Shortcut: Ctrl+S / Cmd+S"
             >
               {submitting ? 'Creating...' : 'Create Invoice'}
             </Button>
