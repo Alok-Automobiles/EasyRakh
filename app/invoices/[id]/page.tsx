@@ -604,6 +604,52 @@ export default function InvoiceDetailPage() {
     setIsEditing(false);
   };
 
+  // Keyboard shortcuts for invoice detail page
+  // - Ctrl+N / Cmd+N: create new invoice
+  // - Ctrl+S / Cmd+S: save changes (edit mode)
+  // - Ctrl+E / Cmd+E: enter edit mode
+  // - Ctrl+D / Cmd+D: download invoice PDF
+  useEffect(() => {
+    const onKeyDown = (e: KeyboardEvent) => {
+      const isCtrlOrCmd = e.ctrlKey || e.metaKey;
+      if (!isCtrlOrCmd) return;
+
+      const key = e.key.toLowerCase();
+
+      // Avoid interfering when firm info modal is open
+      if (showFirmInfoModal) return;
+
+      if (key === 'n') {
+        e.preventDefault();
+        router.push('/invoices/new');
+        return;
+      }
+
+      if (key === 's') {
+        e.preventDefault();
+        if (isEditing && !saving) {
+          handleSave();
+        }
+        return;
+      }
+
+      if (key === 'e' && !isEditing) {
+        e.preventDefault();
+        setIsEditing(true);
+        return;
+      }
+
+      if (key === 'd') {
+        e.preventDefault();
+        handlePDFAction('download');
+        return;
+      }
+    };
+
+    window.addEventListener('keydown', onKeyDown);
+    return () => window.removeEventListener('keydown', onKeyDown);
+  }, [router, isEditing, saving, handleSave, handlePDFAction, showFirmInfoModal]);
+
   if (loading) {
     return (
       <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
@@ -672,14 +718,23 @@ export default function InvoiceDetailPage() {
                     <X className="w-4 h-4 mr-1" />
                     Cancel
                   </Button>
-                  <Button onClick={handleSave} disabled={saving} className="bg-slate-900 hover:bg-slate-800">
+                  <Button
+                    onClick={handleSave}
+                    disabled={saving}
+                    className="bg-slate-900 hover:bg-slate-800"
+                    title="Shortcut: Ctrl+S / Cmd+S"
+                  >
                     <Save className="w-4 h-4 mr-1" />
                     {saving ? 'Saving...' : 'Save'}
                   </Button>
                 </>
               ) : (
                 <>
-                  <Button variant="outline" onClick={() => setIsEditing(true)}>
+                  <Button
+                    variant="outline"
+                    onClick={() => setIsEditing(true)}
+                    title="Shortcut: Ctrl+E / Cmd+E"
+                  >
                     <Edit2 className="w-4 h-4 mr-1" />
                     Edit
                   </Button>
@@ -687,7 +742,11 @@ export default function InvoiceDetailPage() {
                     <Printer className="w-4 h-4 mr-1" />
                     Print
                   </Button>
-                  <Button onClick={() => handlePDFAction('download')} className="bg-slate-900 hover:bg-slate-800">
+                  <Button
+                    onClick={() => handlePDFAction('download')}
+                    className="bg-slate-900 hover:bg-slate-800"
+                    title="Shortcut: Ctrl+D / Cmd+D"
+                  >
                     <Download className="w-4 h-4 mr-1" />
                     Download
                   </Button>
@@ -732,7 +791,7 @@ export default function InvoiceDetailPage() {
 
             {isEditing ? (
               <>
-                <div className="space-y-3">
+                <div className="space-y-3 max-h-[calc(100vh-320px)] overflow-y-auto pr-2">
                   {editItems.map((item, index) => (
                     <div key={item.id} className="flex items-start gap-3 p-3 bg-gray-50 rounded-lg">
                       <div className="flex-1">
