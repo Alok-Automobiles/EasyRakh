@@ -8,7 +8,6 @@ const collectionTypeSchema = z.object({
   name: z.string().min(1, 'Name is required').max(50, 'Name must be 50 characters or less'),
 });
 
-// Helper function to generate URL-safe slug
 function generateSlug(name: string): string {
   return name
     .toLowerCase()
@@ -29,7 +28,6 @@ export async function GET(request: NextRequest) {
       );
     }
 
-    // Try to get from cache
     try {
       const cacheKey = `collectionTypes:${userId}`;
       const cached = await redis.get(cacheKey);
@@ -57,7 +55,6 @@ export async function GET(request: NextRequest) {
       })),
     };
 
-    // Cache the response with 5 minute TTL
     try {
       const cacheKey = `collectionTypes:${userId}`;
       await redis.setex(cacheKey, 600, JSON.stringify(responseData));
@@ -92,12 +89,10 @@ export async function POST(request: NextRequest) {
     const db = await getDb();
     const collectionTypesCollection = db.collection('collectionTypes');
 
-    // Generate slug from name
     let slug = generateSlug(validatedData.name);
     let slugSuffix = 0;
     let finalSlug = slug;
 
-    // Ensure slug is unique per user
     while (true) {
       const existing = await collectionTypesCollection.findOne({
         userId,
@@ -119,7 +114,6 @@ export async function POST(request: NextRequest) {
       createdAt: new Date(),
     });
 
-    // Non-blocking cache invalidation
     redis.del(`collectionTypes:${userId}`).catch((err) => {
       console.warn('Redis cache invalidation failed:', err);
     });

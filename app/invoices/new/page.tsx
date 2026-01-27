@@ -52,10 +52,8 @@ export default function NewInvoicePage() {
   const [submitting, setSubmitting] = useState(false);
   const hasFetchedRef = useRef(false);
 
-  // Invoice number
   const [nextInvoiceNumber, setNextInvoiceNumber] = useState('');
 
-  // Customer
   const [customers, setCustomers] = useState<CustomerWithId[]>([]);
   const [customerSearch, setCustomerSearch] = useState('');
   const [selectedCustomer, setSelectedCustomer] = useState<CustomerWithId | null>(null);
@@ -65,25 +63,20 @@ export default function NewInvoicePage() {
   const [customerAddress, setCustomerAddress] = useState('');
   const [createNewCustomer, setCreateNewCustomer] = useState(false);
 
-  // Items
   const [items, setItems] = useState<InvoiceItem[]>([
     { id: '1', description: '', amount: 0 },
   ]);
 
-  // Payment
   const [status, setStatus] = useState<'paid' | 'unpaid' | 'partial'>('unpaid');
   const [paidAmount, setPaidAmount] = useState(0);
 
-  // Notes and ledger
   const [notes, setNotes] = useState('');
   const [addToLedger, setAddToLedger] = useState(false);
 
-  // Refs for item input fields (Tally-like navigation)
   const inputRefs = useRef<Record<string, { description: HTMLInputElement | null; amount: HTMLInputElement | null }>>({});
 
   const totalAmount = items.reduce((sum, item) => sum + (item.amount || 0), 0);
 
-  // Fetch initial data
   useEffect(() => {
     if (hasFetchedRef.current) return;
     hasFetchedRef.current = true;
@@ -115,7 +108,6 @@ export default function NewInvoicePage() {
     fetchData();
   }, []);
 
-  // Filter customers based on search
   const filteredCustomers = customers.filter(
     (c) =>
       c.name.toLowerCase().includes(customerSearch.toLowerCase()) ||
@@ -137,7 +129,6 @@ export default function NewInvoicePage() {
     setCustomerName(value);
     setShowCustomerDropdown(true);
 
-    // Check if exact match exists
     const exactMatch = customers.find(
       (c) => c.name.toLowerCase() === value.toLowerCase()
     );
@@ -161,14 +152,12 @@ export default function NewInvoicePage() {
     setShowCustomerDropdown(false);
   };
 
-  // Item handlers
   const addItem = useCallback(() => {
     const newId = Date.now().toString();
     setItems((prevItems) => [
       ...prevItems,
       { id: newId, description: '', amount: 0 },
     ]);
-    // Auto-focus the new item's description field after a brief delay
     setTimeout(() => {
       const newDescriptionInput = inputRefs.current[newId]?.description;
       if (newDescriptionInput) {
@@ -177,13 +166,11 @@ export default function NewInvoicePage() {
     }, 0);
   }, []);
 
-  // Shortcut: Ctrl+Enter / Cmd+Enter to add item
   useEffect(() => {
     const onKeyDown = (e: KeyboardEvent) => {
       const isCmdOrCtrlEnter = (e.ctrlKey || e.metaKey) && e.key === 'Enter';
       if (!isCmdOrCtrlEnter) return;
 
-      // Don't trigger if user is typing in an input or textarea
       const target = e.target as HTMLElement;
       if (target.tagName === 'INPUT' || target.tagName === 'TEXTAREA') {
         return;
@@ -213,7 +200,6 @@ export default function NewInvoicePage() {
     );
   };
 
-  // Auto-update status based on paid amount
   useEffect(() => {
     if (paidAmount >= totalAmount && totalAmount > 0) {
       setStatus('paid');
@@ -224,7 +210,6 @@ export default function NewInvoicePage() {
     }
   }, [paidAmount, totalAmount]);
 
-  // Handle status change - adjust paid amount accordingly
   const handleStatusChange = (newStatus: 'paid' | 'unpaid' | 'partial') => {
     setStatus(newStatus);
     if (newStatus === 'paid') {
@@ -232,11 +217,9 @@ export default function NewInvoicePage() {
     } else if (newStatus === 'unpaid') {
       setPaidAmount(0);
     }
-    // For partial, keep the current paid amount
   };
 
   const handleSubmit = useCallback(async () => {
-    // Validation
     if (!customerName.trim()) {
       toast.error('Customer name is required');
       return;
@@ -305,7 +288,6 @@ export default function NewInvoicePage() {
     router,
   ]);
 
-  // Shortcut: Ctrl+S / Cmd+S to save invoice
   useEffect(() => {
     const onKeyDown = (e: KeyboardEvent) => {
       const isCtrlOrCmd = e.ctrlKey || e.metaKey;
@@ -323,19 +305,15 @@ export default function NewInvoicePage() {
     return () => window.removeEventListener('keydown', onKeyDown);
   }, [handleSubmit, submitting]);
 
-  // Tally-like navigation handler
   const handleItemKeyDown = useCallback((itemId: string, field: 'description' | 'amount', e: React.KeyboardEvent<HTMLInputElement>) => {
-    // Only handle Enter and Tab keys
     if (e.key !== 'Enter' && e.key !== 'Tab') return;
 
-    // Don't handle Shift+Tab (backward navigation)
     if (e.key === 'Tab' && e.shiftKey) return;
 
     const currentIndex = items.findIndex((item) => item.id === itemId);
     if (currentIndex === -1) return;
 
     if (field === 'description') {
-      // Move to amount field of same item
       e.preventDefault();
       const amountInput = inputRefs.current[itemId]?.amount;
       if (amountInput) {
@@ -343,18 +321,14 @@ export default function NewInvoicePage() {
         amountInput.select();
       }
     } else if (field === 'amount') {
-      // Check if this is the last item
       const isLastItem = currentIndex === items.length - 1;
       
       if (isLastItem && e.key === 'Enter') {
-        // Save invoice when Enter is pressed on last item's amount field
         e.preventDefault();
         handleSubmit();
       } else if (isLastItem && e.key === 'Tab') {
-        // Allow default Tab behavior to move to next section
         return;
       } else if (!isLastItem) {
-        // Move to next item's description field
         e.preventDefault();
         const nextItem = items[currentIndex + 1];
         const nextDescriptionInput = inputRefs.current[nextItem.id]?.description;

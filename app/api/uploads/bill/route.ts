@@ -7,7 +7,6 @@ const MAX_FILE_SIZE_BYTES = 5 * 1024 * 1024; // 5MB
 const ALLOWED_MIME_TYPES = ['image/jpeg', 'image/png', 'image/webp', 'image/heic', 'image/heif', 'application/pdf'];
 
 export async function POST(request: NextRequest) {
-  // Rate limiting for upload endpoints (stricter)
   const rateLimitResponse = await checkRateLimit(request, rateLimitConfigs.upload);
   if (rateLimitResponse) {
     return rateLimitResponse;

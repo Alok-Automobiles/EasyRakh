@@ -20,7 +20,6 @@ export async function GET(
 
     const { entityType, entityId } = await params;
 
-    // Try to get from cache
     try {
       const cacheKey = `ledger:${entityType}:${entityId}:${userId}`;
       const cached = await redis.get(cacheKey);
@@ -28,7 +27,6 @@ export async function GET(
         return NextResponse.json(JSON.parse(cached));
       }
     } catch (cacheError) {
-      // If Redis fails, continue to DB query
       console.warn('Redis cache read failed, falling back to DB:', cacheError);
     }
 
@@ -38,7 +36,6 @@ export async function GET(
     const customEntitiesCollection = db.collection('customEntities');
     const transactionsCollection = db.collection('transactions');
 
-    // Get entity (customer, supplier, or custom entity)
     let entity;
     let entityDisplayName = 'Entity';
     
@@ -55,13 +52,11 @@ export async function GET(
       });
       entityDisplayName = 'Supplier';
     } else {
-      // Custom entity type
       entity = await customEntitiesCollection.findOne({
         _id: new ObjectId(entityId),
         collectionType: entityType,
         userId,
       });
-      // Get collection type name for display
       const collectionTypesCollection = db.collection('collectionTypes');
       const collectionType = await collectionTypesCollection.findOne({
         userId,
@@ -77,7 +72,6 @@ export async function GET(
       );
     }
 
-    // Get all transactions for this entity
     const transactions = await transactionsCollection
       .find({
         entityId: entityId,
@@ -87,15 +81,12 @@ export async function GET(
       .sort({ date: 1, createdAt: 1 })
       .toArray();
 
-    // Calculate running balance
     let runningBalance = entity.openingBalance;
     if (entity.balanceType === 'credit') {
       runningBalance = -runningBalance; // Credit is negative (you owe them)
     }
 
     const ledgerEntries = transactions.map((transaction) => {
-      // Generic logic for all entity types:
-      // Credit subtracts from balance, Debit adds to balance
       if (transaction.type === 'credit') {
         runningBalance -= transaction.amount;
       } else {
@@ -114,7 +105,6 @@ export async function GET(
       };
     });
 
-    // Calculate totals
     const totalCredit = transactions
       .filter((t) => t.type === 'credit')
       .reduce((sum, t) => sum + t.amount, 0);
@@ -122,7 +112,6 @@ export async function GET(
       .filter((t) => t.type === 'debit')
       .reduce((sum, t) => sum + t.amount, 0);
 
-    // Final balance - generic logic for all entity types
     let finalBalance = entity.openingBalance;
     if (entity.balanceType === 'credit') {
       finalBalance = -finalBalance;
@@ -152,12 +141,10 @@ export async function GET(
       },
     };
 
-    // Cache the response with 90 second TTL
     try {
       const cacheKey = `ledger:${entityType}:${entityId}:${userId}`;
       await redis.setex(cacheKey, 180, JSON.stringify(responseData));
     } catch (cacheError) {
-      // If Redis fails, continue without caching
       console.warn('Redis cache write failed:', cacheError);
     }
 

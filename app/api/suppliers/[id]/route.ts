@@ -110,7 +110,6 @@ export async function PUT(
       );
     }
 
-    // Non-blocking cache invalidation
     redis.del(`suppliers:${userId}`, `dashboard:stats:${userId}`, `ledger:supplier:${id}:${userId}`).catch((err) => {
       console.warn('Redis cache invalidation failed:', err);
     });
@@ -176,7 +175,6 @@ export async function DELETE(
       );
     }
 
-    // Non-blocking cache invalidation
     redis.del(`suppliers:${userId}`, `dashboard:stats:${userId}`, `ledger:supplier:${id}:${userId}`).catch((err) => {
       console.warn('Redis cache invalidation failed:', err);
     });

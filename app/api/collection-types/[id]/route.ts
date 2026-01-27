@@ -9,7 +9,6 @@ const collectionTypeSchema = z.object({
   name: z.string().min(1, 'Name is required').max(50, 'Name must be 50 characters or less'),
 });
 
-// Helper function to generate URL-safe slug
 function generateSlug(name: string): string {
   return name
     .toLowerCase()
@@ -87,7 +86,6 @@ export async function PUT(
     const db = await getDb();
     const collectionTypesCollection = db.collection('collectionTypes');
 
-    // Check if collection type exists
     const existing = await collectionTypesCollection.findOne({
       _id: new ObjectId(id),
       userId,
@@ -100,12 +98,10 @@ export async function PUT(
       );
     }
 
-    // Generate new slug
     let slug = generateSlug(validatedData.name);
     let slugSuffix = 0;
     let finalSlug = slug;
 
-    // Ensure slug is unique per user (excluding current collection type)
     while (true) {
       const duplicate = await collectionTypesCollection.findOne({
         userId,
@@ -141,7 +137,6 @@ export async function PUT(
       );
     }
 
-    // Non-blocking cache invalidation
     const pattern = `customEntities:${existing.slug}:${userId}`;
     redis.del(`collectionTypes:${userId}`, pattern).catch((err) => {
       console.warn('Redis cache invalidation failed:', err);
@@ -190,7 +185,6 @@ export async function DELETE(
     const collectionTypesCollection = db.collection('collectionTypes');
     const customEntitiesCollection = db.collection('customEntities');
 
-    // Check if collection type exists
     const collectionType = await collectionTypesCollection.findOne({
       _id: new ObjectId(id),
       userId,
@@ -203,7 +197,6 @@ export async function DELETE(
       );
     }
 
-    // Check if there are any entities in this collection type
     const entityCount = await customEntitiesCollection.countDocuments({
       userId,
       collectionType: collectionType.slug,
@@ -228,7 +221,6 @@ export async function DELETE(
       );
     }
 
-    // Non-blocking cache invalidation
     redis.del(`collectionTypes:${userId}`).catch((err) => {
       console.warn('Redis cache invalidation failed:', err);
     });

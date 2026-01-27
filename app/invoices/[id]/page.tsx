@@ -101,7 +101,6 @@ export default function InvoiceDetailPage() {
   const hasFetchedRef = useRef(false);
   const hasDownloadedRef = useRef(false);
 
-  // Firm info modal state
   const [showFirmInfoModal, setShowFirmInfoModal] = useState(false);
   const [pendingAction, setPendingAction] = useState<'download' | 'print' | null>(null);
   const [editFirmInfo, setEditFirmInfo] = useState<FirmInfo>({
@@ -112,14 +111,12 @@ export default function InvoiceDetailPage() {
     firmAddress: '',
   });
 
-  // Edit state
   const [editItems, setEditItems] = useState<(InvoiceItem & { id: string })[]>([]);
   const [editPaidAmount, setEditPaidAmount] = useState(0);
   const [editStatus, setEditStatus] = useState<'paid' | 'unpaid' | 'partial'>('unpaid');
   const [editNotes, setEditNotes] = useState('');
   const [editAddToLedger, setEditAddToLedger] = useState(false);
 
-  // Fetch invoice and firm info
   useEffect(() => {
     if (hasFetchedRef.current) return;
     hasFetchedRef.current = true;
@@ -145,7 +142,6 @@ export default function InvoiceDetailPage() {
         const invoiceData = await invoiceRes.json();
         setInvoice(invoiceData.invoice);
 
-        // Initialize edit state
         setEditItems(
           invoiceData.invoice.items.map((item: InvoiceItem, idx: number) => ({
             ...item,
@@ -181,7 +177,6 @@ export default function InvoiceDetailPage() {
     fetchData();
   }, [id, router]);
 
-  // Check if firm details are complete
   const isFirmInfoComplete = useCallback((info: FirmInfo | null): boolean => {
     if (!info) return false;
     return !!(
@@ -193,7 +188,6 @@ export default function InvoiceDetailPage() {
     );
   }, []);
 
-  // Generate PDF
   const generatePDF = useCallback((download = true, overrideFirmInfo?: FirmInfo) => {
     const useFirmInfo = overrideFirmInfo || firmInfo;
     if (!invoice || !useFirmInfo) {
@@ -213,12 +207,10 @@ export default function InvoiceDetailPage() {
       const black: [number, number, number] = [0, 0, 0];
       const mutedText: [number, number, number] = [75, 85, 99];
 
-      // Header with black background
       const headerHeight = 45;
       doc.setFillColor(black[0], black[1], black[2]);
       doc.rect(0, 0, pageWidth, headerHeight, 'F');
 
-      // Large "INVOICE" title on the left (white text on black background)
       doc.setTextColor(255, 255, 255);
       doc.setFont('helvetica', 'bold');
       doc.setFontSize(36);
@@ -228,8 +220,6 @@ export default function InvoiceDetailPage() {
       doc.rect(margin, 10, invoiceBoxWidth, 25, 'F');
       doc.text('INVOICE', margin + 10, 26);
 
-      // Firm info on the right side of header
-      // Calculate available width (from right margin to left of INVOICE box)
       const rightMargin = pageWidth - margin;
       const leftOfInvoiceBox = margin + invoiceBoxWidth + 10;
       const availableWidth = rightMargin - leftOfInvoiceBox;
@@ -255,19 +245,15 @@ export default function InvoiceDetailPage() {
         firmInfoY += 4;
       }
       if (useFirmInfo.firmAddress) {
-        // Split address to fit within available width and header height
         const addrLines = doc.splitTextToSize(useFirmInfo.firmAddress, availableWidth);
-        // Ensure address doesn't overflow header height
         const maxLines = Math.floor((headerHeight - firmInfoY) / 4);
         const displayLines = addrLines.slice(0, maxLines);
         doc.text(displayLines, firmNameX, firmInfoY, { align: 'right', maxWidth: availableWidth });
       }
 
-      // Reset text color
       doc.setTextColor(17, 24, 39);
       let yPos = headerHeight + 15;
 
-      // Invoice To section on the left
       doc.setFont('helvetica', 'bold');
       doc.setFontSize(11);
       doc.text('Invoice To:', margin, yPos);
@@ -286,16 +272,14 @@ export default function InvoiceDetailPage() {
         yPos += custAddrLines.length * 5;
       }
 
-      // Invoice Number and Date on the right
       const invoiceMetaY = headerHeight + 15;
-      const labelX = pageWidth - margin - 80; // More space for label
-      const valueX = pageWidth - margin; // Right aligned values
+      const labelX = pageWidth - margin - 80;
+      const valueX = pageWidth - margin;
       
       doc.setFont('helvetica', 'normal');
       doc.setFontSize(10);
       doc.text('Invoice Number :', labelX, invoiceMetaY);
       doc.setFont('helvetica', 'bold');
-      // Get label width to position value after it with spacing
       const labelWidth = doc.getTextWidth('Invoice Number :');
       doc.text(invoice.invoiceNumber, labelX + labelWidth + 5, invoiceMetaY);
       
@@ -305,10 +289,8 @@ export default function InvoiceDetailPage() {
       const dateLabelWidth = doc.getTextWidth('Invoice Date :');
       doc.text(format(new Date(invoice.createdAt), 'MMMM dd, yyyy'), labelX + dateLabelWidth + 5, invoiceMetaY + 7);
 
-      // Move yPos to below customer info or invoice meta, whichever is lower
       yPos = Math.max(yPos, invoiceMetaY + 15) + 10;
 
-      // Items table
       const tableRows = invoice.items.map((item, idx) => [
         (idx + 1).toString(),
         item.description,
@@ -343,25 +325,21 @@ export default function InvoiceDetailPage() {
         },
         margin: { left: margin, right: margin },
         theme: 'plain',
-        // Enable multi-page support
-        showHead: 'everyPage', // Show header on every page
-        pageBreak: 'auto', // Automatic page breaks
-        rowPageBreak: 'avoid', // Try to avoid breaking rows across pages
+        showHead: 'everyPage',
+        pageBreak: 'auto',
+        rowPageBreak: 'avoid',
       });
 
-      // Get final Y position after table
       const finalY = (doc as unknown as { lastAutoTable: { finalY: number } }).lastAutoTable.finalY + 5;
       const pageHeight = doc.internal.pageSize.getHeight();
-      const minFooterSpace = 40; // Minimum space needed for totals and footer
+      const minFooterSpace = 40;
 
-      // Check if we need a new page for totals section
       let currentY = finalY;
       if (currentY + minFooterSpace > pageHeight) {
         doc.addPage();
         currentY = margin + 10;
       }
 
-      // Total Amount row (styled like table row)
       doc.setFillColor(255, 255, 255);
       doc.setDrawColor(200, 200, 200);
       doc.setLineWidth(0.2);
@@ -372,15 +350,12 @@ export default function InvoiceDetailPage() {
       doc.setFontSize(10);
       doc.setTextColor(0, 0, 0);
       
-      // "Total Amount" text spanning Description column
       doc.text('Total Amount', margin + 25, currentY + 7);
       
-      // Total amount value aligned right
       doc.text(`Rs ${invoice.totalAmount.toLocaleString('en-IN')}`, pageWidth - margin, currentY + 7, { align: 'right' });
       
       let totalsY = currentY + totalRowHeight + 8;
 
-      // Payment details if applicable
       if (invoice.paidAmount > 0) {
         doc.setFont('helvetica', 'normal');
         doc.setFontSize(9);
@@ -397,7 +372,6 @@ export default function InvoiceDetailPage() {
         }
       }
 
-      // Notes section (if exists and space available)
       if (invoice.notes && totalsY < pageHeight - 35) {
         doc.setTextColor(17, 24, 39);
         doc.setFont('helvetica', 'bold');
@@ -408,7 +382,6 @@ export default function InvoiceDetailPage() {
         doc.setFontSize(9);
         doc.setTextColor(mutedText[0], mutedText[1], mutedText[2]);
         const notesLines = doc.splitTextToSize(invoice.notes, pageWidth - margin * 2);
-        // Check if notes fit on current page
         const notesHeight = notesLines.length * 5;
         if (totalsY + notesHeight > pageHeight - 30) {
           doc.addPage();
@@ -418,14 +391,11 @@ export default function InvoiceDetailPage() {
         totalsY += notesHeight + 5;
       }
 
-      // Payment Information section at bottom of last page
-      // Check if footer fits on current page, if not add new page
       const footerY = pageHeight - 30;
       if (totalsY > footerY - 15) {
         doc.addPage();
       }
       
-      // Get current Y position (might be on new page now)
       const currentPageY = totalsY > footerY - 15 ? margin + 10 : totalsY;
       const finalFooterY = pageHeight - 30;
       
@@ -446,19 +416,16 @@ export default function InvoiceDetailPage() {
         doc.text('Status: Unpaid', margin, paymentInfoY);
       }
 
-      // Date at bottom right
       doc.setFont('helvetica', 'normal');
       doc.setFontSize(8);
       doc.text(`Date: ${format(new Date(invoice.createdAt), 'MMMM dd, yyyy')}`, pageWidth - margin, finalFooterY, { align: 'right' });
 
-      // File name and action
       const fileName = `${invoice.invoiceNumber.replace(/[^a-z0-9]/gi, '_')}.pdf`;
 
       if (download) {
         doc.save(fileName);
         toast.success('Invoice downloaded');
       } else {
-        // Open in new window for printing
         const pdfBlob = doc.output('blob');
         const pdfUrl = URL.createObjectURL(pdfBlob);
         window.open(pdfUrl, '_blank');
@@ -469,7 +436,6 @@ export default function InvoiceDetailPage() {
     }
   }, [invoice, firmInfo, isFirmInfoComplete]);
 
-  // Handle PDF action - check firm info first
   const handlePDFAction = useCallback((action: 'download' | 'print') => {
     if (!isFirmInfoComplete(firmInfo)) {
       setPendingAction(action);
@@ -479,26 +445,22 @@ export default function InvoiceDetailPage() {
     generatePDF(action === 'download');
   }, [firmInfo, isFirmInfoComplete, generatePDF]);
 
-  // Auto-download if requested
   useEffect(() => {
     if (shouldDownload && invoice && !hasDownloadedRef.current) {
       hasDownloadedRef.current = true;
       if (isFirmInfoComplete(firmInfo)) {
         generatePDF(true);
       } else {
-        // Show firm info modal for auto-download
         setPendingAction('download');
         setShowFirmInfoModal(true);
       }
     }
   }, [shouldDownload, invoice, firmInfo, generatePDF, isFirmInfoComplete]);
 
-  // Edit handlers
   const addEditItem = useCallback(() => {
     setEditItems((prev) => [...prev, { id: Date.now().toString(), description: '', amount: 0 }]);
   }, []);
 
-  // Shortcut: Ctrl+Enter / Cmd+Enter to add item (edit mode)
   useEffect(() => {
     if (!isEditing) return;
     if (showFirmInfoModal) return;
@@ -533,7 +495,6 @@ export default function InvoiceDetailPage() {
 
   const editTotalAmount = editItems.reduce((sum, item) => sum + (item.amount || 0), 0);
 
-  // Auto-update edit status
   useEffect(() => {
     if (isEditing) {
       if (editPaidAmount >= editTotalAmount && editTotalAmount > 0) {
@@ -604,11 +565,6 @@ export default function InvoiceDetailPage() {
     setIsEditing(false);
   };
 
-  // Keyboard shortcuts for invoice detail page
-  // - Ctrl+N / Cmd+N: create new invoice
-  // - Ctrl+S / Cmd+S: save changes (edit mode)
-  // - Ctrl+E / Cmd+E: enter edit mode
-  // - Ctrl+D / Cmd+D: download invoice PDF
   useEffect(() => {
     const onKeyDown = (e: KeyboardEvent) => {
       const isCtrlOrCmd = e.ctrlKey || e.metaKey;
@@ -616,7 +572,6 @@ export default function InvoiceDetailPage() {
 
       const key = e.key.toLowerCase();
 
-      // Avoid interfering when firm info modal is open
       if (showFirmInfoModal) return;
 
       if (key === 'n') {
@@ -1038,10 +993,8 @@ export default function InvoiceDetailPage() {
                     toast.error('Please fill in all firm details');
                     return;
                   }
-                  // Update firm info state
                   setFirmInfo(editFirmInfo);
                   setShowFirmInfoModal(false);
-                  // Execute pending action
                   if (pendingAction) {
                     generatePDF(pendingAction === 'download', editFirmInfo);
                     setPendingAction(null);

@@ -5,7 +5,6 @@ export async function GET() {
   try {
     const startTime = Date.now();
     
-    // Test MongoDB connection
     const db = await getDb();
     await Promise.race([
       db.admin().ping(),
@@ -13,7 +12,6 @@ export async function GET() {
     ]);
     const responseTime = Date.now() - startTime;
 
-    // Get database stats
     const stats = await db.stats();
     const collections = await db.listCollections().toArray();
 

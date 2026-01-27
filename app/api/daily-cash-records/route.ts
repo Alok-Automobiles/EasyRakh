@@ -13,10 +13,7 @@ const entrySchema = z.object({
   date: z.string().optional(),
 });
 
-// Helper function to parse date from dd-mm-yyyy or YYYY-MM-DD format
-// Returns a UTC date at start of day
 function parseDate(dateString: string): Date {
-  // Try dd-mm-yyyy format first
   if (dateString.includes('-') && dateString.split('-')[0].length <= 2) {
     try {
       const parts = dateString.split('-');
@@ -25,10 +22,8 @@ function parseDate(dateString: string): Date {
       const year = parseInt(parts[2], 10);
       return new Date(Date.UTC(year, month, day, 0, 0, 0, 0));
     } catch {
-      // Fall through to try YYYY-MM-DD
     }
   }
-  // Try YYYY-MM-DD format
   try {
     const parts = dateString.split('-');
     const year = parseInt(parts[0], 10);
@@ -40,7 +35,6 @@ function parseDate(dateString: string): Date {
   }
 }
 
-// Helper function to normalize date to start of day in UTC
 function normalizeDate(date: Date): Date {
   const year = date.getUTCFullYear();
   const month = date.getUTCMonth();
@@ -66,12 +60,10 @@ export async function GET(request: NextRequest) {
     const dateParam = searchParams.get('date');
 
     if (dateParam) {
-      // Get specific date record
       const parsedDate = parseDate(dateParam);
       const normalizedDate = normalizeDate(parsedDate);
       const dateKey = format(normalizedDate, 'dd-MM-yyyy');
 
-      // Try to get from cache
       try {
         const cacheKey = `daily-cash:date:${userId}:${dateKey}`;
         const cached = await redis.get(cacheKey);
@@ -111,7 +103,6 @@ export async function GET(request: NextRequest) {
             date: dateKey,
           };
 
-      // Cache the response with 3 minute TTL
       try {
         const cacheKey = `daily-cash:date:${userId}:${dateKey}`;
         await redis.setex(cacheKey, 300, JSON.stringify(responseData));
@@ -121,13 +112,11 @@ export async function GET(request: NextRequest) {
 
       return NextResponse.json(responseData);
     } else {
-      // Get paginated records (7 records per page)
       const pageParam = searchParams.get('page');
       const page = pageParam ? Math.max(1, parseInt(pageParam, 10)) : 1;
       const recordsPerPage = 7;
       const skip = (page - 1) * recordsPerPage;
 
-      // Try to get from cache (cache key includes page number)
       try {
         const cacheKey = `daily-cash:list:${userId}:page:${page}`;
         const cached = await redis.get(cacheKey);
@@ -138,10 +127,8 @@ export async function GET(request: NextRequest) {
         console.warn('Redis cache read failed, falling back to DB:', cacheError);
       }
 
-      // Get total count for pagination metadata
       const totalRecords = await dailyCashRecordsCollection.countDocuments({ userId });
 
-      // Fetch paginated records sorted by date descending (newest first)
       const records = await dailyCashRecordsCollection
         .find({ userId })
         .sort({ date: -1 })
@@ -168,7 +155,6 @@ export async function GET(request: NextRequest) {
         },
       };
 
-      // Cache the response with 3 minute TTL
       try {
         const cacheKey = `daily-cash:list:${userId}:page:${page}`;
         await redis.setex(cacheKey, 300, JSON.stringify(responseData));
@@ -204,13 +190,11 @@ export async function POST(request: NextRequest) {
     const db = await getDb();
     const dailyCashRecordsCollection = db.collection('dailyCashRecords');
 
-    // Parse and normalize date
     const entryDate = validatedData.date
       ? parseDate(validatedData.date)
       : new Date();
     const normalizedDate = normalizeDate(entryDate);
 
-    // Find or create daily record
     let record = await dailyCashRecordsCollection.findOne({
       userId,
       date: normalizedDate,
@@ -236,7 +220,6 @@ export async function POST(request: NextRequest) {
     };
 
     if (!record) {
-      // Create new record
       const totalIn = validatedData.type === 'in' ? validatedData.amount : 0;
       const totalOut = validatedData.type === 'out' ? validatedData.amount : 0;
       const totalLeft = validatedData.type === 'in' ? validatedData.amount : -validatedData.amount;
@@ -268,10 +251,8 @@ export async function POST(request: NextRequest) {
         totalLeft,
       };
     } else {
-      // Update existing record
       const updatedEntries = [...record.entries, newEntry];
       
-      // Recalculate totals
       const totalIn = updatedEntries
         .filter((e: any) => e.type === 'in')
         .reduce((sum: number, e: any) => sum + e.amount, 0);
@@ -310,7 +291,6 @@ export async function POST(request: NextRequest) {
       };
     }
 
-    // Invalidate related caches (non-blocking, fire and forget)
     const keysToDelete = [
       `daily-cash:date:${userId}:${dateKey}`,
       `dashboard:stats:${userId}`,

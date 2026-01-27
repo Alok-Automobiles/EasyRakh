@@ -18,7 +18,6 @@ export async function GET(request: NextRequest) {
     const month = String(now.getMonth() + 1).padStart(2, '0');
     const prefix = `INV-${year}-${month}-`;
 
-    // Find the highest invoice number for this user in the current month
     const latestInvoice = await invoicesCollection
       .find({
         userId,

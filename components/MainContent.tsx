@@ -10,7 +10,6 @@ type MainContentProps = {
 export default function MainContent({ children, sidebarCollapsed = false }: MainContentProps) {
   const pathname = usePathname();
   
-  // Don't add sidebar margin on landing page, login, or register pages
   const isAuthPage = pathname === '/login' || pathname === '/register' || pathname === '/';
   
   if (isAuthPage) {

@@ -12,7 +12,6 @@ interface Message {
   timestamp: Date;
 }
 
-// Declare SpeechRecognition types
 interface SpeechRecognitionEvent extends Event {
   results: SpeechRecognitionResultList;
   resultIndex: number;
@@ -136,7 +135,6 @@ export default function VoiceAssistant() {
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : 'Something went wrong';
       
-      // Check if it's a rate limit error
       const isRateLimit = errorMessage.toLowerCase().includes('wait') || errorMessage.toLowerCase().includes('rate');
       
       if (isRateLimit) {
@@ -214,7 +212,6 @@ export default function VoiceAssistant() {
     setPulseAnimation(false);
   }, []);
 
-  // Toggle mute
   const toggleMute = useCallback(() => {
     if (isSpeaking) {
       synthRef.current?.cancel();

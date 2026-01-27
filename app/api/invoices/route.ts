@@ -34,7 +34,6 @@ async function generateInvoiceNumber(db: ReturnType<Awaited<ReturnType<typeof ge
 
   const invoicesCollection = db.collection('invoices');
   
-  // Find the highest invoice number for this user in the current month
   const latestInvoice = await invoicesCollection
     .find({
       userId,
@@ -74,7 +73,6 @@ export async function GET(request: NextRequest) {
     const limit = Number.isNaN(limitParam) || limitParam < 1 ? 20 : Math.min(limitParam, 100);
     const skip = (page - 1) * limit;
 
-    // Try cache first
     const cacheKey = `invoices:${userId}:${customerId || ''}:${status || ''}:${search || ''}:${page}:${limit}`;
     try {
       const cachedData = await redis.get(cacheKey);
@@ -148,7 +146,6 @@ export async function GET(request: NextRequest) {
       },
     };
 
-    // Cache for 5 minutes
     try {
       await redis.setex(cacheKey, 300, JSON.stringify(responseData));
     } catch (cacheError) {
@@ -178,10 +175,8 @@ export async function POST(request: NextRequest) {
     const customersCollection = db.collection('customers');
     const transactionsCollection = db.collection('transactions');
 
-    // Calculate total amount
     const totalAmount = validatedData.items.reduce((sum, item) => sum + item.amount, 0);
 
-    // Validate status based on paid amount
     let status = validatedData.status;
     if (validatedData.paidAmount >= totalAmount) {
       status = 'paid';
@@ -191,11 +186,9 @@ export async function POST(request: NextRequest) {
       status = 'unpaid';
     }
 
-    // Handle customer creation/linking
     let customerId = validatedData.customerId;
     
     if (customerId) {
-      // Verify customer exists and belongs to user
       const customer = await customersCollection.findOne({
         _id: new ObjectId(customerId),
         userId,
@@ -204,7 +197,6 @@ export async function POST(request: NextRequest) {
         return NextResponse.json({ error: 'Customer not found' }, { status: 404 });
       }
     } else if (validatedData.createCustomerIfNew) {
-      // Create new customer
       const newCustomer = await customersCollection.insertOne({
         userId,
         name: validatedData.customerName,
@@ -218,7 +210,6 @@ export async function POST(request: NextRequest) {
       customerId = newCustomer.insertedId.toString();
     }
 
-    // Generate invoice number
     const invoiceNumber = await generateInvoiceNumber(db, userId);
 
     const now = new Date();
@@ -240,9 +231,7 @@ export async function POST(request: NextRequest) {
       updatedAt: now,
     };
 
-    // Handle ledger integration
     if (validatedData.addToLedger && customerId) {
-      // Always create DEBIT for full invoice amount (what customer owes for this purchase)
       const debitTx = await transactionsCollection.insertOne({
         userId,
         entityType: 'customer',
@@ -256,7 +245,6 @@ export async function POST(request: NextRequest) {
       });
       invoiceDoc.transactionId = debitTx.insertedId.toString();
 
-      // Create CREDIT for paid amount (payment received)
       if (validatedData.paidAmount > 0) {
         await transactionsCollection.insertOne({
           userId,
@@ -276,7 +264,6 @@ export async function POST(request: NextRequest) {
 
     const result = await invoicesCollection.insertOne(invoiceDoc);
 
-    // Invalidate caches
     const cachesToInvalidate = [`invoices:${userId}:*`];
     if (customerId) {
       cachesToInvalidate.push(
@@ -286,7 +273,6 @@ export async function POST(request: NextRequest) {
       );
     }
     
-    // Use pattern delete for invoice caches
     try {
       const keys = await redis.keys(`invoices:${userId}:*`);
       if (keys.length > 0) {

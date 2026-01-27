@@ -43,7 +43,6 @@ function createTransporter() {
 export async function sendOtpEmail(to: string, otp: string) {
   const transporter = createTransporter();
 
-  // Fallback for missing SMTP configuration (e.g., local dev)
   if (!transporter) {
     console.warn('SMTP not configured. OTP (for debugging only):', { to, otp });
     return { success: true, fallback: true };

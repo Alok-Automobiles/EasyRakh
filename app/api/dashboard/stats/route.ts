@@ -202,7 +202,6 @@ export async function GET(request: NextRequest) {
           },
         ])
         .toArray(),
-      // Customer stats using aggregation
       customersCollection
         .aggregate([
           { $match: { userId } },
@@ -219,7 +218,6 @@ export async function GET(request: NextRequest) {
           },
         ])
         .toArray(),
-      // Supplier stats using aggregation
       suppliersCollection
         .aggregate([
           { $match: { userId } },
@@ -236,13 +234,11 @@ export async function GET(request: NextRequest) {
           },
         ])
         .toArray(),
-      // Recent customers for activities (limit 20) - use projection to reduce data transfer
       customersCollection
         .find({ userId }, { projection: { _id: 1, name: 1, createdAt: 1 } })
         .sort({ createdAt: -1 })
         .limit(20)
         .toArray(),
-      // Recent suppliers for activities (limit 20) - use projection to reduce data transfer
       suppliersCollection
         .find({ userId }, { projection: { _id: 1, name: 1, createdAt: 1 } })
         .sort({ createdAt: -1 })
@@ -267,7 +263,6 @@ export async function GET(request: NextRequest) {
 
     const facet = transactionFacets[0] || { totals: [], topCustomers: [], topSuppliers: [], recent: [] };
 
-    // Extract stats from aggregation results
     const txStats = (facet.totals && facet.totals[0]) || { totalCredit: 0, totalDebit: 0, customerCredit: 0, customerDebit: 0, supplierCredit: 0, supplierDebit: 0, count: 0 };
     const totalCredit = txStats.totalCredit || 0;
     const totalDebit = txStats.totalDebit || 0;
@@ -403,7 +398,6 @@ export async function GET(request: NextRequest) {
       } else if (entityType === 'supplier') {
         entityName = supplierMap.get(entityId) || 'Unknown Supplier';
       } else {
-        // Custom entity type
         entityName = customEntityMap.get(entityId) || 'Unknown Entity';
       }
       

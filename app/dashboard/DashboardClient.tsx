@@ -349,7 +349,6 @@ export default function DashboardClient({ initialData }: { initialData?: Dashboa
   const [description, setDescription] = useState('');
   const activitiesPerPage = 5;
 
-  // React Query for dashboard data - cached across navigation
   const { data, isLoading, isFetching } = useQuery({
     queryKey: ['dashboard'],
     queryFn: async () => {
@@ -374,7 +373,6 @@ export default function DashboardClient({ initialData }: { initialData?: Dashboa
   const topSuppliers = data?.topSuppliers || [];
   const loading = isLoading && !data;
 
-  // Mutation for adding daily cash transactions with optimistic updates
   const addTransactionMutation = useMutation({
     mutationFn: async ({ amountNum, type, desc }: { amountNum: number; type: 'in' | 'out'; desc: string }) => {
       const dateString = format(new Date(), 'dd-MM-yyyy');
@@ -392,11 +390,8 @@ export default function DashboardClient({ initialData }: { initialData?: Dashboa
       return result;
     },
     onMutate: async ({ amountNum, type }) => {
-      // Cancel outgoing refetches
       await queryClient.cancelQueries({ queryKey: ['dashboard'] });
-      // Snapshot previous value
       const previousData = queryClient.getQueryData<DashboardResponse>(['dashboard']);
-      // Optimistically update
       if (previousData) {
         queryClient.setQueryData<DashboardResponse>(['dashboard'], {
           ...previousData,
@@ -413,7 +408,6 @@ export default function DashboardClient({ initialData }: { initialData?: Dashboa
       return { previousData };
     },
     onError: (err, variables, context) => {
-      // Rollback on error
       if (context?.previousData) {
         queryClient.setQueryData(['dashboard'], context.previousData);
       }
@@ -421,7 +415,6 @@ export default function DashboardClient({ initialData }: { initialData?: Dashboa
     },
     onSuccess: (data, variables) => {
       toast.success(`Money ${variables.type === 'in' ? 'added' : 'deducted'} successfully`);
-      // Background refetch to sync activities, monthly totals, etc.
       queryClient.invalidateQueries({ queryKey: ['dashboard'] });
     },
   });
@@ -472,13 +465,11 @@ export default function DashboardClient({ initialData }: { initialData?: Dashboa
       return;
     }
 
-    // Close dialog and reset form immediately for snappy UX
     const currentType = entryType;
     const currentDesc = description;
     resetAddTransactionForm();
     setAddTransactionOpen(false);
 
-    // Fire mutation with optimistic update
     addTransactionMutation.mutate({ amountNum, type: currentType, desc: currentDesc });
   };
 

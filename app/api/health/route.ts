@@ -6,7 +6,6 @@ export async function GET() {
   const startTime = Date.now();
   const checks: Record<string, { status: string; latency?: number; error?: string }> = {};
 
-  // Check Redis
   try {
     const redisStart = Date.now();
     const pingResult = await Promise.race([
@@ -25,7 +24,6 @@ export async function GET() {
     };
   }
 
-  // Check MongoDB
   try {
     const dbStart = Date.now();
     const db = await getDb();

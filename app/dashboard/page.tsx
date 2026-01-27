@@ -6,7 +6,6 @@ export const dynamic = 'force-dynamic';
 
 async function fetchDashboardDataServer() {
   try {
-    // In Turbopack/dev, cookie handling can break source maps; skip server prefetch there.
     if (process.env.NODE_ENV !== 'production') {
       return null;
     }
@@ -16,7 +15,6 @@ async function fetchDashboardDataServer() {
       const hdrs = await headers();
       cookieHeader = hdrs.get('cookie') || '';
     } catch {
-      // If cookies() fails (e.g., Turbopack dev), skip server prefetch to avoid errors
       return null;
     }
 

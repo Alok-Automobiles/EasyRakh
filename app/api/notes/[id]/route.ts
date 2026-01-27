@@ -33,7 +33,6 @@ export async function PUT(
     const body = await request.json();
     const validatedData = updateNoteSchema.parse(body);
 
-    // Validate color if provided
     if (validatedData.color && !colorPalette.includes(validatedData.color)) {
       return NextResponse.json(
         { error: 'Invalid color. Color must be from the allowed palette.' },
@@ -44,7 +43,6 @@ export async function PUT(
     const db = await getDb();
     const notesCollection = db.collection('notes');
 
-    // Check if note exists and belongs to user
     const note = await notesCollection.findOne({
       _id: new ObjectId(id),
       userId,
@@ -57,7 +55,6 @@ export async function PUT(
       );
     }
 
-    // Build update object
     const updateData: {
       title?: string;
       content?: string;
@@ -90,13 +87,11 @@ export async function PUT(
       { $set: updateData }
     );
 
-    // Fetch updated note
     const updatedNote = await notesCollection.findOne({
       _id: new ObjectId(id),
       userId,
     });
 
-    // Non-blocking cache invalidation
     redis.del(`dashboard:stats:${userId}`).catch((err) => {
       console.warn('Redis cache invalidation failed:', err);
     });
@@ -149,7 +144,6 @@ export async function DELETE(
     const db = await getDb();
     const notesCollection = db.collection('notes');
 
-    // Check if note exists and belongs to user
     const note = await notesCollection.findOne({
       _id: new ObjectId(id),
       userId,
@@ -167,7 +161,6 @@ export async function DELETE(
       userId,
     });
 
-    // Non-blocking cache invalidation
     redis.del(`dashboard:stats:${userId}`).catch((err) => {
       console.warn('Redis cache invalidation failed:', err);
     });

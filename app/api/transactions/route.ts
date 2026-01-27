@@ -208,7 +208,6 @@ export async function POST(request: NextRequest) {
       createdAt: new Date(),
     });
 
-    // Non-blocking cache invalidation
     const cachesToInvalidate = [
       `dashboard:stats:${userId}`,
       `ledger:${validatedData.entityType}:${validatedData.entityId}:${userId}`

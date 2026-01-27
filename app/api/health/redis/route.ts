@@ -5,18 +5,15 @@ export async function GET() {
   try {
     const startTime = Date.now();
     
-    // Test Redis connection with PING
     const result = await Promise.race([
       redis.ping(),
       new Promise((_, reject) => setTimeout(() => reject(new Error('Redis timeout')), 5000)),
     ]);
     const responseTime = Date.now() - startTime;
 
-    // Get Redis info
     const info = await redis.info('server');
     const memoryInfo = await redis.info('memory');
     
-    // Test write/read
     const testKey = `health:check:${Date.now()}`;
     await redis.setex(testKey, 10, 'ok');
     const testValue = await redis.get(testKey);

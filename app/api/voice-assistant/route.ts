@@ -4,13 +4,10 @@ import { getUserIdFromRequest } from '@/lib/auth';
 
 const GEMINI_API_KEY = process.env.GEMINI_API_KEY || '';
 
-// Detect if the query is in Hindi (Devanagari or romanized Hindi)
 const isHindiQuery = (text: string): boolean => {
-  // Check for Devanagari script
   const hindiRegex = /[\u0900-\u097F]/;
   if (hindiRegex.test(text)) return true;
   
-  // Check for common romanized Hindi words/patterns
   const lowerText = text.toLowerCase();
   const hindiKeywords = [
     'kya', 'hai', 'ka', 'ki', 'ke', 'ko', 'se', 'mein', 'aur', 'bhi',
@@ -24,7 +21,6 @@ const isHindiQuery = (text: string): boolean => {
     'dena hai', 'lena hai', 'dene', 'lene'
   ];
   
-  // Count Hindi keyword matches
   let hindiWordCount = 0;
   for (const keyword of hindiKeywords) {
     if (lowerText.includes(keyword)) {
@@ -32,11 +28,9 @@ const isHindiQuery = (text: string): boolean => {
     }
   }
   
-  // If 2 or more Hindi keywords found, consider it Hindi
   return hindiWordCount >= 2;
 };
 
-// List available models for this API key
 async function listAvailableModels(): Promise<string[]> {
   try {
     const url = `https://generativelanguage.googleapis.com/v1beta/models?key=${GEMINI_API_KEY}`;
@@ -54,12 +48,9 @@ async function listAvailableModels(): Promise<string[]> {
   }
 }
 
-// Direct API call to Gemini using fetch
 async function callGeminiAPI(prompt: string): Promise<string> {
-  // First, list available models
   const availableModels = await listAvailableModels();
   
-  // Use the NEW model names (old ones like gemini-1.5-flash are deprecated)
   const endpoints = [
     { version: 'v1beta', model: 'gemini-2.0-flash' },
     { version: 'v1beta', model: 'gemini-flash-latest' },
@@ -107,7 +98,6 @@ async function callGeminiAPI(prompt: string): Promise<string> {
   throw lastError || new Error('All models failed');
 }
 
-// Helper function to get customer ledger
 async function getCustomerLedger(userId: string, customerName: string) {
   const db = await getDb();
   const customersCollection = db.collection('customers');
@@ -167,7 +157,6 @@ async function getCustomerLedger(userId: string, customerName: string) {
   };
 }
 
-// Helper function to get supplier ledger
 async function getSupplierLedger(userId: string, supplierName: string) {
   const db = await getDb();
   const suppliersCollection = db.collection('suppliers');
@@ -215,7 +204,6 @@ async function getSupplierLedger(userId: string, supplierName: string) {
   };
 }
 
-// Helper function to get all customers
 async function getAllCustomers(userId: string) {
   const db = await getDb();
   const customersCollection = db.collection('customers');
@@ -257,7 +245,6 @@ async function getAllCustomers(userId: string) {
   };
 }
 
-// Helper function to get all suppliers
 async function getAllSuppliers(userId: string) {
   const db = await getDb();
   const suppliersCollection = db.collection('suppliers');
@@ -299,7 +286,6 @@ async function getAllSuppliers(userId: string) {
   };
 }
 
-// Helper function to get dashboard summary
 async function getDashboardSummary(userId: string) {
   const db = await getDb();
   const customersCollection = db.collection('customers');
@@ -332,13 +318,9 @@ async function getDashboardSummary(userId: string) {
   };
 }
 
-// Helper function to get today's date in IST as a UTC midnight Date
-// Daily cash records are stored with date normalized to UTC midnight (e.g., 2024-12-11T00:00:00.000Z)
-// So we need to find out what date it is in IST and query for that date at UTC midnight
 function getTodayDateIST(): Date {
   const now = new Date();
   
-  // Get current date parts in IST timezone
   const istFormatter = new Intl.DateTimeFormat('en-CA', {
     timeZone: 'Asia/Kolkata',
     year: 'numeric',
@@ -346,29 +328,23 @@ function getTodayDateIST(): Date {
     day: '2-digit',
   });
   
-  // Format gives us YYYY-MM-DD in IST
   const istDateString = istFormatter.format(now);
   const [year, month, day] = istDateString.split('-').map(Number);
   
-  // Create a UTC midnight date for today in IST
   return new Date(Date.UTC(year, month - 1, day, 0, 0, 0, 0));
 }
 
-// Helper function to get today's cash
 async function getTodayCash(userId: string) {
   const db = await getDb();
   const dailyCashCollection = db.collection('dailyCashRecords');
 
-  // Get today's date in IST, normalized to UTC midnight (how records are stored)
   const todayDate = getTodayDateIST();
   
-  // Query for exact date match (records are stored with normalized UTC midnight dates)
   const todayRecord = await dailyCashCollection.findOne({
     userId,
     date: todayDate,
   });
 
-  // Daily cash records store totals directly on the record
   const totalIn = todayRecord?.totalIn || 0;
   const totalOut = todayRecord?.totalOut || 0;
 
@@ -401,7 +377,6 @@ export async function POST(request: NextRequest) {
 
     const isHindi = isHindiQuery(query);
 
-    // Get all data context first
     const [dashboardData, customersData, suppliersData, todayCashData] = await Promise.all([
       getDashboardSummary(userId),
       getAllCustomers(userId),
@@ -409,11 +384,9 @@ export async function POST(request: NextRequest) {
       getTodayCash(userId),
     ]);
 
-    // Check if query mentions a specific person name
     const queryLower = query.toLowerCase();
     let specificData = null;
 
-    // Extract potential name from query
     const namePatterns = [
       /(?:का\s*खाता|ki\s*khata|ka\s*khata|का\s*बैलेंस|balance\s*of|ledger\s*of|khata\s*of)\s*[:\s]*([^\s?।]+)/i,
       /([^\s]+)\s*(?:का\s*खाता|ki\s*khata|ka\s*khata|का\s*बैलेंस)/i,
@@ -430,14 +403,11 @@ export async function POST(request: NextRequest) {
       }
     }
 
-    // If a name was found, try to get their ledger
     if (extractedName) {
-      // Try customer first
       const customerLedger = await getCustomerLedger(userId, extractedName);
       if (customerLedger.success) {
         specificData = { type: 'customer_ledger', data: customerLedger };
       } else {
-        // Try supplier
         const supplierLedger = await getSupplierLedger(userId, extractedName);
         if (supplierLedger.success) {
           specificData = { type: 'supplier_ledger', data: supplierLedger };
@@ -445,7 +415,6 @@ export async function POST(request: NextRequest) {
       }
     }
 
-    // Check for supplier-specific queries
     if (!specificData && (queryLower.includes('supplier') || queryLower.includes('सप्लायर') || queryLower.includes('vikreta'))) {
       const supplierMatch = query.match(/(?:supplier|सप्लायर|vikreta)\s+([^\s?।]+)/i);
       if (supplierMatch && supplierMatch[1]) {
@@ -456,7 +425,6 @@ export async function POST(request: NextRequest) {
       }
     }
 
-    // Get current date in IST (Indian Standard Time)
     const currentDate = new Date();
     const istOptions: Intl.DateTimeFormatOptions = { 
       timeZone: 'Asia/Kolkata', 
@@ -468,7 +436,6 @@ export async function POST(request: NextRequest) {
     const todayDateString = currentDate.toLocaleDateString('en-IN', istOptions);
     const todayDateStringHindi = currentDate.toLocaleDateString('hi-IN', istOptions);
 
-    // Build context for Gemini
     const businessContext = `
 IMPORTANT - Current Date Information:
 - Today's Date: ${todayDateString}
@@ -540,7 +507,6 @@ User Query: ${query}
 
 Provide a helpful, conversational response:`;
 
-    // Call Gemini API directly
     const responseText = await callGeminiAPI(systemPrompt);
 
     return NextResponse.json({

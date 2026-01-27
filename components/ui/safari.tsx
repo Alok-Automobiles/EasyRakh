@@ -7,7 +7,6 @@ const SCREEN_Y = 52
 const SCREEN_WIDTH = 1200
 const SCREEN_HEIGHT = 700
 
-// Calculated percentages
 const LEFT_PCT = (SCREEN_X / SAFARI_WIDTH) * 100
 const TOP_PCT = (SCREEN_Y / SAFARI_HEIGHT) * 100
 const WIDTH_PCT = (SCREEN_WIDTH / SAFARI_WIDTH) * 100

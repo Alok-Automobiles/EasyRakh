@@ -20,7 +20,6 @@ export async function GET(request: NextRequest) {
     const customEntitiesCollection = db.collection('customEntities');
     const transactionsCollection = db.collection('transactions');
 
-    // Fetch recent customers, suppliers, and transactions
     const [recentCustomers, recentSuppliers, recentTransactions] = await Promise.all([
       customersCollection
         .find({ userId })
@@ -39,10 +38,8 @@ export async function GET(request: NextRequest) {
         .toArray(),
     ]);
 
-    // Combine all activities
     const activities: any[] = [];
 
-    // Add customer creation activities
     recentCustomers.forEach((customer) => {
       activities.push({
         id: `customer_${customer._id.toString()}`,
@@ -54,7 +51,6 @@ export async function GET(request: NextRequest) {
       });
     });
 
-    // Add supplier creation activities
     recentSuppliers.forEach((supplier) => {
       activities.push({
         id: `supplier_${supplier._id.toString()}`,
@@ -66,7 +62,6 @@ export async function GET(request: NextRequest) {
       });
     });
 
-    // Create lookup maps from recent customers/suppliers for efficient entity name resolution
     const customerMap = new Map(
       recentCustomers.map((c) => [c._id.toString(), c.name])
     );
@@ -74,7 +69,6 @@ export async function GET(request: NextRequest) {
       recentSuppliers.map((s) => [s._id.toString(), s.name])
     );
 
-    // Collect entity IDs that are not in the recent lists
     const missingCustomerIds = new Set<string>();
     const missingSupplierIds = new Set<string>();
     const customEntityIds = new Set<string>();
@@ -89,7 +83,6 @@ export async function GET(request: NextRequest) {
       } else if (entityType === 'supplier' && !supplierMap.has(entityId)) {
         missingSupplierIds.add(entityId);
       } else if (entityType && entityType !== 'customer' && entityType !== 'supplier') {
-        // Custom entity type
         if (entityId) {
           customEntityIds.add(entityId);
           customEntityTypeMap.set(entityId, entityType);
@@ -97,7 +90,6 @@ export async function GET(request: NextRequest) {
       }
     });
 
-    // Fetch only missing entities (if any)
     const [missingCustomers, missingSuppliers, customEntities] = await Promise.all([
       missingCustomerIds.size > 0
         ? customersCollection
@@ -116,7 +108,6 @@ export async function GET(request: NextRequest) {
         : Promise.resolve([]),
     ]);
 
-    // Add missing entities to maps
     missingCustomers.forEach((customer) => {
       customerMap.set(customer._id.toString(), customer.name);
     });
@@ -124,12 +115,10 @@ export async function GET(request: NextRequest) {
       supplierMap.set(supplier._id.toString(), supplier.name);
     });
 
-    // Create custom entity map
     const customEntityMap = new Map(
       customEntities.map((e) => [e._id.toString(), e.name])
     );
 
-    // Add transaction activities using the optimized lookup maps
     recentTransactions.forEach((transaction) => {
       const entityId = transaction.entityId || transaction.customerId || transaction.supplierId || '';
       const entityType = transaction.entityType || (transaction.customerId ? 'customer' : 'supplier');
@@ -140,7 +129,6 @@ export async function GET(request: NextRequest) {
       } else if (entityType === 'supplier') {
         entityName = supplierMap.get(entityId) || 'Unknown Supplier';
       } else {
-        // Custom entity type
         entityName = customEntityMap.get(entityId) || 'Unknown Entity';
       }
       
@@ -158,14 +146,12 @@ export async function GET(request: NextRequest) {
       });
     });
 
-    // Sort by createdAt descending
     activities.sort((a, b) => {
       const dateA = new Date(a.createdAt).getTime();
       const dateB = new Date(b.createdAt).getTime();
       return dateB - dateA;
     });
 
-    // Return top 20
     return NextResponse.json({
       activities: activities.slice(0, 20),
     });

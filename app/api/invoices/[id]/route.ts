@@ -108,7 +108,6 @@ export async function PUT(
       return NextResponse.json({ error: 'Invoice not found' }, { status: 404 });
     }
 
-    // Prepare update object
     const updateFields: Record<string, unknown> = {
       updatedAt: new Date(),
     };
@@ -126,7 +125,6 @@ export async function PUT(
       updateFields.notes = validatedData.notes;
     }
 
-    // Handle items update
     let totalAmount = existingInvoice.totalAmount;
     if (validatedData.items !== undefined) {
       updateFields.items = validatedData.items;
@@ -134,11 +132,9 @@ export async function PUT(
       updateFields.totalAmount = totalAmount;
     }
 
-    // Handle paid amount and status
     let paidAmount = validatedData.paidAmount ?? existingInvoice.paidAmount;
     let status = validatedData.status ?? existingInvoice.status;
 
-    // Auto-calculate status based on amounts
     if (paidAmount >= totalAmount) {
       status = 'paid';
     } else if (paidAmount > 0) {
@@ -152,9 +148,7 @@ export async function PUT(
 
     const now = new Date();
 
-    // Handle ledger integration for NEW ledger addition
     if (validatedData.addToLedger && !existingInvoice.addedToLedger && existingInvoice.customerId) {
-      // Always create DEBIT for full invoice amount (what customer owes for this purchase)
       const debitTx = await transactionsCollection.insertOne({
         userId,
         entityType: 'customer',
@@ -168,7 +162,6 @@ export async function PUT(
       });
       updateFields.transactionId = debitTx.insertedId.toString();
 
-      // Create CREDIT for paid amount (payment received)
       if (paidAmount > 0) {
         await transactionsCollection.insertOne({
           userId,
@@ -186,19 +179,16 @@ export async function PUT(
       updateFields.addedToLedger = true;
     }
     
-    // Handle ledger UPDATE when invoice is already in ledger and amounts changed
     if (existingInvoice.addedToLedger && existingInvoice.customerId) {
       const oldTotalAmount = existingInvoice.totalAmount;
       const oldPaidAmount = existingInvoice.paidAmount;
       const newTotalAmount = totalAmount;
       const newPaidAmount = paidAmount;
       
-      // Check if amounts have changed
       const totalChanged = oldTotalAmount !== newTotalAmount;
       const paidChanged = oldPaidAmount !== newPaidAmount;
       
       if (totalChanged || paidChanged) {
-        // Delete old invoice-related transactions
         await transactionsCollection.deleteMany({
           userId,
           entityType: 'customer',
@@ -206,7 +196,6 @@ export async function PUT(
           description: { $regex: `^Invoice ${existingInvoice.invoiceNumber}` },
         });
         
-        // Always create DEBIT for full invoice amount (what customer owes for this purchase)
         const debitTx = await transactionsCollection.insertOne({
           userId,
           entityType: 'customer',
@@ -220,7 +209,6 @@ export async function PUT(
         });
         updateFields.transactionId = debitTx.insertedId.toString();
         
-        // Create CREDIT for paid amount (payment received)
         if (newPaidAmount > 0) {
           await transactionsCollection.insertOne({
             userId,
@@ -246,7 +234,6 @@ export async function PUT(
       _id: new ObjectId(id),
     });
 
-    // Invalidate caches
     try {
       const keys = await redis.keys(`invoices:${userId}:*`);
       if (keys.length > 0) {
@@ -323,11 +310,9 @@ export async function DELETE(
       return NextResponse.json({ error: 'Invoice not found' }, { status: 404 });
     }
 
-    // Get deleteTransactions parameter from query string
     const { searchParams } = new URL(request.url);
     const deleteTransactions = searchParams.get('deleteTransactions') === 'true';
 
-    // If invoice is in ledger and user wants to delete transactions
     if (invoice.addedToLedger && deleteTransactions && invoice.customerId) {
       await transactionsCollection.deleteMany({
         userId,
@@ -337,16 +322,13 @@ export async function DELETE(
       });
     }
 
-    // Delete invoice
     await invoicesCollection.deleteOne({ _id: new ObjectId(id) });
 
-    // Invalidate caches
     try {
       const keys = await redis.keys(`invoices:${userId}:*`);
       if (keys.length > 0) {
         await redis.del(...keys);
       }
-      // Invalidate customer ledger cache if invoice had a customerId
       if (invoice.customerId) {
         await redis.del(
           `customers:${userId}`,
