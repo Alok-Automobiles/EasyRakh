@@ -4,7 +4,6 @@ import Link from 'next/link';
 import Image from 'next/image';
 import { useRouter, usePathname } from 'next/navigation';
 import { useEffect, useState, useRef, useMemo, useCallback } from 'react';
-import { Button } from '@/components/ui/button';
 import { 
   LayoutDashboard, 
   Users, 
@@ -19,8 +18,15 @@ import {
   LogOut,
   FolderOpen,
   User,
-  FileText
+  FileText,
+  Settings
 } from 'lucide-react';
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu';
 
 type SidebarProps = {
   collapsed?: boolean;
@@ -36,9 +42,19 @@ export default function Sidebar({ collapsed = false }: SidebarProps) {
   const [isMobileOpen, setIsMobileOpen] = useState(false);
   const [customCollectionTypes, setCustomCollectionTypes] = useState<Array<{ id: string; name: string; slug: string; lastTransactionDate?: Date }>>([]);
   const [expandedCollections, setExpandedCollections] = useState(false);
+  const [isDesktop, setIsDesktop] = useState(false);
 
   const isAuthPage = pathname === '/login' || pathname === '/register' || pathname === '/';
   const effectiveCollapsed = isMobileOpen ? false : collapsed;
+
+  useEffect(() => {
+    const checkDesktop = () => {
+      setIsDesktop(window.innerWidth >= 1024);
+    };
+    checkDesktop();
+    window.addEventListener('resize', checkDesktop);
+    return () => window.removeEventListener('resize', checkDesktop);
+  }, []);
 
   useEffect(() => {
     if (isAuthPage) {
@@ -260,32 +276,49 @@ export default function Sidebar({ collapsed = false }: SidebarProps) {
       </nav>
 
       <div className="p-4 border-t border-gray-200 bg-gray-50 sticky bottom-0 lg:static">
-        <div className={`flex items-center ${effectiveCollapsed ? 'justify-center' : 'space-x-3 mb-3 px-2'}`}>
-          <div className="shrink-0">
-            <div className="h-10 w-10 rounded-full bg-blue-100 flex items-center justify-center">
-              <User className="h-5 w-5 text-blue-600" />
-            </div>
-          </div>
-          {!effectiveCollapsed && (
-            <div className="flex-1 min-w-0">
-              <p className="text-sm font-medium text-gray-900 truncate">{user.name}</p>
-              <p className="text-xs text-gray-500 truncate">{user.email}</p>
-            </div>
-          )}
-        </div>
-        <Button
-          onClick={handleLogout}
-          variant="destructive"
-          size="sm"
-          className={`w-full bg-red-600 hover:bg-red-700 focus-visible:ring-red-500/30 ${effectiveCollapsed ? 'justify-center px-0' : ''}`}
-        >
-          <LogOut className={`h-4 w-4 ${effectiveCollapsed ? '' : 'mr-2'}`} />
-          {!effectiveCollapsed && 'Logout'}
-        </Button>
+        <DropdownMenu modal={false}>
+          <DropdownMenuTrigger asChild>
+            <button 
+              className={`flex items-center ${effectiveCollapsed ? 'justify-center' : 'space-x-3 px-2'} rounded-lg hover:bg-gray-100 transition-colors py-2 cursor-pointer w-full text-left`}
+              onMouseEnter={(e) => {
+                if (isDesktop) {
+                  e.currentTarget.click();
+                }
+              }}
+            >
+              <div className="shrink-0">
+                <div className="h-10 w-10 rounded-full bg-blue-100 flex items-center justify-center">
+                  <User className="h-5 w-5 text-blue-600" />
+                </div>
+              </div>
+              {!effectiveCollapsed && (
+                <div className="flex-1 min-w-0">
+                  <p className="text-sm font-medium text-gray-900 truncate">{user.name}</p>
+                  <p className="text-xs text-gray-500 truncate">{user.email}</p>
+                </div>
+              )}
+            </button>
+          </DropdownMenuTrigger>
+          <DropdownMenuContent align="end" className="w-56" sideOffset={5}>
+            <DropdownMenuItem asChild>
+              <Link href="/profile" className="flex items-center cursor-pointer">
+                <Settings className="mr-2 h-4 w-4" />
+                <span>Edit Profile</span>
+              </Link>
+            </DropdownMenuItem>
+            <DropdownMenuItem 
+              onClick={handleLogout} 
+              className="flex items-center cursor-pointer text-red-600 focus:text-red-600 focus:bg-red-100 data-[highlighted]:bg-red-100 data-[highlighted]:text-red-600"
+            >
+              <LogOut className="mr-2 h-4 w-4" />
+              <span>Logout</span>
+            </DropdownMenuItem>
+          </DropdownMenuContent>
+        </DropdownMenu>
       </div>
     </>
     );
-  }, [user, navLinks, pathname, customCollectionTypes, expandedCollections, isActive, handleLogout, collapsed, effectiveCollapsed]);
+  }, [user, navLinks, pathname, customCollectionTypes, expandedCollections, isActive, handleLogout, effectiveCollapsed, isDesktop]);
 
   if (isAuthPage) {
     return null;
