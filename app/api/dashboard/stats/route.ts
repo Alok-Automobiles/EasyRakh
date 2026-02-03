@@ -16,11 +16,26 @@ export async function GET(request: NextRequest) {
       );
     }
 
+    const CACHE_TTL = 120;
+    const STALE_TTL = 300;
+    const cacheKey = `dashboard:stats:${userId}`;
+
     try {
-      const cacheKey = `dashboard:stats:${userId}`;
       const cached = await redis.get(cacheKey);
       if (cached) {
-        return NextResponse.json(JSON.parse(cached));
+        const parsed = JSON.parse(cached);
+        const age = Date.now() - (parsed.timestamp || 0);
+        
+        const response = NextResponse.json(parsed.data || parsed);
+        
+        if (age > CACHE_TTL * 1000 && age < STALE_TTL * 1000) {
+          const baseUrl = process.env.NEXT_PUBLIC_APP_URL || `http://localhost:${process.env.PORT || 3000}`;
+          fetch(`${baseUrl}/api/dashboard/stats?bg=1`, {
+            headers: request.headers
+          }).catch(() => {});
+        }
+        
+        return response;
       }
     } catch (cacheError) {
       console.warn('Redis cache read failed, falling back to DB:', cacheError);
@@ -44,6 +59,21 @@ export async function GET(request: NextRequest) {
     const thirtyDaysAgo = new Date(Date.UTC(now.getFullYear(), now.getMonth(), now.getDate() - 29, 0, 0, 0, 0));
     const currentMonthStart = new Date(Date.UTC(today.getUTCFullYear(), today.getUTCMonth(), 1, 0, 0, 0, 0));
 
+    const recentTransactionsPreview = await transactionsCollection
+      .find({ userId }, { projection: { entityType: 1, entityId: 1 } })
+      .sort({ createdAt: -1 })
+      .limit(20)
+      .toArray();
+
+    const customEntityIds = new Set<string>();
+    const customEntityTypeMap = new Map<string, string>();
+    recentTransactionsPreview.forEach((tx) => {
+      if (tx.entityType && tx.entityType !== 'customer' && tx.entityType !== 'supplier' && tx.entityId) {
+        customEntityIds.add(tx.entityId.toString());
+        customEntityTypeMap.set(tx.entityId.toString(), tx.entityType);
+      }
+    });
+
     const [
       transactionFacets,
       customerStats,
@@ -52,6 +82,7 @@ export async function GET(request: NextRequest) {
       recentSuppliers,
       recentDailyCashRecords,
       dashboardNotes,
+      customEntities,
     ] = await Promise.all([
       transactionsCollection
         .aggregate([
@@ -259,6 +290,14 @@ export async function GET(request: NextRequest) {
         .sort({ updatedAt: -1 })
         .limit(6)
         .toArray(),
+      customEntityIds.size > 0
+        ? customEntitiesCollection
+            .find({
+              userId,
+              _id: { $in: Array.from(customEntityIds).map((id) => new ObjectId(id)) },
+            })
+            .toArray()
+        : Promise.resolve([]),
     ]);
 
     const facet = transactionFacets[0] || { totals: [], topCustomers: [], topSuppliers: [], recent: [] };
@@ -358,29 +397,6 @@ export async function GET(request: NextRequest) {
 
     const recentTransactions = (facet.recent as Transaction[]) || [];
 
-    const customEntityTransactions = recentTransactions.filter(
-      (tx) => tx.entityType && tx.entityType !== 'customer' && tx.entityType !== 'supplier'
-    );
-    const customEntityIds = new Set<string>();
-    const customEntityTypeMap = new Map<string, string>(); // entityId -> collectionType
-
-    customEntityTransactions.forEach((tx) => {
-      const entityId = tx.entityId || '';
-      if (entityId && tx.entityType) {
-        customEntityIds.add(entityId);
-        customEntityTypeMap.set(entityId, tx.entityType);
-      }
-    });
-
-    const customEntities = customEntityIds.size > 0
-      ? await customEntitiesCollection
-          .find({
-            userId,
-            _id: { $in: Array.from(customEntityIds).map((id) => new ObjectId(id)) },
-          })
-          .toArray()
-      : [];
-
     const customEntityMap = new Map(
       customEntities.map((e) => [e._id.toString(), e.name])
     );
@@ -465,7 +481,14 @@ export async function GET(request: NextRequest) {
 
     try {
       const cacheKey = `dashboard:stats:${userId}`;
-      await redis.setex(cacheKey, 300, JSON.stringify(responseData));
+      await redis.setex(
+        cacheKey,
+        STALE_TTL,
+        JSON.stringify({
+          data: responseData,
+          timestamp: Date.now()
+        })
+      );
     } catch (cacheError) {
       console.warn('Redis cache write failed:', cacheError);
     }

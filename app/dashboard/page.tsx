@@ -1,15 +1,10 @@
 import { headers } from 'next/headers';
 import DashboardClient from './DashboardClient';
 
-export const revalidate = 0;
-export const dynamic = 'force-dynamic';
+export const revalidate = 60;
 
 async function fetchDashboardDataServer() {
   try {
-    if (process.env.NODE_ENV !== 'production') {
-      return null;
-    }
-
     let cookieHeader = '';
     try {
       const hdrs = await headers();
