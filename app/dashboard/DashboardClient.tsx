@@ -1,42 +1,21 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { format } from 'date-fns';
 import toast from 'react-hot-toast';
 import { motion } from 'motion/react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import dynamic from 'next/dynamic';
-
-const AreaChart = dynamic(
-  () => import('recharts').then(mod => mod.AreaChart),
-  { ssr: false, loading: () => <div className="h-64 flex items-center justify-center"><div className="animate-spin h-8 w-8 border-4 border-blue-500 border-t-transparent rounded-full" /></div> }
-);
-const Area = dynamic(
-  () => import('recharts').then(mod => mod.Area),
-  { ssr: false }
-);
-const XAxis = dynamic(
-  () => import('recharts').then(mod => mod.XAxis),
-  { ssr: false }
-);
-const YAxis = dynamic(
-  () => import('recharts').then(mod => mod.YAxis),
-  { ssr: false }
-);
-const CartesianGrid = dynamic(
-  () => import('recharts').then(mod => mod.CartesianGrid),
-  { ssr: false }
-);
-const Tooltip = dynamic(
-  () => import('recharts').then(mod => mod.Tooltip),
-  { ssr: false }
-);
-const ResponsiveContainer = dynamic(
-  () => import('recharts').then(mod => mod.ResponsiveContainer),
-  { ssr: false }
-);
+import {
+  Area,
+  AreaChart,
+  CartesianGrid,
+  ResponsiveContainer,
+  Tooltip as RechartsTooltip,
+  XAxis,
+  YAxis,
+} from 'recharts';
 import { RecentActivity } from '@/lib/types';
 import { Button } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
@@ -368,26 +347,7 @@ export default function DashboardClient({ initialData }: { initialData?: Dashboa
   const [entryType, setEntryType] = useState<'in' | 'out'>('in');
   const [amount, setAmount] = useState('');
   const [description, setDescription] = useState('');
-  const [optimisticData, setOptimisticData] = useState<DashboardResponse | null>(initialData || null);
   const activitiesPerPage = 5;
-
-  // Load cached data from localStorage on mount
-  useEffect(() => {
-    if (typeof window !== 'undefined' && !initialData) {
-      try {
-        const cached = localStorage.getItem('dashboard-cache');
-        if (cached) {
-          const { data: cachedData, timestamp } = JSON.parse(cached);
-          // Use cached data if less than 10 minutes old
-          if (Date.now() - timestamp < 600000) {
-            setOptimisticData(cachedData);
-          } else {
-            localStorage.removeItem('dashboard-cache');
-          }
-        }
-      } catch (e) {}
-    }
-  }, [initialData]);
 
   const { data, isLoading, isFetching } = useQuery({
     queryKey: ['dashboard'],
@@ -402,25 +362,9 @@ export default function DashboardClient({ initialData }: { initialData?: Dashboa
       if (!response.ok) throw new Error('Failed to fetch dashboard data');
       return response.json() as Promise<DashboardResponse>;
     },
-    initialData: optimisticData || initialData || undefined,
-    placeholderData: optimisticData || initialData || undefined,
-    staleTime: 60 * 1000, // Reduced to 1 minute
-    refetchOnMount: optimisticData ? false : true,
-    refetchOnWindowFocus: false,
+    initialData: initialData || undefined,
+    staleTime: 2 * 60 * 1000, // 2 minutes
   });
-
-  // Update optimistic data and localStorage when fresh data arrives
-  useEffect(() => {
-    if (data && !isLoading && typeof window !== 'undefined') {
-      setOptimisticData(data);
-      try {
-        localStorage.setItem('dashboard-cache', JSON.stringify({
-          data,
-          timestamp: Date.now()
-        }));
-      } catch (e) {}
-    }
-  }, [data, isLoading]);
 
   const stats = data?.stats || defaultStats;
   const recentActivities = data?.activities || [];
@@ -553,12 +497,6 @@ export default function DashboardClient({ initialData }: { initialData?: Dashboa
 
   return (
     <div className="min-h-screen bg-slate-50 overflow-x-hidden">
-      {isFetching && optimisticData && (
-        <div className="fixed top-20 right-4 z-50 bg-blue-500/90 text-white px-4 py-2 rounded-lg shadow-lg text-sm flex items-center gap-2">
-          <div className="animate-spin h-4 w-4 border-2 border-white border-t-transparent rounded-full" />
-          Updating dashboard...
-        </div>
-      )}
       <motion.div
         initial="hidden"
         animate="visible"
@@ -846,7 +784,7 @@ export default function DashboardClient({ initialData }: { initialData?: Dashboa
                         axisLine={false}
                         width={40}
                       />
-                      <Tooltip content={<SalesTooltip />} />
+                      <RechartsTooltip content={<SalesTooltip />} />
                       <Area
                         type="monotone"
                         dataKey="totalIn"
