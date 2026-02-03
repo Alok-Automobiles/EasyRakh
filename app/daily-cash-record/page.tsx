@@ -541,35 +541,66 @@ export default function DailyCashRecordPage() {
           <div className="rounded-lg border bg-white p-6 min-h-[400px] shadow-sm">
             {summaryRecords.length > 0 ? (
               <>
-                <div className="space-y-4 mb-6">
-                  {summaryRecords.map((record) => (
+                <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4 mb-6">
+                  {summaryRecords.map((record, index) => (
                     <motion.div
                       key={record.id}
                       initial={{ opacity: 0, y: 20 }}
                       animate={{ opacity: 1, y: 0 }}
-                      transition={{ duration: 0.3 }}
+                      transition={{ duration: 0.3, delay: index * 0.05 }}
                     >
                       <Card
-                        className="hover:shadow-lg transition-shadow cursor-pointer rounded-lg border-2"
+                        className="group hover:shadow-2xl transition-all duration-300 cursor-pointer rounded-2xl border-2 border-gray-100 hover:border-blue-200 overflow-hidden bg-gradient-to-br from-white to-gray-50 hover:scale-[1.02]"
                         onClick={() => handleViewRecord(record)}
                       >
-                        <CardContent className="p-6">
-                          <div className="space-y-3">
-                            <div className="text-lg font-semibold text-gray-900 border-b pb-2">
-                              {record.date}
+                        <CardContent className="p-5 sm:p-6">
+                          <div className="space-y-4">
+                            {/* Date Header */}
+                            <div className="flex items-center justify-between pb-3 border-b-2 border-gray-200">
+                              <div className="flex items-center gap-2">
+                                <CalendarIcon className="h-5 w-5 text-blue-600" />
+                                <span className="text-lg font-bold text-gray-900">{record.date}</span>
+                              </div>
+                              <div className="bg-blue-100 text-blue-700 text-xs font-semibold px-3 py-1 rounded-full">
+                                {record.entryCount} {record.entryCount === 1 ? 'entry' : 'entries'}
+                              </div>
                             </div>
-                            <div className="flex justify-between text-sm">
-                              <span className="text-green-600 font-medium">Money In:</span>
-                              <span className="font-semibold text-gray-900">{formatCurrency(record.totalIn)}</span>
+
+                            {/* Money Stats */}
+                            <div className="space-y-3">
+                              {/* Money In */}
+                              <div className="flex items-center justify-between p-3 bg-green-50 rounded-xl border border-green-100">
+                                <div className="flex items-center gap-2">
+                                  <div className="w-2 h-2 rounded-full bg-green-500"></div>
+                                  <span className="text-sm font-semibold text-green-700">Money In</span>
+                                </div>
+                                <span className="font-bold text-green-700 text-base">
+                                  {formatCurrency(record.totalIn)}
+                                </span>
+                              </div>
+
+                              {/* Money Out */}
+                              <div className="flex items-center justify-between p-3 bg-red-50 rounded-xl border border-red-100">
+                                <div className="flex items-center gap-2">
+                                  <div className="w-2 h-2 rounded-full bg-red-500"></div>
+                                  <span className="text-sm font-semibold text-red-700">Money Out</span>
+                                </div>
+                                <span className="font-bold text-red-700 text-base">
+                                  {formatCurrency(record.totalOut)}
+                                </span>
+                              </div>
                             </div>
-                            <div className="flex justify-between text-sm">
-                              <span className="text-red-600 font-medium">Money Out:</span>
-                              <span className="font-semibold text-gray-900">{formatCurrency(record.totalOut)}</span>
-                            </div>
-                            <div className="flex justify-between text-sm pt-2 border-t">
-                              <span className="font-bold text-gray-700">Total Left:</span>
-                              <span className={`font-bold text-lg ${record.totalLeft >= 0 ? 'text-green-600' : 'text-red-600'
-                                }`}>
+
+                            {/* Total Left */}
+                            <div className={`flex items-center justify-between p-4 rounded-xl border-2 ${
+                              record.totalLeft >= 0 
+                                ? 'bg-gradient-to-r from-green-100 to-emerald-100 border-green-300' 
+                                : 'bg-gradient-to-r from-red-100 to-rose-100 border-red-300'
+                            }`}>
+                              <span className="text-sm font-bold text-gray-800">Total Balance</span>
+                              <span className={`font-black text-xl ${
+                                record.totalLeft >= 0 ? 'text-green-700' : 'text-red-700'
+                              }`}>
                                 {formatCurrency(record.totalLeft)}
                               </span>
                             </div>
@@ -600,103 +631,182 @@ export default function DailyCashRecordPage() {
 
         {/* View Record Dialog */}
         <Dialog open={viewRecordOpen} onOpenChange={setViewRecordOpen}>
-          <DialogContent className="max-w-[90vw] sm:max-w-6xl max-h-[85vh] flex flex-col p-0">
-            <DialogHeader className="px-6 pt-6 pb-4 pr-16 flex-shrink-0 border-b border-gray-200">
-              <div className="flex flex-row items-center justify-between gap-4">
-                <DialogTitle className="text-xl flex-1">
-                  Records for {viewingRecord?.date || format(selectedDate, 'dd-MM-yyyy')}
+          <DialogContent className="max-w-[95vw] sm:max-w-[90vw] lg:max-w-5xl max-h-[92vh] flex flex-col p-0 rounded-2xl border-0 shadow-2xl overflow-hidden">
+            {/* Clean Header */}
+            <DialogHeader className="px-5 sm:px-6 pt-5 pb-4 pr-12 flex-shrink-0 bg-white border-b border-gray-100">
+              <div className="flex flex-col gap-4">
+                <DialogTitle className="text-2xl sm:text-3xl font-bold text-gray-900">
+                  {viewingRecord?.date || format(selectedDate, 'dd-MM-yyyy')}
                 </DialogTitle>
+                
                 {viewingRecord && (
-                  <Button
-                    onClick={() => {
-                      setRecordDate(parse(viewingRecord.date, 'dd-MM-yyyy', new Date()));
-                      setAmount('');
-                      setDescription('');
-                      setEntryType('in');
-                      setAddTransactionOpen(true);
-                    }}
-                    size="sm"
-                    className="gap-2 bg-blue-600 hover:bg-blue-700 text-white shrink-0"
-                  >
-                    <Plus className="h-4 w-4" />
-                    Add Transaction
-                  </Button>
+                  <div className="flex flex-wrap items-center gap-4">
+                    {/* Stats Pills */}
+                    <div className="flex items-center gap-2">
+                      <span className="text-sm text-gray-500">In:</span>
+                      <span className="text-lg font-bold text-green-600">{formatCurrency(viewingRecord.totalIn)}</span>
+                    </div>
+                    <div className="w-px h-5 bg-gray-200 hidden sm:block"></div>
+                    <div className="flex items-center gap-2">
+                      <span className="text-sm text-gray-500">Out:</span>
+                      <span className="text-lg font-bold text-red-600">{formatCurrency(viewingRecord.totalOut)}</span>
+                    </div>
+                    <div className="w-px h-5 bg-gray-200 hidden sm:block"></div>
+                    <div className="flex items-center gap-2">
+                      <span className="text-sm text-gray-500">Balance:</span>
+                      <span className={`text-lg font-bold ${viewingRecord.totalLeft >= 0 ? 'text-green-600' : 'text-red-600'}`}>
+                        {formatCurrency(viewingRecord.totalLeft)}
+                      </span>
+                    </div>
+                    
+                    {/* Add Button */}
+                    <Button
+                      onClick={() => {
+                        setRecordDate(parse(viewingRecord.date, 'dd-MM-yyyy', new Date()));
+                        setAmount('');
+                        setDescription('');
+                        setEntryType('in');
+                        setAddTransactionOpen(true);
+                      }}
+                      size="sm"
+                      className="gap-1.5 bg-gray-900 hover:bg-gray-800 text-white ml-auto"
+                    >
+                      <Plus className="h-4 w-4" />
+                      Add
+                    </Button>
+                  </div>
                 )}
               </div>
             </DialogHeader>
-            <div className="px-6 pb-6 overflow-auto flex-1 min-h-0">
+            {/* Content Area */}
+            <div className="flex-1 overflow-auto bg-white">
               {viewingRecord && viewingRecord.entries && viewingRecord.entries.length > 0 ? (
-                <div className="rounded-lg border border-gray-200 overflow-hidden bg-white shadow-sm">
-                  <div className="overflow-x-auto">
-                    <Table className="min-w-full">
-                      <TableHeader className="sticky top-0 bg-gray-50 z-10">
-                        <TableRow className="border-b border-gray-200">
-                          <TableHead className="font-semibold text-left px-4 py-3 whitespace-nowrap min-w-[120px]">DATE</TableHead>
-                          <TableHead className="font-semibold text-left px-4 py-3 min-w-[300px]">description</TableHead>
-                          <TableHead className="font-semibold text-left px-4 py-3 whitespace-nowrap min-w-[130px]">money out</TableHead>
-                          <TableHead className="font-semibold text-right px-4 py-3 whitespace-nowrap min-w-[130px]">money in</TableHead>
-                          <TableHead className="w-[80px] px-4 py-3 text-center">Action</TableHead>
-                        </TableRow>
-                      </TableHeader>
-                      <TableBody>
+                <>
+                  {/* Mobile Card View */}
+                  <div className="block lg:hidden p-4 space-y-3">
+                    {viewingRecord.entries.map((entry, idx) => {
+                      const entryDate = entry.createdAt
+                        ? format(new Date(entry.createdAt), 'dd-MM-yyyy')
+                        : viewingRecord.date;
+                      return (
+                        <motion.div
+                          key={entry.id}
+                          initial={{ opacity: 0, y: 10 }}
+                          animate={{ opacity: 1, y: 0 }}
+                          transition={{ delay: idx * 0.03 }}
+                          className={`rounded-xl p-4 ${
+                            entry.type === 'in' 
+                              ? 'bg-green-50 border border-green-200' 
+                              : 'bg-red-50 border border-red-200'
+                          }`}
+                        >
+                          <div className="flex items-start justify-between gap-3">
+                            <div className="flex-1 min-w-0">
+                              <p className="text-sm text-gray-500 mb-1">{entryDate}</p>
+                              <p className="font-medium text-gray-900 break-words">{entry.description}</p>
+                            </div>
+                            <div className="flex items-center gap-2 shrink-0">
+                              <span className={`text-lg font-bold ${
+                                entry.type === 'in' ? 'text-green-600' : 'text-red-600'
+                              }`}>
+                                {entry.type === 'out' && '-'}{formatCurrency(entry.amount)}
+                              </span>
+                              <Button
+                                size="sm"
+                                variant="ghost"
+                                onClick={() => handleEditEntry(entry, viewingRecord)}
+                                className="h-8 w-8 p-0"
+                              >
+                                <Edit2 className="h-4 w-4 text-gray-400" />
+                              </Button>
+                            </div>
+                          </div>
+                        </motion.div>
+                      );
+                    })}
+                  </div>
+
+                  {/* Desktop Table View */}
+                  <div className="hidden lg:block">
+                    <table className="w-full">
+                      <thead className="bg-gray-50 sticky top-0">
+                        <tr>
+                          <th className="text-left text-xs font-semibold text-gray-500 uppercase tracking-wider px-6 py-4">Date</th>
+                          <th className="text-left text-xs font-semibold text-gray-500 uppercase tracking-wider px-6 py-4">Description</th>
+                          <th className="text-right text-xs font-semibold text-gray-500 uppercase tracking-wider px-6 py-4">Money Out</th>
+                          <th className="text-right text-xs font-semibold text-gray-500 uppercase tracking-wider px-6 py-4">Money In</th>
+                          <th className="w-16 px-6 py-4"></th>
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y divide-gray-100">
                         {viewingRecord.entries.map((entry) => {
                           const entryDate = entry.createdAt
                             ? format(new Date(entry.createdAt), 'dd-MM-yyyy')
                             : viewingRecord.date;
                           return (
-                            <TableRow key={entry.id} className="hover:bg-gray-50 border-b border-gray-200">
-                              <TableCell className="px-4 py-3 font-medium whitespace-nowrap">{entryDate}</TableCell>
-                              <TableCell className="px-4 py-3 break-words whitespace-normal">
-                                {entry.description}
-                              </TableCell>
-                              <TableCell className="px-4 py-3 text-red-600 whitespace-nowrap font-medium">
-                                {entry.type === 'out' ? formatCurrency(entry.amount) : '-'}
-                              </TableCell>
-                              <TableCell className="px-4 py-3 text-right text-green-600 whitespace-nowrap font-medium">
-                                {entry.type === 'in' ? formatCurrency(entry.amount) : '-'}
-                              </TableCell>
-                              <TableCell className="px-4 py-3 text-center">
+                            <tr key={entry.id} className="hover:bg-gray-50 transition-colors">
+                              <td className="px-6 py-4 text-sm text-gray-600 whitespace-nowrap">{entryDate}</td>
+                              <td className="px-6 py-4 text-sm text-gray-900">{entry.description}</td>
+                              <td className="px-6 py-4 text-right whitespace-nowrap">
+                                {entry.type === 'out' ? (
+                                  <span className="text-red-600 font-semibold">{formatCurrency(entry.amount)}</span>
+                                ) : (
+                                  <span className="text-gray-300">—</span>
+                                )}
+                              </td>
+                              <td className="px-6 py-4 text-right whitespace-nowrap">
+                                {entry.type === 'in' ? (
+                                  <span className="text-green-600 font-semibold">{formatCurrency(entry.amount)}</span>
+                                ) : (
+                                  <span className="text-gray-300">—</span>
+                                )}
+                              </td>
+                              <td className="px-6 py-4 text-center">
                                 <Button
                                   size="sm"
                                   variant="ghost"
                                   onClick={() => handleEditEntry(entry, viewingRecord)}
-                                  className="h-8 w-8 p-0"
+                                  className="h-8 w-8 p-0 opacity-50 hover:opacity-100"
                                 >
-                                  <Edit2 className="h-4 w-4" />
+                                  <Edit2 className="h-4 w-4 text-gray-500" />
                                 </Button>
-                              </TableCell>
-                            </TableRow>
+                              </td>
+                            </tr>
                           );
                         })}
-                        {/* Summary Row: total in/out */}
-                        <TableRow className="bg-gray-50 border-t-2 border-gray-300">
-                          <TableCell className="px-4 py-3 font-semibold">total in/out</TableCell>
-                          <TableCell className="px-4 py-3"></TableCell>
-                          <TableCell className="px-4 py-3 font-semibold text-red-600">
-                            {formatCurrency(viewingRecord.totalOut)}
-                          </TableCell>
-                          <TableCell className="px-4 py-3 font-semibold text-right text-green-600">
-                            {formatCurrency(viewingRecord.totalIn)}
-                          </TableCell>
-                          <TableCell className="px-4 py-3"></TableCell>
-                        </TableRow>
-                        {/* Summary Row: total left */}
-                        <TableRow className="bg-gray-100 border-t-2 border-gray-300">
-                          <TableCell className="px-4 py-3 font-semibold">total left</TableCell>
-                          <TableCell className="px-4 py-3"></TableCell>
-                          <TableCell className="px-4 py-3"></TableCell>
-                          <TableCell className="px-4 py-3 font-bold text-lg text-right text-black">
-                            {formatCurrency(viewingRecord.totalLeft)}
-                          </TableCell>
-                          <TableCell className="px-4 py-3"></TableCell>
-                        </TableRow>
-                      </TableBody>
-                    </Table>
+                      </tbody>
+                    </table>
                   </div>
-                </div>
+
+                  {/* Summary Footer */}
+                  <div className="sticky bottom-0 bg-white border-t border-gray-200 px-4 sm:px-6 py-4">
+                    <div className="flex flex-wrap items-center justify-between gap-4">
+                      <div className="flex flex-wrap gap-6">
+                        <div>
+                          <p className="text-xs text-gray-500 uppercase tracking-wide">Total Out</p>
+                          <p className="text-lg font-bold text-red-600">{formatCurrency(viewingRecord.totalOut)}</p>
+                        </div>
+                        <div>
+                          <p className="text-xs text-gray-500 uppercase tracking-wide">Total In</p>
+                          <p className="text-lg font-bold text-green-600">{formatCurrency(viewingRecord.totalIn)}</p>
+                        </div>
+                      </div>
+                      <div className="text-right">
+                        <p className="text-xs text-gray-500 uppercase tracking-wide">Balance</p>
+                        <p className={`text-2xl font-bold ${viewingRecord.totalLeft >= 0 ? 'text-green-600' : 'text-red-600'}`}>
+                          {formatCurrency(viewingRecord.totalLeft)}
+                        </p>
+                      </div>
+                    </div>
+                  </div>
+                </>
               ) : (
-                <div className="text-center py-8 text-gray-500">
-                  No entries found for this date
+                <div className="flex flex-col items-center justify-center py-16 text-center">
+                  <div className="w-16 h-16 rounded-full bg-gray-100 flex items-center justify-center mb-4">
+                    <CalendarIcon className="h-8 w-8 text-gray-400" />
+                  </div>
+                  <p className="text-lg font-medium text-gray-900 mb-1">No entries yet</p>
+                  <p className="text-sm text-gray-500">Add your first transaction for this date</p>
                 </div>
               )}
             </div>
