@@ -22,11 +22,17 @@ async function fetchDashboardDataServer() {
       process.env.NEXT_PUBLIC_APP_URL ||
       (process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : 'http://localhost:3000');
 
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), 900);
+
     const response = await fetch(`${baseUrl}/api/dashboard/stats`, {
       headers: cookieHeader ? { cookie: cookieHeader } : undefined,
       cache: 'no-store',
       next: { revalidate: 0 },
+      signal: controller.signal,
     });
+
+    clearTimeout(timeout);
 
     if (!response.ok) {
       return null;
@@ -41,5 +47,6 @@ async function fetchDashboardDataServer() {
 
 export default async function DashboardPage() {
   const initialData = await fetchDashboardDataServer();
-  return <DashboardClient initialData={initialData} />;
+  const initialDataTime = initialData ? Date.now() : undefined;
+  return <DashboardClient initialData={initialData} initialDataTime={initialDataTime} />;
 }
