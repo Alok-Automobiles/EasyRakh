@@ -16,17 +16,19 @@ export async function GET(request: NextRequest) {
       );
     }
 
-    try {
-      const cacheKey = `dashboard:stats:${userId}`;
-      const cached = await redis.get(cacheKey);
-      if (cached) {
-        return NextResponse.json(JSON.parse(cached));
+    if (redis.status === 'ready') {
+      try {
+        const cacheKey = `dashboard:stats:${userId}`;
+        const cached = await redis.get(cacheKey);
+        if (cached) {
+          return NextResponse.json(JSON.parse(cached));
+        }
+      } catch (cacheError) {
+        console.warn('Redis cache read failed, falling back to DB:', cacheError);
       }
-    } catch (cacheError) {
-      console.warn('Redis cache read failed, falling back to DB:', cacheError);
     }
 
-  const db = await getDb();
+    const db = await getDb();
     const customersCollection = db.collection('customers');
     const suppliersCollection = db.collection('suppliers');
     const customEntitiesCollection = db.collection('customEntities');
@@ -463,11 +465,13 @@ export async function GET(request: NextRequest) {
       })),
     };
 
-    try {
-      const cacheKey = `dashboard:stats:${userId}`;
-      await redis.setex(cacheKey, 300, JSON.stringify(responseData));
-    } catch (cacheError) {
-      console.warn('Redis cache write failed:', cacheError);
+    if (redis.status === 'ready') {
+      try {
+        const cacheKey = `dashboard:stats:${userId}`;
+        await redis.setex(cacheKey, 300, JSON.stringify(responseData));
+      } catch (cacheError) {
+        console.warn('Redis cache write failed:', cacheError);
+      }
     }
 
     return NextResponse.json(responseData);
@@ -479,4 +483,3 @@ export async function GET(request: NextRequest) {
     );
   }
 }
-

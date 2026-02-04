@@ -338,7 +338,13 @@ const NoteCard = ({ note }: { note: DashboardNote }) => {
   );
 };
 
-export default function DashboardClient({ initialData }: { initialData?: DashboardResponse | null }) {
+export default function DashboardClient({
+  initialData,
+  initialDataTime,
+}: {
+  initialData?: DashboardResponse | null;
+  initialDataTime?: number;
+}) {
   const router = useRouter();
   const queryClient = useQueryClient();
   const [currentPage, setCurrentPage] = useState(1);
@@ -363,7 +369,9 @@ export default function DashboardClient({ initialData }: { initialData?: Dashboa
       return response.json() as Promise<DashboardResponse>;
     },
     initialData: initialData || undefined,
+    initialDataUpdatedAt: initialDataTime,
     staleTime: 2 * 60 * 1000, // 2 minutes
+    refetchOnMount: initialDataTime ? false : true,
   });
 
   const stats = data?.stats || defaultStats;
