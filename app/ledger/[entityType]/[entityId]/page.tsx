@@ -805,23 +805,20 @@ export default function LedgerPage() {
                   </td>
                   <td className="px-6 py-4 text-sm text-gray-900">
                     <div>Opening Balance</div>
-                    {ledgerData?.openingBalanceDescription && (
-                      <div className="text-xs text-gray-500 mt-1">{ledgerData.openingBalanceDescription}</div>
+                    {ledgerData?.openingBalance?.description && (
+                      <div className="text-xs text-gray-500 mt-1">{ledgerData.openingBalance.description}</div>
                     )}
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                    {ledgerData?.openingBalanceBillUrl ? (
-                      <Button
-                        type="button"
-                        variant="link"
-                        className="px-0 text-blue-600"
-                        onClick={() => {
-                          setBillModalUrl(ledgerData.openingBalanceBillUrl!);
-                          setIsBillModalOpen(true);
-                        }}
+                    {ledgerData?.openingBalance?.billUrl ? (
+                      <a
+                        href={ledgerData.openingBalance.billUrl}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="text-blue-600 hover:underline"
                       >
                         View Bill
-                      </Button>
+                      </a>
                     ) : (
                       '—'
                     )}
@@ -1165,7 +1162,7 @@ export default function LedgerPage() {
             <DialogHeader>
               <DialogTitle>Edit Opening Balance</DialogTitle>
               <DialogDescription>
-                Update the opening balance details for this {params.entityType.slice(0, -1)}.
+                Update the opening balance details for this {params.entityType?.slice(0, -1) ?? 'entity'}.
               </DialogDescription>
             </DialogHeader>
 
