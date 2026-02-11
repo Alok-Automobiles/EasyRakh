@@ -11,6 +11,9 @@ const customerSchema = z.object({
   address: z.string().optional(),
   openingBalance: z.number().default(0),
   balanceType: z.enum(["credit", "debit"]).default("debit"),
+  openingBalanceDescription: z.string().optional(),
+  openingBalanceBillUrl: z.union([z.string().url("Invalid bill URL"), z.literal("")]).optional(),
+  openingBalanceBillPublicId: z.string().optional(),
 });
 
 export async function GET(request: NextRequest) {
@@ -135,6 +138,9 @@ export async function POST(request: NextRequest) {
       address: validatedData.address || "",
       openingBalance: validatedData.openingBalance,
       balanceType: validatedData.balanceType,
+      openingBalanceDescription: validatedData.openingBalanceDescription || "",
+      openingBalanceBillUrl: validatedData.openingBalanceBillUrl || "",
+      openingBalanceBillPublicId: validatedData.openingBalanceBillPublicId || "",
       createdAt: new Date(),
     });
 

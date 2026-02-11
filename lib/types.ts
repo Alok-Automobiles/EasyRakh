@@ -20,6 +20,9 @@ export interface Customer {
   address?: string;
   openingBalance: number;
   balanceType: 'credit' | 'debit';
+  openingBalanceDescription?: string;
+  openingBalanceBillUrl?: string;
+  openingBalanceBillPublicId?: string;
   createdAt: Date;
 }
 
@@ -32,6 +35,9 @@ export interface Supplier {
   address?: string;
   openingBalance: number;
   balanceType: 'credit' | 'debit';
+  openingBalanceDescription?: string;
+  openingBalanceBillUrl?: string;
+  openingBalanceBillPublicId?: string;
   createdAt: Date;
 }
 
@@ -53,6 +59,9 @@ export interface CustomEntity {
   address?: string;
   openingBalance: number;
   balanceType: 'credit' | 'debit';
+  openingBalanceDescription?: string;
+  openingBalanceBillUrl?: string;
+  openingBalanceBillPublicId?: string;
   createdAt: Date;
 }
 

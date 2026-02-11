@@ -127,11 +127,17 @@ export async function GET(
         address: entity.address,
         openingBalance: entity.openingBalance,
         balanceType: entity.balanceType,
+        openingBalanceDescription: entity.openingBalanceDescription,
+        openingBalanceBillUrl: entity.openingBalanceBillUrl,
+        openingBalanceBillPublicId: entity.openingBalanceBillPublicId,
       },
       entityType: entityType,
       openingBalance: {
         amount: entity.openingBalance,
         type: entity.balanceType,
+        description: entity.openingBalanceDescription,
+        billUrl: entity.openingBalanceBillUrl,
+        billPublicId: entity.openingBalanceBillPublicId,
       },
       entries: ledgerEntries,
       totals: {
