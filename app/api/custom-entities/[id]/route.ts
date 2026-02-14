@@ -13,6 +13,9 @@ const customEntitySchema = z.object({
   address: z.string().optional(),
   openingBalance: z.number().default(0),
   balanceType: z.enum(['credit', 'debit']).default('debit'),
+  openingBalanceDescription: z.string().optional(),
+  openingBalanceBillUrl: z.union([z.string().url('Invalid bill URL'), z.literal('')]).optional(),
+  openingBalanceBillPublicId: z.string().optional(),
 });
 
 export async function GET(
@@ -55,6 +58,9 @@ export async function GET(
         address: entity.address,
         openingBalance: entity.openingBalance,
         balanceType: entity.balanceType,
+        openingBalanceDescription: entity.openingBalanceDescription,
+        openingBalanceBillUrl: entity.openingBalanceBillUrl,
+        openingBalanceBillPublicId: entity.openingBalanceBillPublicId,
         createdAt: entity.createdAt,
       },
     });
@@ -127,6 +133,9 @@ export async function PUT(
           address: validatedData.address || '',
           openingBalance: validatedData.openingBalance,
           balanceType: validatedData.balanceType,
+          openingBalanceDescription: validatedData.openingBalanceDescription || '',
+          openingBalanceBillUrl: validatedData.openingBalanceBillUrl || '',
+          openingBalanceBillPublicId: validatedData.openingBalanceBillPublicId || '',
         },
       }
     );

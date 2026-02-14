@@ -6,7 +6,10 @@ import { format } from 'date-fns';
 import Link from 'next/link';
 import Image from 'next/image';
 import toast from 'react-hot-toast';
+import { Upload, Pencil, Trash2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { Textarea } from '@/components/ui/textarea';
 import {
   Dialog,
   DialogContent,
@@ -16,6 +19,13 @@ import {
   DialogTitle,
 } from '@/components/ui/dialog';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
 import { Skeleton } from '@/components/ui/skeleton';
 import { motion } from 'motion/react'
 import PrintLedgerOverlay from '@/components/PrintLedgerOverlay';
@@ -51,11 +61,17 @@ interface LedgerData {
     address?: string;
     openingBalance: number;
     balanceType: 'credit' | 'debit';
+    openingBalanceDescription?: string;
+    openingBalanceBillUrl?: string;
+    openingBalanceBillPublicId?: string;
   };
   entityType: string;
   openingBalance: {
     amount: number;
     type: 'credit' | 'debit';
+    description?: string;
+    billUrl?: string;
+    billPublicId?: string;
   };
   entries: LedgerEntry[];
   totals: {
@@ -98,6 +114,40 @@ export default function LedgerPage() {
     firmAddress: string;
   } | null>(null);
   const [collectionTypeName, setCollectionTypeName] = useState<string>('');
+  
+  // Edit transaction state
+  const [editModalOpen, setEditModalOpen] = useState(false);
+  const [editingTransaction, setEditingTransaction] = useState<{
+    id: string;
+    entityType: string;
+    entityId: string;
+    type: 'credit' | 'debit';
+    amount: number;
+    description: string;
+    date: string;
+    billUrl?: string;
+    billPublicId?: string;
+  } | null>(null);
+  const [editLoading, setEditLoading] = useState(false);
+  const [editSaving, setEditSaving] = useState(false);
+  
+  // Delete transaction state
+  const [deleteModalOpen, setDeleteModalOpen] = useState(false);
+  const [deletingTransactionId, setDeletingTransactionId] = useState<string | null>(null);
+  const [deleteLoading, setDeleteLoading] = useState(false);
+
+  // Opening balance edit state
+  const [openingBalanceModalOpen, setOpeningBalanceModalOpen] = useState(false);
+  const [openingBalanceEditData, setOpeningBalanceEditData] = useState<{
+    amount: number;
+    balanceType: 'credit' | 'debit';
+    description: string;
+    billUrl: string;
+    billPublicId: string;
+  } | null>(null);
+  const [openingBalanceSaving, setOpeningBalanceSaving] = useState(false);
+  const [openingBalanceUploading, setOpeningBalanceUploading] = useState(false);
+  const openingBalanceFileInputRef = useRef<HTMLInputElement>(null);
 
   const fetchLedger = useCallback(async () => {
     try {
@@ -189,6 +239,128 @@ export default function LedgerPage() {
       if (billModalFileInputRef.current) {
         billModalFileInputRef.current.value = '';
       }
+    }
+  };
+
+  // Edit transaction handlers
+  const handleEditClick = async (entry: LedgerEntry) => {
+    if (!entry.transactionId) {
+      toast.error('Unable to locate the transaction for this entry.');
+      return;
+    }
+    setEditLoading(true);
+    setEditModalOpen(true);
+    
+    try {
+      const response = await fetch(`/api/transactions/${entry.transactionId}`);
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.error || 'Failed to load transaction');
+      }
+      const data = await response.json();
+      const tx = data.transaction;
+      setEditingTransaction({
+        id: entry.transactionId,
+        entityType: tx.entityType,
+        entityId: tx.entityId,
+        type: tx.type,
+        amount: tx.amount,
+        description: tx.description || '',
+        date: format(new Date(tx.date), 'yyyy-MM-dd'),
+        billUrl: tx.billUrl,
+        billPublicId: tx.billPublicId,
+      });
+    } catch (error) {
+      console.error('Failed to load transaction', error);
+      toast.error(error instanceof Error ? error.message : 'Failed to load transaction');
+      setEditModalOpen(false);
+    } finally {
+      setEditLoading(false);
+    }
+  };
+
+  const handleEditModalClose = () => {
+    setEditModalOpen(false);
+    setEditingTransaction(null);
+  };
+
+  const handleEditSave = async () => {
+    if (!editingTransaction) return;
+    
+    setEditSaving(true);
+    try {
+      const response = await fetch(`/api/transactions/${editingTransaction.id}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          entityType: editingTransaction.entityType,
+          entityId: editingTransaction.entityId,
+          type: editingTransaction.type,
+          amount: editingTransaction.amount,
+          description: editingTransaction.description,
+          date: editingTransaction.date,
+          billUrl: editingTransaction.billUrl || '',
+          billPublicId: editingTransaction.billPublicId || '',
+        }),
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.error || 'Failed to update transaction');
+      }
+
+      toast.success('Transaction updated successfully');
+      handleEditModalClose();
+      // Refresh ledger data
+      lastFetchedRef.current = '';
+      fetchLedger();
+    } catch (error) {
+      console.error('Failed to update transaction', error);
+      toast.error(error instanceof Error ? error.message : 'Failed to update transaction');
+    } finally {
+      setEditSaving(false);
+    }
+  };
+
+  // Delete transaction handlers
+  const handleDeleteClick = (entry: LedgerEntry) => {
+    if (!entry.transactionId) {
+      toast.error('Unable to locate the transaction for this entry.');
+      return;
+    }
+    setDeletingTransactionId(entry.transactionId);
+    setDeleteModalOpen(true);
+  };
+
+  const handleDeleteModalClose = () => {
+    setDeleteModalOpen(false);
+    setDeletingTransactionId(null);
+  };
+
+  const handleDeleteConfirm = async () => {
+    if (!deletingTransactionId) return;
+    
+    setDeleteLoading(true);
+    try {
+      const response = await fetch(`/api/transactions/${deletingTransactionId}`, {
+        method: 'DELETE',
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.error || 'Failed to delete transaction');
+      }
+
+      toast.success('Transaction deleted successfully');
+      handleDeleteModalClose();
+      // Refresh ledger data
+      lastFetchedRef.current = '';
+      fetchLedger();
+    } catch (error) {
+      console.error('Failed to delete transaction', error);
+      toast.error(error instanceof Error ? error.message : 'Failed to delete transaction');
+    } finally {
+      setDeleteLoading(false);
     }
   };
 
@@ -336,6 +508,146 @@ export default function LedgerPage() {
     await submitBillUpdate({ billUrl: '', billPublicId: '' }, 'Bill removed successfully.');
   };
 
+  // Opening balance edit handlers
+  const handleOpeningBalanceEdit = () => {
+    if (!ledgerData) return;
+    setOpeningBalanceEditData({
+      amount: ledgerData.openingBalance.amount,
+      balanceType: ledgerData.openingBalance.type,
+      description: ledgerData.openingBalance.description || '',
+      billUrl: ledgerData.openingBalance.billUrl || '',
+      billPublicId: ledgerData.openingBalance.billPublicId || '',
+    });
+    setOpeningBalanceModalOpen(true);
+  };
+
+  const handleOpeningBalanceModalClose = () => {
+    setOpeningBalanceModalOpen(false);
+    setOpeningBalanceEditData(null);
+  };
+
+  const handleOpeningBalanceBillUpload = async (event: ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (!file) return;
+
+    if (!ACCEPTED_BILL_TYPES.includes(file.type)) {
+      toast.error('Unsupported file type. Please upload JPG, PNG, WEBP, HEIC/HEIF, or PDF files.');
+      event.target.value = '';
+      return;
+    }
+
+    setOpeningBalanceUploading(true);
+
+    try {
+      let fileToUpload = file;
+
+      if (file.size > MAX_BILL_SIZE_BYTES && isCompressibleImage(file)) {
+        toast.loading('Compressing image...', { id: 'compress' });
+        const compressionResult = await compressImage(file, MAX_BILL_SIZE_BYTES);
+        toast.dismiss('compress');
+        
+        if (compressionResult.wasCompressed) {
+          fileToUpload = compressionResult.file;
+          toast.success(
+            `Image compressed: ${formatFileSize(compressionResult.originalSize)} → ${formatFileSize(compressionResult.compressedSize)}`
+          );
+        }
+      } else if (file.size > MAX_BILL_SIZE_BYTES) {
+        toast.error('PDF and HEIC files must be under 5MB. Please reduce the file size manually.');
+        event.target.value = '';
+        setOpeningBalanceUploading(false);
+        return;
+      }
+
+      const formData = new FormData();
+      formData.append('file', fileToUpload);
+
+      const response = await fetch('/api/uploads/bill', {
+        method: 'POST',
+        body: formData,
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.error || 'Failed to upload bill');
+      }
+
+      const result = await response.json();
+      setOpeningBalanceEditData(prev => prev ? {
+        ...prev,
+        billUrl: result.url,
+        billPublicId: result.publicId,
+      } : null);
+      toast.success('Bill uploaded successfully!');
+    } catch (error) {
+      console.error('Failed to upload bill', error);
+      toast.error(error instanceof Error ? error.message : 'Failed to upload bill');
+    } finally {
+      setOpeningBalanceUploading(false);
+      if (openingBalanceFileInputRef.current) {
+        openingBalanceFileInputRef.current.value = '';
+      }
+    }
+  };
+
+  const handleOpeningBalanceRemoveBill = () => {
+    setOpeningBalanceEditData(prev => prev ? {
+      ...prev,
+      billUrl: '',
+      billPublicId: '',
+    } : null);
+  };
+
+  const handleOpeningBalanceSave = async () => {
+    if (!openingBalanceEditData || !ledgerData) return;
+
+    setOpeningBalanceSaving(true);
+    try {
+      // Determine the correct API endpoint based on entity type
+      let apiUrl = '';
+      if (entityType === 'customer') {
+        apiUrl = `/api/customers/${entityId}`;
+      } else if (entityType === 'supplier') {
+        apiUrl = `/api/suppliers/${entityId}`;
+      } else {
+        apiUrl = `/api/custom-entities/${entityId}`;
+      }
+
+      const response = await fetch(apiUrl, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          name: ledgerData.entity.name,
+          phone: ledgerData.entity.phone || '',
+          email: ledgerData.entity.email || '',
+          address: ledgerData.entity.address || '',
+          openingBalance: openingBalanceEditData.amount,
+          balanceType: openingBalanceEditData.balanceType,
+          openingBalanceDescription: openingBalanceEditData.description,
+          openingBalanceBillUrl: openingBalanceEditData.billUrl,
+          openingBalanceBillPublicId: openingBalanceEditData.billPublicId,
+          ...(entityType !== 'customer' && entityType !== 'supplier' ? { collectionType: entityType } : {}),
+        }),
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.error || 'Failed to update opening balance');
+      }
+
+      toast.success('Opening balance updated successfully');
+      handleOpeningBalanceModalClose();
+      // Refresh ledger data
+      lastFetchedRef.current = '';
+      fetchLedger();
+    } catch (error) {
+      console.error('Failed to update opening balance', error);
+      toast.error(error instanceof Error ? error.message : 'Failed to update opening balance');
+    } finally {
+      setOpeningBalanceSaving(false);
+    }
+  };
+
   const fetchFirmInfo = async () => {
     try {
       const response = await fetch('/api/auth/me');
@@ -480,6 +792,9 @@ export default function LedgerPage() {
                   <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
                     Balance
                   </th>
+                  <th className="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    Actions
+                  </th>
                 </tr>
               </thead>
               <tbody className="bg-white divide-y divide-gray-200">
@@ -488,11 +803,25 @@ export default function LedgerPage() {
                   <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
                     {format(new Date(), 'MMM dd, yyyy')}
                   </td>
-                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                    Opening Balance
+                  <td className="px-6 py-4 text-sm text-gray-900">
+                    <div>Opening Balance</div>
+                    {ledgerData?.openingBalance?.description && (
+                      <div className="text-xs text-gray-500 mt-1">{ledgerData.openingBalance.description}</div>
+                    )}
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                    —
+                    {ledgerData?.openingBalance?.billUrl ? (
+                      <a
+                        href={ledgerData.openingBalance.billUrl}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="text-blue-600 hover:underline"
+                      >
+                        View Bill
+                      </a>
+                    ) : (
+                      '—'
+                    )}
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap text-sm text-right text-gray-900">
                     {openingBalance.type === 'credit' ? `₹${openingBalance.amount.toLocaleString()}` : '-'}
@@ -506,6 +835,16 @@ export default function LedgerPage() {
                   >
                     {openingBalance.type === 'credit' ? '-' : ''}₹
                     {openingBalance.amount.toLocaleString()}
+                  </td>
+                  <td className="px-6 py-4 whitespace-nowrap text-sm text-center">
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      onClick={handleOpeningBalanceEdit}
+                    >
+                      Edit
+                    </Button>
                   </td>
                 </tr>
 
@@ -545,6 +884,34 @@ export default function LedgerPage() {
                       >
                         {entry.balance >= 0 ? '' : '-'}₹{Math.abs(entry.balance).toLocaleString()}
                       </td>
+                      <td className="px-6 py-4 whitespace-nowrap text-sm text-center">
+                        {entry.transactionId ? (
+                          <div className="flex justify-center gap-2">
+                            <Button
+                              type="button"
+                              variant="outline"
+                              size="icon"
+                              className="h-8 w-8 text-blue-600 hover:text-blue-800 hover:bg-blue-50"
+                              onClick={() => handleEditClick(entry)}
+                              title="Edit"
+                            >
+                              <Pencil className="h-4 w-4" />
+                            </Button>
+                            <Button
+                              type="button"
+                              variant="outline"
+                              size="icon"
+                              className="h-8 w-8 text-red-600 hover:text-red-800 hover:bg-red-50"
+                              onClick={() => handleDeleteClick(entry)}
+                              title="Delete"
+                            >
+                              <Trash2 className="h-4 w-4" />
+                            </Button>
+                          </div>
+                        ) : (
+                          '—'
+                        )}
+                      </td>
                     </tr>
                   );
                 })}
@@ -568,6 +935,7 @@ export default function LedgerPage() {
                   >
                     {totals.balance >= 0 ? '' : '-'}₹{Math.abs(totals.balance).toLocaleString()}
                   </td>
+                  <td className="px-6 py-4"></td>
                 </tr>
               </tfoot>
             </table>
@@ -665,6 +1033,267 @@ export default function LedgerPage() {
             <DialogFooter>
               <Button variant="outline" onClick={() => handleBillModalOpenChange(false)}>
                 Close
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
+
+        {/* Edit Transaction Dialog */}
+        <Dialog open={editModalOpen} onOpenChange={(open) => !open && handleEditModalClose()}>
+          <DialogContent className="sm:max-w-md">
+            <DialogHeader>
+              <DialogTitle>Edit Transaction</DialogTitle>
+              <DialogDescription>
+                Update the transaction details below.
+              </DialogDescription>
+            </DialogHeader>
+
+            {editLoading ? (
+              <div className="py-8 text-center text-muted-foreground">Loading transaction...</div>
+            ) : editingTransaction ? (
+              <div className="space-y-4">
+                <div className="space-y-2">
+                  <label className="text-sm font-medium text-gray-700">Type</label>
+                  <Select
+                    value={editingTransaction.type}
+                    onValueChange={(value: 'credit' | 'debit') => 
+                      setEditingTransaction({ ...editingTransaction, type: value })
+                    }
+                  >
+                    <SelectTrigger>
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="credit">Credit (You owe them)</SelectItem>
+                      <SelectItem value="debit">Debit (They owe you)</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+
+                <div className="space-y-2">
+                  <label className="text-sm font-medium text-gray-700">Amount (₹)</label>
+                  <Input
+                    type="number"
+                    min="0"
+                    step="0.01"
+                    value={editingTransaction.amount}
+                    onChange={(e) => 
+                      setEditingTransaction({ 
+                        ...editingTransaction, 
+                        amount: parseFloat(e.target.value) || 0 
+                      })
+                    }
+                  />
+                </div>
+
+                <div className="space-y-2">
+                  <label className="text-sm font-medium text-gray-700">Description</label>
+                  <Textarea
+                    value={editingTransaction.description}
+                    onChange={(e) => 
+                      setEditingTransaction({ 
+                        ...editingTransaction, 
+                        description: e.target.value 
+                      })
+                    }
+                    placeholder="Optional description"
+                    rows={3}
+                  />
+                </div>
+
+                <div className="space-y-2">
+                  <label className="text-sm font-medium text-gray-700">Date</label>
+                  <Input
+                    type="date"
+                    value={editingTransaction.date}
+                    onChange={(e) => 
+                      setEditingTransaction({ 
+                        ...editingTransaction, 
+                        date: e.target.value 
+                      })
+                    }
+                  />
+                </div>
+              </div>
+            ) : null}
+
+            <DialogFooter className="gap-2">
+              <Button variant="outline" onClick={handleEditModalClose} disabled={editSaving}>
+                Cancel
+              </Button>
+              <Button 
+                onClick={handleEditSave} 
+                disabled={editLoading || editSaving || !editingTransaction?.amount}
+              >
+                {editSaving ? 'Saving...' : 'Save Changes'}
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
+
+        {/* Delete Confirmation Dialog */}
+        <Dialog open={deleteModalOpen} onOpenChange={(open) => !open && handleDeleteModalClose()}>
+          <DialogContent className="sm:max-w-md">
+            <DialogHeader>
+              <DialogTitle>Delete Transaction</DialogTitle>
+              <DialogDescription>
+                Are you sure you want to delete this transaction? This action cannot be undone.
+              </DialogDescription>
+            </DialogHeader>
+
+            <DialogFooter className="gap-2">
+              <Button variant="outline" onClick={handleDeleteModalClose} disabled={deleteLoading}>
+                Cancel
+              </Button>
+              <Button 
+                variant="destructive" 
+                onClick={handleDeleteConfirm} 
+                disabled={deleteLoading}
+              >
+                {deleteLoading ? 'Deleting...' : 'Delete Transaction'}
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
+
+        {/* Opening Balance Edit Modal */}
+        <Dialog open={openingBalanceModalOpen} onOpenChange={(open) => !open && handleOpeningBalanceModalClose()}>
+          <DialogContent className="sm:max-w-lg max-h-[90vh] overflow-y-auto">
+            <DialogHeader>
+              <DialogTitle>Edit Opening Balance</DialogTitle>
+              <DialogDescription>
+                Update the opening balance details for this {params.entityType?.slice(0, -1) ?? 'entity'}.
+              </DialogDescription>
+            </DialogHeader>
+
+            {openingBalanceEditData ? (
+            <div className="space-y-4 py-4">
+              <div className="grid grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <label className="text-sm font-medium text-gray-700">Amount (₹)</label>
+                  <Input
+                    type="number"
+                    value={openingBalanceEditData.amount}
+                    onChange={(e) =>
+                      setOpeningBalanceEditData({
+                        ...openingBalanceEditData,
+                        amount: parseFloat(e.target.value) || 0,
+                      })
+                    }
+                    placeholder="Enter amount"
+                    min="0"
+                  />
+                </div>
+                <div className="space-y-2">
+                  <label className="text-sm font-medium text-gray-700">Balance Type</label>
+                  <select
+                    value={openingBalanceEditData.balanceType}
+                    onChange={(e) =>
+                      setOpeningBalanceEditData({
+                        ...openingBalanceEditData,
+                        balanceType: e.target.value as 'credit' | 'debit',
+                      })
+                    }
+                    className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
+                  >
+                    <option value="debit">They Owe Us (Debit)</option>
+                    <option value="credit">We Owe Them (Credit)</option>
+                  </select>
+                </div>
+              </div>
+
+              <div className="space-y-2">
+                <label className="text-sm font-medium text-gray-700">Description (Optional)</label>
+                <textarea
+                  value={openingBalanceEditData.description}
+                  onChange={(e) =>
+                    setOpeningBalanceEditData({
+                      ...openingBalanceEditData,
+                      description: e.target.value,
+                    })
+                  }
+                  placeholder="Add a note about this opening balance..."
+                  className="flex min-h-[80px] w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
+                  rows={3}
+                />
+              </div>
+
+              <div className="space-y-2">
+                <label className="text-sm font-medium text-gray-700">Bill Image (Optional)</label>
+                {openingBalanceEditData.billUrl ? (
+                  <div className="space-y-3">
+                    <div className="relative inline-block">
+                      <Image
+                        src={openingBalanceEditData.billUrl}
+                        alt="Opening Balance Bill"
+                        width={200}
+                        height={150}
+                        className="rounded-md object-cover"
+                      />
+                    </div>
+                    <div className="flex gap-2">
+                      <label className="cursor-pointer">
+                        <Button
+                          type="button"
+                          variant="outline"
+                          size="sm"
+                          disabled={openingBalanceSaving || openingBalanceUploading}
+                          asChild
+                        >
+                          <span>{openingBalanceUploading ? 'Uploading...' : 'Change'}</span>
+                        </Button>
+                        <input
+                          type="file"
+                          className="hidden"
+                          accept="image/*"
+                          onChange={handleOpeningBalanceBillUpload}
+                          disabled={openingBalanceSaving || openingBalanceUploading}
+                        />
+                      </label>
+                      <Button
+                        type="button"
+                        variant="destructive"
+                        size="sm"
+                        onClick={handleOpeningBalanceRemoveBill}
+                        disabled={openingBalanceSaving || openingBalanceUploading}
+                      >
+                        Remove
+                      </Button>
+                    </div>
+                  </div>
+                ) : (
+                  <div className="flex items-center justify-center w-full">
+                    <label className="flex flex-col items-center justify-center w-full h-32 border-2 border-gray-300 border-dashed rounded-lg cursor-pointer bg-gray-50 hover:bg-gray-100">
+                      <div className="flex flex-col items-center justify-center pt-5 pb-6">
+                        <Upload className="w-8 h-8 mb-2 text-gray-400" />
+                        <p className="mb-2 text-sm text-gray-500">
+                          <span className="font-semibold">{openingBalanceUploading ? 'Uploading...' : 'Click to upload'}</span>
+                        </p>
+                        <p className="text-xs text-gray-500">PNG, JPG up to 10MB</p>
+                      </div>
+                      <input
+                        type="file"
+                        className="hidden"
+                        accept="image/*"
+                        onChange={handleOpeningBalanceBillUpload}
+                        disabled={openingBalanceSaving || openingBalanceUploading}
+                      />
+                    </label>
+                  </div>
+                )}
+              </div>
+            </div>
+            ) : null}
+
+            <DialogFooter className="gap-2">
+              <Button variant="outline" onClick={handleOpeningBalanceModalClose} disabled={openingBalanceSaving}>
+                Cancel
+              </Button>
+              <Button
+                onClick={handleOpeningBalanceSave}
+                disabled={openingBalanceSaving || !openingBalanceEditData?.amount}
+              >
+                {openingBalanceSaving ? 'Saving...' : 'Save Changes'}
               </Button>
             </DialogFooter>
           </DialogContent>
