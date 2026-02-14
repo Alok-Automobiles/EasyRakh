@@ -139,6 +139,8 @@ export async function GET(
         billUrl: entity.openingBalanceBillUrl,
         billPublicId: entity.openingBalanceBillPublicId,
       },
+      openingBalanceDescription: entity.openingBalanceDescription,
+      openingBalanceBillUrl: entity.openingBalanceBillUrl,
       entries: ledgerEntries,
       totals: {
         credit: totalCredit,
