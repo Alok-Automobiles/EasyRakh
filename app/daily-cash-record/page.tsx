@@ -419,8 +419,8 @@ export default function DailyCashRecordPage() {
           type: entryType,
           description,
           date: dateString,
-          billUrl: billUploadedUrl,
-          billPublicId: billUploadedPublicId,
+          billUrl: billUploadedUrl || null,
+          billPublicId: billUploadedPublicId || null,
         }),
       });
 

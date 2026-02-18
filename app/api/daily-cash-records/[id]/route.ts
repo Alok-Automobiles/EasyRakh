@@ -2,17 +2,37 @@ import { NextRequest, NextResponse } from 'next/server';
 import { getDb } from '@/lib/mongodb';
 import { getUserIdFromRequest } from '@/lib/auth';
 import { z } from 'zod';
-import { ObjectId } from 'mongodb';
 import { format } from 'date-fns';
-import redis from '@/lib/redis';
+import redis, { deleteByPattern } from '@/lib/redis';
+
+const BILL_URL_MAX_LENGTH = 2048;
+const ALLOWED_BILL_URL_SCHEMES = ['https:'];
+
+const safeBillUrl = z
+  .string()
+  .max(BILL_URL_MAX_LENGTH, 'Bill URL is too long')
+  .refine(
+    (val) => {
+      if (val === '') return true;
+      try {
+        const parsed = new URL(val);
+        return ALLOWED_BILL_URL_SCHEMES.includes(parsed.protocol);
+      } catch {
+        return false;
+      }
+    },
+    { message: 'Bill URL must be a valid HTTPS URL' }
+  );
+
+const safeBillPublicId = z.string().max(512, 'Bill public ID is too long');
 
 const updateEntrySchema = z.object({
   amount: z.number().positive('Amount must be greater than 0'),
   type: z.enum(['in', 'out']),
   description: z.string().min(1, 'Description is required'),
   date: z.string().min(1, 'Date is required'),
-  billUrl: z.string().optional(),
-  billPublicId: z.string().optional(),
+  billUrl: safeBillUrl.nullable().optional(),
+  billPublicId: safeBillPublicId.nullable().optional(),
 });
 
 function parseDate(dateString: string): Date {
@@ -92,13 +112,24 @@ export async function PUT(
     }
 
     const updatedEntries = [...record.entries];
+    const existingEntry = updatedEntries[entryIndex];
+
+    const resolveBillField = (
+      incoming: string | null | undefined,
+      existing: string | undefined
+    ): string => {
+      if (incoming === undefined) return existing ?? '';
+      if (incoming === null || incoming === '') return '';
+      return incoming;
+    };
+
     updatedEntries[entryIndex] = {
-      ...updatedEntries[entryIndex],
+      ...existingEntry,
       amount: validatedData.amount,
       type: validatedData.type,
       description: validatedData.description,
-      billUrl: validatedData.billUrl ?? updatedEntries[entryIndex].billUrl ?? '',
-      billPublicId: validatedData.billPublicId ?? updatedEntries[entryIndex].billPublicId ?? '',
+      billUrl: resolveBillField(validatedData.billUrl, existingEntry.billUrl),
+      billPublicId: resolveBillField(validatedData.billPublicId, existingEntry.billPublicId),
       updatedAt: new Date(),
     };
 
@@ -137,11 +168,13 @@ export async function PUT(
     const dateKey = format(updatedRecord.date, 'dd-MM-yyyy');
 
     redis.del(
-      `daily-cash:list:${userId}`,
       `daily-cash:date:${userId}:${dateKey}`,
       `dashboard:stats:${userId}`
     ).catch((err) => {
       console.warn('Redis cache invalidation failed:', err);
+    });
+    deleteByPattern(`daily-cash:list:${userId}:page:*`).catch((err) => {
+      console.warn('Redis pattern cache invalidation failed:', err);
     });
 
     return NextResponse.json({
