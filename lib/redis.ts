@@ -41,4 +41,23 @@ redis.on('end', () => {
   console.warn('⚠️ Redis connection ended');
 });
 
+export async function deleteByPattern(pattern: string): Promise<number> {
+  let deleted = 0;
+  const stream = redis.scanStream({ match: pattern, count: 100 });
+
+  return new Promise((resolve, reject) => {
+    stream.on('data', (keys: string[]) => {
+      if (keys.length > 0) {
+        const pipeline = redis.pipeline();
+        keys.forEach((key) => pipeline.del(key));
+        pipeline.exec().then(() => {
+          deleted += keys.length;
+        }).catch(reject);
+      }
+    });
+    stream.on('end', () => resolve(deleted));
+    stream.on('error', reject);
+  });
+}
+
 export default redis;

@@ -4,13 +4,36 @@ import { getUserIdFromRequest } from '@/lib/auth';
 import { z } from 'zod';
 import { ObjectId } from 'mongodb';
 import { format } from 'date-fns';
-import redis from '@/lib/redis';
+import redis, { deleteByPattern } from '@/lib/redis';
+
+const BILL_URL_MAX_LENGTH = 2048;
+const ALLOWED_BILL_URL_SCHEMES = ['https:'];
+
+const safeBillUrl = z
+  .string()
+  .max(BILL_URL_MAX_LENGTH, 'Bill URL is too long')
+  .refine(
+    (val) => {
+      if (val === '') return true;
+      try {
+        const parsed = new URL(val);
+        return ALLOWED_BILL_URL_SCHEMES.includes(parsed.protocol);
+      } catch {
+        return false;
+      }
+    },
+    { message: 'Bill URL must be a valid HTTPS URL' }
+  );
+
+const safeBillPublicId = z.string().max(512, 'Bill public ID is too long');
 
 const entrySchema = z.object({
   amount: z.number().positive('Amount must be greater than 0'),
   type: z.enum(['in', 'out']),
   description: z.string().min(1, 'Description is required'),
   date: z.string().optional(),
+  billUrl: safeBillUrl.optional(),
+  billPublicId: safeBillPublicId.optional(),
 });
 
 function parseDate(dateString: string): Date {
@@ -93,6 +116,8 @@ export async function GET(request: NextRequest) {
                 amount: entry.amount,
                 type: entry.type,
                 description: entry.description,
+                billUrl: entry.billUrl || '',
+                billPublicId: entry.billPublicId || '',
                 createdAt: entry.createdAt,
                 updatedAt: entry.updatedAt,
               })),
@@ -205,6 +230,8 @@ export async function POST(request: NextRequest) {
       amount: validatedData.amount,
       type: validatedData.type,
       description: validatedData.description,
+      billUrl: validatedData.billUrl || '',
+      billPublicId: validatedData.billPublicId || '',
       createdAt: new Date(),
       updatedAt: new Date(),
     };
@@ -243,6 +270,8 @@ export async function POST(request: NextRequest) {
           amount: newEntry.amount,
           type: newEntry.type,
           description: newEntry.description,
+          billUrl: newEntry.billUrl,
+          billPublicId: newEntry.billPublicId,
           createdAt: newEntry.createdAt,
           updatedAt: newEntry.updatedAt,
         }],
@@ -282,6 +311,8 @@ export async function POST(request: NextRequest) {
           amount: entry.amount,
           type: entry.type,
           description: entry.description,
+          billUrl: entry.billUrl || '',
+          billPublicId: entry.billPublicId || '',
           createdAt: entry.createdAt,
           updatedAt: entry.updatedAt,
         })),
@@ -291,15 +322,14 @@ export async function POST(request: NextRequest) {
       };
     }
 
-    const keysToDelete = [
+    redis.del(
       `daily-cash:date:${userId}:${dateKey}`,
       `dashboard:stats:${userId}`,
-    ];
-    for (let i = 1; i <= 10; i++) {
-      keysToDelete.push(`daily-cash:list:${userId}:page:${i}`);
-    }
-    redis.del(...keysToDelete).catch((err) => {
+    ).catch((err) => {
       console.warn('Redis cache invalidation failed:', err);
+    });
+    deleteByPattern(`daily-cash:list:${userId}:page:*`).catch((err) => {
+      console.warn('Redis pattern cache invalidation failed:', err);
     });
 
     return NextResponse.json(
