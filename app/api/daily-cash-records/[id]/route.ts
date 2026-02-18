@@ -11,6 +11,8 @@ const updateEntrySchema = z.object({
   type: z.enum(['in', 'out']),
   description: z.string().min(1, 'Description is required'),
   date: z.string().min(1, 'Date is required'),
+  billUrl: z.string().optional(),
+  billPublicId: z.string().optional(),
 });
 
 function parseDate(dateString: string): Date {
@@ -95,6 +97,8 @@ export async function PUT(
       amount: validatedData.amount,
       type: validatedData.type,
       description: validatedData.description,
+      billUrl: validatedData.billUrl ?? updatedEntries[entryIndex].billUrl ?? '',
+      billPublicId: validatedData.billPublicId ?? updatedEntries[entryIndex].billPublicId ?? '',
       updatedAt: new Date(),
     };
 
@@ -150,6 +154,8 @@ export async function PUT(
           amount: entry.amount,
           type: entry.type,
           description: entry.description,
+          billUrl: entry.billUrl || '',
+          billPublicId: entry.billPublicId || '',
           createdAt: entry.createdAt,
           updatedAt: entry.updatedAt,
         })),

@@ -11,6 +11,8 @@ const entrySchema = z.object({
   type: z.enum(['in', 'out']),
   description: z.string().min(1, 'Description is required'),
   date: z.string().optional(),
+  billUrl: z.string().optional(),
+  billPublicId: z.string().optional(),
 });
 
 function parseDate(dateString: string): Date {
@@ -93,6 +95,8 @@ export async function GET(request: NextRequest) {
                 amount: entry.amount,
                 type: entry.type,
                 description: entry.description,
+                billUrl: entry.billUrl || '',
+                billPublicId: entry.billPublicId || '',
                 createdAt: entry.createdAt,
                 updatedAt: entry.updatedAt,
               })),
@@ -205,6 +209,8 @@ export async function POST(request: NextRequest) {
       amount: validatedData.amount,
       type: validatedData.type,
       description: validatedData.description,
+      billUrl: validatedData.billUrl || '',
+      billPublicId: validatedData.billPublicId || '',
       createdAt: new Date(),
       updatedAt: new Date(),
     };
@@ -243,6 +249,8 @@ export async function POST(request: NextRequest) {
           amount: newEntry.amount,
           type: newEntry.type,
           description: newEntry.description,
+          billUrl: newEntry.billUrl,
+          billPublicId: newEntry.billPublicId,
           createdAt: newEntry.createdAt,
           updatedAt: newEntry.updatedAt,
         }],
@@ -282,6 +290,8 @@ export async function POST(request: NextRequest) {
           amount: entry.amount,
           type: entry.type,
           description: entry.description,
+          billUrl: entry.billUrl || '',
+          billPublicId: entry.billPublicId || '',
           createdAt: entry.createdAt,
           updatedAt: entry.updatedAt,
         })),

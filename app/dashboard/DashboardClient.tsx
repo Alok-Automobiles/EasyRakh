@@ -1,8 +1,9 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useRef, ChangeEvent } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
+import Image from 'next/image';
 import { format } from 'date-fns';
 import toast from 'react-hot-toast';
 import { motion } from 'motion/react';
@@ -49,7 +50,16 @@ import {
   StickyNote,
   BarChart3,
   Plus,
+  Upload,
+  FileText,
+  X,
 } from 'lucide-react';
+import { compressImage, isCompressibleImage, formatFileSize } from '@/lib/imageCompression';
+
+const MAX_BILL_SIZE_BYTES = 5 * 1024 * 1024;
+const ACCEPTED_BILL_TYPES = [
+  'image/jpeg', 'image/png', 'image/webp', 'image/heic', 'image/heif', 'application/pdf',
+];
 
 const currencyFormatter = new Intl.NumberFormat('en-IN', {
   style: 'currency',
@@ -355,6 +365,72 @@ export default function DashboardClient({
   const [description, setDescription] = useState('');
   const activitiesPerPage = 5;
 
+  const [billPreviewUrl, setBillPreviewUrl] = useState('');
+  const [billUploadedUrl, setBillUploadedUrl] = useState('');
+  const [billUploadedPublicId, setBillUploadedPublicId] = useState('');
+  const [billUploading, setBillUploading] = useState(false);
+  const billFileInputRef = useRef<HTMLInputElement>(null);
+
+  const resetBillState = () => {
+    setBillPreviewUrl('');
+    setBillUploadedUrl('');
+    setBillUploadedPublicId('');
+    setBillUploading(false);
+    if (billFileInputRef.current) billFileInputRef.current.value = '';
+  };
+
+  const handleBillFileSelect = async (e: ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    if (!ACCEPTED_BILL_TYPES.includes(file.type)) {
+      toast.error('Unsupported file type. Upload JPG, PNG, WEBP, HEIC/HEIF, or PDF.');
+      e.target.value = '';
+      return;
+    }
+
+    setBillUploading(true);
+    try {
+      let fileToUpload = file;
+
+      if (file.size > MAX_BILL_SIZE_BYTES && isCompressibleImage(file)) {
+        toast.loading('Compressing image...', { id: 'compress' });
+        const result = await compressImage(file, MAX_BILL_SIZE_BYTES);
+        toast.dismiss('compress');
+        if (result.wasCompressed) {
+          fileToUpload = result.file;
+          toast.success(`Compressed: ${formatFileSize(result.originalSize)} → ${formatFileSize(result.compressedSize)}`);
+        }
+      } else if (file.size > MAX_BILL_SIZE_BYTES) {
+        toast.error('File must be under 5MB.');
+        e.target.value = '';
+        setBillUploading(false);
+        return;
+      }
+
+      const formData = new FormData();
+      formData.append('file', fileToUpload);
+
+      const response = await fetch('/api/uploads/bill', { method: 'POST', body: formData });
+      if (!response.ok) {
+        const err = await response.json();
+        throw new Error(err.error || 'Upload failed');
+      }
+
+      const data = await response.json();
+      setBillUploadedUrl(data.url);
+      setBillUploadedPublicId(data.publicId);
+      setBillPreviewUrl(data.url);
+      toast.success('Bill uploaded');
+    } catch (error) {
+      console.error('Bill upload error:', error);
+      toast.error(error instanceof Error ? error.message : 'Failed to upload bill');
+    } finally {
+      setBillUploading(false);
+      if (billFileInputRef.current) billFileInputRef.current.value = '';
+    }
+  };
+
   const { data, isLoading, isFetching } = useQuery({
     queryKey: ['dashboard'],
     queryFn: async () => {
@@ -382,12 +458,12 @@ export default function DashboardClient({
   const loading = isLoading && !data;
 
   const addTransactionMutation = useMutation({
-    mutationFn: async ({ amountNum, type, desc }: { amountNum: number; type: 'in' | 'out'; desc: string }) => {
+    mutationFn: async ({ amountNum, type, desc, billUrl, billPublicId }: { amountNum: number; type: 'in' | 'out'; desc: string; billUrl?: string; billPublicId?: string }) => {
       const dateString = format(new Date(), 'dd-MM-yyyy');
       const response = await fetch('/api/daily-cash-records', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ amount: amountNum, type, description: desc, date: dateString }),
+        body: JSON.stringify({ amount: amountNum, type, description: desc, date: dateString, billUrl, billPublicId }),
       });
       if (response.status === 401) {
         router.push('/login');
@@ -459,6 +535,7 @@ export default function DashboardClient({
     setEntryType('in');
     setAmount('');
     setDescription('');
+    resetBillState();
   };
 
   const handleAddTodayTransaction = () => {
@@ -475,10 +552,12 @@ export default function DashboardClient({
 
     const currentType = entryType;
     const currentDesc = description;
+    const currentBillUrl = billUploadedUrl || undefined;
+    const currentBillPublicId = billUploadedPublicId || undefined;
     resetAddTransactionForm();
     setAddTransactionOpen(false);
 
-    addTransactionMutation.mutate({ amountNum, type: currentType, desc: currentDesc });
+    addTransactionMutation.mutate({ amountNum, type: currentType, desc: currentDesc, billUrl: currentBillUrl, billPublicId: currentBillPublicId });
   };
 
   if (loading) {
@@ -636,6 +715,49 @@ export default function DashboardClient({
                         />
                       </div>
 
+                      <div>
+                        <Label>Bill (optional)</Label>
+                        <input
+                          ref={billFileInputRef}
+                          type="file"
+                          accept="image/jpeg,image/png,image/webp,image/heic,image/heif,application/pdf"
+                          className="hidden"
+                          onChange={handleBillFileSelect}
+                        />
+                        {billPreviewUrl ? (
+                          <div className="mt-2 relative inline-block">
+                            {billPreviewUrl.toLowerCase().includes('.pdf') ? (
+                              <div className="flex items-center gap-2 p-3 bg-gray-50 rounded-lg border">
+                                <FileText className="h-5 w-5 text-red-500" />
+                                <span className="text-sm text-gray-700">PDF attached</span>
+                              </div>
+                            ) : (
+                              <Image src={billPreviewUrl} alt="Bill preview" width={200} height={150} unoptimized className="rounded-lg border object-cover max-h-36" />
+                            )}
+                            <Button
+                              type="button"
+                              variant="destructive"
+                              size="icon"
+                              className="absolute -top-2 -right-2 h-6 w-6 rounded-full"
+                              onClick={() => { resetBillState(); }}
+                            >
+                              <X className="h-3 w-3" />
+                            </Button>
+                          </div>
+                        ) : (
+                          <Button
+                            type="button"
+                            variant="outline"
+                            className="mt-2 w-full"
+                            onClick={() => billFileInputRef.current?.click()}
+                            disabled={billUploading}
+                          >
+                            <Upload className="h-4 w-4 mr-2" />
+                            {billUploading ? 'Uploading...' : 'Attach Bill'}
+                          </Button>
+                        )}
+                      </div>
+
                       <div className="grid gap-2">
                         <Label>Date</Label>
                         <Input
@@ -648,7 +770,7 @@ export default function DashboardClient({
                       <Button
                         className="w-full bg-slate-900 hover:bg-slate-800 text-white"
                         onClick={handleAddTodayTransaction}
-                        disabled={addTransactionMutation.isPending}
+                        disabled={addTransactionMutation.isPending || billUploading}
                       >
                         {addTransactionMutation.isPending ? 'Adding...' : 'Add Transaction'}
                       </Button>

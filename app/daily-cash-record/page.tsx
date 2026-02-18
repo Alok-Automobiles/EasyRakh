@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, ChangeEvent } from 'react';
 import { useRouter } from 'next/navigation';
 import { format, parse } from 'date-fns';
 import toast from 'react-hot-toast';
@@ -29,14 +29,23 @@ import {
 } from '@/components/ui/dialog';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Skeleton } from '@/components/ui/skeleton';
-import { Edit2, CalendarIcon, Plus } from 'lucide-react';
+import { Edit2, CalendarIcon, Plus, Upload, FileText, X } from 'lucide-react';
+import Image from 'next/image';
+import { compressImage, isCompressibleImage, formatFileSize } from '@/lib/imageCompression';
 import { motion } from 'motion/react'
+
+const MAX_BILL_SIZE_BYTES = 5 * 1024 * 1024; // 5MB
+const ACCEPTED_BILL_TYPES = [
+  'image/jpeg', 'image/png', 'image/webp', 'image/heic', 'image/heif', 'application/pdf',
+];
 
 interface CashEntry {
   id: string;
   amount: number;
   type: 'in' | 'out';
   description: string;
+  billUrl?: string;
+  billPublicId?: string;
   createdAt: Date;
   updatedAt: Date;
 }
@@ -93,6 +102,77 @@ export default function DailyCashRecordPage() {
   const [showCreateCalendar, setShowCreateCalendar] = useState(false);
   const [showAddTransactionCalendar, setShowAddTransactionCalendar] = useState(false);
   const [showEditCalendar, setShowEditCalendar] = useState(false);
+
+  // Bill upload state
+  const [billPreviewUrl, setBillPreviewUrl] = useState<string>('');
+  const [billUploadedUrl, setBillUploadedUrl] = useState<string>('');
+  const [billUploadedPublicId, setBillUploadedPublicId] = useState<string>('');
+  const [billUploading, setBillUploading] = useState(false);
+  const billFileInputRef = useRef<HTMLInputElement>(null);
+
+  // Bill view modal state
+  const [billViewOpen, setBillViewOpen] = useState(false);
+  const [billViewUrl, setBillViewUrl] = useState<string>('');
+
+  const resetBillState = () => {
+    setBillPreviewUrl('');
+    setBillUploadedUrl('');
+    setBillUploadedPublicId('');
+    setBillUploading(false);
+    if (billFileInputRef.current) billFileInputRef.current.value = '';
+  };
+
+  const handleBillFileSelect = async (e: ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    if (!ACCEPTED_BILL_TYPES.includes(file.type)) {
+      toast.error('Unsupported file type. Upload JPG, PNG, WEBP, HEIC/HEIF, or PDF.');
+      e.target.value = '';
+      return;
+    }
+
+    setBillUploading(true);
+    try {
+      let fileToUpload = file;
+
+      if (file.size > MAX_BILL_SIZE_BYTES && isCompressibleImage(file)) {
+        toast.loading('Compressing image...', { id: 'compress' });
+        const result = await compressImage(file, MAX_BILL_SIZE_BYTES);
+        toast.dismiss('compress');
+        if (result.wasCompressed) {
+          fileToUpload = result.file;
+          toast.success(`Compressed: ${formatFileSize(result.originalSize)} → ${formatFileSize(result.compressedSize)}`);
+        }
+      } else if (file.size > MAX_BILL_SIZE_BYTES) {
+        toast.error('File must be under 5MB.');
+        e.target.value = '';
+        setBillUploading(false);
+        return;
+      }
+
+      const formData = new FormData();
+      formData.append('file', fileToUpload);
+
+      const response = await fetch('/api/uploads/bill', { method: 'POST', body: formData });
+      if (!response.ok) {
+        const err = await response.json();
+        throw new Error(err.error || 'Upload failed');
+      }
+
+      const data = await response.json();
+      setBillUploadedUrl(data.url);
+      setBillUploadedPublicId(data.publicId);
+      setBillPreviewUrl(data.url);
+      toast.success('Bill uploaded');
+    } catch (error) {
+      console.error('Bill upload error:', error);
+      toast.error(error instanceof Error ? error.message : 'Failed to upload bill');
+    } finally {
+      setBillUploading(false);
+      if (billFileInputRef.current) billFileInputRef.current.value = '';
+    }
+  };
 
   const fetchData = async (page: number = 1) => {
     try {
@@ -160,6 +240,7 @@ export default function DailyCashRecordPage() {
 
   const handleCreateRecordForToday = () => {
     setRecordDate(new Date());
+    resetBillState();
     setCreateNewRecordOpen(true);
   };
 
@@ -187,6 +268,8 @@ export default function DailyCashRecordPage() {
           type: entryType,
           description,
           date: dateString,
+          billUrl: billUploadedUrl || undefined,
+          billPublicId: billUploadedPublicId || undefined,
         }),
       });
 
@@ -202,6 +285,7 @@ export default function DailyCashRecordPage() {
         setDescription('');
         setRecordDate(new Date());
         setEntryType('in');
+        resetBillState();
         setCreateNewRecordOpen(false);
 
         if (data.record) {
@@ -240,6 +324,10 @@ export default function DailyCashRecordPage() {
     setDescription(entry.description);
     setRecordDate(parse(record.date, 'dd-MM-yyyy', new Date()));
     setEntryType(entry.type);
+    // Pre-fill bill state from existing entry
+    setBillUploadedUrl(entry.billUrl || '');
+    setBillUploadedPublicId(entry.billPublicId || '');
+    setBillPreviewUrl(entry.billUrl || '');
     setEditEntryOpen(true);
   };
 
@@ -267,6 +355,8 @@ export default function DailyCashRecordPage() {
           type: entryType,
           description,
           date: dateString,
+          billUrl: billUploadedUrl || undefined,
+          billPublicId: billUploadedPublicId || undefined,
         }),
       });
 
@@ -281,6 +371,7 @@ export default function DailyCashRecordPage() {
         setAmount('');
         setDescription('');
         setEntryType('in');
+        resetBillState();
         setAddTransactionOpen(false);
 
         if (data.record) {
@@ -328,6 +419,8 @@ export default function DailyCashRecordPage() {
           type: entryType,
           description,
           date: dateString,
+          billUrl: billUploadedUrl,
+          billPublicId: billUploadedPublicId,
         }),
       });
 
@@ -341,6 +434,7 @@ export default function DailyCashRecordPage() {
         toast.success('Entry updated successfully');
         setAmount('');
         setDescription('');
+        resetBillState();
         setEditingEntry(null);
         setEditEntryOpen(false);
 
@@ -407,7 +501,7 @@ export default function DailyCashRecordPage() {
         <div className="flex flex-col gap-3 mb-6 sm:flex-row sm:items-center">
           <Dialog open={createNewRecordOpen} onOpenChange={(open) => {
             setCreateNewRecordOpen(open);
-            if (!open) setShowCreateCalendar(false);
+            if (!open) { setShowCreateCalendar(false); resetBillState(); }
           }}>
             <DialogTrigger asChild>
               <Button
@@ -485,9 +579,52 @@ export default function DailyCashRecordPage() {
                     className="mt-2"
                   />
                 </div>
+                <div>
+                  <Label>Bill (optional)</Label>
+                  <input
+                    ref={billFileInputRef}
+                    type="file"
+                    accept="image/jpeg,image/png,image/webp,image/heic,image/heif,application/pdf"
+                    className="hidden"
+                    onChange={handleBillFileSelect}
+                  />
+                  {billPreviewUrl ? (
+                    <div className="mt-2 relative inline-block">
+                      {billPreviewUrl.toLowerCase().includes('.pdf') ? (
+                        <div className="flex items-center gap-2 p-3 bg-gray-50 rounded-lg border">
+                          <FileText className="h-5 w-5 text-red-500" />
+                          <span className="text-sm text-gray-700">PDF attached</span>
+                        </div>
+                      ) : (
+                        <Image src={billPreviewUrl} alt="Bill preview" width={200} height={150} unoptimized className="rounded-lg border object-cover max-h-36" />
+                      )}
+                      <Button
+                        type="button"
+                        variant="destructive"
+                        size="icon"
+                        className="absolute -top-2 -right-2 h-6 w-6 rounded-full"
+                        onClick={() => { resetBillState(); }}
+                      >
+                        <X className="h-3 w-3" />
+                      </Button>
+                    </div>
+                  ) : (
+                    <Button
+                      type="button"
+                      variant="outline"
+                      className="mt-2 w-full"
+                      onClick={() => billFileInputRef.current?.click()}
+                      disabled={billUploading}
+                    >
+                      <Upload className="h-4 w-4 mr-2" />
+                      {billUploading ? 'Uploading...' : 'Attach Bill'}
+                    </Button>
+                  )}
+                </div>
                 <Button
                   onClick={handleCreateRecord}
                   className="w-full bg-blue-600 hover:bg-blue-700 text-white"
+                  disabled={billUploading}
                 >
                   Create Record
                 </Button>
@@ -711,6 +848,16 @@ export default function DailyCashRecordPage() {
                               }`}>
                                 {entry.type === 'out' && '-'}{formatCurrency(entry.amount)}
                               </span>
+                              {entry.billUrl && (
+                                <Button
+                                  size="sm"
+                                  variant="ghost"
+                                  onClick={() => { setBillViewUrl(entry.billUrl!); setBillViewOpen(true); }}
+                                  className="h-8 w-8 p-0"
+                                >
+                                  <FileText className="h-4 w-4 text-blue-500" />
+                                </Button>
+                              )}
                               <Button
                                 size="sm"
                                 variant="ghost"
@@ -735,6 +882,7 @@ export default function DailyCashRecordPage() {
                           <th className="text-left text-xs font-semibold text-gray-500 uppercase tracking-wider px-6 py-4">Description</th>
                           <th className="text-right text-xs font-semibold text-gray-500 uppercase tracking-wider px-6 py-4">Money Out</th>
                           <th className="text-right text-xs font-semibold text-gray-500 uppercase tracking-wider px-6 py-4">Money In</th>
+                          <th className="text-center text-xs font-semibold text-gray-500 uppercase tracking-wider px-4 py-4">Bill</th>
                           <th className="w-16 px-6 py-4"></th>
                         </tr>
                       </thead>
@@ -757,6 +905,21 @@ export default function DailyCashRecordPage() {
                               <td className="px-6 py-4 text-right whitespace-nowrap">
                                 {entry.type === 'in' ? (
                                   <span className="text-green-600 font-semibold">{formatCurrency(entry.amount)}</span>
+                                ) : (
+                                  <span className="text-gray-300">—</span>
+                                )}
+                              </td>
+                              <td className="px-4 py-4 text-center">
+                                {entry.billUrl ? (
+                                  <Button
+                                    size="sm"
+                                    variant="ghost"
+                                    onClick={() => { setBillViewUrl(entry.billUrl!); setBillViewOpen(true); }}
+                                    className="h-8 w-8 p-0"
+                                    title="View Bill"
+                                  >
+                                    <FileText className="h-4 w-4 text-blue-500" />
+                                  </Button>
                                 ) : (
                                   <span className="text-gray-300">—</span>
                                 )}
@@ -816,7 +979,7 @@ export default function DailyCashRecordPage() {
         {/* Add Transaction Dialog */}
         <Dialog open={addTransactionOpen} onOpenChange={(open) => {
           setAddTransactionOpen(open);
-          if (!open) setShowAddTransactionCalendar(false);
+          if (!open) { setShowAddTransactionCalendar(false); resetBillState(); }
         }}>
           <DialogContent className="max-w-[90vw] sm:max-w-md max-h-[90vh] overflow-y-auto">
             <DialogHeader>
@@ -885,9 +1048,52 @@ export default function DailyCashRecordPage() {
                   className="mt-2"
                 />
               </div>
+              <div>
+                <Label>Bill (optional)</Label>
+                <input
+                  ref={billFileInputRef}
+                  type="file"
+                  accept="image/jpeg,image/png,image/webp,image/heic,image/heif,application/pdf"
+                  className="hidden"
+                  onChange={handleBillFileSelect}
+                />
+                {billPreviewUrl ? (
+                  <div className="mt-2 relative inline-block">
+                    {billPreviewUrl.toLowerCase().includes('.pdf') ? (
+                      <div className="flex items-center gap-2 p-3 bg-gray-50 rounded-lg border">
+                        <FileText className="h-5 w-5 text-red-500" />
+                        <span className="text-sm text-gray-700">PDF attached</span>
+                      </div>
+                    ) : (
+                      <Image src={billPreviewUrl} alt="Bill preview" width={200} height={150} unoptimized className="rounded-lg border object-cover max-h-36" />
+                    )}
+                    <Button
+                      type="button"
+                      variant="destructive"
+                      size="icon"
+                      className="absolute -top-2 -right-2 h-6 w-6 rounded-full"
+                      onClick={() => { resetBillState(); }}
+                    >
+                      <X className="h-3 w-3" />
+                    </Button>
+                  </div>
+                ) : (
+                  <Button
+                    type="button"
+                    variant="outline"
+                    className="mt-2 w-full"
+                    onClick={() => billFileInputRef.current?.click()}
+                    disabled={billUploading}
+                  >
+                    <Upload className="h-4 w-4 mr-2" />
+                    {billUploading ? 'Uploading...' : 'Attach Bill'}
+                  </Button>
+                )}
+              </div>
               <Button
                 onClick={handleAddTransaction}
                 className="w-full bg-blue-600 hover:bg-blue-700 text-white"
+                disabled={billUploading}
               >
                 Add Transaction
               </Button>
@@ -898,7 +1104,7 @@ export default function DailyCashRecordPage() {
         {/* Edit Entry Dialog */}
         <Dialog open={editEntryOpen} onOpenChange={(open) => {
           setEditEntryOpen(open);
-          if (!open) setShowEditCalendar(false);
+          if (!open) { setShowEditCalendar(false); resetBillState(); }
         }}>
           <DialogContent className="max-w-[90vw] sm:max-w-md max-h-[90vh] overflow-y-auto">
             <DialogHeader>
@@ -967,12 +1173,93 @@ export default function DailyCashRecordPage() {
                   className="mt-2"
                 />
               </div>
+              <div>
+                <Label>Bill (optional)</Label>
+                <input
+                  ref={billFileInputRef}
+                  type="file"
+                  accept="image/jpeg,image/png,image/webp,image/heic,image/heif,application/pdf"
+                  className="hidden"
+                  onChange={handleBillFileSelect}
+                />
+                {billPreviewUrl ? (
+                  <div className="mt-2 relative inline-block">
+                    {billPreviewUrl.toLowerCase().includes('.pdf') ? (
+                      <div className="flex items-center gap-2 p-3 bg-gray-50 rounded-lg border">
+                        <FileText className="h-5 w-5 text-red-500" />
+                        <span className="text-sm text-gray-700">PDF attached</span>
+                      </div>
+                    ) : (
+                      <Image src={billPreviewUrl} alt="Bill preview" width={200} height={150} unoptimized className="rounded-lg border object-cover max-h-36" />
+                    )}
+                    <Button
+                      type="button"
+                      variant="destructive"
+                      size="icon"
+                      className="absolute -top-2 -right-2 h-6 w-6 rounded-full"
+                      onClick={() => { resetBillState(); }}
+                    >
+                      <X className="h-3 w-3" />
+                    </Button>
+                  </div>
+                ) : (
+                  <Button
+                    type="button"
+                    variant="outline"
+                    className="mt-2 w-full"
+                    onClick={() => billFileInputRef.current?.click()}
+                    disabled={billUploading}
+                  >
+                    <Upload className="h-4 w-4 mr-2" />
+                    {billUploading ? 'Uploading...' : 'Attach Bill'}
+                  </Button>
+                )}
+              </div>
               <Button
                 onClick={handleUpdateEntry}
                 className="w-full"
+                disabled={billUploading}
               >
                 Update Entry
               </Button>
+            </div>
+          </DialogContent>
+        </Dialog>
+
+        {/* Bill View Modal */}
+        <Dialog open={billViewOpen} onOpenChange={setBillViewOpen}>
+          <DialogContent className="sm:max-w-xl">
+            <DialogHeader>
+              <DialogTitle>Bill Attachment</DialogTitle>
+            </DialogHeader>
+            <div className="space-y-4">
+              {billViewUrl ? (
+                billViewUrl.toLowerCase().includes('.pdf') ? (
+                  <div className="rounded border border-dashed p-4 text-sm text-gray-700 text-center">
+                    <FileText className="h-8 w-8 text-red-500 mx-auto mb-2" />
+                    <p>Bill is a PDF document.</p>
+                    <a
+                      href={billViewUrl}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="text-blue-600 hover:underline text-sm mt-2 inline-block"
+                    >
+                      Open PDF in new tab
+                    </a>
+                  </div>
+                ) : (
+                  <Image
+                    src={billViewUrl}
+                    alt="Bill"
+                    width={800}
+                    height={600}
+                    unoptimized
+                    className="w-full max-h-[60vh] rounded-md object-contain border"
+                  />
+                )
+              ) : (
+                <p className="text-sm text-muted-foreground">No bill attached.</p>
+              )}
             </div>
           </DialogContent>
         </Dialog>
