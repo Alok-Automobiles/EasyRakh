@@ -55,6 +55,7 @@ import {
   X,
 } from 'lucide-react';
 import { compressImage, isCompressibleImage, formatFileSize } from '@/lib/imageCompression';
+import GlobalSearch from '@/components/GlobalSearch';
 
 const MAX_BILL_SIZE_BYTES = 5 * 1024 * 1024;
 const ACCEPTED_BILL_TYPES = [
@@ -590,8 +591,8 @@ export default function DashboardClient({
         variants={containerVariants}
         className="max-w-7xl mx-auto px-3 sm:px-4 lg:mx-0 lg:ml-0 lg:pl-6 lg:pr-6 xl:pl-8 xl:pr-8 py-1.5 sm:py-5 lg:py-8 space-y-3 sm:space-y-4 lg:space-y-6 w-full"
       >
-        <motion.div variants={itemVariants} className="flex flex-wrap items-start justify-between gap-2 sm:gap-4">
-          <div className="flex items-center gap-2 sm:gap-4 flex-1 min-w-0">
+        <motion.div variants={itemVariants} className="flex flex-wrap items-center justify-between gap-2 sm:gap-3">
+          <div className="flex items-center gap-2 sm:gap-4 shrink-0">
             <div className="p-2 sm:p-3 rounded-xl sm:rounded-2xl bg-slate-900 text-white shadow-lg shrink-0">
               <Wallet className="w-4 h-4 sm:w-6 sm:h-6" />
             </div>
@@ -603,30 +604,55 @@ export default function DashboardClient({
               </p>
             </div>
           </div>
-          <div className="flex flex-nowrap gap-2 sm:gap-2 lg:gap-3 w-full sm:w-auto">
+          <div className="flex items-center gap-2 sm:gap-2 lg:gap-3 flex-1 sm:flex-initial justify-end sm:justify-start order-last sm:order-0 w-full sm:w-auto">
+            <div className="w-full sm:w-56 lg:w-72">
+              <GlobalSearch />
+            </div>
+          </div>
+          <div className="hidden sm:flex flex-nowrap gap-2 lg:gap-3 shrink-0">
             <Button
               asChild
               variant="outline"
               size="sm"
-              className="border-gray-300 hover:bg-gray-100 text-[11px] sm:text-xs lg:text-sm h-9 sm:h-8 lg:h-9 px-3 w-1/2 sm:w-auto basis-1/2 sm:basis-auto max-w-[50%] sm:max-w-none shrink-0"
+              className="border-gray-300 hover:bg-gray-100 text-xs lg:text-sm h-8 lg:h-9 px-3"
             >
-              <Link href="/notes" className="w-full text-center whitespace-nowrap">
-                <span className="sm:hidden">Notes</span>
-                <span className="hidden sm:inline">Manage Notes</span>
+              <Link href="/notes" className="whitespace-nowrap">
+                Manage Notes
               </Link>
             </Button>
             <Button
               asChild
               size="sm"
-              className="bg-slate-900 hover:bg-slate-800 text-white text-[11px] sm:text-xs lg:text-sm h-9 sm:h-8 lg:h-9 px-3 w-1/2 sm:w-auto basis-1/2 sm:basis-auto max-w-[50%] sm:max-w-none shrink-0"
+              className="bg-slate-900 hover:bg-slate-800 text-white text-xs lg:text-sm h-8 lg:h-9 px-3"
             >
-              <Link href="/transactions/new" className="w-full text-center whitespace-nowrap">
-                <span className="sm:hidden">New Transaction</span>
-                <span className="hidden sm:inline">Record Transaction</span>
+              <Link href="/transactions/new" className="whitespace-nowrap">
+                Record Transaction
               </Link>
             </Button>
           </div>
         </motion.div>
+
+        <div className="flex sm:hidden gap-2 w-full">
+          <Button
+            asChild
+            variant="outline"
+            size="sm"
+            className="border-gray-300 hover:bg-gray-100 text-[11px] h-9 px-3 flex-1"
+          >
+            <Link href="/notes" className="w-full text-center whitespace-nowrap">
+              Notes
+            </Link>
+          </Button>
+          <Button
+            asChild
+            size="sm"
+            className="bg-slate-900 hover:bg-slate-800 text-white text-[11px] h-9 px-3 flex-1"
+          >
+            <Link href="/transactions/new" className="w-full text-center whitespace-nowrap">
+              New Transaction
+            </Link>
+          </Button>
+        </div>
 
         <div className="grid gap-3 sm:gap-4 lg:gap-6 lg:grid-cols-3">
           <motion.div variants={itemVariants} className="lg:col-span-2">
