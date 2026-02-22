@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useRef, ChangeEvent } from 'react';
+import { useState, useRef, useEffect, ChangeEvent } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import Image from 'next/image';
@@ -53,9 +53,11 @@ import {
   Upload,
   FileText,
   X,
+  Calendar as CalendarIcon,
 } from 'lucide-react';
 import { compressImage, isCompressibleImage, formatFileSize } from '@/lib/imageCompression';
 import GlobalSearch from '@/components/GlobalSearch';
+import { Calendar } from '@/components/ui/calendar';
 
 const MAX_BILL_SIZE_BYTES = 5 * 1024 * 1024;
 const ACCEPTED_BILL_TYPES = [
@@ -115,6 +117,7 @@ type DashboardResponse = {
   dashboardNotes: DashboardNote[];
   topCustomers: TopEntity[];
   topSuppliers: TopEntity[];
+  periodLabel?: string;
 };
 
 const defaultStats: DashboardStats = {
@@ -223,12 +226,13 @@ const StatCard = ({
   <motion.div
     variants={itemVariants}
     custom={delay}
+    className="min-w-0"
   >
-    <Card className="p-2 sm:p-3 lg:p-4 xl:p-5">
-      <div className="flex items-start justify-between gap-1 sm:gap-2 lg:gap-3">
-        <div className="min-w-0 flex-1">
+    <Card className="p-2 sm:p-3 lg:p-4 xl:p-5 overflow-hidden">
+      <div className="flex items-start justify-between gap-1 sm:gap-2 lg:gap-3 min-w-0">
+        <div className="min-w-0 flex-1 overflow-hidden">
           <p className="text-[9px] sm:text-[10px] lg:text-xs font-semibold uppercase tracking-wide text-gray-500 truncate">{label}</p>
-          <p className="text-base sm:text-lg lg:text-xl xl:text-2xl font-bold text-gray-900 mt-0.5 sm:mt-1 lg:mt-2 tracking-tight wrap-break-word">{value}</p>
+          <p className="text-base sm:text-lg lg:text-xl xl:text-2xl font-bold text-gray-900 mt-0.5 sm:mt-1 lg:mt-2 tracking-tight wrap-break-word overflow-hidden" title={value}>{value}</p>
         </div>
         <div className={`p-1 sm:p-1.5 lg:p-2 xl:p-2.5 rounded-md sm:rounded-lg lg:rounded-xl shrink-0 ${iconBg}`}>
           {icon}
@@ -239,12 +243,12 @@ const StatCard = ({
 );
 
 const EntityListItem = ({ entity }: { entity: TopEntity }) => (
-  <div className="flex items-center justify-between rounded-lg sm:rounded-xl bg-gray-50 px-2 sm:px-3 lg:px-4 py-2 sm:py-2.5 lg:py-3 border border-gray-200 transition-all hover:bg-gray-100">
+  <div className="flex items-center justify-between gap-2 rounded-lg sm:rounded-xl bg-gray-50 px-2 sm:px-3 lg:px-4 py-2 sm:py-2.5 lg:py-3 border border-gray-200 transition-all hover:bg-gray-100 min-w-0">
     <div className="flex-1 min-w-0">
-      <p className="font-semibold text-gray-900 text-sm sm:text-base truncate">{entity.name}</p>
-      <p className="text-[10px] sm:text-xs text-gray-500 mt-0.5 truncate">Debit {formatCurrency(entity.debit)} · Credit {formatCurrency(entity.credit)}</p>
+      <p className="font-semibold text-gray-900 text-sm sm:text-base truncate" title={entity.name}>{entity.name}</p>
+      <p className="text-[10px] sm:text-xs text-gray-500 mt-0.5 truncate" title={`Debit ${formatCurrency(entity.debit)} · Credit ${formatCurrency(entity.credit)}`}>Debit {formatCurrency(entity.debit)} · Credit {formatCurrency(entity.credit)}</p>
     </div>
-    <span className="text-xs sm:text-sm font-bold text-green-700 bg-green-100 px-2 sm:px-3 py-0.5 sm:py-1 rounded-full shrink-0 ml-2">
+    <span className="text-xs sm:text-sm font-bold text-green-700 bg-green-100 px-2 sm:px-3 py-0.5 sm:py-1 rounded-full shrink-0 truncate max-w-[90px] sm:max-w-[110px]" title={formatCurrency(entity.total)}>
       {formatCurrency(entity.total)}
     </span>
   </div>
@@ -301,9 +305,9 @@ const ActivityRow = ({
           <p className="text-[10px] sm:text-xs lg:text-sm text-gray-500 truncate mt-0.5">{activity.description}</p>
         </div>
 
-        <div className="text-right shrink-0 ml-1 sm:ml-2 lg:ml-3">
+        <div className="text-right shrink-0 ml-1 sm:ml-2 lg:ml-3 min-w-0 max-w-[100px] sm:max-w-[120px]">
           {activity.amount !== undefined ? (
-            <p className={`text-xs sm:text-sm lg:text-base font-bold ${isCredit ? 'text-green-700' : 'text-red-700'} wrap-break-word leading-tight`}>
+            <p className={`text-xs sm:text-sm lg:text-base font-bold truncate ${isCredit ? 'text-green-700' : 'text-red-700'} leading-tight`} title={`${isCredit ? '+' : '-'}₹${activity.amount.toLocaleString('en-IN')}`}>
               {isCredit ? '+' : '-'}₹{activity.amount.toLocaleString('en-IN')}
             </p>
           ) : (
@@ -365,6 +369,23 @@ export default function DashboardClient({
   const [amount, setAmount] = useState('');
   const [description, setDescription] = useState('');
   const activitiesPerPage = 5;
+
+  const currentMonthKey = format(new Date(), 'yyyy-MM');
+  const [selectedMonth, setSelectedMonth] = useState(currentMonthKey);
+  const [monthPickerOpen, setMonthPickerOpen] = useState(false);
+  const monthPickerRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    const handleClickOutside = (e: MouseEvent) => {
+      if (monthPickerRef.current && !monthPickerRef.current.contains(e.target as Node)) {
+        setMonthPickerOpen(false);
+      }
+    };
+    if (monthPickerOpen) {
+      document.addEventListener('mousedown', handleClickOutside);
+      return () => document.removeEventListener('mousedown', handleClickOutside);
+    }
+  }, [monthPickerOpen]);
 
   const [billPreviewUrl, setBillPreviewUrl] = useState('');
   const [billUploadedUrl, setBillUploadedUrl] = useState('');
@@ -432,31 +453,53 @@ export default function DashboardClient({
     }
   };
 
+  const isViewingCurrentMonth = selectedMonth === format(new Date(), 'yyyy-MM');
+  const dashboardQueryKey = ['dashboard', { month: isViewingCurrentMonth ? null : selectedMonth }] as const;
+  const currentDashboardQueryKey = ['dashboard', { month: null }] as const;
+
+  const buildStatsUrl = () => {
+    const base = '/api/dashboard/stats';
+    if (!isViewingCurrentMonth && selectedMonth) {
+      return `${base}?month=${encodeURIComponent(selectedMonth)}`;
+    }
+    return base;
+  };
+
   const { data, isLoading, isFetching } = useQuery({
-    queryKey: ['dashboard'],
+    queryKey: dashboardQueryKey,
     queryFn: async () => {
-      const response = await fetch('/api/dashboard/stats', {
-        cache: 'no-store',
-      });
+      const url = buildStatsUrl();
+      const response = await fetch(url, { cache: 'no-store' });
       if (response.status === 401) {
         router.push('/login');
         throw new Error('Unauthorized');
       }
-      if (!response.ok) throw new Error('Failed to fetch dashboard data');
+      if (!response.ok) {
+        const err = await response.json().catch(() => ({}));
+        throw new Error(err.error || 'Failed to fetch dashboard data');
+      }
       return response.json() as Promise<DashboardResponse>;
     },
-    initialData: initialData || undefined,
-    initialDataUpdatedAt: initialDataTime,
-    staleTime: 2 * 60 * 1000, // 2 minutes
-    refetchOnMount: initialDataTime ? false : true,
+    initialData: isViewingCurrentMonth ? (initialData || undefined) : undefined,
+    initialDataUpdatedAt: isViewingCurrentMonth ? initialDataTime : undefined,
+    staleTime: 2 * 60 * 1000,
+    refetchOnMount: isViewingCurrentMonth && initialDataTime ? false : true,
+    enabled: true,
   });
 
+  const currentDashboardData = queryClient.getQueryData<DashboardResponse>(currentDashboardQueryKey);
   const stats = data?.stats || defaultStats;
-  const recentActivities = data?.activities || [];
-  const dashboardNotes = data?.dashboardNotes || [];
-  const topCustomers = data?.topCustomers || [];
-  const topSuppliers = data?.topSuppliers || [];
-  const loading = isLoading && !data;
+  const loading = isLoading && !data && isViewingCurrentMonth;
+  const periodSectionLoading = (isLoading || isFetching) && !data && !isViewingCurrentMonth;
+  const todayCash = periodSectionLoading && currentDashboardData?.stats?.todayCash
+    ? currentDashboardData.stats.todayCash
+    : stats.todayCash;
+  const recentActivities = (periodSectionLoading ? currentDashboardData?.activities : data?.activities) ?? [];
+  const dashboardNotes = (periodSectionLoading ? currentDashboardData?.dashboardNotes : data?.dashboardNotes) ?? [];
+  const topCustomers = (periodSectionLoading ? currentDashboardData?.topCustomers : data?.topCustomers) ?? [];
+  const topSuppliers = (periodSectionLoading ? currentDashboardData?.topSuppliers : data?.topSuppliers) ?? [];
+  const periodLabel = data?.periodLabel;
+  const displayStats = periodSectionLoading && currentDashboardData?.stats ? currentDashboardData.stats : stats;
 
   const addTransactionMutation = useMutation({
     mutationFn: async ({ amountNum, type, desc, billUrl, billPublicId }: { amountNum: number; type: 'in' | 'out'; desc: string; billUrl?: string; billPublicId?: string }) => {
@@ -476,9 +519,9 @@ export default function DashboardClient({
     },
     onMutate: async ({ amountNum, type }) => {
       await queryClient.cancelQueries({ queryKey: ['dashboard'] });
-      const previousData = queryClient.getQueryData<DashboardResponse>(['dashboard']);
+      const previousData = queryClient.getQueryData<DashboardResponse>(currentDashboardQueryKey);
       if (previousData) {
-        queryClient.setQueryData<DashboardResponse>(['dashboard'], {
+        queryClient.setQueryData<DashboardResponse>(currentDashboardQueryKey, {
           ...previousData,
           stats: {
             ...previousData.stats,
@@ -494,11 +537,11 @@ export default function DashboardClient({
     },
     onError: (err, variables, context) => {
       if (context?.previousData) {
-        queryClient.setQueryData(['dashboard'], context.previousData);
+        queryClient.setQueryData(currentDashboardQueryKey, context.previousData);
       }
       toast.error(err instanceof Error ? err.message : 'Failed to add transaction');
     },
-    onSuccess: (data, variables) => {
+    onSuccess: (_data, variables) => {
       toast.success(`Money ${variables.type === 'in' ? 'added' : 'deducted'} successfully`);
       queryClient.invalidateQueries({ queryKey: ['dashboard'] });
     },
@@ -589,7 +632,7 @@ export default function DashboardClient({
         initial="hidden"
         animate="visible"
         variants={containerVariants}
-        className="max-w-7xl mx-auto px-3 sm:px-4 lg:mx-0 lg:ml-0 lg:pl-6 lg:pr-6 xl:pl-8 xl:pr-8 py-1.5 sm:py-5 lg:py-8 space-y-3 sm:space-y-4 lg:space-y-6 w-full"
+        className="max-w-7xl mx-auto px-3 sm:px-4 lg:mx-0 lg:ml-0 lg:pl-6 lg:pr-6 xl:pl-8 xl:pr-8 py-1.5 sm:py-5 lg:py-8 space-y-3 sm:space-y-4 lg:space-y-6 w-full min-w-0"
       >
         <motion.div variants={itemVariants} className="flex flex-wrap items-center justify-between gap-2 sm:gap-3">
           <div className="flex items-center gap-2 sm:gap-4 shrink-0">
@@ -654,10 +697,10 @@ export default function DashboardClient({
           </Button>
         </div>
 
-        <div className="grid gap-3 sm:gap-4 lg:gap-6 lg:grid-cols-3">
-          <motion.div variants={itemVariants} className="lg:col-span-2">
-            <Card className="p-2 sm:p-4 md:p-6 lg:p-8 h-full" hover={false}>
-              <div className="flex flex-col h-full justify-between">
+        <div className="grid gap-3 sm:gap-4 lg:gap-6 lg:grid-cols-3 min-w-0">
+          <motion.div variants={itemVariants} className="lg:col-span-2 min-w-0">
+            <Card className="p-2 sm:p-4 md:p-6 lg:p-8 h-full overflow-hidden" hover={false}>
+              <div className="flex flex-col h-full justify-between min-w-0">
                 <Dialog
                   open={addTransactionOpen}
                   onOpenChange={(open) => {
@@ -667,13 +710,13 @@ export default function DashboardClient({
                     }
                   }}
                 >
-                  <div className="flex flex-wrap items-start justify-between gap-2 sm:gap-3">
-                    <div className="min-w-0 flex-1">
-                      <p className="text-[10px] sm:text-xs lg:text-sm font-medium text-slate-700 uppercase tracking-wider mb-1 sm:mb-2 lg:mb-3">
+                  <div className="flex flex-wrap items-start justify-between gap-2 sm:gap-3 min-w-0">
+                    <div className="min-w-0 flex-1 overflow-hidden">
+                      <p className="text-[10px] sm:text-xs lg:text-sm font-medium text-slate-700 uppercase tracking-wider mb-1 sm:mb-2 lg:mb-3 truncate">
                         Today&apos;s Cash Position
                       </p>
-                      <p className="text-xl sm:text-2xl md:text-3xl lg:text-4xl xl:text-5xl font-bold text-gray-900 tracking-tight wrap-break-word">
-                        {formatCurrency(stats.todayCash.totalLeft)}
+                      <p className="text-xl sm:text-2xl md:text-3xl lg:text-4xl xl:text-5xl font-bold text-gray-900 tracking-tight wrap-break-word overflow-hidden" title={formatCurrency(todayCash.totalLeft)}>
+                        {formatCurrency(todayCash.totalLeft)}
                       </p>
                       <p className="text-[10px] sm:text-xs lg:text-sm text-gray-500 mt-0.5 sm:mt-1 lg:mt-2">
                         Final balance as of {format(new Date(), 'h:mm a')}
@@ -811,7 +854,7 @@ export default function DashboardClient({
                       <span className="text-[9px] sm:text-[10px] lg:text-xs font-semibold uppercase tracking-wide">Cash In</span>
                     </div>
                     <p className="text-base sm:text-lg lg:text-xl xl:text-2xl font-bold text-green-700 wrap-break-word leading-tight">
-                      {formatCurrency(stats.todayCash.totalIn)}
+                      {formatCurrency(todayCash.totalIn)}
                     </p>
                   </div>
                   <div className="rounded-lg sm:rounded-xl lg:rounded-2xl px-2 sm:px-4 lg:px-6 py-2 sm:py-3 lg:py-4 flex-1 min-w-0 sm:min-w-[140px] lg:min-w-[160px] bg-red-100">
@@ -820,7 +863,7 @@ export default function DashboardClient({
                       <span className="text-[9px] sm:text-[10px] lg:text-xs font-semibold uppercase tracking-wide">Cash Out</span>
                     </div>
                     <p className="text-base sm:text-lg lg:text-xl xl:text-2xl font-bold text-red-700 wrap-break-word leading-tight">
-                      {formatCurrency(stats.todayCash.totalOut)}
+                      {formatCurrency(todayCash.totalOut)}
                     </p>
                   </div>
                 </div>
@@ -856,58 +899,111 @@ export default function DashboardClient({
           </motion.div>
         </div>
 
-        <div className="grid grid-cols-2 sm:grid-cols-2 xl:grid-cols-4 gap-2 sm:gap-3 lg:gap-4">
+        <div className="grid grid-cols-2 sm:grid-cols-2 xl:grid-cols-4 gap-2 sm:gap-3 lg:gap-4 min-w-0">
           <StatCard
             label="Total Customers"
-            value={stats.totalCustomers.toString()}
+            value={displayStats.totalCustomers.toString()}
             icon={<Users className="w-5 h-5" />}
             iconBg="bg-blue-100 text-blue-700"
             delay={0}
           />
           <StatCard
             label="Total Suppliers"
-            value={stats.totalSuppliers.toString()}
+            value={displayStats.totalSuppliers.toString()}
             icon={<Truck className="w-5 h-5" />}
             iconBg="bg-purple-100 text-purple-700"
             delay={1}
           />
           <StatCard
             label="Total Credit"
-            value={formatCurrency(stats.totalCredit)}
+            value={formatCurrency(displayStats.totalCredit)}
             icon={<TrendingUp className="w-5 h-5" />}
             iconBg="bg-green-100 text-green-700"
             delay={2}
           />
           <StatCard
             label="Total Debit"
-            value={formatCurrency(stats.totalDebit)}
+            value={formatCurrency(displayStats.totalDebit)}
             icon={<TrendingDown className="w-5 h-5" />}
             iconBg="bg-red-100 text-red-700"
             delay={3}
           />
         </div>
 
-        <div className="grid gap-3 sm:gap-4 lg:gap-6 lg:grid-cols-5">
-          <motion.div variants={itemVariants} className="lg:col-span-3">
-            <Card className="p-3 sm:p-4 lg:p-6 h-full">
-              <div className="flex flex-wrap items-center justify-between gap-2 sm:gap-3 lg:gap-4 mb-3 sm:mb-4 lg:mb-6">
-                <div>
-                  <p className="text-[10px] sm:text-xs font-medium text-gray-500 uppercase tracking-wider">30-Day Trend</p>
-                  <h3 className="text-base sm:text-lg lg:text-xl font-bold text-gray-900 mt-0.5 sm:mt-1">Monthly Sales Overview</h3>
+        <div className="grid gap-3 sm:gap-4 lg:gap-6 lg:grid-cols-5 lg:items-stretch lg:grid-rows-[380px] min-w-0 overflow-hidden">
+          <motion.div variants={itemVariants} className="lg:col-span-3 flex flex-col min-h-[320px] sm:min-h-[360px] lg:h-[380px] min-w-0">
+            <Card className="p-3 sm:p-4 lg:p-6 flex flex-col flex-1 min-h-0 overflow-hidden">
+              <div className="flex flex-col sm:flex-row sm:flex-nowrap items-stretch sm:items-center justify-between gap-2 sm:gap-3 lg:gap-4 mb-3 sm:mb-4 lg:mb-6 shrink-0 min-w-0">
+                <div className="min-w-0 flex-1">
+                  <p className="text-[10px] sm:text-xs font-medium text-gray-500 uppercase tracking-wider truncate">
+                    {periodLabel ? 'Sales trend' : '30-Day Trend'}
+                  </p>
+                  <h3 className="text-base sm:text-lg lg:text-xl font-bold text-gray-900 mt-0.5 sm:mt-1 truncate" title={periodLabel ? `Monthly Sales Overview – ${periodLabel}` : 'Monthly Sales Overview'}>
+                    Monthly Sales Overview{periodLabel ? ` – ${periodLabel}` : ''}
+                  </h3>
                 </div>
-                <div className="flex items-center gap-2 sm:gap-3 lg:gap-4 text-[10px] sm:text-xs">
-                  <div className="flex items-center gap-1 sm:gap-1.5">
+                <div className="flex flex-nowrap items-center gap-2 sm:gap-3 lg:gap-4 w-full sm:w-auto min-w-0 relative" ref={monthPickerRef}>
+                  <button
+                    type="button"
+                    onClick={() => setMonthPickerOpen((o) => !o)}
+                    className="flex items-center gap-1.5 h-8 sm:h-9 pl-2.5 sm:pl-3 pr-2.5 sm:pr-3 rounded-lg border border-gray-300 bg-white text-xs sm:text-sm font-medium text-gray-700 hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-gray-300 focus:ring-offset-1 shrink-0 cursor-pointer min-w-[130px] sm:min-w-[145px] max-w-[160px] sm:max-w-[175px]"
+                    title="Change month for chart and summary"
+                    aria-label="Select month for chart and summary"
+                    aria-expanded={monthPickerOpen}
+                  >
+                    <CalendarIcon className="w-4 h-4 text-gray-500 shrink-0" />
+                    <span className="truncate">{format(new Date(selectedMonth + '-01'), 'MMMM yyyy')}</span>
+                    <span className="text-gray-400 shrink-0 ml-0.5">▼</span>
+                  </button>
+                  {monthPickerOpen && (
+                    <div className="absolute top-full left-0 mt-2 z-50 bg-white rounded-xl border border-gray-200 shadow-lg p-2 w-fit">
+                      <Calendar
+                        mode="single"
+                        defaultMonth={new Date(selectedMonth + '-01')}
+                        selected={new Date(selectedMonth + '-01')}
+                        onSelect={(date) => {
+                          if (date) {
+                            setSelectedMonth(format(date, 'yyyy-MM'));
+                            setMonthPickerOpen(false);
+                          }
+                        }}
+                        className="rounded-lg border-0 shadow-none p-0 w-full [--cell-size:1.75rem] text-sm"
+                        classNames={{
+                          root: '!p-0',
+                          months: '!gap-0',
+                          month: '!gap-1',
+                          month_caption: '!h-8 !px-6',
+                          caption_label: '!text-sm !font-semibold !text-slate-800',
+                          nav: '!inset-x-0',
+                          button_previous: '!size-7 !min-w-7 hover:!bg-slate-100 !text-slate-600 rounded-md',
+                          button_next: '!size-7 !min-w-7 hover:!bg-slate-100 !text-slate-600 rounded-md',
+                          weekdays: '!gap-0 !mb-1',
+                          weekday: '!text-[10px] !font-medium !text-slate-500 !w-[1.75rem]',
+                          week: '!gap-0 !mt-0.5',
+                          day: '[&_button]:!text-xs [&_button]:!min-w-[1.75rem] [&_button]:!h-[1.75rem] [&_button[data-selected-single=true]]:!bg-slate-900 [&_button[data-selected-single=true]]:!text-white [&_button[data-selected-single=true]]:hover:!bg-slate-800 [&_button]:rounded-md',
+                          today: '[&_button]:!bg-slate-100 [&_button]:!text-slate-800 [&_button]:!font-medium [&_button]:!border-slate-200',
+                          outside: '[&_button]:!text-slate-300',
+                        }}
+                      />
+                    </div>
+                  )}
+                  <div className="flex items-center gap-1 sm:gap-1.5 text-[10px] sm:text-xs shrink-0">
                     <div className="w-2 h-2 sm:w-2.5 sm:h-2.5 rounded-full bg-green-700" />
-                    <span className="text-gray-600">Cash In</span>
+                    <span className="text-gray-600 whitespace-nowrap">Cash In</span>
                   </div>
-                  <div className="flex items-center gap-1 sm:gap-1.5">
+                  <div className="flex items-center gap-1 sm:gap-1.5 text-[10px] sm:text-xs shrink-0">
                     <div className="w-2 h-2 sm:w-2.5 sm:h-2.5 rounded-full bg-red-700" />
-                    <span className="text-gray-600">Cash Out</span>
+                    <span className="text-gray-600 whitespace-nowrap">Cash Out</span>
                   </div>
                 </div>
               </div>
-              <div className="h-48 sm:h-60 lg:h-72 w-full overflow-hidden">
-                {chartData.length === 0 ? (
+              <div className="h-48 sm:h-60 lg:h-72 w-full overflow-hidden shrink-0 min-h-0">
+                {periodSectionLoading ? (
+                  <div className="h-full w-full flex flex-col justify-center gap-2 p-4">
+                    <Skeleton className="h-full w-full rounded-lg" />
+                    <p className="text-center text-xs text-gray-500">Loading period data…</p>
+                  </div>
+                ) : chartData.length === 0 ? (
                   <div className="flex h-full flex-col items-center justify-center text-gray-400">
                     <BarChart3 className="w-12 h-12 mb-3 opacity-50" strokeWidth={1} />
                     <p className="text-sm">No sales data for this period</p>
@@ -964,52 +1060,67 @@ export default function DashboardClient({
             </Card>
           </motion.div>
 
-          <motion.div variants={itemVariants} className="lg:col-span-2">
-            <Card className="p-3 sm:p-4 lg:p-6 h-full">
-              <div className="flex items-center justify-between mb-3 sm:mb-4 lg:mb-6">
-                <div>
-                  <p className="text-[10px] sm:text-xs font-medium text-gray-500 uppercase tracking-wider">This Month</p>
-                  <h3 className="text-base sm:text-lg lg:text-xl font-bold text-gray-900 mt-0.5 sm:mt-1">Monthly Summary</h3>
+          <motion.div variants={itemVariants} className="lg:col-span-2 flex flex-col min-h-[320px] sm:min-h-[360px] lg:h-[380px] min-w-0">
+            <Card className="p-3 sm:p-4 lg:p-6 flex flex-col flex-1 min-h-0 overflow-hidden">
+              <div className="flex items-center justify-between gap-2 mb-3 sm:mb-4 lg:mb-6 min-w-0">
+                <div className="min-w-0 flex-1">
+                  <p className="text-[10px] sm:text-xs font-medium text-gray-500 uppercase tracking-wider truncate">
+                    {periodLabel ? 'Period' : 'This Month'}
+                  </p>
+                  <h3 className="text-base sm:text-lg lg:text-xl font-bold text-gray-900 mt-0.5 sm:mt-1 truncate" title={periodLabel ? `Monthly Summary – ${periodLabel}` : 'Monthly Summary'}>
+                    Monthly Summary{periodLabel ? ` – ${periodLabel}` : ''}
+                  </h3>
                 </div>
-                <span className="px-1.5 sm:px-2 lg:px-3 py-0.5 sm:py-1 rounded-full bg-green-100 text-green-700 text-[9px] sm:text-[10px] lg:text-xs font-semibold whitespace-nowrap">
-                  {formatCurrency(stats.monthlyTotals.totalLeft)} net
-                </span>
+                {!periodSectionLoading && (
+                  <span className="px-1.5 sm:px-2 lg:px-3 py-0.5 sm:py-1 rounded-full bg-green-100 text-green-700 text-[9px] sm:text-[10px] lg:text-xs font-semibold shrink-0 overflow-hidden max-w-[100px] sm:max-w-none" title={formatCurrency(stats.monthlyTotals.totalLeft) + ' net'}>
+                    <span className="block truncate">{formatCurrency(stats.monthlyTotals.totalLeft)} net</span>
+                  </span>
+                )}
               </div>
 
-              <div className="space-y-2 sm:space-y-3 lg:space-y-4">
-                <div className="flex items-center justify-between p-2 sm:p-3 lg:p-4 rounded-lg sm:rounded-xl bg-green-50 border border-green-200">
-                  <div className="flex items-center gap-2 sm:gap-3">
-                    <div className="p-1.5 sm:p-2 rounded-lg bg-green-100 text-green-700">
-                      <TrendingUp className="w-4 h-4 sm:w-5 sm:h-5" />
-                    </div>
-                    <div>
-                      <p className="text-[10px] sm:text-xs text-gray-500">Total Cash In</p>
-                      <p className="text-sm sm:text-base lg:text-lg font-bold text-gray-900">{formatCurrency(stats.monthlyTotals.totalIn)}</p>
+              {periodSectionLoading ? (
+                <div className="space-y-2 sm:space-y-3 lg:space-y-4">
+                  <Skeleton className="h-16 sm:h-20 w-full rounded-xl" />
+                  <Skeleton className="h-16 sm:h-20 w-full rounded-xl" />
+                  <Skeleton className="h-10 w-full rounded-lg mt-2" />
+                  <p className="text-center text-xs text-gray-500">Loading period data…</p>
+                </div>
+              ) : (
+                <div className="space-y-2 sm:space-y-3 lg:space-y-4 min-w-0">
+                  <div className="flex items-center justify-between gap-2 p-2 sm:p-3 lg:p-4 rounded-lg sm:rounded-xl bg-green-50 border border-green-200 min-w-0">
+                    <div className="flex items-center gap-2 sm:gap-3 min-w-0">
+                      <div className="p-1.5 sm:p-2 rounded-lg bg-green-100 text-green-700 shrink-0">
+                        <TrendingUp className="w-4 h-4 sm:w-5 sm:h-5" />
+                      </div>
+                      <div className="min-w-0">
+                        <p className="text-[10px] sm:text-xs text-gray-500 truncate">Total Cash In</p>
+                        <p className="text-sm sm:text-base lg:text-lg font-bold text-gray-900 truncate" title={formatCurrency(stats.monthlyTotals.totalIn)}>{formatCurrency(stats.monthlyTotals.totalIn)}</p>
+                      </div>
                     </div>
                   </div>
-                </div>
 
-                <div className="flex items-center justify-between p-2 sm:p-3 lg:p-4 rounded-lg sm:rounded-xl bg-red-50 border border-red-200">
-                  <div className="flex items-center gap-2 sm:gap-3">
-                    <div className="p-1.5 sm:p-2 rounded-lg bg-red-100 text-red-700">
-                      <TrendingDown className="w-4 h-4 sm:w-5 sm:h-5" />
-                    </div>
-                    <div>
-                      <p className="text-[10px] sm:text-xs text-gray-500">Total Cash Out</p>
-                      <p className="text-sm sm:text-base lg:text-lg font-bold text-gray-900">{formatCurrency(stats.monthlyTotals.totalOut)}</p>
+                  <div className="flex items-center justify-between gap-2 p-2 sm:p-3 lg:p-4 rounded-lg sm:rounded-xl bg-red-50 border border-red-200 min-w-0">
+                    <div className="flex items-center gap-2 sm:gap-3 min-w-0">
+                      <div className="p-1.5 sm:p-2 rounded-lg bg-red-100 text-red-700 shrink-0">
+                        <TrendingDown className="w-4 h-4 sm:w-5 sm:h-5" />
+                      </div>
+                      <div className="min-w-0">
+                        <p className="text-[10px] sm:text-xs text-gray-500 truncate">Total Cash Out</p>
+                        <p className="text-sm sm:text-base lg:text-lg font-bold text-gray-900 truncate" title={formatCurrency(stats.monthlyTotals.totalOut)}>{formatCurrency(stats.monthlyTotals.totalOut)}</p>
+                      </div>
                     </div>
                   </div>
-                </div>
 
-                <div className="pt-2 sm:pt-3 lg:pt-4 border-t border-gray-200/50">
-                  <div className="flex items-center justify-between">
-                    <span className="text-xs sm:text-sm text-gray-500">Net Balance</span>
-                    <span className={`text-lg sm:text-xl lg:text-2xl font-bold ${stats.monthlyTotals.totalLeft >= 0 ? 'text-green-700' : 'text-red-700'}`}>
-                      {formatCurrency(stats.monthlyTotals.totalLeft)}
-                    </span>
+                  <div className="pt-2 sm:pt-3 lg:pt-4 border-t border-gray-200/50 min-w-0">
+                    <div className="flex items-center justify-between gap-2">
+                      <span className="text-xs sm:text-sm text-gray-500 shrink-0">Net Balance</span>
+                      <span className={`text-lg sm:text-xl lg:text-2xl font-bold truncate min-w-0 text-right ${stats.monthlyTotals.totalLeft >= 0 ? 'text-green-700' : 'text-red-700'}`} title={formatCurrency(stats.monthlyTotals.totalLeft)}>
+                        {formatCurrency(stats.monthlyTotals.totalLeft)}
+                      </span>
+                    </div>
                   </div>
                 </div>
-              </div>
+              )}
             </Card>
           </motion.div>
         </div>

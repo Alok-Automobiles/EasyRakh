@@ -1,10 +1,13 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getDb } from '@/lib/mongodb';
 import { getUserIdFromRequest } from '@/lib/auth';
-import { subDays } from 'date-fns';
+import { subDays, format } from 'date-fns';
 import type { RecentActivity, Transaction } from '@/lib/types';
 import redis from '@/lib/redis';
 import { ObjectId } from 'mongodb';
+
+const MONTH_REGEX = /^\d{4}-(0[1-9]|1[0-2])$/;
+const DATE_REGEX = /^\d{4}-(0[1-9]|1[0-2])-(0[1-9]|[12]\d|3[01])$/;
 
 export async function GET(request: NextRequest) {
   try {
@@ -16,9 +19,53 @@ export async function GET(request: NextRequest) {
       );
     }
 
+    const searchParams = request.nextUrl.searchParams;
+    const monthParam = searchParams.get('month');
+    const fromParam = searchParams.get('from');
+    const toParam = searchParams.get('to');
+
+    let rangeStart: Date | null = null;
+    let rangeEnd: Date | null = null;
+    let periodLabel: string | undefined;
+
+    if (monthParam) {
+      if (!MONTH_REGEX.test(monthParam)) {
+        return NextResponse.json(
+          { error: 'Invalid month format. Use YYYY-MM.' },
+          { status: 400 }
+        );
+      }
+      const [y, m] = monthParam.split('-').map(Number);
+      rangeStart = new Date(Date.UTC(y, m - 1, 1, 0, 0, 0, 0));
+      rangeEnd = new Date(Date.UTC(y, m, 1, 0, 0, 0, 0));
+      periodLabel = format(rangeStart, 'MMMM yyyy');
+    } else if (fromParam && toParam) {
+      if (!DATE_REGEX.test(fromParam) || !DATE_REGEX.test(toParam)) {
+        return NextResponse.json(
+          { error: 'Invalid date format. Use YYYY-MM-DD for from and to.' },
+          { status: 400 }
+        );
+      }
+      const [fy, fm, fd] = fromParam.split('-').map(Number);
+      const [ty, tm, td] = toParam.split('-').map(Number);
+      rangeStart = new Date(Date.UTC(fy, fm - 1, fd, 0, 0, 0, 0));
+      rangeEnd = new Date(Date.UTC(ty, tm - 1, td + 1, 0, 0, 0, 0));
+      if (rangeStart >= rangeEnd) {
+        return NextResponse.json(
+          { error: 'from must be before or equal to to.' },
+          { status: 400 }
+        );
+      }
+      periodLabel = `${format(rangeStart, 'd MMM yyyy')} – ${format(new Date(ty, tm - 1, td), 'd MMM yyyy')}`;
+    }
+
+    const hasDateFilter = rangeStart !== null && rangeEnd !== null;
+    const cacheKey = hasDateFilter
+      ? `dashboard:stats:${userId}:${monthParam || `${fromParam}-${toParam}`}`
+      : `dashboard:stats:${userId}`;
+
     if (redis.status === 'ready') {
       try {
-        const cacheKey = `dashboard:stats:${userId}`;
         const cached = await redis.get(cacheKey);
         if (cached) {
           return NextResponse.json(JSON.parse(cached));
@@ -45,6 +92,10 @@ export async function GET(request: NextRequest) {
     const tomorrow = new Date(Date.UTC(today.getUTCFullYear(), today.getUTCMonth(), today.getUTCDate() + 1, 0, 0, 0, 0));
     const thirtyDaysAgo = new Date(Date.UTC(now.getFullYear(), now.getMonth(), now.getDate() - 29, 0, 0, 0, 0));
     const currentMonthStart = new Date(Date.UTC(today.getUTCFullYear(), today.getUTCMonth(), 1, 0, 0, 0, 0));
+
+    const dailyCashQuery = hasDateFilter
+      ? { userId, date: { $gte: rangeStart!, $lt: rangeEnd! } }
+      : { userId, date: { $gte: thirtyDaysAgo, $lt: tomorrow } };
 
     const [
       transactionFacets,
@@ -247,10 +298,7 @@ export async function GET(request: NextRequest) {
         .limit(20)
         .toArray(),
       dailyCashRecordsCollection
-        .find(
-          { userId, date: { $gte: thirtyDaysAgo, $lt: tomorrow } },
-          { projection: { date: 1, totalIn: 1, totalOut: 1, totalLeft: 1 } }
-        )
+        .find(dailyCashQuery, { projection: { date: 1, totalIn: 1, totalOut: 1, totalLeft: 1 } })
         .sort({ date: 1 })
         .toArray(),
       notesCollection
@@ -287,7 +335,17 @@ export async function GET(request: NextRequest) {
       recentDailyCashRecords.map((record) => [dateKey(record.date), record])
     );
 
-    const todayRecord = recordByDate.get(today.getTime());
+    let todayRecord = recordByDate.get(today.getTime());
+    if (hasDateFilter && !todayRecord) {
+      const todayRecords = await dailyCashRecordsCollection
+        .find(
+          { userId, date: { $gte: today, $lt: tomorrow } },
+          { projection: { date: 1, totalIn: 1, totalOut: 1, totalLeft: 1 } }
+        )
+        .limit(1)
+        .toArray();
+      todayRecord = todayRecords[0] ?? null;
+    }
 
     const todayCash = {
       totalIn: todayRecord?.totalIn || 0,
@@ -295,30 +353,62 @@ export async function GET(request: NextRequest) {
       totalLeft: todayRecord?.totalLeft || 0,
     };
 
-    const monthlyRecords = recentDailyCashRecords.filter(
-      (record) => record.date >= currentMonthStart
-    );
+    let monthlyRecords: typeof recentDailyCashRecords;
+    let monthlyTotals: { totalIn: number; totalOut: number; totalLeft: number };
+    let monthlySeries: { dateLabel: string; totalIn: number; totalOut: number; totalLeft: number }[];
 
-    const monthlyTotals = monthlyRecords.reduce(
-      (acc, record) => {
-        acc.totalIn += record.totalIn || 0;
-        acc.totalOut += record.totalOut || 0;
-        acc.totalLeft += record.totalLeft || 0;
-        return acc;
-      },
-      { totalIn: 0, totalOut: 0, totalLeft: 0 }
-    );
-
-    const monthlySeries = [];
-    for (let i = 0; i < 30; i++) {
-      const day = normalizeToUTCStart(subDays(today, 29 - i));
-      const inRangeRecord = recordByDate.get(day.getTime());
-      monthlySeries.push({
-        dateLabel: day.toISOString(),
-        totalIn: inRangeRecord?.totalIn || 0,
-        totalOut: inRangeRecord?.totalOut || 0,
-        totalLeft: inRangeRecord?.totalLeft || 0,
-      });
+    if (hasDateFilter && rangeStart && rangeEnd) {
+      monthlyRecords = recentDailyCashRecords;
+      monthlyTotals = monthlyRecords.reduce(
+        (acc, record) => {
+          acc.totalIn += record.totalIn || 0;
+          acc.totalOut += record.totalOut || 0;
+          acc.totalLeft += record.totalLeft || 0;
+          return acc;
+        },
+        { totalIn: 0, totalOut: 0, totalLeft: 0 }
+      );
+      const numDays = Math.round((rangeEnd.getTime() - rangeStart.getTime()) / (24 * 60 * 60 * 1000));
+      monthlySeries = [];
+      for (let i = 0; i < numDays; i++) {
+        const dayStart = new Date(Date.UTC(
+          rangeStart.getUTCFullYear(),
+          rangeStart.getUTCMonth(),
+          rangeStart.getUTCDate() + i,
+          0, 0, 0, 0
+        ));
+        const inRangeRecord = recordByDate.get(dayStart.getTime());
+        monthlySeries.push({
+          dateLabel: dayStart.toISOString(),
+          totalIn: inRangeRecord?.totalIn || 0,
+          totalOut: inRangeRecord?.totalOut || 0,
+          totalLeft: inRangeRecord?.totalLeft || 0,
+        });
+      }
+    } else {
+      monthlyRecords = recentDailyCashRecords.filter(
+        (record) => record.date >= currentMonthStart
+      );
+      monthlyTotals = monthlyRecords.reduce(
+        (acc, record) => {
+          acc.totalIn += record.totalIn || 0;
+          acc.totalOut += record.totalOut || 0;
+          acc.totalLeft += record.totalLeft || 0;
+          return acc;
+        },
+        { totalIn: 0, totalOut: 0, totalLeft: 0 }
+      );
+      monthlySeries = [];
+      for (let i = 0; i < 30; i++) {
+        const day = normalizeToUTCStart(subDays(today, 29 - i));
+        const inRangeRecord = recordByDate.get(day.getTime());
+        monthlySeries.push({
+          dateLabel: day.toISOString(),
+          totalIn: inRangeRecord?.totalIn || 0,
+          totalOut: inRangeRecord?.totalOut || 0,
+          totalLeft: inRangeRecord?.totalLeft || 0,
+        });
+      }
     }
 
     const activities: RecentActivity[] = [];
@@ -463,11 +553,11 @@ export async function GET(request: NextRequest) {
         color: note.color,
         updatedAt: note.updatedAt,
       })),
+      ...(periodLabel && { periodLabel }),
     };
 
     if (redis.status === 'ready') {
       try {
-        const cacheKey = `dashboard:stats:${userId}`;
         await redis.setex(cacheKey, 300, JSON.stringify(responseData));
       } catch (cacheError) {
         console.warn('Redis cache write failed:', cacheError);
