@@ -21,6 +21,15 @@ export function verifyToken(token: string): TokenPayload | null {
 }
 
 export function getUserIdFromRequest(request: NextRequest): string | null {
+  // First check Authorization header (for mobile apps)
+  const authHeader = request.headers.get('authorization');
+  if (authHeader?.startsWith('Bearer ')) {
+    const token = authHeader.slice(7);
+    const payload = verifyToken(token);
+    if (payload?.userId) return payload.userId;
+  }
+
+  // Fall back to cookies (for web app)
   const token = request.cookies.get('token')?.value;
   if (!token) return null;
   
