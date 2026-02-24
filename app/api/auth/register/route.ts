@@ -65,6 +65,7 @@ export async function POST(request: NextRequest) {
     const response = NextResponse.json(
       {
         message: 'User created successfully',
+        token,
         user: {
           id: result.insertedId.toString(),
           name: validatedData.name,
