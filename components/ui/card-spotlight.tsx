@@ -7,15 +7,22 @@ import { cn } from "@/lib/utils";
 
 export const CardSpotlight = ({
   children,
-  radius = 350,
-  color = "#262626",
+  radius,
+  color,
   className,
+  variant = "dark",
   ...props
 }: {
   radius?: number;
   color?: string;
+  variant?: "dark" | "light";
   children: React.ReactNode;
 } & React.HTMLAttributes<HTMLDivElement>) => {
+  const isLight = variant === "light";
+  const resolvedRadius = radius ?? (isLight ? 260 : 350);
+  const resolvedColor = color ?? (isLight ? "rgba(16, 185, 129, 0.2)" : "#262626");
+  const roundClass = isLight ? "rounded-3xl" : "rounded-md";
+
   const mouseX = useMotionValue(0);
   const mouseY = useMotionValue(0);
   function handleMouseMove({
@@ -35,7 +42,10 @@ export const CardSpotlight = ({
   return (
     <div
       className={cn(
-        "group/spotlight p-10 rounded-md relative border border-neutral-800 bg-black dark:border-neutral-800",
+        "group/spotlight relative overflow-hidden border",
+        isLight
+          ? "rounded-3xl border-gray-200/80 bg-white/95 p-6 shadow-sm backdrop-blur-sm lg:p-8"
+          : "rounded-md border-neutral-800 bg-black p-10 dark:border-neutral-800",
         className
       )}
       onMouseMove={handleMouseMove}
@@ -44,12 +54,15 @@ export const CardSpotlight = ({
       {...props}
     >
       <motion.div
-        className="pointer-events-none absolute z-0 -inset-px rounded-md opacity-0 transition duration-300 group-hover/spotlight:opacity-100"
+        className={cn(
+          "pointer-events-none absolute z-0 -inset-px opacity-0 transition duration-300 group-hover/spotlight:opacity-100",
+          roundClass
+        )}
         style={{
-          backgroundColor: color,
+          backgroundColor: resolvedColor,
           maskImage: useMotionTemplate`
             radial-gradient(
-              ${radius}px circle at ${mouseX}px ${mouseY}px,
+              ${resolvedRadius}px circle at ${mouseX}px ${mouseY}px,
               white,
               transparent 80%
             )
@@ -58,17 +71,25 @@ export const CardSpotlight = ({
       >
         {isHovering && (
           <CanvasRevealEffect
-            animationSpeed={5}
+            animationSpeed={isLight ? 4 : 5}
             containerClassName="bg-transparent absolute inset-0 pointer-events-none"
-            colors={[
-              [59, 130, 246],
-              [139, 92, 246],
-            ]}
+            colors={
+              isLight
+                ? [
+                    [16, 185, 129],
+                    [45, 212, 191],
+                  ]
+                : [
+                    [59, 130, 246],
+                    [139, 92, 246],
+                  ]
+            }
             dotSize={3}
+            showGradient={!isLight}
           />
         )}
       </motion.div>
-      {children}
+      <div className="relative z-10">{children}</div>
     </div>
   );
 };

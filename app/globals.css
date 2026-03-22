@@ -263,6 +263,25 @@
   }
 }
 
+@keyframes about-marquee {
+  0% {
+    transform: translateX(0);
+  }
+  100% {
+    transform: translateX(-50%);
+  }
+}
+
+.about-marquee-track {
+  display: flex;
+  width: max-content;
+  animation: about-marquee 32s linear infinite;
+}
+
+.about-marquee-track:hover {
+  animation-play-state: paused;
+}
+
 .orb {
   position: absolute;
   border-radius: 50%;
