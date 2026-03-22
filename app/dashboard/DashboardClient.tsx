@@ -1156,14 +1156,14 @@ export default function DashboardClient({
               </div>
             </div>
 
-            <div className="grid gap-2 sm:gap-3 md:grid-cols-2 lg:grid-cols-3 min-h-[160px] sm:min-h-[180px]">
+            <div className="grid gap-2 sm:gap-3 md:grid-cols-2 lg:grid-cols-3">
               {(activeEntityTab === 'customers' ? topCustomers : topSuppliers).length === 0 ? (
                 <div className="col-span-full text-center py-8 text-gray-400">
                   <p className="text-sm">No {activeEntityTab} data available yet.</p>
                 </div>
               ) : (
                 (activeEntityTab === 'customers' ? topCustomers : topSuppliers).map((entity) => (
-                  <div key={entity.id} className="h-full min-h-[120px]">
+                  <div key={entity.id} className="min-w-0 self-start">
                     <EntityListItem entity={entity} />
                   </div>
                 ))

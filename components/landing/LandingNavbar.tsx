@@ -2,15 +2,20 @@
 
 import Image from 'next/image';
 import Link from 'next/link';
-import { useEffect, useState } from 'react';
+import { usePathname } from 'next/navigation';
+import { useEffect, useMemo, useState } from 'react';
 import { Menu, X } from 'lucide-react';
 
-const links = [
-  { href: '#faq', label: 'FAQs' },
-  { href: '#contact', label: 'Contact' },
-];
-
 export default function LandingNavbar() {
+  const pathname = usePathname();
+  const links = useMemo(
+    () => [
+      { href: '/about', label: 'About' },
+      { href: pathname === '/' ? '#faq' : '/#faq', label: 'FAQs' },
+      { href: pathname === '/' ? '#contact' : '/#contact', label: 'Contact' },
+    ],
+    [pathname],
+  );
   const [scrolled, setScrolled] = useState(false);
   const [isMenuOpen, setIsMenuOpen] = useState(false);
 

@@ -18,7 +18,7 @@ const features = [
 
 export default function Pricing() {
     return (
-        <section className="py-20 sm:py-24 bg-(--brand-bg)">
+        <section id="pricing" className="py-20 sm:py-24 bg-(--brand-bg) scroll-mt-28">
             <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-10">
                 <div className="max-w-lg mx-auto">
                     <motion.div

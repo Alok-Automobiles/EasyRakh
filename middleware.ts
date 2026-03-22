@@ -9,7 +9,7 @@ export function middleware(request: NextRequest) {
     return NextResponse.next();
   }
 
-  const publicRoutes = ['/', '/login', '/register', '/forgot-password'];
+  const publicRoutes = ['/', '/about', '/privacy', '/terms', '/login', '/register', '/forgot-password'];
   const isPublicRoute = publicRoutes.some((route) => {
     if (route === '/') return pathname === '/';
     return pathname === route || pathname.startsWith(`${route}/`);
