@@ -114,17 +114,14 @@ export default function Hero() {
               transition={{ duration: 0.7, delay: 0.1 }}
               className="flex flex-col items-center gap-6 text-center"
             >
-              <div className="inline-flex items-center gap-3 self-center rounded-full border border-gray-200 bg-white/90 px-4 py-2 text-[11px] font-semibold uppercase tracking-wide text-emerald-700 shadow-sm backdrop-blur text-center">
-                Ledger-first
-                <span className="text-gray-600 font-normal normal-case tracking-normal">
-                  Built for Indian Businesses
-                </span>
+              <div className="inline-flex items-center justify-center self-center rounded-full border border-gray-200 bg-white/90 px-4 py-1.5 text-[11px] font-semibold uppercase tracking-wide text-emerald-700 shadow-sm backdrop-blur">
+                Whole business, one place
               </div>
               <h1 className="text-4xl font-bold leading-[1.08] text-gray-900 sm:text-5xl lg:text-6xl">
-                Master your Cashflow with EasyRakh
+                See your entire business at a glance with EasyRakh
               </h1>
-              <p className="text-base text-gray-600 sm:text-lg md:max-w-2xl">
-                Track credits, debits, and daily cash in minutes. No more messy spreadsheets or pen & paper—just a clean ledger that keeps your cashflow clear and your team aligned.
+              <p className="text-base text-gray-600 sm:text-lg md:max-w-2xl leading-relaxed">
+                Khata, daily cash, GST invoices, and your dashboard—together in one workspace, so you always know how the business stands.
               </p>
               <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:gap-4">
                 <Button
