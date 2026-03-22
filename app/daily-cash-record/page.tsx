@@ -6,7 +6,6 @@ import { format, parse } from 'date-fns';
 import toast from 'react-hot-toast';
 import { useQueryClient } from '@tanstack/react-query';
 import { Calendar } from '@/components/ui/calendar';
-import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -476,13 +475,17 @@ export default function DailyCashRecordPage() {
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-gray-50 p-6">
+      <div className="min-h-screen bg-slate-50 px-3 py-3 sm:p-6">
         <div className="max-w-7xl mx-auto">
-          <Skeleton className="h-10 w-64 mb-6" />
-          <div className="space-y-4">
-            <Skeleton className="h-24" />
-            <Skeleton className="h-24" />
-            <Skeleton className="h-24" />
+          <Skeleton className="h-8 w-48 sm:h-10 sm:w-64 mb-4 sm:mb-6" />
+          <div className="grid grid-cols-2 gap-2 sm:flex sm:gap-3 mb-4">
+            <Skeleton className="h-10 sm:h-9" />
+            <Skeleton className="h-10 sm:h-9" />
+          </div>
+          <div className="grid grid-cols-1 max-sm:gap-0 gap-3 md:grid-cols-2 xl:grid-cols-3 md:gap-4">
+            <Skeleton className="h-[132px] rounded-none max-sm:border-b max-sm:border-slate-200/80 md:h-28 md:rounded-xl" />
+            <Skeleton className="h-[132px] rounded-none max-sm:border-b max-sm:border-slate-200/80 md:h-28 md:rounded-xl" />
+            <Skeleton className="h-[132px] rounded-none max-sm:border-b-0 max-sm:border-slate-200/80 md:h-28 md:rounded-xl" />
           </div>
         </div>
       </div>
@@ -490,15 +493,19 @@ export default function DailyCashRecordPage() {
   }
 
   return (
-    <div className="min-h-screen bg-gray-50 p-6">
+    <div className="min-h-screen bg-slate-50 px-3 py-3 pb-10 sm:p-6 sm:pb-8">
       <div className="max-w-7xl mx-auto">
-        {/* Title Section */}
-        <h1 className="text-3xl font-bold text-gray-900 mb-4">daily cash record</h1>
+        <header className="mb-3 sm:mb-5">
+          <h1 className="text-xl font-bold tracking-tight text-slate-900 sm:text-3xl">
+            Daily cash record
+          </h1>
+          <p className="mt-1 text-xs text-slate-500 sm:text-sm">
+            <span className="sm:hidden">Tap a day to view entries and add transactions</span>
+            <span className="hidden sm:inline">Select a day to view entries and add transactions</span>
+          </p>
+        </header>
 
-        <Separator className="mb-6" />
-
-        {/* Buttons Section */}
-        <div className="flex flex-col gap-3 mb-6 sm:flex-row sm:items-center">
+        <div className="grid grid-cols-2 gap-2 sm:flex sm:flex-row sm:items-center sm:gap-3 mb-4 sm:mb-6">
           <Dialog open={createNewRecordOpen} onOpenChange={(open) => {
             setCreateNewRecordOpen(open);
             if (!open) { setShowCreateCalendar(false); resetBillState(); }
@@ -506,10 +513,11 @@ export default function DailyCashRecordPage() {
             <DialogTrigger asChild>
               <Button
                 onClick={handleCreateRecordForToday}
-                variant="outline"
-                className="rounded-lg w-full sm:w-auto"
+                variant="default"
+                className="h-10 w-full rounded-lg bg-slate-900 text-white hover:bg-slate-800 sm:h-9 sm:w-auto sm:shrink-0 text-xs sm:text-sm px-2 sm:px-4"
               >
-                create new record for today
+                <Plus className="h-3.5 w-3.5 sm:h-4 sm:w-4 sm:mr-2 shrink-0" />
+                <span className="truncate">New for today</span>
               </Button>
             </DialogTrigger>
             <DialogContent className="max-w-[90vw] sm:max-w-md max-h-[90vh] overflow-y-auto">
@@ -636,10 +644,10 @@ export default function DailyCashRecordPage() {
             <DialogTrigger asChild>
               <Button
                 variant="outline"
-                className="rounded-lg w-full sm:w-auto"
+                className="h-10 w-full rounded-lg border-slate-200 bg-white sm:h-9 sm:w-auto sm:shrink-0 text-xs sm:text-sm px-2 sm:px-4"
               >
-                <CalendarIcon className="h-4 w-4 mr-2" />
-                select date to prev records
+                <CalendarIcon className="h-3.5 w-3.5 sm:h-4 sm:w-4 sm:mr-2 shrink-0" />
+                <span className="truncate">Open by date</span>
               </Button>
             </DialogTrigger>
             <DialogContent className="max-w-2xl">
@@ -671,83 +679,73 @@ export default function DailyCashRecordPage() {
           </Dialog>
         </div>
 
-        <Separator className="mb-6" />
+        <Separator className="mb-4 sm:mb-6 bg-slate-200/80" />
 
-        {/* Records Display Section */}
-        <div className="mt-8">
-          <div className="rounded-lg border bg-white p-6 min-h-[400px] shadow-sm">
+        {/* Records list — edge-to-edge on mobile; same flat layout on desktop (no outer frame) */}
+        <section className="mt-0 -mx-3 sm:mx-0 sm:mt-2">
             {summaryRecords.length > 0 ? (
               <>
-                <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4 mb-6">
+                <div className="grid grid-cols-1 max-sm:gap-0 gap-3 sm:mb-6 md:grid-cols-2 md:gap-4 xl:grid-cols-3">
                   {summaryRecords.map((record, index) => (
                     <motion.div
                       key={record.id}
-                      initial={{ opacity: 0, y: 20 }}
+                      initial={{ opacity: 0, y: 12 }}
                       animate={{ opacity: 1, y: 0 }}
-                      transition={{ duration: 0.3, delay: index * 0.05 }}
+                      transition={{ duration: 0.25, delay: index * 0.04 }}
                     >
-                      <Card
-                        className="group hover:shadow-2xl transition-all duration-300 cursor-pointer rounded-2xl border-2 border-gray-100 hover:border-blue-200 overflow-hidden bg-gradient-to-br from-white to-gray-50 hover:scale-[1.02]"
+                      <button
+                        type="button"
                         onClick={() => handleViewRecord(record)}
+                        className={`group w-full text-left bg-white transition-colors max-sm:border-b max-sm:border-slate-200/90 max-sm:rounded-none hover:bg-slate-50/90 active:bg-slate-50 sm:rounded-xl sm:border sm:border-slate-200/90 sm:shadow-sm sm:hover:border-slate-300 sm:hover:shadow-md ${
+                          index === summaryRecords.length - 1 ? 'max-sm:border-b-0' : ''
+                        }`}
                       >
-                        <CardContent className="p-5 sm:p-6">
-                          <div className="space-y-4">
-                            {/* Date Header */}
-                            <div className="flex items-center justify-between pb-3 border-b-2 border-gray-200">
-                              <div className="flex items-center gap-2">
-                                <CalendarIcon className="h-5 w-5 text-blue-600" />
-                                <span className="text-lg font-bold text-gray-900">{record.date}</span>
-                              </div>
-                              <div className="bg-blue-100 text-blue-700 text-xs font-semibold px-3 py-1 rounded-full">
-                                {record.entryCount} {record.entryCount === 1 ? 'entry' : 'entries'}
-                              </div>
-                            </div>
-
-                            {/* Money Stats */}
-                            <div className="space-y-3">
-                              {/* Money In */}
-                              <div className="flex items-center justify-between p-3 bg-green-50 rounded-xl border border-green-100">
-                                <div className="flex items-center gap-2">
-                                  <div className="w-2 h-2 rounded-full bg-green-500"></div>
-                                  <span className="text-sm font-semibold text-green-700">Money In</span>
-                                </div>
-                                <span className="font-bold text-green-700 text-base">
-                                  {formatCurrency(record.totalIn)}
-                                </span>
-                              </div>
-
-                              {/* Money Out */}
-                              <div className="flex items-center justify-between p-3 bg-red-50 rounded-xl border border-red-100">
-                                <div className="flex items-center gap-2">
-                                  <div className="w-2 h-2 rounded-full bg-red-500"></div>
-                                  <span className="text-sm font-semibold text-red-700">Money Out</span>
-                                </div>
-                                <span className="font-bold text-red-700 text-base">
-                                  {formatCurrency(record.totalOut)}
-                                </span>
-                              </div>
-                            </div>
-
-                            {/* Total Left */}
-                            <div className={`flex items-center justify-between p-4 rounded-xl border-2 ${
-                              record.totalLeft >= 0 
-                                ? 'bg-gradient-to-r from-green-100 to-emerald-100 border-green-300' 
-                                : 'bg-gradient-to-r from-red-100 to-rose-100 border-red-300'
-                            }`}>
-                              <span className="text-sm font-bold text-gray-800">Total Balance</span>
-                              <span className={`font-black text-xl ${
-                                record.totalLeft >= 0 ? 'text-green-700' : 'text-red-700'
-                              }`}>
-                                {formatCurrency(record.totalLeft)}
+                        <div className="px-3 pt-2.5 pb-2 sm:px-4 sm:pt-4 sm:pb-3 max-sm:px-3.5">
+                          <div className="flex items-center justify-between gap-2">
+                            <div className="flex min-w-0 items-center gap-2">
+                              <CalendarIcon className="h-4 w-4 shrink-0 text-slate-400 sm:h-5 sm:w-5" />
+                              <span className="truncate text-sm font-semibold tabular-nums text-slate-900 sm:text-base">
+                                {record.date}
                               </span>
                             </div>
+                            <span className="shrink-0 rounded-md bg-slate-100 px-2 py-0.5 text-[11px] font-medium text-slate-600 sm:text-xs">
+                              {record.entryCount} {record.entryCount === 1 ? 'entry' : 'entries'}
+                            </span>
                           </div>
-                        </CardContent>
-                      </Card>
+                        </div>
+                        <div className="mx-3 mb-2.5 overflow-hidden rounded-lg border border-slate-100 max-sm:mx-3.5 sm:mx-4 sm:mb-4">
+                          <div className="flex items-center justify-between gap-2 bg-emerald-50/80 px-2.5 py-2 text-sm sm:px-3">
+                            <span className="font-medium text-emerald-800">In</span>
+                            <span className="font-semibold tabular-nums text-emerald-800">
+                              {formatCurrency(record.totalIn)}
+                            </span>
+                          </div>
+                          <div className="flex items-center justify-between gap-2 border-t border-slate-100 bg-white px-2.5 py-2 text-sm sm:px-3">
+                            <span className="font-medium text-rose-800">Out</span>
+                            <span className="font-semibold tabular-nums text-rose-800">
+                              {formatCurrency(record.totalOut)}
+                            </span>
+                          </div>
+                          <div
+                            className={`flex items-center justify-between gap-2 border-t-2 px-2.5 py-2.5 text-sm sm:px-3 sm:py-3 ${
+                              record.totalLeft >= 0
+                                ? 'border-emerald-200 bg-slate-900 text-white'
+                                : 'border-rose-300 bg-rose-950 text-white'
+                            }`}
+                          >
+                            <span className="text-xs font-semibold uppercase tracking-wide text-white/90 sm:text-sm sm:normal-case sm:tracking-normal">
+                              Balance
+                            </span>
+                            <span className="text-base font-bold tabular-nums sm:text-lg">
+                              {formatCurrency(record.totalLeft)}
+                            </span>
+                          </div>
+                        </div>
+                      </button>
                     </motion.div>
                   ))}
                 </div>
-                <div className="flex justify-end mt-6">
+                <div className="mt-4 flex justify-end border-t border-slate-200/80 pt-4 max-sm:mt-1 max-sm:bg-slate-50/80 max-sm:px-3 max-sm:py-3 sm:mt-6">
                   {pagination && (
                     <Pagination
                       currentPage={pagination.currentPage}
@@ -758,13 +756,15 @@ export default function DailyCashRecordPage() {
                 </div>
               </>
             ) : (
-              <div className="text-center py-16 text-gray-500">
-                <p className="text-lg mb-2">prev days recent records in</p>
-                <p className="text-sm">pagination</p>
+              <div className="text-center py-12 px-4 text-slate-500 sm:py-16">
+                <CalendarIcon className="mx-auto mb-3 h-10 w-10 text-slate-300" />
+                <p className="text-base font-medium text-slate-700">No daily records yet</p>
+                <p className="mt-1 text-sm text-slate-500">
+                  Use <span className="font-medium text-slate-600">New for today</span> to add your first entry.
+                </p>
               </div>
             )}
-          </div>
-        </div>
+        </section>
 
         {/* View Record Dialog */}
         <Dialog open={viewRecordOpen} onOpenChange={setViewRecordOpen}>

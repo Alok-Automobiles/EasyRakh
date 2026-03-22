@@ -6,7 +6,7 @@ import { useState } from 'react';
 
 export default function Contact() {
   const [copied, setCopied] = useState(false);
-  const email = 'cenationrishi31@gmail.com';
+  const email = 'support@easyrakh.com';
 
   const handleCopyEmail = (e: React.MouseEvent) => {
     e.preventDefault();
@@ -20,7 +20,7 @@ export default function Contact() {
   return (
     <section
       id="contact"
-      className="py-20 sm:py-24 bg-(--brand-bg)"
+      className="py-20 sm:py-24 bg-(--brand-bg) scroll-mt-28"
     >
       <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-10">
         <div className="rounded-2xl bg-white/80 border border-gray-100 shadow-lg backdrop-blur-sm px-6 sm:px-10 py-10 sm:py-12 flex flex-col gap-6 sm:gap-8">

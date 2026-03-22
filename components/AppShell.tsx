@@ -10,14 +10,15 @@ type AppShellProps = {
 
 export default function AppShell({ children }: AppShellProps) {
   const pathname = usePathname();
-  const isLanding = pathname === '/';
+  const isMarketingPage =
+    pathname === '/' || pathname === '/about' || pathname === '/privacy' || pathname === '/terms';
   const isAuthPage =
     pathname === '/login' ||
     pathname === '/register' ||
     pathname.startsWith('/forgot-password');
   const sidebarWidth = '16rem';
 
-  if (isLanding) {
+  if (isMarketingPage) {
     return <>{children}</>;
   }
 

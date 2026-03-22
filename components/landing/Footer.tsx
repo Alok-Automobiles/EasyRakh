@@ -2,10 +2,16 @@
 
 import React from 'react';
 import Link from 'next/link';
+import { usePathname } from 'next/navigation';
 import { Twitter, Github, Linkedin } from 'lucide-react';
 import Image from 'next/image';
 
 export default function Footer() {
+    const pathname = usePathname();
+    const featuresHref = pathname === '/' ? '#features' : '/#features';
+    const pricingHref = pathname === '/' ? '#pricing' : '/#pricing';
+    const contactHref = pathname === '/' ? '#contact' : '/#contact';
+
     return (
         <footer
             className="relative w-full bg-white border-t border-gray-100 pt-16 pb-6 sm:pb-0 overflow-hidden z-0"
@@ -46,22 +52,22 @@ export default function Footer() {
                             <div>
                                 <h4 className="font-semibold text-gray-900 mb-6">Product</h4>
                                 <ul className="space-y-4">
-                                    <li><Link href="#" className="text-gray-500 hover:text-(--brand-green)">Features</Link></li>
-                                    <li><Link href="#" className="text-gray-500 hover:text-(--brand-green)">Pricing</Link></li>
+                                    <li><Link href={featuresHref} className="text-gray-500 hover:text-(--brand-green)">Features</Link></li>
+                                    <li><Link href={pricingHref} className="text-gray-500 hover:text-(--brand-green)">Pricing</Link></li>
                                 </ul>
                             </div>
                             <div>
                                 <h4 className="font-semibold text-gray-900 mb-6">Company</h4>
                                 <ul className="space-y-4">
-                                    <li><Link href="#" className="text-gray-500 hover:text-(--brand-green)">About</Link></li>
-                                    <li><Link href="#" className="text-gray-500 hover:text-(--brand-green)">Contact</Link></li>
+                                    <li><Link href="/about" className="text-gray-500 hover:text-(--brand-green)">About</Link></li>
+                                    <li><Link href={contactHref} className="text-gray-500 hover:text-(--brand-green)">Contact</Link></li>
                                 </ul>
                             </div>
                             <div>
                                 <h4 className="font-semibold text-gray-900 mb-6">Legal</h4>
                                 <ul className="space-y-4">
-                                    <li><Link href="#" className="text-gray-500 hover:text-(--brand-green)">Privacy</Link></li>
-                                    <li><Link href="#" className="text-gray-500 hover:text-(--brand-green)">Terms</Link></li>
+                                    <li><Link href="/privacy" className="text-gray-500 hover:text-(--brand-green)">Privacy</Link></li>
+                                    <li><Link href="/terms" className="text-gray-500 hover:text-(--brand-green)">Terms</Link></li>
                                 </ul>
                             </div>
                         </div>
