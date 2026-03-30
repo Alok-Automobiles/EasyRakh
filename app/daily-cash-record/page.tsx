@@ -28,7 +28,7 @@ import {
 } from '@/components/ui/dialog';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Skeleton } from '@/components/ui/skeleton';
-import { Edit2, CalendarIcon, Plus, Upload, FileText, X } from 'lucide-react';
+import { Edit2, CalendarIcon, Plus, Upload, FileText, X, Download } from 'lucide-react';
 import Image from 'next/image';
 import { compressImage, isCompressibleImage, formatFileSize } from '@/lib/imageCompression';
 import { motion } from 'motion/react'
@@ -101,6 +101,12 @@ export default function DailyCashRecordPage() {
   const [showCreateCalendar, setShowCreateCalendar] = useState(false);
   const [showAddTransactionCalendar, setShowAddTransactionCalendar] = useState(false);
   const [showEditCalendar, setShowEditCalendar] = useState(false);
+
+  // PDF download state
+  const [pdfDialogOpen, setPdfDialogOpen] = useState(false);
+  const [pdfFrom, setPdfFrom] = useState('');
+  const [pdfTo, setPdfTo] = useState('');
+  const [pdfDownloading, setPdfDownloading] = useState(false);
 
   // Bill upload state
   const [billPreviewUrl, setBillPreviewUrl] = useState<string>('');
@@ -469,6 +475,45 @@ export default function DailyCashRecordPage() {
     }).format(amount);
   };
 
+  const handleDownloadPdf = async () => {
+    if (!pdfFrom || !pdfTo) {
+      toast.error('Please select both From and To dates');
+      return;
+    }
+    if (pdfFrom > pdfTo) {
+      toast.error('From date must be before To date');
+      return;
+    }
+    setPdfDownloading(true);
+    try {
+      const res = await fetch(`/api/daily-cash-records/export-pdf?from=${pdfFrom}&to=${pdfTo}`);
+      if (res.status === 401) {
+        router.push('/login');
+        return;
+      }
+      if (!res.ok) {
+        const err = await res.json();
+        throw new Error(err.error || 'Failed to generate PDF');
+      }
+      const blob = await res.blob();
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `Cash_Report_${pdfFrom}_to_${pdfTo}.pdf`;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+      toast.success('PDF downloaded!');
+      setPdfDialogOpen(false);
+    } catch (error) {
+      console.error('PDF download error:', error);
+      toast.error(error instanceof Error ? error.message : 'Failed to download PDF');
+    } finally {
+      setPdfDownloading(false);
+    }
+  };
+
   const handlePageChange = (newPage: number) => {
     setCurrentPage(newPage);
   };
@@ -674,6 +719,65 @@ export default function DailyCashRecordPage() {
                   }}
                   className="rounded-md border"
                 />
+              </div>
+            </DialogContent>
+          </Dialog>
+
+          <Dialog open={pdfDialogOpen} onOpenChange={(open) => {
+            setPdfDialogOpen(open);
+            if (!open) { setPdfFrom(''); setPdfTo(''); }
+          }}>
+            <DialogTrigger asChild>
+              <Button
+                variant="outline"
+                className="h-10 w-full rounded-lg border-slate-200 bg-white sm:h-9 sm:w-auto sm:shrink-0 text-xs sm:text-sm px-2 sm:px-4 col-span-2 sm:col-span-1"
+              >
+                <Download className="h-3.5 w-3.5 sm:h-4 sm:w-4 sm:mr-2 shrink-0" />
+                <span className="truncate">Download PDF</span>
+              </Button>
+            </DialogTrigger>
+            <DialogContent className="max-w-[90vw] sm:max-w-sm">
+              <DialogHeader>
+                <DialogTitle>Download Cash Report</DialogTitle>
+              </DialogHeader>
+              <div className="space-y-4 py-4">
+                <p className="text-sm text-slate-500">
+                  Select a date range to download all transactions as a PDF.
+                </p>
+                <div>
+                  <Label htmlFor="pdf-from">From Date</Label>
+                  <Input
+                    id="pdf-from"
+                    type="date"
+                    value={pdfFrom}
+                    max={format(new Date(), 'yyyy-MM-dd')}
+                    onChange={(e) => {
+                      setPdfFrom(e.target.value);
+                      if (pdfTo && e.target.value > pdfTo) setPdfTo('');
+                    }}
+                    className="mt-1.5"
+                  />
+                </div>
+                <div>
+                  <Label htmlFor="pdf-to">To Date</Label>
+                  <Input
+                    id="pdf-to"
+                    type="date"
+                    value={pdfTo}
+                    min={pdfFrom || undefined}
+                    max={format(new Date(), 'yyyy-MM-dd')}
+                    onChange={(e) => setPdfTo(e.target.value)}
+                    className="mt-1.5"
+                  />
+                </div>
+                <Button
+                  onClick={handleDownloadPdf}
+                  disabled={!pdfFrom || !pdfTo || pdfDownloading}
+                  className="w-full bg-slate-900 hover:bg-slate-800 text-white"
+                >
+                  <Download className="h-4 w-4 mr-2" />
+                  {pdfDownloading ? 'Generating...' : 'Download PDF'}
+                </Button>
               </div>
             </DialogContent>
           </Dialog>
