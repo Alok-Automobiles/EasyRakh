@@ -54,6 +54,9 @@ import {
   FileText,
   X,
   Calendar as CalendarIcon,
+  CalendarRange,
+  ChevronLeft,
+  ChevronRight,
 } from 'lucide-react';
 import { compressImage, isCompressibleImage, formatFileSize } from '@/lib/imageCompression';
 import GlobalSearch from '@/components/GlobalSearch';
@@ -156,6 +159,8 @@ const itemVariants = {
     },
   },
 };
+
+type FilterMode = 'month' | 'dateRange';
 
 type SalesTooltipPoint = {
   label: string;
@@ -371,21 +376,33 @@ export default function DashboardClient({
   const activitiesPerPage = 5;
 
   const currentMonthKey = format(new Date(), 'yyyy-MM');
+  const [filterMode, setFilterMode] = useState<FilterMode>('month');
   const [selectedMonth, setSelectedMonth] = useState(currentMonthKey);
   const [monthPickerOpen, setMonthPickerOpen] = useState(false);
+  const [monthPickerYear, setMonthPickerYear] = useState(new Date().getFullYear());
   const monthPickerRef = useRef<HTMLDivElement>(null);
+
+  const [dateRangeFrom, setDateRangeFrom] = useState<Date | undefined>(undefined);
+  const [dateRangeTo, setDateRangeTo] = useState<Date | undefined>(undefined);
+  const [dateRangePickerOpen, setDateRangePickerOpen] = useState(false);
+  const [tempFrom, setTempFrom] = useState<Date | undefined>(undefined);
+  const [tempTo, setTempTo] = useState<Date | undefined>(undefined);
+  const dateRangePickerRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     const handleClickOutside = (e: MouseEvent) => {
       if (monthPickerRef.current && !monthPickerRef.current.contains(e.target as Node)) {
         setMonthPickerOpen(false);
       }
+      if (dateRangePickerRef.current && !dateRangePickerRef.current.contains(e.target as Node)) {
+        setDateRangePickerOpen(false);
+      }
     };
-    if (monthPickerOpen) {
+    if (monthPickerOpen || dateRangePickerOpen) {
       document.addEventListener('mousedown', handleClickOutside);
       return () => document.removeEventListener('mousedown', handleClickOutside);
     }
-  }, [monthPickerOpen]);
+  }, [monthPickerOpen, dateRangePickerOpen]);
 
   const [billPreviewUrl, setBillPreviewUrl] = useState('');
   const [billUploadedUrl, setBillUploadedUrl] = useState('');
@@ -453,13 +470,26 @@ export default function DashboardClient({
     }
   };
 
-  const isViewingCurrentMonth = selectedMonth === format(new Date(), 'yyyy-MM');
-  const dashboardQueryKey = ['dashboard', { month: isViewingCurrentMonth ? null : selectedMonth }] as const;
+  const isViewingCurrentMonth = filterMode === 'month' && selectedMonth === format(new Date(), 'yyyy-MM');
+  const isDateRangeActive = filterMode === 'dateRange' && dateRangeFrom && dateRangeTo;
+
+  const dateRangeKey = isDateRangeActive
+    ? `${format(dateRangeFrom!, 'yyyy-MM-dd')}_${format(dateRangeTo!, 'yyyy-MM-dd')}`
+    : null;
+
+  const dashboardQueryKey = filterMode === 'dateRange'
+    ? ['dashboard', { dateRange: dateRangeKey }] as const
+    : ['dashboard', { month: isViewingCurrentMonth ? null : selectedMonth }] as const;
   const currentDashboardQueryKey = ['dashboard', { month: null }] as const;
 
   const buildStatsUrl = () => {
     const base = '/api/dashboard/stats';
-    if (!isViewingCurrentMonth && selectedMonth) {
+    if (filterMode === 'dateRange' && dateRangeFrom && dateRangeTo) {
+      const from = format(dateRangeFrom, 'yyyy-MM-dd');
+      const to = format(dateRangeTo, 'yyyy-MM-dd');
+      return `${base}?from=${encodeURIComponent(from)}&to=${encodeURIComponent(to)}`;
+    }
+    if (filterMode === 'month' && !isViewingCurrentMonth && selectedMonth) {
       return `${base}?month=${encodeURIComponent(selectedMonth)}`;
     }
     return base;
@@ -484,13 +514,13 @@ export default function DashboardClient({
     initialDataUpdatedAt: isViewingCurrentMonth ? initialDataTime : undefined,
     staleTime: 2 * 60 * 1000,
     refetchOnMount: isViewingCurrentMonth && initialDataTime ? false : true,
-    enabled: true,
+    enabled: filterMode === 'month' || (filterMode === 'dateRange' && !!dateRangeFrom && !!dateRangeTo),
   });
 
   const currentDashboardData = queryClient.getQueryData<DashboardResponse>(currentDashboardQueryKey);
   const stats = data?.stats || defaultStats;
   const loading = isLoading && !data && isViewingCurrentMonth;
-  const periodSectionLoading = (isLoading || isFetching) && !data && !isViewingCurrentMonth;
+  const periodSectionLoading = (isLoading || isFetching) && !data && (!isViewingCurrentMonth || isDateRangeActive);
   const todayCash = periodSectionLoading && currentDashboardData?.stats?.todayCash
     ? currentDashboardData.stats.todayCash
     : stats.todayCash;
@@ -930,70 +960,226 @@ export default function DashboardClient({
           />
         </div>
 
-        <div className="grid gap-3 sm:gap-4 lg:gap-6 lg:grid-cols-5 lg:items-stretch lg:grid-rows-[380px] min-w-0 overflow-hidden">
-          <motion.div variants={itemVariants} className="lg:col-span-3 flex flex-col min-h-[320px] sm:min-h-[360px] lg:h-[380px] min-w-0">
+        <div className="grid gap-3 sm:gap-4 lg:gap-6 lg:grid-cols-5 lg:items-stretch lg:grid-rows-[auto] min-w-0 overflow-hidden">
+          <motion.div variants={itemVariants} className="lg:col-span-3 flex flex-col min-h-[320px] sm:min-h-[360px] min-w-0">
             <Card className="p-3 sm:p-4 lg:p-6 flex flex-col flex-1 min-h-0 overflow-hidden">
-              <div className="flex flex-col sm:flex-row sm:flex-nowrap items-stretch sm:items-center justify-between gap-2 sm:gap-3 lg:gap-4 mb-3 sm:mb-4 lg:mb-6 shrink-0 min-w-0">
-                <div className="min-w-0 flex-1">
-                  <p className="text-[10px] sm:text-xs font-medium text-gray-500 uppercase tracking-wider truncate">
-                    {periodLabel ? 'Sales trend' : '30-Day Trend'}
-                  </p>
-                  <h3 className="text-base sm:text-lg lg:text-xl font-bold text-gray-900 mt-0.5 sm:mt-1 truncate" title={periodLabel ? `Monthly Sales Overview – ${periodLabel}` : 'Monthly Sales Overview'}>
-                    Monthly Sales Overview{periodLabel ? ` – ${periodLabel}` : ''}
-                  </h3>
-                </div>
-                <div className="flex flex-nowrap items-center gap-2 sm:gap-3 lg:gap-4 w-full sm:w-auto min-w-0 relative" ref={monthPickerRef}>
-                  <button
-                    type="button"
-                    onClick={() => setMonthPickerOpen((o) => !o)}
-                    className="flex items-center gap-1.5 h-8 sm:h-9 pl-2.5 sm:pl-3 pr-2.5 sm:pr-3 rounded-lg border border-gray-300 bg-white text-xs sm:text-sm font-medium text-gray-700 hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-gray-300 focus:ring-offset-1 shrink-0 cursor-pointer min-w-[130px] sm:min-w-[145px] max-w-[160px] sm:max-w-[175px]"
-                    title="Change month for chart and summary"
-                    aria-label="Select month for chart and summary"
-                    aria-expanded={monthPickerOpen}
-                  >
-                    <CalendarIcon className="w-4 h-4 text-gray-500 shrink-0" />
-                    <span className="truncate">{format(new Date(selectedMonth + '-01'), 'MMMM yyyy')}</span>
-                    <span className="text-gray-400 shrink-0 ml-0.5">▼</span>
-                  </button>
-                  {monthPickerOpen && (
-                    <div className="absolute top-full left-0 mt-2 z-50 bg-white rounded-xl border border-gray-200 shadow-lg p-2 w-fit">
-                      <Calendar
-                        mode="single"
-                        defaultMonth={new Date(selectedMonth + '-01')}
-                        selected={new Date(selectedMonth + '-01')}
-                        onSelect={(date) => {
-                          if (date) {
-                            setSelectedMonth(format(date, 'yyyy-MM'));
-                            setMonthPickerOpen(false);
-                          }
-                        }}
-                        className="rounded-lg border-0 shadow-none p-0 w-full [--cell-size:1.75rem] text-sm"
-                        classNames={{
-                          root: '!p-0',
-                          months: '!gap-0',
-                          month: '!gap-1',
-                          month_caption: '!h-8 !px-6',
-                          caption_label: '!text-sm !font-semibold !text-slate-800',
-                          nav: '!inset-x-0',
-                          button_previous: '!size-7 !min-w-7 hover:!bg-slate-100 !text-slate-600 rounded-md',
-                          button_next: '!size-7 !min-w-7 hover:!bg-slate-100 !text-slate-600 rounded-md',
-                          weekdays: '!gap-0 !mb-1',
-                          weekday: '!text-[10px] !font-medium !text-slate-500 !w-[1.75rem]',
-                          week: '!gap-0 !mt-0.5',
-                          day: '[&_button]:!text-xs [&_button]:!min-w-[1.75rem] [&_button]:!h-[1.75rem] [&_button[data-selected-single=true]]:!bg-slate-900 [&_button[data-selected-single=true]]:!text-white [&_button[data-selected-single=true]]:hover:!bg-slate-800 [&_button]:rounded-md',
-                          today: '[&_button]:!bg-slate-100 [&_button]:!text-slate-800 [&_button]:!font-medium [&_button]:!border-slate-200',
-                          outside: '[&_button]:!text-slate-300',
-                        }}
-                      />
-                    </div>
-                  )}
-                  <div className="flex items-center gap-1 sm:gap-1.5 text-[10px] sm:text-xs shrink-0">
-                    <div className="w-2 h-2 sm:w-2.5 sm:h-2.5 rounded-full bg-green-700" />
-                    <span className="text-gray-600 whitespace-nowrap">Cash In</span>
+              {/* Filter Mode Toggle + Filters */}
+              <div className="flex flex-col gap-3 sm:gap-4 mb-3 sm:mb-4 lg:mb-6 shrink-0 min-w-0">
+                {/* Row 1: Title + Filter Mode Toggle */}
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 sm:gap-3 min-w-0">
+                  <div className="min-w-0 flex-1">
+                    <p className="text-[10px] sm:text-xs font-medium text-gray-500 uppercase tracking-wider truncate">
+                      {periodLabel ? 'Sales trend' : '30-Day Trend'}
+                    </p>
+                    <h3 className="text-base sm:text-lg lg:text-xl font-bold text-gray-900 mt-0.5 sm:mt-1 truncate" title={periodLabel ? `Cash Flow Overview – ${periodLabel}` : 'Cash Flow Overview'}>
+                      Cash Flow Overview{periodLabel ? ` – ${periodLabel}` : ''}
+                    </h3>
                   </div>
-                  <div className="flex items-center gap-1 sm:gap-1.5 text-[10px] sm:text-xs shrink-0">
-                    <div className="w-2 h-2 sm:w-2.5 sm:h-2.5 rounded-full bg-red-700" />
-                    <span className="text-gray-600 whitespace-nowrap">Cash Out</span>
+                  <div className="flex rounded-lg bg-gray-100 p-0.5 border border-gray-200 shrink-0 self-start sm:self-auto relative" ref={monthPickerRef}>
+                    <button
+                      onClick={() => {
+                        if (filterMode === 'month') {
+                          setMonthPickerOpen((o) => !o);
+                        } else {
+                          setFilterMode('month');
+                        }
+                      }}
+                      className={`flex items-center gap-1.5 px-2.5 sm:px-3 py-1.5 sm:py-2 rounded-md text-xs sm:text-sm font-medium transition-all cursor-pointer ${
+                        filterMode === 'month'
+                          ? 'bg-white shadow-sm text-slate-900'
+                          : 'text-gray-500 hover:text-gray-700'
+                      }`}
+                      aria-expanded={filterMode === 'month' && monthPickerOpen}
+                      title="Select month"
+                    >
+                      <CalendarIcon className="w-3.5 h-3.5" />
+                      <span className="truncate">{format(new Date(selectedMonth + '-01'), 'MMM yyyy')}</span>
+                      {filterMode === 'month' && <span className="text-gray-400 shrink-0 ml-0.5 text-[10px]">▼</span>}
+                    </button>
+                    <div className="relative" ref={dateRangePickerRef}>
+                      <button
+                        onClick={() => {
+                          setTempFrom(dateRangeFrom);
+                          setTempTo(dateRangeTo);
+                          setDateRangePickerOpen((o) => !o);
+                          setMonthPickerOpen(false);
+                        }}
+                        className={`flex items-center gap-1.5 px-2.5 sm:px-3 py-1.5 sm:py-2 rounded-md text-xs sm:text-sm font-medium transition-all cursor-pointer ${
+                          filterMode === 'dateRange'
+                            ? 'bg-white shadow-sm text-slate-900'
+                            : 'text-gray-500 hover:text-gray-700'
+                        }`}
+                      >
+                        <CalendarRange className="w-3.5 h-3.5" />
+                        {filterMode === 'dateRange' && dateRangeFrom && dateRangeTo
+                          ? `${format(dateRangeFrom, 'dd MMM')} – ${format(dateRangeTo, 'dd MMM')}`
+                          : 'Date Range'
+                        }
+                        <span className="text-gray-400 shrink-0 ml-0.5 text-[10px]">▼</span>
+                      </button>
+                      {dateRangePickerOpen && (
+                        <div className="fixed inset-x-0 top-1/3 mx-auto sm:absolute sm:inset-auto sm:top-full sm:right-0 sm:mx-0 mt-0 sm:mt-2 z-50 bg-white rounded-xl border border-gray-200 shadow-xl p-4 w-[260px]">
+                          <p className="text-xs font-semibold text-slate-800 mb-3">Select Date Range</p>
+                          <div className="space-y-3">
+                            <div>
+                              <label className="text-[10px] font-medium text-gray-500 uppercase tracking-wider mb-1 block">From</label>
+                              <input
+                                type="date"
+                                value={tempFrom ? format(tempFrom, 'yyyy-MM-dd') : ''}
+                                max={format(new Date(), 'yyyy-MM-dd')}
+                                onChange={(e) => {
+                                  const val = e.target.value;
+                                  if (val) {
+                                    const d = new Date(val + 'T00:00:00');
+                                    setTempFrom(d);
+                                    if (tempTo && d > tempTo) setTempTo(undefined);
+                                  } else {
+                                    setTempFrom(undefined);
+                                  }
+                                }}
+                                className="w-full h-9 px-3 rounded-lg border border-gray-300 bg-white text-sm text-gray-700 focus:outline-none focus:ring-2 focus:ring-slate-300 focus:border-slate-400"
+                              />
+                            </div>
+                            <div>
+                              <label className="text-[10px] font-medium text-gray-500 uppercase tracking-wider mb-1 block">To</label>
+                              <input
+                                type="date"
+                                value={tempTo ? format(tempTo, 'yyyy-MM-dd') : ''}
+                                min={tempFrom ? format(tempFrom, 'yyyy-MM-dd') : undefined}
+                                max={format(new Date(), 'yyyy-MM-dd')}
+                                onChange={(e) => {
+                                  const val = e.target.value;
+                                  if (val) {
+                                    setTempTo(new Date(val + 'T00:00:00'));
+                                  } else {
+                                    setTempTo(undefined);
+                                  }
+                                }}
+                                className="w-full h-9 px-3 rounded-lg border border-gray-300 bg-white text-sm text-gray-700 focus:outline-none focus:ring-2 focus:ring-slate-300 focus:border-slate-400"
+                              />
+                            </div>
+                          </div>
+                          <div className="flex items-center justify-between mt-4 pt-3 border-t border-gray-100">
+                            {filterMode === 'dateRange' && (dateRangeFrom || dateRangeTo) ? (
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  setDateRangeFrom(undefined);
+                                  setDateRangeTo(undefined);
+                                  setTempFrom(undefined);
+                                  setTempTo(undefined);
+                                  setFilterMode('month');
+                                  setDateRangePickerOpen(false);
+                                }}
+                                className="text-[11px] text-gray-400 hover:text-red-500 transition-colors cursor-pointer"
+                              >
+                                Clear
+                              </button>
+                            ) : <span />}
+                            <div className="flex items-center gap-2">
+                              <button
+                                type="button"
+                                onClick={() => setDateRangePickerOpen(false)}
+                                className="px-3 py-1.5 rounded-lg text-xs font-medium text-gray-500 hover:bg-gray-100 transition-colors cursor-pointer"
+                              >
+                                Cancel
+                              </button>
+                              <button
+                                type="button"
+                                disabled={!tempFrom || !tempTo}
+                                onClick={() => {
+                                  if (tempFrom && tempTo) {
+                                    setDateRangeFrom(tempFrom);
+                                    setDateRangeTo(tempTo);
+                                    setFilterMode('dateRange');
+                                    setDateRangePickerOpen(false);
+                                  }
+                                }}
+                                className={`px-4 py-1.5 rounded-lg text-xs font-semibold transition-all cursor-pointer ${
+                                  tempFrom && tempTo
+                                    ? 'bg-slate-900 text-white hover:bg-slate-800'
+                                    : 'bg-gray-100 text-gray-400 cursor-not-allowed'
+                                }`}
+                              >
+                                Apply
+                              </button>
+                            </div>
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                    {monthPickerOpen && filterMode === 'month' && (
+                      <div className="absolute top-full left-0 mt-2 z-50 bg-white rounded-xl border border-gray-200 shadow-lg p-3 w-[220px]">
+                        {/* Year navigation */}
+                        <div className="flex items-center justify-between mb-3">
+                          <button
+                            type="button"
+                            onClick={() => setMonthPickerYear((y) => y - 1)}
+                            className="p-1 rounded-md hover:bg-slate-100 text-slate-600 cursor-pointer"
+                            aria-label="Previous year"
+                          >
+                            <ChevronLeft className="w-4 h-4" />
+                          </button>
+                          <span className="text-sm font-semibold text-slate-800">{monthPickerYear}</span>
+                          <button
+                            type="button"
+                            onClick={() => setMonthPickerYear((y) => y + 1)}
+                            className="p-1 rounded-md hover:bg-slate-100 text-slate-600 cursor-pointer"
+                            aria-label="Next year"
+                            disabled={monthPickerYear >= new Date().getFullYear()}
+                          >
+                            <ChevronRight className={`w-4 h-4 ${monthPickerYear >= new Date().getFullYear() ? 'opacity-30' : ''}`} />
+                          </button>
+                        </div>
+                        {/* Month grid */}
+                        <div className="grid grid-cols-3 gap-1.5">
+                          {['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'].map((monthName, idx) => {
+                            const monthKey = `${monthPickerYear}-${String(idx + 1).padStart(2, '0')}`;
+                            const isSelected = selectedMonth === monthKey;
+                            const isFuture = monthPickerYear > new Date().getFullYear() || (monthPickerYear === new Date().getFullYear() && idx > new Date().getMonth());
+                            const isCurrent = monthPickerYear === new Date().getFullYear() && idx === new Date().getMonth();
+                            return (
+                              <button
+                                key={monthKey}
+                                type="button"
+                                disabled={isFuture}
+                                onClick={() => {
+                                  setSelectedMonth(monthKey);
+                                  setMonthPickerOpen(false);
+                                }}
+                                className={`px-2 py-2 rounded-lg text-xs font-medium transition-all cursor-pointer ${
+                                  isSelected
+                                    ? 'bg-slate-900 text-white hover:bg-slate-800'
+                                    : isFuture
+                                    ? 'text-gray-300 cursor-not-allowed'
+                                    : isCurrent
+                                    ? 'bg-slate-100 text-slate-800 hover:bg-slate-200 border border-slate-200'
+                                    : 'text-slate-700 hover:bg-slate-100'
+                                }`}
+                              >
+                                {monthName}
+                              </button>
+                            );
+                          })}
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                </div>
+
+                {/* Row 2: Legend */}
+                <div className="flex flex-wrap items-center gap-2 sm:gap-3 min-w-0">
+
+                  {/* Legend */}
+                  <div className="flex items-center gap-2 sm:gap-3 ml-auto">
+                    <div className="flex items-center gap-1 sm:gap-1.5 text-[10px] sm:text-xs shrink-0">
+                      <div className="w-2 h-2 sm:w-2.5 sm:h-2.5 rounded-full bg-green-700" />
+                      <span className="text-gray-600 whitespace-nowrap">Cash In</span>
+                    </div>
+                    <div className="flex items-center gap-1 sm:gap-1.5 text-[10px] sm:text-xs shrink-0">
+                      <div className="w-2 h-2 sm:w-2.5 sm:h-2.5 rounded-full bg-red-700" />
+                      <span className="text-gray-600 whitespace-nowrap">Cash Out</span>
+                    </div>
                   </div>
                 </div>
               </div>
@@ -1060,15 +1246,15 @@ export default function DashboardClient({
             </Card>
           </motion.div>
 
-          <motion.div variants={itemVariants} className="lg:col-span-2 flex flex-col min-h-[320px] sm:min-h-[360px] lg:h-[380px] min-w-0">
+          <motion.div variants={itemVariants} className="lg:col-span-2 flex flex-col min-h-[320px] sm:min-h-[360px] min-w-0">
             <Card className="p-3 sm:p-4 lg:p-6 flex flex-col flex-1 min-h-0 overflow-hidden">
               <div className="flex items-center justify-between gap-2 mb-3 sm:mb-4 lg:mb-6 min-w-0">
                 <div className="min-w-0 flex-1">
                   <p className="text-[10px] sm:text-xs font-medium text-gray-500 uppercase tracking-wider truncate">
-                    {periodLabel ? 'Period' : 'This Month'}
+                    {periodLabel ? 'Period Summary' : 'This Month'}
                   </p>
-                  <h3 className="text-base sm:text-lg lg:text-xl font-bold text-gray-900 mt-0.5 sm:mt-1 truncate" title={periodLabel ? `Monthly Summary – ${periodLabel}` : 'Monthly Summary'}>
-                    Monthly Summary{periodLabel ? ` – ${periodLabel}` : ''}
+                  <h3 className="text-base sm:text-lg lg:text-xl font-bold text-gray-900 mt-0.5 sm:mt-1 truncate" title={periodLabel ? `Cash Summary – ${periodLabel}` : 'Cash Summary'}>
+                    Cash Summary{periodLabel ? ` – ${periodLabel}` : ''}
                   </h3>
                 </div>
                 {!periodSectionLoading && (
