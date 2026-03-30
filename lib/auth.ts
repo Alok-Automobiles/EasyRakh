@@ -1,7 +1,17 @@
 import { NextRequest } from 'next/server';
 import jwt from 'jsonwebtoken';
 
-const JWT_SECRET = process.env.JWT_SECRET || 'your-super-secret-jwt-key-change-this-in-production';
+function getJwtSecret(): string {
+  const secret = process.env.JWT_SECRET?.trim();
+
+  if (!secret) {
+    throw new Error('JWT_SECRET environment variable is required');
+  }
+
+  return secret;
+}
+
+const JWT_SECRET = getJwtSecret();
 
 export interface TokenPayload {
   userId: string;
@@ -9,12 +19,17 @@ export interface TokenPayload {
 }
 
 export function generateToken(payload: TokenPayload): string {
-  return jwt.sign(payload, JWT_SECRET, { expiresIn: '7d' });
+  return jwt.sign(payload, JWT_SECRET, {
+    algorithm: 'HS256',
+    expiresIn: '7d',
+  });
 }
 
 export function verifyToken(token: string): TokenPayload | null {
   try {
-    return jwt.verify(token, JWT_SECRET) as TokenPayload;
+    return jwt.verify(token, JWT_SECRET, {
+      algorithms: ['HS256'],
+    }) as TokenPayload;
   } catch (error) {
     return null;
   }
