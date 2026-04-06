@@ -29,6 +29,7 @@ import {
 import { Skeleton } from '@/components/ui/skeleton';
 import { motion } from 'motion/react'
 import PrintLedgerOverlay from '@/components/PrintLedgerOverlay';
+import { ASSISTANT_DATA_UPDATED_EVENT } from '@/lib/assistant-events';
 import { compressImage, isCompressibleImage, formatFileSize } from '@/lib/imageCompression';
 
 interface LedgerEntry {
@@ -174,6 +175,28 @@ export default function LedgerPage() {
     if (lastFetchedRef.current === fetchKey) return;
     lastFetchedRef.current = fetchKey;
     fetchLedger();
+  }, [entityId, entityType, fetchLedger]);
+
+  useEffect(() => {
+    const handleAssistantUpdate = (event: Event) => {
+      const detail = (event as CustomEvent).detail as
+        | { kind?: string; entityType?: string; entityId?: string }
+        | undefined;
+
+      if (
+        detail?.kind === 'ledger_transaction' &&
+        detail.entityType === entityType &&
+        detail.entityId === entityId
+      ) {
+        lastFetchedRef.current = '';
+        fetchLedger();
+      }
+    };
+
+    window.addEventListener(ASSISTANT_DATA_UPDATED_EVENT, handleAssistantUpdate);
+    return () => {
+      window.removeEventListener(ASSISTANT_DATA_UPDATED_EVENT, handleAssistantUpdate);
+    };
   }, [entityId, entityType, fetchLedger]);
 
   useEffect(() => {
