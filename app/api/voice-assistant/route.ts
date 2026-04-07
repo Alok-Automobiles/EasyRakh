@@ -4,12 +4,21 @@ import { NextRequest, NextResponse } from 'next/server';
 import { getUserIdFromRequest } from '@/lib/auth';
 import {
   VOICE_ASSISTANT_TOOLS,
+  buildAssistantReplyFallback,
   buildAssistantSystemInstruction,
   buildBillConfirmationFallback,
+  detectAssistantToolStrategy,
   executeVoiceAssistantTool,
+  getVoiceAssistantTools,
   getAssistantDateContext,
-  isHindiQuery,
+  type AssistantToolStrategy,
 } from '@/lib/voice-assistant';
+import type {
+  AssistantHindiScript,
+  AssistantLanguage,
+  AssistantLanguageHint,
+} from '@/lib/assistant-language';
+import { resolveAssistantLanguageConfig } from '@/lib/assistant-language';
 import type { AssistantPendingAction } from '@/lib/voice-assistant';
 
 const GEMINI_API_KEY = process.env.GEMINI_API_KEY || '';
@@ -18,7 +27,8 @@ const MODEL_CANDIDATES = ['gemini-2.0-flash', 'gemini-2.5-flash', 'gemini-flash-
 
 type AssistantResponsePayload = {
   response: string;
-  language: 'hi' | 'en';
+  language: AssistantLanguage;
+  script?: AssistantHindiScript;
   pendingAction?: AssistantPendingAction;
   usedTools: string[];
   model: string;
@@ -35,19 +45,30 @@ function extractResponseText(response: { text: () => string }) {
 async function runAssistantWithModel(
   query: string,
   userId: string,
-  language: 'hi' | 'en',
-  modelName: string
+  language: AssistantLanguage,
+  script: AssistantHindiScript | undefined,
+  modelName: string,
+  strategy: AssistantToolStrategy
 ): Promise<AssistantResponsePayload> {
+  const tools =
+    strategy === 'cash_entry_add'
+      ? getVoiceAssistantTools(['prepare_cash_entry'])
+      : VOICE_ASSISTANT_TOOLS;
+  const baseSystemInstruction = buildAssistantSystemInstruction(language, getAssistantDateContext(), script);
+  const systemInstruction =
+    strategy === 'cash_entry_add'
+      ? `${baseSystemInstruction}\nThis request has already been classified as a daily cash entry add command.\nUse prepare_cash_entry for it.\nDo not use entity search or ledger logic for names mentioned in the narration.`
+      : baseSystemInstruction;
   const genAI = new GoogleGenerativeAI(GEMINI_API_KEY);
   const model = genAI.getGenerativeModel({
     model: modelName,
-    tools: VOICE_ASSISTANT_TOOLS,
+    tools,
     toolConfig: {
       functionCallingConfig: {
-        mode: FunctionCallingMode.AUTO,
+        mode: strategy === 'cash_entry_add' ? FunctionCallingMode.ANY : FunctionCallingMode.AUTO,
       },
     },
-    systemInstruction: buildAssistantSystemInstruction(language, getAssistantDateContext()),
+    systemInstruction,
   });
 
   const chat = model.startChat({
@@ -68,8 +89,9 @@ async function runAssistantWithModel(
       const text = extractResponseText(result.response) || (pendingAction ? buildBillConfirmationFallback(pendingAction) : '');
 
       return {
-        response: text || 'I could not complete that request right now.',
+        response: text || buildAssistantReplyFallback(language, script, 'could_not_complete'),
         language,
+        script,
         pendingAction,
         usedTools: Array.from(usedTools),
         model: modelName,
@@ -84,6 +106,7 @@ async function runAssistantWithModel(
       const toolResult = await executeVoiceAssistantTool(functionCall.name, functionCall.args, {
         userId,
         language,
+        script,
       });
 
       if ('pendingAction' in toolResult && toolResult.pendingAction) {
@@ -103,23 +126,30 @@ async function runAssistantWithModel(
 
   const fallbackText = pendingAction
     ? buildBillConfirmationFallback(pendingAction)
-    : 'I need a little more context to complete that request.';
+    : buildAssistantReplyFallback(language, script, 'need_context');
 
   return {
     response: fallbackText,
     language,
+    script,
     pendingAction,
     usedTools: Array.from(usedTools),
     model: modelName,
   };
 }
 
-async function runAssistant(query: string, userId: string, language: 'hi' | 'en') {
+async function runAssistant(
+  query: string,
+  userId: string,
+  language: AssistantLanguage,
+  script: AssistantHindiScript | undefined,
+  strategy: AssistantToolStrategy
+) {
   let lastError: Error | null = null;
 
   for (const modelName of MODEL_CANDIDATES) {
     try {
-      return await runAssistantWithModel(query, userId, language, modelName);
+      return await runAssistantWithModel(query, userId, language, script, modelName, strategy);
     } catch (error) {
       lastError = error instanceof Error ? error : new Error('Assistant model failed');
     }
@@ -145,18 +175,22 @@ export async function POST(request: NextRequest) {
 
     const body = await request.json();
     const query = typeof body?.query === 'string' ? body.query.trim() : '';
+    const languageHint: AssistantLanguageHint =
+      body?.languageHint === 'hi' || body?.languageHint === 'en' ? body.languageHint : 'auto';
 
     if (!query) {
       return NextResponse.json({ error: 'Query is required' }, { status: 400 });
     }
 
-    const language = isHindiQuery(query) ? 'hi' : 'en';
-    const assistantResult = await runAssistant(query, userId, language);
+    const { language, script } = resolveAssistantLanguageConfig(query, languageHint);
+    const strategy = detectAssistantToolStrategy(query);
+    const assistantResult = await runAssistant(query, userId, language, script, strategy);
 
     return NextResponse.json({
       success: true,
       response: assistantResult.response,
       language: assistantResult.language,
+      script: assistantResult.script,
       pendingAction: assistantResult.pendingAction,
       meta: {
         usedTools: assistantResult.usedTools,

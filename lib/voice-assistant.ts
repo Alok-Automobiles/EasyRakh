@@ -2,6 +2,7 @@ import { SchemaType } from '@google/generative-ai';
 import type { FunctionDeclarationsTool } from '@google/generative-ai';
 import { ObjectId } from 'mongodb';
 import { z } from 'zod';
+import type { AssistantHindiScript, AssistantLanguage } from '@/lib/assistant-language';
 import { getDb } from '@/lib/mongodb';
 
 const INDIA_TIMEZONE = 'Asia/Kolkata';
@@ -42,8 +43,6 @@ const prepareLedgerTransactionArgsSchema = z.object({
   date: isoDateSchema,
 });
 
-type AssistantLanguage = 'hi' | 'en';
-
 export type AssistantPendingAction =
   | {
       kind: 'cash_entry';
@@ -56,6 +55,7 @@ export type AssistantPendingAction =
       };
       summary: string;
       language: AssistantLanguage;
+      script?: AssistantHindiScript;
     }
   | {
       kind: 'ledger_transaction';
@@ -72,11 +72,13 @@ export type AssistantPendingAction =
       };
       summary: string;
       language: AssistantLanguage;
+      script?: AssistantHindiScript;
     };
 
 type AssistantToolContext = {
   userId: string;
   language: AssistantLanguage;
+  script?: AssistantHindiScript;
 };
 
 type EntityMatch = {
@@ -116,6 +118,8 @@ type LoadedEntity =
     }
   | null;
 
+export type AssistantToolStrategy = 'auto' | 'cash_entry_add';
+
 export const VOICE_ASSISTANT_TOOLS: FunctionDeclarationsTool[] = [
   {
     functionDeclarations: [
@@ -131,7 +135,7 @@ export const VOICE_ASSISTANT_TOOLS: FunctionDeclarationsTool[] = [
       {
         name: 'find_entities',
         description:
-          'Search customers, suppliers, and custom entities by name. Use this before ledger queries when the user mentions a person or shop by name.',
+          'Search customers, suppliers, and custom entities by name. Use this only for ledger/account queries or explicit entity lookup. Do not use it for daily cash, cashbook, or sale narration just because a person name appears in the description.',
         parameters: {
           type: SchemaType.OBJECT,
           properties: {
@@ -193,7 +197,7 @@ export const VOICE_ASSISTANT_TOOLS: FunctionDeclarationsTool[] = [
       {
         name: 'prepare_cash_entry',
         description:
-          'Prepare a daily cash entry draft from the user command. Use for cashbook/cash-record additions, sales cash-in, and cash expenses. Do not save it yet.',
+          'Prepare a daily cash entry draft from the user command. Use for cashbook/cash-record additions, sales cash-in, and cash expenses. If a person or shop name is mentioned only as narration for a sale/payment, keep that name inside the description and do not require entity lookup. Do not save it yet.',
         parameters: {
           type: SchemaType.OBJECT,
           properties: {
@@ -260,56 +264,102 @@ export const VOICE_ASSISTANT_TOOLS: FunctionDeclarationsTool[] = [
   },
 ];
 
-export function isHindiQuery(text: string): boolean {
-  const hindiRegex = /[\u0900-\u097F]/;
-  if (hindiRegex.test(text)) {
-    return true;
+function normalizeIntentText(text: string) {
+  return text
+    .toLowerCase()
+    .normalize('NFKD')
+    .replace(/[.,!?;:[\]{}()"']/g, ' ')
+    .replace(/\u0964/g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim();
+}
+
+function containsIntentPhrase(text: string, phrases: string[]) {
+  const normalizedText = ` ${normalizeIntentText(text)} `;
+
+  return phrases.some((phrase) => normalizedText.includes(` ${normalizeIntentText(phrase)} `));
+}
+
+export function detectAssistantToolStrategy(query: string): AssistantToolStrategy {
+  const hasAmount = /\d[\d,]*(?:\.\d+)?/.test(query);
+
+  if (!hasAmount) {
+    return 'auto';
   }
 
-  const lowerText = text.toLowerCase();
-  const hindiKeywords = [
-    'kya',
-    'hai',
-    'ka',
-    'ki',
-    'ke',
-    'ko',
-    'se',
-    'mein',
-    'aur',
-    'bhi',
-    'batao',
-    'dikhao',
-    'dena',
-    'lena',
-    'kitna',
-    'aaj',
-    'kal',
-    'parso',
-    'haan',
-    'nahi',
-    'khata',
-    'paisa',
-    'rupay',
-    'rupaye',
-    'jama',
-    'udhar',
-    'grahak',
-    'supplier',
-    'kharcha',
-    'bech',
-    'bikri',
-    'sale',
+  const addIntentPhrases = [
+    'add',
+    'please add',
+    'add karo',
+    'add kardo',
+    'save',
+    'enter',
+    'record',
+    'increase sale',
+    'chadha do',
+    'chada do',
+    'chadhado',
+    'charha do',
+    'jod do',
+    'jodo',
+    'likh do',
+    'daal do',
+    'dal do',
+    '\u091c\u094b\u0921\u093c \u0926\u094b',
+    '\u091c\u094b\u0921\u094b',
+    '\u0932\u093f\u0916 \u0926\u094b',
+    '\u0921\u093e\u0932 \u0926\u094b',
+    '\u091a\u0922\u093c\u093e \u0926\u094b',
+    '\u091a\u095d\u093e \u0926\u094b',
   ];
 
-  let matchedKeywordCount = 0;
-  for (const keyword of hindiKeywords) {
-    if (lowerText.includes(keyword)) {
-      matchedKeywordCount += 1;
-    }
+  const cashEntryContextPhrases = [
+    'today sale',
+    'today sales',
+    'sale',
+    'sales',
+    'cash record',
+    'cashbook',
+    'cash book',
+    'cash entry',
+    'today cash',
+    'aaj ki sale',
+    'aaj ki bikri',
+    'aaj ke cash',
+    'aaj ke cash record',
+    'cash me',
+    'cash mai',
+    'cash mein',
+    'bikri',
+    'nagad',
+    '\u0906\u091c \u0915\u0940 \u0938\u0947\u0932',
+    '\u0938\u0947\u0932',
+    '\u092c\u093f\u0915\u094d\u0930\u0940',
+    '\u0915\u0948\u0936 \u0930\u093f\u0915\u0949\u0930\u094d\u0921',
+    '\u0915\u0948\u0936\u092c\u0941\u0915',
+    '\u0906\u091c \u0915\u0947 \u0915\u0948\u0936',
+    '\u0928\u0915\u0926',
+  ];
+
+  return containsIntentPhrase(query, addIntentPhrases) && containsIntentPhrase(query, cashEntryContextPhrases)
+    ? 'cash_entry_add'
+    : 'auto';
+}
+
+export function getVoiceAssistantTools(toolNames?: string[]) {
+  if (!toolNames?.length) {
+    return VOICE_ASSISTANT_TOOLS;
   }
 
-  return matchedKeywordCount >= 2;
+  const allowedToolNames = new Set(toolNames);
+
+  return VOICE_ASSISTANT_TOOLS
+    .map((tool) => ({
+      functionDeclarations: (tool.functionDeclarations ?? []).filter((declaration) =>
+        allowedToolNames.has(declaration.name)
+      ),
+    }))
+    .filter((tool) => tool.functionDeclarations.length > 0);
 }
 
 export function getAssistantDateContext(now = new Date()) {
@@ -337,11 +387,50 @@ export function getAssistantDateContext(now = new Date()) {
   };
 }
 
-export function buildAssistantSystemInstruction(language: AssistantLanguage, dateContext: ReturnType<typeof getAssistantDateContext>) {
-  const languageRule =
-    language === 'hi'
-      ? 'Reply in Hindi. You may keep technical ids in English, but the sentence should be Hindi.'
-      : 'Reply in English only.';
+function buildHindiResponseRule(script: AssistantHindiScript = 'roman') {
+  if (script === 'devanagari') {
+    return [
+      'Reply only in Hindi using Devanagari script.',
+      'Do not switch to English sentences.',
+      'Only keep exact names, ids, amounts, model numbers, or unavoidable business terms as-is.',
+    ].join(' ');
+  }
+
+  return [
+    'Reply only in Hindi written in Roman script.',
+    'Do not switch to English sentences or Hinglish filler.',
+    'Only keep exact names, ids, amounts, model numbers, or unavoidable business terms as-is.',
+  ].join(' ');
+}
+
+export function buildAssistantReplyFallback(
+  language: AssistantLanguage,
+  script: AssistantHindiScript | undefined,
+  variant: 'could_not_complete' | 'need_context'
+) {
+  if (language === 'hi') {
+    if (script === 'devanagari') {
+      return variant === 'could_not_complete'
+        ? 'मैं अभी यह अनुरोध पूरा नहीं कर पाया।'
+        : 'इसे पूरा करने के लिए मुझे थोड़ी और जानकारी चाहिए।';
+    }
+
+    return variant === 'could_not_complete'
+      ? 'Main abhi yeh anurodh poora nahin kar paya.'
+      : 'Ise poora karne ke liye mujhe thodi aur jankari chahiye.';
+  }
+
+  return variant === 'could_not_complete'
+    ? 'I could not complete that request right now.'
+    : 'I need a little more context to complete that request.';
+}
+
+export function buildAssistantSystemInstruction(
+  language: AssistantLanguage,
+  dateContext: ReturnType<typeof getAssistantDateContext>,
+  script?: AssistantHindiScript
+) {
+  const languageRule = language === 'hi' ? buildHindiResponseRule(script) : 'Reply only in English. Do not use Hindi, Hinglish, or Devanagari.';
 
   return [
     'You are an AI assistant for an automobile ledger and cashbook application.',
@@ -352,7 +441,9 @@ export function buildAssistantSystemInstruction(language: AssistantLanguage, dat
     'When a user wants to add a cash entry or ledger transaction, do not say it is saved yet. First call the appropriate prepare tool and then ask if they want to attach a bill photo.',
     'Use absolute YYYY-MM-DD dates in tool calls.',
     'Interpretation rules:',
-    '- Daily cash / cashbook / sale-add / cash-in commands usually map to prepare_cash_entry.',
+    '- Daily cash / cashbook / sale-add / cash-in commands map to prepare_cash_entry.',
+    '- If the user says to add something in today sale, sale, cash record, or cashbook, do not call find_entities just because a person name appears in the narration.',
+    '- In daily cash narration, names like a payer/customer/shop should be kept inside the cash entry description unless the user explicitly asks for khata, ledger, account, supplier ledger, or customer ledger.',
     '- Customer ledger: debit increases what the customer owes, credit records money received from the customer.',
     '- Supplier ledger: credit records goods/value received from the supplier, debit records payment made to the supplier.',
     '- Custom entity ledgers follow the same debit/credit behavior as customer ledgers unless the user clearly indicates otherwise.',
@@ -363,10 +454,14 @@ export function buildAssistantSystemInstruction(language: AssistantLanguage, dat
 
 export function buildBillConfirmationFallback(action: AssistantPendingAction) {
   if (action.language === 'hi') {
-    return 'Maine draft taiyar kar diya hai. Kya aap bill ki photo bhi add karna chahenge? Haan, nahi, ya cancel boliye.';
+    if (action.script === 'devanagari') {
+      return 'मैंने ड्राफ्ट तैयार कर दिया है। क्या आप बिल की फोटो भी जोड़ना चाहेंगे? हाँ, नहीं, या रद्द बोलिए।';
+    }
+
+    return 'Maine draft taiyar kar diya hai. Kya aap bill ki photo bhi jodna chahenge? Haan, nahin, ya radd boliye.';
   }
 
-  return 'I have the draft ready. Do you also want to attach a bill photo? Say yes, no, or cancel.';
+  return 'I have the draft ready. Would you like to attach a bill photo too? Say yes, no, or cancel.';
 }
 
 export async function executeVoiceAssistantTool(
@@ -438,6 +533,46 @@ function buildAmountDisplay(amount: number) {
     currency: 'INR',
     maximumFractionDigits: 0,
   }).format(amount);
+}
+
+function buildCashDraftSummary(
+  language: AssistantLanguage,
+  script: AssistantHindiScript | undefined,
+  type: 'in' | 'out',
+  amount: number,
+  date: string
+) {
+  const amountDisplay = buildAmountDisplay(amount);
+
+  if (language === 'hi') {
+    if (script === 'devanagari') {
+      return `${date} के लिए ${amountDisplay} ${type === 'in' ? 'नगद जमा' : 'नगद खर्च'} का ड्राफ्ट तैयार है`;
+    }
+
+    return `${date} ke liye ${amountDisplay} ${type === 'in' ? 'nagad jama' : 'nagad kharch'} ka draft taiyar hai`;
+  }
+
+  return `${type === 'in' ? 'Cash in' : 'Cash out'} draft for ${amountDisplay} on ${date}`;
+}
+
+function buildLedgerDraftSummary(
+  language: AssistantLanguage,
+  script: AssistantHindiScript | undefined,
+  entityName: string,
+  amount: number,
+  date: string
+) {
+  const amountDisplay = buildAmountDisplay(amount);
+
+  if (language === 'hi') {
+    if (script === 'devanagari') {
+      return `${entityName} के लिए ${date} पर ${amountDisplay} की लेजर एंट्री का ड्राफ्ट तैयार है`;
+    }
+
+    return `${entityName} ke liye ${date} par ${amountDisplay} ki ledger entry ka draft taiyar hai`;
+  }
+
+  return `Ledger draft for ${entityName}: ${amountDisplay} on ${date}`;
 }
 
 async function getCollectionTypeMap(userId: string) {
@@ -795,6 +930,7 @@ async function prepareCashEntry(
   context: AssistantToolContext,
   args: z.infer<typeof prepareCashEntryArgsSchema>
 ) {
+  const pendingScript = context.language === 'hi' ? context.script || 'roman' : undefined;
   const pendingAction: AssistantPendingAction = {
     kind: 'cash_entry',
     requiresBillConfirmation: true,
@@ -804,8 +940,15 @@ async function prepareCashEntry(
       description: args.description,
       date: args.date,
     },
-    summary: `${args.type === 'in' ? 'Cash in' : 'Cash out'} ${buildAmountDisplay(args.amount)} for ${formatDisplayDate(args.date)}`,
+    summary: buildCashDraftSummary(
+      context.language,
+      pendingScript,
+      args.type,
+      args.amount,
+      args.date
+    ),
     language: context.language,
+    script: pendingScript,
   };
 
   return {
@@ -834,6 +977,7 @@ async function prepareLedgerTransaction(
     };
   }
 
+  const pendingScript = context.language === 'hi' ? context.script || 'roman' : undefined;
   const pendingAction: AssistantPendingAction = {
     kind: 'ledger_transaction',
     requiresBillConfirmation: true,
@@ -847,8 +991,15 @@ async function prepareLedgerTransaction(
       description: args.description?.trim() || '',
       date: args.date,
     },
-    summary: `${args.type} ${buildAmountDisplay(args.amount)} for ${loadedEntity.entity.name} on ${formatDisplayDate(args.date)}`,
+    summary: buildLedgerDraftSummary(
+      context.language,
+      pendingScript,
+      loadedEntity.entity.name,
+      args.amount,
+      args.date
+    ),
     language: context.language,
+    script: pendingScript,
   };
 
   return {
