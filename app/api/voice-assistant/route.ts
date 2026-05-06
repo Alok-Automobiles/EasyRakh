@@ -1,361 +1,161 @@
+import { GoogleGenerativeAI, FunctionCallingMode } from '@google/generative-ai';
+import type { Part } from '@google/generative-ai';
 import { NextRequest, NextResponse } from 'next/server';
-import { getDb } from '@/lib/mongodb';
 import { getUserIdFromRequest } from '@/lib/auth';
+import {
+  VOICE_ASSISTANT_TOOLS,
+  buildAssistantReplyFallback,
+  buildAssistantSystemInstruction,
+  buildBillConfirmationFallback,
+  detectAssistantToolStrategy,
+  executeVoiceAssistantTool,
+  getVoiceAssistantTools,
+  getAssistantDateContext,
+  type AssistantToolStrategy,
+} from '@/lib/voice-assistant';
+import type {
+  AssistantHindiScript,
+  AssistantLanguage,
+  AssistantLanguageHint,
+} from '@/lib/assistant-language';
+import { resolveAssistantLanguageConfig } from '@/lib/assistant-language';
+import type { AssistantPendingAction } from '@/lib/voice-assistant';
 
 const GEMINI_API_KEY = process.env.GEMINI_API_KEY || '';
+const TOOL_LOOP_LIMIT = 6;
+const MODEL_CANDIDATES = ['gemini-2.0-flash', 'gemini-2.5-flash', 'gemini-flash-latest'];
 
-const isHindiQuery = (text: string): boolean => {
-  const hindiRegex = /[\u0900-\u097F]/;
-  if (hindiRegex.test(text)) return true;
-  
-  const lowerText = text.toLowerCase();
-  const hindiKeywords = [
-    'kya', 'hai', 'ka', 'ki', 'ke', 'ko', 'se', 'mein', 'aur', 'bhi',
-    'batao', 'bataiye', 'batana', 'dikhao', 'dikha', 'dena', 'lena',
-    'kitna', 'kitni', 'kitne', 'kaun', 'kaha', 'kaise', 'kyun', 'kab',
-    'khata', 'paisa', 'rupees', 'rupaye', 'balance', 
-    'aaj', 'kal', 'parso', 'abhi', 'baad', 'pehle',
-    'haan', 'nahi', 'theek', 'accha', 'sahi',
-    'grahak', 'supplier', 'customer',
-    'total', 'sum', 'jama', 'udhar',
-    'dena hai', 'lena hai', 'dene', 'lene'
-  ];
-  
-  let hindiWordCount = 0;
-  for (const keyword of hindiKeywords) {
-    if (lowerText.includes(keyword)) {
-      hindiWordCount++;
-    }
-  }
-  
-  return hindiWordCount >= 2;
+type AssistantResponsePayload = {
+  response: string;
+  language: AssistantLanguage;
+  script?: AssistantHindiScript;
+  pendingAction?: AssistantPendingAction;
+  usedTools: string[];
+  model: string;
 };
 
-async function listAvailableModels(): Promise<string[]> {
+function extractResponseText(response: { text: () => string }) {
   try {
-    const url = `https://generativelanguage.googleapis.com/v1beta/models?key=${GEMINI_API_KEY}`;
-    const response = await fetch(url);
-    if (response.ok) {
-      const data = await response.json();
-      const models = data.models?.map((m: { name: string }) => m.name) || [];
-      return models;
-    } else {
-      const error = await response.json().catch(() => ({}));
-      return [];
-    }
-  } catch (err) {
-    return [];
+    return response.text().trim();
+  } catch {
+    return '';
   }
 }
 
-async function callGeminiAPI(prompt: string): Promise<string> {
-  const availableModels = await listAvailableModels();
-  
-  const endpoints = [
-    { version: 'v1beta', model: 'gemini-2.0-flash' },
-    { version: 'v1beta', model: 'gemini-flash-latest' },
-    { version: 'v1beta', model: 'gemini-2.5-flash' },
-    { version: 'v1beta', model: 'gemini-pro-latest' },
-  ];
+async function runAssistantWithModel(
+  query: string,
+  userId: string,
+  language: AssistantLanguage,
+  script: AssistantHindiScript | undefined,
+  modelName: string,
+  strategy: AssistantToolStrategy
+): Promise<AssistantResponsePayload> {
+  const tools =
+    strategy === 'cash_entry_add'
+      ? getVoiceAssistantTools(['prepare_cash_entry'])
+      : VOICE_ASSISTANT_TOOLS;
+  const baseSystemInstruction = buildAssistantSystemInstruction(language, getAssistantDateContext(), script);
+  const systemInstruction =
+    strategy === 'cash_entry_add'
+      ? `${baseSystemInstruction}\nThis request has already been classified as a daily cash entry add command.\nUse prepare_cash_entry for it.\nDo not use entity search or ledger logic for names mentioned in the narration.`
+      : baseSystemInstruction;
+  const genAI = new GoogleGenerativeAI(GEMINI_API_KEY);
+  const model = genAI.getGenerativeModel({
+    model: modelName,
+    tools,
+    toolConfig: {
+      functionCallingConfig: {
+        mode: FunctionCallingMode.AUTO,
+      },
+    },
+    systemInstruction,
+  });
 
-  let lastError: Error | null = null;
+  const chat = model.startChat({
+    generationConfig: {
+      temperature: 0.2,
+      maxOutputTokens: 1024,
+    },
+  });
 
-  for (const { version, model: modelName } of endpoints) {
-    try {
-      const url = `https://generativelanguage.googleapis.com/${version}/models/${modelName}:generateContent?key=${GEMINI_API_KEY}`;
-      
-      const response = await fetch(url, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          contents: [{
-            parts: [{
-              text: prompt
-            }]
-          }],
-          generationConfig: {
-            temperature: 0.7,
-            maxOutputTokens: 1024,
-          }
-        }),
+  let result = await chat.sendMessage(query);
+  const usedTools = new Set<string>();
+  let pendingAction: AssistantPendingAction | undefined;
+
+  for (let loop = 0; loop < TOOL_LOOP_LIMIT; loop += 1) {
+    const functionCalls = result.response.functionCalls() ?? [];
+
+    if (!functionCalls.length) {
+      const text = extractResponseText(result.response) || (pendingAction ? buildBillConfirmationFallback(pendingAction) : '');
+
+      return {
+        response: text || buildAssistantReplyFallback(language, script, 'could_not_complete'),
+        language,
+        script,
+        pendingAction,
+        usedTools: Array.from(usedTools),
+        model: modelName,
+      };
+    }
+
+    const functionResponses: Part[] = [];
+
+    for (const functionCall of functionCalls) {
+      usedTools.add(functionCall.name);
+
+      const toolResult = await executeVoiceAssistantTool(functionCall.name, functionCall.args, {
+        userId,
+        language,
+        script,
       });
 
-      if (response.ok) {
-        const data = await response.json();
-        const text = data.candidates?.[0]?.content?.parts?.[0]?.text;
-        if (text) return text;
-      } else {
-        const errorData = await response.json().catch(() => ({}));
-        lastError = new Error(`${version}/${modelName}: ${errorData.error?.message || response.statusText}`);
+      if ('pendingAction' in toolResult && toolResult.pendingAction) {
+        pendingAction = toolResult.pendingAction;
       }
-    } catch (err) {
-      lastError = err as Error;
+
+      functionResponses.push({
+        functionResponse: {
+          name: functionCall.name,
+          response: toolResult,
+        },
+      });
+    }
+
+    result = await chat.sendMessage(functionResponses);
+  }
+
+  const fallbackText = pendingAction
+    ? buildBillConfirmationFallback(pendingAction)
+    : buildAssistantReplyFallback(language, script, 'need_context');
+
+  return {
+    response: fallbackText,
+    language,
+    script,
+    pendingAction,
+    usedTools: Array.from(usedTools),
+    model: modelName,
+  };
+}
+
+async function runAssistant(
+  query: string,
+  userId: string,
+  language: AssistantLanguage,
+  script: AssistantHindiScript | undefined,
+  strategy: AssistantToolStrategy
+) {
+  let lastError: Error | null = null;
+
+  for (const modelName of MODEL_CANDIDATES) {
+    try {
+      return await runAssistantWithModel(query, userId, language, script, modelName, strategy);
+    } catch (error) {
+      lastError = error instanceof Error ? error : new Error('Assistant model failed');
     }
   }
 
-  throw lastError || new Error('All models failed');
-}
-
-async function getCustomerLedger(userId: string, customerName: string) {
-  const db = await getDb();
-  const customersCollection = db.collection('customers');
-  const transactionsCollection = db.collection('transactions');
-
-  const customer = await customersCollection.findOne({
-    userId,
-    name: { $regex: customerName, $options: 'i' },
-  });
-
-  if (!customer) {
-    return { success: false, message: `Customer "${customerName}" not found` };
-  }
-
-  const allTransactions = await transactionsCollection
-    .find({ userId, entityId: customer._id.toString(), entityType: 'customer' })
-    .toArray();
-
-  const totalCredit = allTransactions
-    .filter((t) => t.type === 'credit')
-    .reduce((sum, t) => sum + t.amount, 0);
-  const totalDebit = allTransactions
-    .filter((t) => t.type === 'debit')
-    .reduce((sum, t) => sum + t.amount, 0);
-
-  let balance = customer.openingBalance;
-  if (customer.balanceType === 'credit') {
-    balance = -balance;
-  }
-  balance = balance - totalCredit + totalDebit;
-
-  const recentTransactions = await transactionsCollection
-    .find({ userId, entityId: customer._id.toString(), entityType: 'customer' })
-    .sort({ date: -1 })
-    .limit(5)
-    .toArray();
-
-  return {
-    success: true,
-    customer: {
-      name: customer.name,
-      phone: customer.phone,
-      address: customer.address,
-    },
-    totals: {
-      totalCredit,
-      totalDebit,
-      currentBalance: balance,
-      balanceStatus: balance >= 0 ? 'receivable (lena hai)' : 'payable (dena hai)',
-    },
-    recentTransactions: recentTransactions.map((t) => ({
-      type: t.type,
-      amount: t.amount,
-      description: t.description,
-      date: t.date,
-    })),
-  };
-}
-
-async function getSupplierLedger(userId: string, supplierName: string) {
-  const db = await getDb();
-  const suppliersCollection = db.collection('suppliers');
-  const transactionsCollection = db.collection('transactions');
-
-  const supplier = await suppliersCollection.findOne({
-    userId,
-    name: { $regex: supplierName, $options: 'i' },
-  });
-
-  if (!supplier) {
-    return { success: false, message: `Supplier "${supplierName}" not found` };
-  }
-
-  const allTransactions = await transactionsCollection
-    .find({ userId, entityId: supplier._id.toString(), entityType: 'supplier' })
-    .toArray();
-
-  const totalCredit = allTransactions
-    .filter((t) => t.type === 'credit')
-    .reduce((sum, t) => sum + t.amount, 0);
-  const totalDebit = allTransactions
-    .filter((t) => t.type === 'debit')
-    .reduce((sum, t) => sum + t.amount, 0);
-
-  let balance = supplier.openingBalance;
-  if (supplier.balanceType === 'credit') {
-    balance = -balance;
-  }
-  balance = balance - totalCredit + totalDebit;
-
-  return {
-    success: true,
-    supplier: {
-      name: supplier.name,
-      phone: supplier.phone,
-      address: supplier.address,
-    },
-    totals: {
-      totalCredit,
-      totalDebit,
-      currentBalance: balance,
-      balanceStatus: balance >= 0 ? 'receivable (lena hai)' : 'payable (dena hai)',
-    },
-  };
-}
-
-async function getAllCustomers(userId: string) {
-  const db = await getDb();
-  const customersCollection = db.collection('customers');
-  const transactionsCollection = db.collection('transactions');
-
-  const customers = await customersCollection.find({ userId }).toArray();
-
-  const customerSummaries = await Promise.all(
-    customers.slice(0, 10).map(async (customer) => {
-      const transactions = await transactionsCollection
-        .find({ userId, entityId: customer._id.toString(), entityType: 'customer' })
-        .toArray();
-
-      const totalCredit = transactions
-        .filter((t) => t.type === 'credit')
-        .reduce((sum, t) => sum + t.amount, 0);
-      const totalDebit = transactions
-        .filter((t) => t.type === 'debit')
-        .reduce((sum, t) => sum + t.amount, 0);
-
-      let balance = customer.openingBalance;
-      if (customer.balanceType === 'credit') {
-        balance = -balance;
-      }
-      balance = balance - totalCredit + totalDebit;
-
-      return {
-        name: customer.name,
-        balance,
-        balanceStatus: balance >= 0 ? 'receivable' : 'payable',
-      };
-    })
-  );
-
-  return {
-    success: true,
-    totalCustomers: customers.length,
-    customers: customerSummaries,
-  };
-}
-
-async function getAllSuppliers(userId: string) {
-  const db = await getDb();
-  const suppliersCollection = db.collection('suppliers');
-  const transactionsCollection = db.collection('transactions');
-
-  const suppliers = await suppliersCollection.find({ userId }).toArray();
-
-  const supplierSummaries = await Promise.all(
-    suppliers.slice(0, 10).map(async (supplier) => {
-      const transactions = await transactionsCollection
-        .find({ userId, entityId: supplier._id.toString(), entityType: 'supplier' })
-        .toArray();
-
-      const totalCredit = transactions
-        .filter((t) => t.type === 'credit')
-        .reduce((sum, t) => sum + t.amount, 0);
-      const totalDebit = transactions
-        .filter((t) => t.type === 'debit')
-        .reduce((sum, t) => sum + t.amount, 0);
-
-      let balance = supplier.openingBalance;
-      if (supplier.balanceType === 'credit') {
-        balance = -balance;
-      }
-      balance = balance - totalCredit + totalDebit;
-
-      return {
-        name: supplier.name,
-        balance,
-        balanceStatus: balance >= 0 ? 'receivable' : 'payable',
-      };
-    })
-  );
-
-  return {
-    success: true,
-    totalSuppliers: suppliers.length,
-    suppliers: supplierSummaries,
-  };
-}
-
-async function getDashboardSummary(userId: string) {
-  const db = await getDb();
-  const customersCollection = db.collection('customers');
-  const suppliersCollection = db.collection('suppliers');
-  const transactionsCollection = db.collection('transactions');
-
-  const [customersCount, suppliersCount, transactions] = await Promise.all([
-    customersCollection.countDocuments({ userId }),
-    suppliersCollection.countDocuments({ userId }),
-    transactionsCollection.find({ userId }).toArray(),
-  ]);
-
-  const totalCredit = transactions
-    .filter((t) => t.type === 'credit')
-    .reduce((sum, t) => sum + t.amount, 0);
-  const totalDebit = transactions
-    .filter((t) => t.type === 'debit')
-    .reduce((sum, t) => sum + t.amount, 0);
-
-  return {
-    success: true,
-    summary: {
-      totalCustomers: customersCount,
-      totalSuppliers: suppliersCount,
-      totalTransactions: transactions.length,
-      totalCredit,
-      totalDebit,
-      netBalance: totalDebit - totalCredit,
-    },
-  };
-}
-
-function getTodayDateIST(): Date {
-  const now = new Date();
-  
-  const istFormatter = new Intl.DateTimeFormat('en-CA', {
-    timeZone: 'Asia/Kolkata',
-    year: 'numeric',
-    month: '2-digit',
-    day: '2-digit',
-  });
-  
-  const istDateString = istFormatter.format(now);
-  const [year, month, day] = istDateString.split('-').map(Number);
-  
-  return new Date(Date.UTC(year, month - 1, day, 0, 0, 0, 0));
-}
-
-async function getTodayCash(userId: string) {
-  const db = await getDb();
-  const dailyCashCollection = db.collection('dailyCashRecords');
-
-  const todayDate = getTodayDateIST();
-  
-  const todayRecord = await dailyCashCollection.findOne({
-    userId,
-    date: todayDate,
-  });
-
-  const totalIn = todayRecord?.totalIn || 0;
-  const totalOut = todayRecord?.totalOut || 0;
-
-  return {
-    success: true,
-    todayCash: {
-      cashIn: totalIn,
-      cashOut: totalOut,
-      balance: totalIn - totalOut,
-    },
-  };
+  throw lastError || new Error('All assistant models failed');
 }
 
 export async function POST(request: NextRequest) {
@@ -366,162 +166,50 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
-    const { query } = await request.json();
-
-    if (!query || typeof query !== 'string') {
+    if (!GEMINI_API_KEY) {
       return NextResponse.json(
-        { error: 'Query is required' },
-        { status: 400 }
+        { error: 'AI service is not configured. Please add GEMINI_API_KEY.' },
+        { status: 503 }
       );
     }
 
-    const isHindi = isHindiQuery(query);
+    let body: unknown;
+    try {
+      body = await request.json();
+    } catch {
+      return NextResponse.json({ error: 'Invalid JSON body' }, { status: 400 });
+    }
+    const bodyObj =
+      typeof body === 'object' && body !== null ? (body as Record<string, unknown>) : ({} as Record<string, unknown>);
+    const query = typeof bodyObj.query === 'string' ? bodyObj.query.trim() : '';
+    const languageHint: AssistantLanguageHint =
+      bodyObj.languageHint === 'hi' || bodyObj.languageHint === 'en' ? (bodyObj.languageHint as 'hi' | 'en') : 'auto';
 
-    const [dashboardData, customersData, suppliersData, todayCashData] = await Promise.all([
-      getDashboardSummary(userId),
-      getAllCustomers(userId),
-      getAllSuppliers(userId),
-      getTodayCash(userId),
-    ]);
-
-    const queryLower = query.toLowerCase();
-    let specificData = null;
-
-    const namePatterns = [
-      /(?:का\s*खाता|ki\s*khata|ka\s*khata|का\s*बैलेंस|balance\s*of|ledger\s*of|khata\s*of)\s*[:\s]*([^\s?।]+)/i,
-      /([^\s]+)\s*(?:का\s*खाता|ki\s*khata|ka\s*khata|का\s*बैलेंस)/i,
-      /(?:what(?:'s|s|\s+is)?|show|tell|bata|batao)\s*(?:me\s+)?([a-zA-Z\u0900-\u097F]+(?:\s+[a-zA-Z\u0900-\u097F]+)?)\s*(?:'s|ka|ki|का|की)?\s*(?:balance|khata|ledger|खाता|बैलेंस)/i,
-      /([a-zA-Z\u0900-\u097F]+(?:\s+[a-zA-Z\u0900-\u097F]+)?)\s*(?:ka|ki|का|की)\s*(?:khata|ledger|खाता|balance|बैलेंस)/i,
-    ];
-
-    let extractedName = null;
-    for (const pattern of namePatterns) {
-      const match = query.match(pattern);
-      if (match && match[1]) {
-        extractedName = match[1].trim();
-        break;
-      }
+    if (!query) {
+      return NextResponse.json({ error: 'Query is required' }, { status: 400 });
     }
 
-    if (extractedName) {
-      const customerLedger = await getCustomerLedger(userId, extractedName);
-      if (customerLedger.success) {
-        specificData = { type: 'customer_ledger', data: customerLedger };
-      } else {
-        const supplierLedger = await getSupplierLedger(userId, extractedName);
-        if (supplierLedger.success) {
-          specificData = { type: 'supplier_ledger', data: supplierLedger };
-        }
-      }
-    }
-
-    if (!specificData && (queryLower.includes('supplier') || queryLower.includes('सप्लायर') || queryLower.includes('vikreta'))) {
-      const supplierMatch = query.match(/(?:supplier|सप्लायर|vikreta)\s+([^\s?।]+)/i);
-      if (supplierMatch && supplierMatch[1]) {
-        const supplierLedger = await getSupplierLedger(userId, supplierMatch[1]);
-        if (supplierLedger.success) {
-          specificData = { type: 'supplier_ledger', data: supplierLedger };
-        }
-      }
-    }
-
-    const currentDate = new Date();
-    const istOptions: Intl.DateTimeFormatOptions = { 
-      timeZone: 'Asia/Kolkata', 
-      weekday: 'long', 
-      year: 'numeric', 
-      month: 'long', 
-      day: 'numeric' 
-    };
-    const todayDateString = currentDate.toLocaleDateString('en-IN', istOptions);
-    const todayDateStringHindi = currentDate.toLocaleDateString('hi-IN', istOptions);
-
-    const businessContext = `
-IMPORTANT - Current Date Information:
-- Today's Date: ${todayDateString}
-- आज की तारीख: ${todayDateStringHindi}
-
-Business Data Summary:
-- Total Customers: ${customersData.totalCustomers}
-- Total Suppliers: ${suppliersData.totalSuppliers}
-- Total Transactions: ${dashboardData.summary?.totalTransactions || 0}
-- Total Credit: ₹${dashboardData.summary?.totalCredit?.toLocaleString('en-IN') || 0}
-- Total Debit: ₹${dashboardData.summary?.totalDebit?.toLocaleString('en-IN') || 0}
-- Net Balance: ₹${dashboardData.summary?.netBalance?.toLocaleString('en-IN') || 0}
-
-Today's Cash:
-- Cash In: ₹${todayCashData.todayCash?.cashIn?.toLocaleString('en-IN') || 0}
-- Cash Out: ₹${todayCashData.todayCash?.cashOut?.toLocaleString('en-IN') || 0}
-- Balance: ₹${todayCashData.todayCash?.balance?.toLocaleString('en-IN') || 0}
-
-Top Customers:
-${customersData.customers?.slice(0, 5).map((c: { name: string; balance: number; balanceStatus: string }) => 
-  `- ${c.name}: ₹${Math.abs(c.balance).toLocaleString('en-IN')} (${c.balanceStatus})`
-).join('\n') || 'No customers'}
-
-Top Suppliers:
-${suppliersData.suppliers?.slice(0, 5).map((s: { name: string; balance: number; balanceStatus: string }) => 
-  `- ${s.name}: ₹${Math.abs(s.balance).toLocaleString('en-IN')} (${s.balanceStatus})`
-).join('\n') || 'No suppliers'}
-
-${specificData ? `
-Specific Query Result:
-${JSON.stringify(specificData.data, null, 2)}
-` : ''}
-`;
-
-    const languageInstruction = isHindi
-      ? `LANGUAGE: HINDI ONLY
-You MUST respond entirely in Hindi using Devanagari script (हिंदी में जवाब दें).
-Do NOT use English words or mix languages. Use natural conversational Hindi.`
-      : `LANGUAGE: ENGLISH ONLY
-You MUST respond entirely in English. Do NOT use Hindi or Devanagari script.
-Do NOT mix languages. Use clear, conversational English.`;
-
-    const systemPrompt = `${languageInstruction}
-
-You are a helpful voice assistant for a ledger/khata management system for an automobile business.
-You help users query their business data including customer ledgers, supplier ledgers, transactions, and cash flow.
-
-Important terms:
-- "khata" / "खाता" = ledger/account
-- "dena hai" / "देना है" = payable (you owe them)
-- "lena hai" / "लेना है" = receivable (they owe you)
-- "grahak" / "ग्राहक" = customer
-- "vikreta" / "विक्रेता" / "supplier" = supplier
-- Positive balance = receivable (customer owes you money)
-- Negative balance = payable (you owe customer money)
-
-Rules:
-1. Be concise - this is for voice output
-2. Format currency amounts clearly (e.g., "ten thousand rupees" or "दस हज़ार रुपये")
-3. If asked about a specific person, use the Specific Query Result data
-4. Always mention whether amount is receivable or payable
-5. Keep response under 3-4 sentences for simple queries
-6. CRITICAL: When user asks about "today" or "aaj", ALWAYS use the date provided in "Current Date Information" above. Do NOT use any other date.
-
-Here is the current business data:
-${businessContext}
-
-User Query: ${query}
-
-Provide a helpful, conversational response:`;
-
-    const responseText = await callGeminiAPI(systemPrompt);
+    const { language, script } = resolveAssistantLanguageConfig(query, languageHint);
+    const strategy = detectAssistantToolStrategy(query);
+    const assistantResult = await runAssistant(query, userId, language, script, strategy);
 
     return NextResponse.json({
       success: true,
-      response: responseText,
-      language: isHindi ? 'hi' : 'en',
-      data: specificData?.data || dashboardData,
+      response: assistantResult.response,
+      language: assistantResult.language,
+      script: assistantResult.script,
+      pendingAction: assistantResult.pendingAction,
+      meta: {
+        usedTools: assistantResult.usedTools,
+        model: assistantResult.model,
+        today: getAssistantDateContext().todayIso,
+      },
     });
   } catch (error) {
     console.error('Voice assistant error:', error);
-    
-    const errorMessage = error instanceof Error ? error.message : 'Unknown error';
-    
+
     return NextResponse.json(
-      { error: `AI service error: ${errorMessage}` },
+      { error: 'AI service error' },
       { status: 503 }
     );
   }

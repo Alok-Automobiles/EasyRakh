@@ -1,8 +1,8 @@
 'use client';
 
-import { useState, useEffect, useRef, ChangeEvent } from 'react';
+import { useState, useEffect, useRef, ChangeEvent, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
-import { format, parse } from 'date-fns';
+import { format, isValid, parse } from 'date-fns';
 import toast from 'react-hot-toast';
 import { useQueryClient } from '@tanstack/react-query';
 import { Calendar } from '@/components/ui/calendar';
@@ -11,14 +11,6 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Separator } from '@/components/ui/separator';
 import { Pagination } from '@/components/ui/pagination';
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from '@/components/ui/table';
 import {
   Dialog,
   DialogContent,
@@ -29,6 +21,7 @@ import {
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Edit2, CalendarIcon, Plus, Upload, FileText, X, Download } from 'lucide-react';
+import { ASSISTANT_DATA_UPDATED_EVENT } from '@/lib/assistant-events';
 import Image from 'next/image';
 import { compressImage, isCompressibleImage, formatFileSize } from '@/lib/imageCompression';
 import { motion } from 'motion/react'
@@ -78,7 +71,6 @@ export default function DailyCashRecordPage() {
   const router = useRouter();
   const queryClient = useQueryClient();
   const [selectedDate, setSelectedDate] = useState<Date>(new Date());
-  const [currentRecord, setCurrentRecord] = useState<DailyRecord | null>(null);
   const [summaryRecords, setSummaryRecords] = useState<SummaryRecord[]>([]);
   const [loading, setLoading] = useState(true);
   const [seePrevRecordsOpen, setSeePrevRecordsOpen] = useState(false);
@@ -179,7 +171,7 @@ export default function DailyCashRecordPage() {
     }
   };
 
-  const fetchData = async (page: number = 1) => {
+  const fetchData = useCallback(async (page: number = 1) => {
     try {
       setLoading(true);
       const response = await fetch(`/api/daily-cash-records?page=${page}`);
@@ -196,7 +188,7 @@ export default function DailyCashRecordPage() {
       toast.error('Failed to load records');
       setLoading(false);
     }
-  };
+  }, [router]);
 
   useEffect(() => {
     if (!hasFetchedRef.current) {
@@ -207,11 +199,11 @@ export default function DailyCashRecordPage() {
       prevPageRef.current = currentPage;
       fetchData(currentPage);
     }
-  }, [currentPage]);
+  }, [currentPage, fetchData]);
 
 
 
-  const fetchRecordForDate = async (date: Date, useCache: boolean = true) => {
+  const fetchRecordForDate = useCallback(async (date: Date, useCache: boolean = true) => {
     const dateString = format(date, 'dd-MM-yyyy');
 
     if (useCache && recordsCache.has(dateString)) {
@@ -241,7 +233,39 @@ export default function DailyCashRecordPage() {
       toast.error('Failed to load record');
       return null;
     }
-  };
+  }, [recordsCache, router]);
+
+  useEffect(() => {
+    const handleAssistantUpdate = (event: Event) => {
+      const detail = (event as CustomEvent).detail as
+        | { kind?: string; date?: string }
+        | undefined;
+
+      if (detail?.kind !== 'cash_entry' || !detail.date) {
+        return;
+      }
+
+      fetchData(currentPage);
+
+      const affectedDate = parse(detail.date, 'yyyy-MM-dd', new Date());
+      if (!isValid(affectedDate)) {
+        return;
+      }
+      void fetchRecordForDate(affectedDate, false).then((record) => {
+        if (!record) return;
+        setViewingRecord((prev) => {
+          if (!prev) return prev;
+          const prevIso = format(parse(prev.date, 'dd-MM-yyyy', new Date()), 'yyyy-MM-dd');
+          return prevIso === detail.date ? record : prev;
+        });
+      });
+    };
+
+    window.addEventListener(ASSISTANT_DATA_UPDATED_EVENT, handleAssistantUpdate);
+    return () => {
+      window.removeEventListener(ASSISTANT_DATA_UPDATED_EVENT, handleAssistantUpdate);
+    };
+  }, [currentPage, fetchData, fetchRecordForDate]);
 
   const handleCreateRecordForToday = () => {
     setRecordDate(new Date());
