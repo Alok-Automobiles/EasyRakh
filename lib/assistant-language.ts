@@ -58,16 +58,20 @@ export function detectAssistantLanguage(
     return 'hi';
   }
 
-  const lowerText = text.toLowerCase();
-  let matchedKeywordCount = 0;
+  const tokens = (text.toLowerCase().match(/[a-z]+/g) ?? []).filter(Boolean);
+  const tokenSet = new Set(tokens);
+
+  let matched = 0;
+  let strongMatched = 0;
 
   for (const keyword of HINDI_KEYWORDS) {
-    if (lowerText.includes(keyword)) {
-      matchedKeywordCount += 1;
+    if (tokenSet.has(keyword)) {
+      matched += 1;
+      if (keyword.length >= 4) strongMatched += 1;
     }
   }
 
-  return matchedKeywordCount >= 2 ? 'hi' : 'en';
+  return strongMatched >= 1 && matched >= 2 ? 'hi' : 'en';
 }
 
 export function resolveAssistantLanguageConfig(

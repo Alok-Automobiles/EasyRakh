@@ -662,6 +662,11 @@ export default function VoiceAssistant() {
         body: JSON.stringify(payload),
       });
 
+      if (response.status === 401) {
+        router.push('/login');
+        return;
+      }
+
       const data = await response.json().catch(() => ({}));
 
       if (!response.ok) {
@@ -690,7 +695,7 @@ export default function VoiceAssistant() {
     } finally {
       setIsProcessing(false);
     }
-  }, [appendMessage, currentUiScript, invalidateAppData, notifyDataUpdate, pendingAction, speak]);
+  }, [appendMessage, currentUiScript, invalidateAppData, notifyDataUpdate, pendingAction, router, speak]);
 
   const uploadBillAndSave = useCallback(async (file: File) => {
     if (!pendingAction) {
@@ -830,6 +835,11 @@ export default function VoiceAssistant() {
         body: JSON.stringify({ query, languageHint }),
       });
 
+      if (response.status === 401) {
+        router.push('/login');
+        return;
+      }
+
       const data = (await response.json()) as AssistantApiResponse & { error?: string };
 
       if (!response.ok) {
@@ -849,6 +859,15 @@ export default function VoiceAssistant() {
       const errorMessage = error instanceof Error ? error.message : 'Something went wrong';
       const isRateLimit =
         errorMessage.toLowerCase().includes('wait') || errorMessage.toLowerCase().includes('rate');
+      const isActionableSetupError =
+        /GEMINI_API_KEY/i.test(errorMessage) || /not configured/i.test(errorMessage);
+
+      if (isActionableSetupError) {
+        toast.error(errorMessage, { duration: 7000 });
+        appendMessage(createMessage('assistant', errorMessage));
+        speak(errorMessage, 'en');
+        return;
+      }
       const localizedErrorText = getLocalizedText(
         detectedConfig.language,
         isRateLimit ? 'rate_limited' : 'generic_error',
@@ -866,9 +885,9 @@ export default function VoiceAssistant() {
       setIsProcessing(false);
       setTranscript('');
     }
-  }, [appendMessage, languagePreference, pendingAction, resolvePendingActionResponse, speak]);
+  }, [appendMessage, languagePreference, pendingAction, resolvePendingActionResponse, router, speak]);
 
-  const busy = isProcessing || billUploading;
+  const busy = isProcessing || billUploading || isListening;
 
   const handleTextSubmit = useCallback((event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();

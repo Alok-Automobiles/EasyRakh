@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useRef, ChangeEvent, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
-import { format, parse } from 'date-fns';
+import { format, isValid, parse } from 'date-fns';
 import toast from 'react-hot-toast';
 import { useQueryClient } from '@tanstack/react-query';
 import { Calendar } from '@/components/ui/calendar';
@@ -248,15 +248,16 @@ export default function DailyCashRecordPage() {
       fetchData(currentPage);
 
       const affectedDate = parse(detail.date, 'yyyy-MM-dd', new Date());
+      if (!isValid(affectedDate)) {
+        return;
+      }
       void fetchRecordForDate(affectedDate, false).then((record) => {
-        if (!viewingRecord) {
-          return;
-        }
-
-        const viewingDateIso = format(parse(viewingRecord.date, 'dd-MM-yyyy', new Date()), 'yyyy-MM-dd');
-        if (viewingDateIso === detail.date && record) {
-          setViewingRecord(record);
-        }
+        if (!record) return;
+        setViewingRecord((prev) => {
+          if (!prev) return prev;
+          const prevIso = format(parse(prev.date, 'dd-MM-yyyy', new Date()), 'yyyy-MM-dd');
+          return prevIso === detail.date ? record : prev;
+        });
       });
     };
 
@@ -264,7 +265,7 @@ export default function DailyCashRecordPage() {
     return () => {
       window.removeEventListener(ASSISTANT_DATA_UPDATED_EVENT, handleAssistantUpdate);
     };
-  }, [currentPage, fetchData, fetchRecordForDate, selectedDate, viewingRecord]);
+  }, [currentPage, fetchData, fetchRecordForDate]);
 
   const handleCreateRecordForToday = () => {
     setRecordDate(new Date());

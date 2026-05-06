@@ -9,7 +9,18 @@ const INDIA_TIMEZONE = 'Asia/Kolkata';
 const DEFAULT_TOOL_LIMIT = 6;
 const MAX_TOOL_LIMIT = 10;
 
-const isoDateSchema = z.string().regex(/^\d{4}-\d{2}-\d{2}$/, 'Date must be in YYYY-MM-DD format');
+const isoDateSchema = z
+  .string()
+  .regex(/^\d{4}-\d{2}-\d{2}$/, 'Date must be in YYYY-MM-DD format')
+  .refine((value) => {
+    const [yStr, mStr, dStr] = value.split('-');
+    const y = Number(yStr);
+    const m = Number(mStr);
+    const d = Number(dStr);
+    if (!Number.isInteger(y) || !Number.isInteger(m) || !Number.isInteger(d)) return false;
+    const dt = new Date(Date.UTC(y, m - 1, d));
+    return dt.getUTCFullYear() === y && dt.getUTCMonth() === m - 1 && dt.getUTCDate() === d;
+  }, 'Date must be a valid calendar date');
 
 const findEntitiesArgsSchema = z.object({
   nameQuery: z.string().trim().min(1, 'nameQuery is required'),
@@ -281,7 +292,8 @@ function containsIntentPhrase(text: string, phrases: string[]) {
 }
 
 export function detectAssistantToolStrategy(query: string): AssistantToolStrategy {
-  const hasAmount = /\d[\d,]*(?:\.\d+)?/.test(query);
+  const queryWithoutIsoDates = query.replace(/\b\d{4}-\d{2}-\d{2}\b/g, ' ');
+  const hasAmount = /\d[\d,]*(?:\.\d+)?/.test(queryWithoutIsoDates);
 
   if (!hasAmount) {
     return 'auto';
@@ -294,7 +306,6 @@ export function detectAssistantToolStrategy(query: string): AssistantToolStrateg
     'add kardo',
     'save',
     'enter',
-    'record',
     'increase sale',
     'chadha do',
     'chada do',
@@ -340,6 +351,26 @@ export function detectAssistantToolStrategy(query: string): AssistantToolStrateg
     '\u0906\u091c \u0915\u0947 \u0915\u0948\u0936',
     '\u0928\u0915\u0926',
   ];
+
+  const ledgerContextPhrases = [
+    'ledger',
+    'account',
+    'khata',
+    'khaata',
+    'udhar',
+    'customer',
+    'supplier',
+    'credit',
+    'debit',
+    '\u0916\u093e\u0924\u093e',
+    '\u0909\u0927\u093e\u0930',
+    '\u091c\u092e\u093e',
+    '\u0928\u093e\u092e\u0947',
+  ];
+
+  if (containsIntentPhrase(query, ledgerContextPhrases)) {
+    return 'auto';
+  }
 
   return containsIntentPhrase(query, addIntentPhrases) && containsIntentPhrase(query, cashEntryContextPhrases)
     ? 'cash_entry_add'
@@ -652,28 +683,59 @@ async function getBusinessOverview(userId: string) {
   const todayIso = getAssistantDateContext().todayIso;
   const todayDate = isoDateToUtcDate(todayIso);
 
-  const [customersCount, suppliersCount, transactions, todayCashRecord, collectionTypes] = await Promise.all([
+  const [customersCount, suppliersCount, txAgg, todayCashRecord, collectionTypes] = await Promise.all([
     db.collection('customers').countDocuments({ userId }),
     db.collection('suppliers').countDocuments({ userId }),
-    db.collection('transactions').find({ userId }).project({ type: 1, amount: 1 }).toArray(),
+    db
+      .collection('transactions')
+      .aggregate([
+        { $match: { userId } },
+        {
+          $group: {
+            _id: null,
+            totalTransactions: { $sum: 1 },
+            totalCredit: {
+              $sum: {
+                $cond: [
+                  { $eq: ['$type', 'credit'] },
+                  { $convert: { input: '$amount', to: 'double', onError: 0, onNull: 0 } },
+                  0,
+                ],
+              },
+            },
+            totalDebit: {
+              $sum: {
+                $cond: [
+                  { $eq: ['$type', 'debit'] },
+                  { $convert: { input: '$amount', to: 'double', onError: 0, onNull: 0 } },
+                  0,
+                ],
+              },
+            },
+          },
+        },
+      ])
+      .toArray(),
     db.collection('dailyCashRecords').findOne({ userId, date: todayDate }),
     db.collection('collectionTypes').find({ userId }).project({ slug: 1, name: 1 }).toArray(),
   ]);
 
-  const totalCredit = transactions
-    .filter((transaction) => transaction.type === 'credit')
-    .reduce((sum, transaction) => sum + Number(transaction.amount || 0), 0);
+  const txTotals = (txAgg?.[0] as {
+    totalTransactions?: number;
+    totalCredit?: number;
+    totalDebit?: number;
+  }) ?? { totalTransactions: 0, totalCredit: 0, totalDebit: 0 };
 
-  const totalDebit = transactions
-    .filter((transaction) => transaction.type === 'debit')
-    .reduce((sum, transaction) => sum + Number(transaction.amount || 0), 0);
+  const totalTransactions = Number(txTotals.totalTransactions || 0);
+  const totalCredit = Number(txTotals.totalCredit || 0);
+  const totalDebit = Number(txTotals.totalDebit || 0);
 
   return {
     ok: true,
     overview: {
       totalCustomers: customersCount,
       totalSuppliers: suppliersCount,
-      totalTransactions: transactions.length,
+      totalTransactions,
       totalCredit,
       totalDebit,
       netBalance: totalDebit - totalCredit,

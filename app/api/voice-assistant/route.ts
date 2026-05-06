@@ -65,7 +65,7 @@ async function runAssistantWithModel(
     tools,
     toolConfig: {
       functionCallingConfig: {
-        mode: strategy === 'cash_entry_add' ? FunctionCallingMode.ANY : FunctionCallingMode.AUTO,
+        mode: FunctionCallingMode.AUTO,
       },
     },
     systemInstruction,
@@ -173,7 +173,12 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    const body = await request.json();
+    let body: unknown;
+    try {
+      body = await request.json();
+    } catch {
+      return NextResponse.json({ error: 'Invalid JSON body' }, { status: 400 });
+    }
     const query = typeof body?.query === 'string' ? body.query.trim() : '';
     const languageHint: AssistantLanguageHint =
       body?.languageHint === 'hi' || body?.languageHint === 'en' ? body.languageHint : 'auto';
@@ -201,10 +206,8 @@ export async function POST(request: NextRequest) {
   } catch (error) {
     console.error('Voice assistant error:', error);
 
-    const errorMessage = error instanceof Error ? error.message : 'Unknown error';
-
     return NextResponse.json(
-      { error: `AI service error: ${errorMessage}` },
+      { error: 'AI service error' },
       { status: 503 }
     );
   }
