@@ -179,9 +179,11 @@ export async function POST(request: NextRequest) {
     } catch {
       return NextResponse.json({ error: 'Invalid JSON body' }, { status: 400 });
     }
-    const query = typeof body?.query === 'string' ? body.query.trim() : '';
+    const bodyObj =
+      typeof body === 'object' && body !== null ? (body as Record<string, unknown>) : ({} as Record<string, unknown>);
+    const query = typeof bodyObj.query === 'string' ? bodyObj.query.trim() : '';
     const languageHint: AssistantLanguageHint =
-      body?.languageHint === 'hi' || body?.languageHint === 'en' ? body.languageHint : 'auto';
+      bodyObj.languageHint === 'hi' || bodyObj.languageHint === 'en' ? (bodyObj.languageHint as 'hi' | 'en') : 'auto';
 
     if (!query) {
       return NextResponse.json({ error: 'Query is required' }, { status: 400 });
