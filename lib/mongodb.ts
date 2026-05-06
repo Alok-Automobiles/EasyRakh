@@ -13,10 +13,6 @@ const options = {
   serverSelectionTimeoutMS: 5000,
 };
 
-let client: MongoClient;
-let clientPromise: Promise<MongoClient>;
-let indexesInitialized = false;
-
 type GlobalWithMongo = typeof globalThis & {
   _mongoClientPromise?: Promise<MongoClient>;
   _indexesInitialized?: boolean;
@@ -25,26 +21,28 @@ type GlobalWithMongo = typeof globalThis & {
 const globalWithMongo = global as GlobalWithMongo;
 
 if (!globalWithMongo._mongoClientPromise) {
-  client = new MongoClient(uri, options);
+  const client = new MongoClient(uri, options);
   globalWithMongo._mongoClientPromise = client.connect();
 }
 
-clientPromise = globalWithMongo._mongoClientPromise;
-indexesInitialized = globalWithMongo._indexesInitialized || false;
+const clientPromise: Promise<MongoClient> = globalWithMongo._mongoClientPromise;
 
 export async function getDb(): Promise<Db> {
   const client = await clientPromise;
   const db = client.db('ledger');
-  
-  if (!indexesInitialized) {
-    await initializeIndexes(db);
-    indexesInitialized = true;
 
+  // Indexes are idempotent and Atlas already has them from prior deploys.
+  // Run initialization in the background on the first call per process so it
+  // doesn't add latency to the request that triggered the cold start.
+  if (!globalWithMongo._indexesInitialized) {
     globalWithMongo._indexesInitialized = true;
+    void initializeIndexes(db).catch((err) => {
+      globalWithMongo._indexesInitialized = false;
+      console.error('Background index initialization failed:', err);
+    });
   }
-  
+
   return db;
 }
 
 export default clientPromise;
-

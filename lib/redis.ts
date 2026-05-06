@@ -13,8 +13,8 @@ const redis = new Redis(Number(process.env.REDIS_PORT), process.env.REDIS_HOST, 
   },
   enableReadyCheck: true,
   enableOfflineQueue: false,
-  connectTimeout: 10000,
-  lazyConnect: false,
+  connectTimeout: 3000,
+  lazyConnect: true,
 });
 
 redis.on('connect', () => {
@@ -40,6 +40,28 @@ redis.on('reconnecting', (delay: number) => {
 redis.on('end', () => {
   console.warn('⚠️ Redis connection ended');
 });
+
+const DEFAULT_CACHE_TIMEOUT_MS = 250;
+
+/**
+ * Get a value from Redis with a hard timeout. Returns `null` if Redis is slow,
+ * unavailable, or the key is missing — so callers can fall through to the
+ * source of truth (e.g. MongoDB) without blocking the request on a cold cache.
+ */
+export async function cacheGet(
+  key: string,
+  timeoutMs: number = DEFAULT_CACHE_TIMEOUT_MS
+): Promise<string | null> {
+  try {
+    return await Promise.race<string | null>([
+      redis.get(key),
+      new Promise<null>((resolve) => setTimeout(() => resolve(null), timeoutMs)),
+    ]);
+  } catch (error) {
+    console.warn('cacheGet failed for', key, error);
+    return null;
+  }
+}
 
 export async function deleteByPattern(pattern: string): Promise<number> {
   let deleted = 0;
