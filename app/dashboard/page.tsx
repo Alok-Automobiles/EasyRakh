@@ -1,52 +1,8 @@
-import { headers } from 'next/headers';
 import DashboardClient from './DashboardClient';
 
 export const revalidate = 0;
 export const dynamic = 'force-dynamic';
 
-async function fetchDashboardDataServer() {
-  try {
-    if (process.env.NODE_ENV !== 'production') {
-      return null;
-    }
-
-    let cookieHeader = '';
-    try {
-      const hdrs = await headers();
-      cookieHeader = hdrs.get('cookie') || '';
-    } catch {
-      return null;
-    }
-
-    const baseUrl =
-      process.env.NEXT_PUBLIC_APP_URL ||
-      (process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : 'http://localhost:3000');
-
-    const controller = new AbortController();
-    const timeout = setTimeout(() => controller.abort(), 900);
-
-    const response = await fetch(`${baseUrl}/api/dashboard/stats`, {
-      headers: cookieHeader ? { cookie: cookieHeader } : undefined,
-      cache: 'no-store',
-      next: { revalidate: 0 },
-      signal: controller.signal,
-    });
-
-    clearTimeout(timeout);
-
-    if (!response.ok) {
-      return null;
-    }
-
-    return (await response.json()) as any;
-  } catch (error) {
-    console.warn('dashboard server prefetch failed', error);
-    return null;
-  }
-}
-
-export default async function DashboardPage() {
-  const initialData = await fetchDashboardDataServer();
-  const initialDataTime = initialData ? Date.now() : undefined;
-  return <DashboardClient initialData={initialData} initialDataTime={initialDataTime} />;
+export default function DashboardPage() {
+  return <DashboardClient />;
 }
