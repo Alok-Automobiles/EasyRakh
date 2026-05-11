@@ -32,7 +32,7 @@ const registerSchema = z.object({
   firmAddress: z.string().default(''),
 });
 
-type RegisterForm = z.infer<typeof registerSchema>;
+type RegisterForm = z.input<typeof registerSchema>;
 
 export default function RegisterPage() {
   const router = useRouter();

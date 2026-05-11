@@ -62,7 +62,7 @@ const customEntitySchema = z.object({
   openingBalanceBillPublicId: z.string().optional(),
 });
 
-type CustomEntityForm = z.infer<typeof customEntitySchema>;
+type CustomEntityForm = z.input<typeof customEntitySchema>;
 
 interface CollectionType {
   id: string;
@@ -513,7 +513,7 @@ export default function CustomEntitiesPage() {
                 />
                 
                 {/* Opening Balance Transaction Details */}
-                {form.watch('openingBalance') > 0 && (
+                {(form.watch('openingBalance') ?? 0) > 0 && (
                   <>
                     <FormField
                       control={form.control}

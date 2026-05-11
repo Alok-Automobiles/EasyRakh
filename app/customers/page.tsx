@@ -62,7 +62,7 @@ const customerSchema = z.object({
   openingBalanceBillPublicId: z.string().optional(),
 });
 
-type CustomerForm = z.infer<typeof customerSchema>;
+type CustomerForm = z.input<typeof customerSchema>;
 
 interface BillUploadResult {
   url: string;
@@ -450,7 +450,7 @@ export default function CustomersPage() {
                 />
                 
                 {/* Opening Balance Transaction Details */}
-                {form.watch('openingBalance') > 0 && (
+                {(form.watch('openingBalance') ?? 0) > 0 && (
                   <>
                     <FormField
                       control={form.control}
