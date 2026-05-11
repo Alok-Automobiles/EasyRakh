@@ -62,7 +62,7 @@ const supplierSchema = z.object({
   openingBalanceBillPublicId: z.string().optional(),
 });
 
-type SupplierForm = z.infer<typeof supplierSchema>;
+type SupplierForm = z.input<typeof supplierSchema>;
 
 interface BillUploadResult {
   url: string;
@@ -450,7 +450,7 @@ export default function SuppliersPage() {
                 />
                 
                 {/* Opening Balance Transaction Details */}
-                {form.watch('openingBalance') > 0 && (
+                {(form.watch('openingBalance') ?? 0) > 0 && (
                   <>
                     <FormField
                       control={form.control}

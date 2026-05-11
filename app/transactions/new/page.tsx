@@ -79,10 +79,10 @@ const customEntitySchema = z.object({
   balanceType: z.enum(['credit', 'debit']).default('debit'),
 });
 
-type TransactionForm = z.infer<typeof transactionSchema>;
-type CustomerForm = z.infer<typeof customerSchema>;
-type SupplierForm = z.infer<typeof supplierSchema>;
-type CustomEntityForm = z.infer<typeof customEntitySchema>;
+type TransactionForm = z.input<typeof transactionSchema>;
+type CustomerForm = z.input<typeof customerSchema>;
+type SupplierForm = z.input<typeof supplierSchema>;
+type CustomEntityForm = z.input<typeof customEntitySchema>;
 
 function NewTransactionPageContent() {
   const router = useRouter();
