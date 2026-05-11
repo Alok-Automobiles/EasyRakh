@@ -32,7 +32,7 @@
     "embla-carousel-react": "^8.6.0",
     "ioredis": "^5.8.2",
     "jsonwebtoken": "^9.0.2",
-    "jspdf": "^3.0.4",
+    "jspdf": "^4.2.1",
     "jspdf-autotable": "^5.0.2",
     "lucide-react": "^0.553.0",
     "mongodb": "^6.3.0",
