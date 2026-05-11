@@ -14,6 +14,7 @@ import { Pagination } from '@/components/ui/pagination';
 import {
   Dialog,
   DialogContent,
+  DialogDescription,
   DialogHeader,
   DialogTitle,
   DialogTrigger,
@@ -600,6 +601,9 @@ export default function DailyCashRecordPage() {
             <DialogContent className="max-w-[90vw] sm:max-w-md max-h-[90vh] overflow-y-auto">
               <DialogHeader>
                 <DialogTitle>Create New Record</DialogTitle>
+                <DialogDescription>
+                  Start a new daily cash record by choosing the date.
+                </DialogDescription>
               </DialogHeader>
               <div className="space-y-4 py-4">
                 <div>
@@ -730,6 +734,9 @@ export default function DailyCashRecordPage() {
             <DialogContent className="max-w-2xl">
               <DialogHeader>
                 <DialogTitle>Select Date</DialogTitle>
+                <DialogDescription>
+                  Pick a date to view its cash record.
+                </DialogDescription>
               </DialogHeader>
               <div className="py-4">
                 <Calendar
@@ -771,6 +778,9 @@ export default function DailyCashRecordPage() {
             <DialogContent className="max-w-[90vw] sm:max-w-sm">
               <DialogHeader>
                 <DialogTitle>Download Cash Report</DialogTitle>
+                <DialogDescription>
+                  Choose a date range to export your cash records as a PDF.
+                </DialogDescription>
               </DialogHeader>
               <div className="space-y-4 py-4">
                 <p className="text-sm text-slate-500">
@@ -923,6 +933,9 @@ export default function DailyCashRecordPage() {
                 <DialogTitle className="text-2xl sm:text-3xl font-bold text-gray-900">
                   {viewingRecord?.date || format(selectedDate, 'dd-MM-yyyy')}
                 </DialogTitle>
+                <DialogDescription className="sr-only">
+                  Daily cash record details including totals and individual transactions.
+                </DialogDescription>
                 
                 {viewingRecord && (
                   <div className="flex flex-wrap items-center gap-4">
@@ -1132,6 +1145,9 @@ export default function DailyCashRecordPage() {
           <DialogContent className="max-w-[90vw] sm:max-w-md max-h-[90vh] overflow-y-auto">
             <DialogHeader>
               <DialogTitle>Add Transaction</DialogTitle>
+              <DialogDescription>
+                Record a new cash in or cash out transaction for this date.
+              </DialogDescription>
             </DialogHeader>
             <div className="space-y-4 py-4">
               <div>
@@ -1257,6 +1273,9 @@ export default function DailyCashRecordPage() {
           <DialogContent className="max-w-[90vw] sm:max-w-md max-h-[90vh] overflow-y-auto">
             <DialogHeader>
               <DialogTitle>Edit Entry</DialogTitle>
+              <DialogDescription>
+                Update the details of this cash transaction.
+              </DialogDescription>
             </DialogHeader>
             <div className="space-y-4 py-4">
               <div>
@@ -1379,6 +1398,9 @@ export default function DailyCashRecordPage() {
           <DialogContent className="sm:max-w-xl">
             <DialogHeader>
               <DialogTitle>Bill Attachment</DialogTitle>
+              <DialogDescription>
+                Preview the bill attached to this transaction.
+              </DialogDescription>
             </DialogHeader>
             <div className="space-y-4">
               {billViewUrl ? (

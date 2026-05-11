@@ -15,6 +15,7 @@ import { Skeleton } from '@/components/ui/skeleton';
 import {
   Dialog,
   DialogContent,
+  DialogDescription,
   DialogHeader,
   DialogTitle,
   DialogTrigger,
@@ -725,6 +726,9 @@ export default function DashboardClient() {
                   <DialogContent className="max-w-[90vw] sm:max-w-md">
                     <DialogHeader>
                       <DialogTitle>Add today&apos;s cash transaction</DialogTitle>
+                      <DialogDescription>
+                        Quickly log a cash in or cash out entry for today.
+                      </DialogDescription>
                     </DialogHeader>
                     <div className="space-y-4">
                       <div className="grid gap-2">

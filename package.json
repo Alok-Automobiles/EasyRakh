@@ -50,6 +50,11 @@
     "three": "^0.184.0",
     "zod": "^4.4.3"
   },
+  "pnpm": {
+    "overrides": {
+      "postcss@<8.5.10": ">=8.5.10"
+    }
+  },
   "devDependencies": {
     "@tailwindcss/postcss": "^4.3.0",
     "@types/bcryptjs": "^3.0.0",
