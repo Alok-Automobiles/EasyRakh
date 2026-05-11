@@ -20,7 +20,7 @@ import {
 } from '@/components/ui/dialog';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Skeleton } from '@/components/ui/skeleton';
-import { Edit2, CalendarIcon, Plus, Upload, FileText, X, Download } from 'lucide-react';
+import { Edit2, CalendarIcon, Plus, Upload, FileText, X, Download, Loader2 } from 'lucide-react';
 import { ASSISTANT_DATA_UPDATED_EVENT } from '@/lib/assistant-events';
 import Image from 'next/image';
 import { compressImage, isCompressibleImage, formatFileSize } from '@/lib/imageCompression';
@@ -79,6 +79,7 @@ export default function DailyCashRecordPage() {
   const [viewRecordOpen, setViewRecordOpen] = useState(false);
   const [editingEntry, setEditingEntry] = useState<CashEntry | null>(null);
   const [viewingRecord, setViewingRecord] = useState<DailyRecord | null>(null);
+  const [openingRecordId, setOpeningRecordId] = useState<string | null>(null);
   const [currentPage, setCurrentPage] = useState(1);
   const [pagination, setPagination] = useState<PaginationInfo | null>(null);
   const [recordsCache, setRecordsCache] = useState<Map<string, DailyRecord>>(new Map());
@@ -339,11 +340,18 @@ export default function DailyCashRecordPage() {
   };
 
   const handleViewRecord = async (record: SummaryRecord) => {
-    const parsedDate = parse(record.date, 'dd-MM-yyyy', new Date());
-    const recordData = await fetchRecordForDate(parsedDate, true);
-    if (recordData) {
-      setViewingRecord(recordData);
-      setViewRecordOpen(true);
+    if (openingRecordId === record.id) return;
+
+    setOpeningRecordId(record.id);
+    try {
+      const parsedDate = parse(record.date, 'dd-MM-yyyy', new Date());
+      const recordData = await fetchRecordForDate(parsedDate, true);
+      if (recordData) {
+        setViewingRecord(recordData);
+        setViewRecordOpen(true);
+      }
+    } finally {
+      setOpeningRecordId((prev) => (prev === record.id ? null : prev));
     }
   };
 
@@ -824,7 +832,12 @@ export default function DailyCashRecordPage() {
                       <button
                         type="button"
                         onClick={() => handleViewRecord(record)}
-                        className={`group w-full text-left bg-white transition-colors max-sm:border-b max-sm:border-slate-200/90 max-sm:rounded-none hover:bg-slate-50/90 active:bg-slate-50 sm:rounded-xl sm:border sm:border-slate-200/90 sm:shadow-sm sm:hover:border-slate-300 sm:hover:shadow-md ${
+                        disabled={openingRecordId === record.id}
+                        className={`group w-full text-left bg-white transition-all duration-200 max-sm:border-b max-sm:border-slate-200/90 max-sm:rounded-none hover:bg-slate-50/90 active:bg-slate-50 sm:rounded-xl sm:border sm:border-slate-200/90 sm:shadow-sm sm:hover:-translate-y-0.5 sm:hover:border-slate-300 sm:hover:shadow-md ${
+                          openingRecordId === record.id
+                            ? 'cursor-wait opacity-85 pointer-events-none'
+                            : 'cursor-pointer'
+                        } ${
                           index === summaryRecords.length - 1 ? 'max-sm:border-b-0' : ''
                         }`}
                       >
@@ -836,9 +849,16 @@ export default function DailyCashRecordPage() {
                                 {record.date}
                               </span>
                             </div>
-                            <span className="shrink-0 rounded-md bg-slate-100 px-2 py-0.5 text-[11px] font-medium text-slate-600 sm:text-xs">
-                              {record.entryCount} {record.entryCount === 1 ? 'entry' : 'entries'}
-                            </span>
+                            {openingRecordId === record.id ? (
+                              <span className="inline-flex items-center gap-1.5 shrink-0 rounded-md bg-slate-100 px-2 py-0.5 text-[11px] font-medium text-slate-600 sm:text-xs">
+                                <Loader2 className="h-3 w-3 animate-spin" />
+                                Opening...
+                              </span>
+                            ) : (
+                              <span className="shrink-0 rounded-md bg-slate-100 px-2 py-0.5 text-[11px] font-medium text-slate-600 sm:text-xs">
+                                {record.entryCount} {record.entryCount === 1 ? 'entry' : 'entries'}
+                              </span>
+                            )}
                           </div>
                         </div>
                         <div className="mx-3 mb-2.5 overflow-hidden rounded-lg border border-slate-100 max-sm:mx-3.5 sm:mx-4 sm:mb-4">
