@@ -19,7 +19,8 @@ import {
   FolderOpen,
   User,
   FileText,
-  Settings
+  Settings,
+  Boxes
 } from 'lucide-react';
 import {
   DropdownMenu,
@@ -158,6 +159,7 @@ export default function Sidebar({ collapsed = false }: SidebarProps) {
     { href: '/suppliers', label: 'Suppliers', icon: Building2 },
     { href: '/transactions/new', label: 'New Transaction', icon: PlusCircle },
     { href: '/invoices', label: 'Invoices', icon: FileText },
+    { href: '/inventory', label: 'Inventory', icon: Boxes },
     { href: '/daily-cash-record', label: 'Cash Record', icon: Wallet },
     { href: '/notes', label: 'Notes', icon: StickyNote },
   ], []);

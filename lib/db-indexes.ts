@@ -17,6 +17,7 @@ export async function initializeIndexes(db: Db): Promise<void> {
     const collectionTypes = db.collection('collectionTypes');
     const customEntities = db.collection('customEntities');
     const invoices = db.collection('invoices');
+    const inventory = db.collection('inventory');
 
     await Promise.all([
       customers.createIndex({ userId: 1, createdAt: -1 }),
@@ -46,6 +47,12 @@ export async function initializeIndexes(db: Db): Promise<void> {
       invoices.createIndex({ userId: 1, invoiceNumber: 1 }, { unique: true }),
       invoices.createIndex({ userId: 1, customerId: 1 }),
       invoices.createIndex({ userId: 1, status: 1 }),
+
+      inventory.createIndex({ userId: 1, createdAt: -1 }),
+      inventory.createIndex({ userId: 1, itemName: 1 }),
+      inventory.createIndex({ userId: 1, itemNumber: 1 }),
+      inventory.createIndex({ userId: 1, quantity: 1 }),
+      inventory.createIndex({ userId: 1, location: 1 }),
     ]);
   } catch (error) {
     console.error('❌ Error initializing database indexes:', error);

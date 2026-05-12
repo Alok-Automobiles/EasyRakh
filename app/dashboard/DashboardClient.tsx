@@ -49,6 +49,9 @@ import {
   CalendarRange,
   ChevronLeft,
   ChevronRight,
+  Boxes,
+  PackageCheck,
+  AlertTriangle,
 } from 'lucide-react';
 import { compressImage, isCompressibleImage, formatFileSize } from '@/lib/imageCompression';
 import GlobalSearch from '@/components/GlobalSearch';
@@ -101,6 +104,14 @@ interface DashboardStats {
   totalCustomers: number;
   totalSuppliers: number;
   totalTransactions: number;
+  inventory: {
+    totalItems: number;
+    totalQuantity: number;
+    totalValue: number;
+    outOfStockItems: number;
+    restockItems: number;
+    lowStockThreshold: number;
+  };
   todayCash: CashSummary;
   monthlyTotals: CashSummary;
   monthlySeries: MonthlyPoint[];
@@ -122,6 +133,14 @@ const defaultStats: DashboardStats = {
   totalCustomers: 0,
   totalSuppliers: 0,
   totalTransactions: 0,
+  inventory: {
+    totalItems: 0,
+    totalQuantity: 0,
+    totalValue: 0,
+    outOfStockItems: 0,
+    restockItems: 0,
+    lowStockThreshold: 5,
+  },
   todayCash: { totalIn: 0, totalOut: 0, totalLeft: 0 },
   monthlyTotals: { totalIn: 0, totalOut: 0, totalLeft: 0 },
   monthlySeries: [],
@@ -910,6 +929,65 @@ export default function DashboardClient() {
             delay={3}
           />
         </div>
+
+        <motion.div variants={itemVariants}>
+          <Card className="p-3 sm:p-4 lg:p-5 overflow-hidden">
+            <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+              <div className="flex items-center gap-3 min-w-0">
+                <div className="rounded-lg bg-slate-900 p-2 text-white shrink-0">
+                  <Boxes className="h-5 w-5" />
+                </div>
+                <div className="min-w-0">
+                  <p className="text-[10px] sm:text-xs font-medium text-gray-500 uppercase tracking-wider truncate">Inventory Snapshot</p>
+                  <h3 className="text-base sm:text-lg lg:text-xl font-bold text-gray-900 mt-0.5 truncate">Stock overview</h3>
+                </div>
+              </div>
+              <Button asChild size="sm" variant="outline" className="border-gray-300 hover:bg-gray-100 self-start sm:self-auto">
+                <Link href="/inventory">Open Inventory</Link>
+              </Button>
+            </div>
+
+            <div className="mt-4 grid grid-cols-2 gap-2 sm:gap-3 lg:grid-cols-4">
+              <div className="rounded-lg border border-blue-100 bg-blue-50 p-3 min-w-0">
+                <div className="flex items-center gap-2 text-blue-700">
+                  <PackageCheck className="h-4 w-4 shrink-0" />
+                  <span className="text-[10px] sm:text-xs font-semibold uppercase tracking-wide truncate">Items</span>
+                </div>
+                <p className="mt-2 text-lg sm:text-xl font-bold text-gray-900 truncate">{(displayStats.inventory?.totalItems || 0).toLocaleString('en-IN')}</p>
+                <p className="text-[10px] sm:text-xs text-gray-500 truncate">{(displayStats.inventory?.totalQuantity || 0).toLocaleString('en-IN')} units</p>
+              </div>
+
+              <div className="rounded-lg border border-emerald-100 bg-emerald-50 p-3 min-w-0">
+                <div className="flex items-center gap-2 text-emerald-700">
+                  <TrendingUp className="h-4 w-4 shrink-0" />
+                  <span className="text-[10px] sm:text-xs font-semibold uppercase tracking-wide truncate">Value</span>
+                </div>
+                <p className="mt-2 text-lg sm:text-xl font-bold text-gray-900 truncate" title={formatCurrency(displayStats.inventory?.totalValue || 0)}>
+                  {formatCurrency(displayStats.inventory?.totalValue || 0)}
+                </p>
+                <p className="text-[10px] sm:text-xs text-gray-500 truncate">Buying price based</p>
+              </div>
+
+              <div className="rounded-lg border border-red-100 bg-red-50 p-3 min-w-0">
+                <div className="flex items-center gap-2 text-red-700">
+                  <AlertTriangle className="h-4 w-4 shrink-0" />
+                  <span className="text-[10px] sm:text-xs font-semibold uppercase tracking-wide truncate">Out</span>
+                </div>
+                <p className="mt-2 text-lg sm:text-xl font-bold text-gray-900 truncate">{(displayStats.inventory?.outOfStockItems || 0).toLocaleString('en-IN')}</p>
+                <p className="text-[10px] sm:text-xs text-gray-500 truncate">zero quantity</p>
+              </div>
+
+              <div className="rounded-lg border border-amber-100 bg-amber-50 p-3 min-w-0">
+                <div className="flex items-center gap-2 text-amber-700">
+                  <ClipboardList className="h-4 w-4 shrink-0" />
+                  <span className="text-[10px] sm:text-xs font-semibold uppercase tracking-wide truncate">Restock</span>
+                </div>
+                <p className="mt-2 text-lg sm:text-xl font-bold text-gray-900 truncate">{(displayStats.inventory?.restockItems || 0).toLocaleString('en-IN')}</p>
+                <p className="text-[10px] sm:text-xs text-gray-500 truncate">1-{displayStats.inventory?.lowStockThreshold || 5} quantity</p>
+              </div>
+            </div>
+          </Card>
+        </motion.div>
 
         <div className="grid gap-3 sm:gap-4 lg:gap-6 lg:grid-cols-5 lg:items-stretch lg:grid-rows-[auto] min-w-0 overflow-hidden">
           <motion.div variants={itemVariants} className="lg:col-span-3 flex flex-col min-h-[320px] sm:min-h-[360px] min-w-0">
