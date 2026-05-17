@@ -141,3 +141,35 @@ export interface Invoice {
   updatedAt: Date;
 }
 
+export interface InventoryItem {
+  _id?: string;
+  userId: string;
+  itemName: string;
+  itemNumber: string;
+  uniqueCode?: string;
+  quantity: number;
+  location: string;
+  unitOfMeasure: string;
+  partImages?: string[];
+  brand?: string;
+  description?: string;
+  buyingPrice?: number;
+  mrp?: number;
+  supplier?: string;
+  billingDate?: Date;
+  billImages?: string[];
+  createdAt: Date;
+  updatedAt: Date;
+}
+
+export interface InventoryStats {
+  totalItems: number;
+  totalQuantity: number;
+  totalValue: number;
+  outOfStockItems: number;
+  restockItems: number;
+  lowStockThreshold: number;
+  locations: string[];
+  brands: string[];
+}
+

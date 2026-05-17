@@ -8,6 +8,7 @@ import { ObjectId } from 'mongodb';
 
 const MONTH_REGEX = /^\d{4}-(0[1-9]|1[0-2])$/;
 const DATE_REGEX = /^\d{4}-(0[1-9]|1[0-2])-(0[1-9]|[12]\d|3[01])$/;
+const LOW_STOCK_THRESHOLD = 5;
 
 export async function GET(request: NextRequest) {
   try {
@@ -82,6 +83,7 @@ export async function GET(request: NextRequest) {
     const transactionsCollection = db.collection<Transaction>('transactions');
     const dailyCashRecordsCollection = db.collection('dailyCashRecords');
     const notesCollection = db.collection('notes');
+    const inventoryCollection = db.collection('inventory');
 
     const normalizeToUTCStart = (date: Date) =>
       new Date(Date.UTC(date.getUTCFullYear(), date.getUTCMonth(), date.getUTCDate(), 0, 0, 0, 0));
@@ -105,6 +107,7 @@ export async function GET(request: NextRequest) {
       recentSuppliers,
       recentDailyCashRecords,
       dashboardNotes,
+      inventoryStats,
     ] = await Promise.all([
       transactionsCollection
         .aggregate([
@@ -308,6 +311,54 @@ export async function GET(request: NextRequest) {
         )
         .sort({ updatedAt: -1 })
         .limit(6)
+        .toArray(),
+      inventoryCollection
+        .aggregate([
+          { $match: { userId } },
+          {
+            $group: {
+              _id: null,
+              totalItems: { $sum: 1 },
+              totalQuantity: { $sum: { $ifNull: ['$quantity', 0] } },
+              totalValue: {
+                $sum: {
+                  $multiply: [
+                    { $ifNull: ['$quantity', 0] },
+                    { $ifNull: ['$buyingPrice', 0] },
+                  ],
+                },
+              },
+              outOfStockItems: {
+                $sum: { $cond: [{ $lte: [{ $ifNull: ['$quantity', 0] }, 0] }, 1, 0] },
+              },
+              restockItems: {
+                $sum: {
+                  $cond: [
+                    {
+                      $and: [
+                        { $gt: [{ $ifNull: ['$quantity', 0] }, 0] },
+                        { $lte: [{ $ifNull: ['$quantity', 0] }, LOW_STOCK_THRESHOLD] },
+                      ],
+                    },
+                    1,
+                    0,
+                  ],
+                },
+              },
+            },
+          },
+          {
+            $project: {
+              _id: 0,
+              totalItems: 1,
+              totalQuantity: 1,
+              totalValue: 1,
+              outOfStockItems: 1,
+              restockItems: 1,
+              lowStockThreshold: { $literal: LOW_STOCK_THRESHOLD },
+            },
+          },
+        ])
         .toArray(),
     ]);
 
@@ -531,6 +582,15 @@ export async function GET(request: NextRequest) {
       debit: agg.debit || 0,
     }));
 
+    const inventorySummary = inventoryStats[0] || {
+      totalItems: 0,
+      totalQuantity: 0,
+      totalValue: 0,
+      outOfStockItems: 0,
+      restockItems: 0,
+      lowStockThreshold: LOW_STOCK_THRESHOLD,
+    };
+
     const responseData = {
       stats: {
         totalCredit,
@@ -542,6 +602,7 @@ export async function GET(request: NextRequest) {
         todayCash,
         monthlyTotals,
         monthlySeries,
+        inventory: inventorySummary,
       },
       activities: topActivities,
       topCustomers,
