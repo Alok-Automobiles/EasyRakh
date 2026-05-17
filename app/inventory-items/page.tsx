@@ -410,10 +410,10 @@ function InventoryItemCard({
 
         <div className="flex items-center justify-between gap-2 border-t border-gray-100 pt-3 text-xs">
           <span className="truncate text-gray-500">
-            Cost <span className="font-semibold text-gray-800">{item.buyingPrice ? formatCurrency(item.buyingPrice) : '-'}</span>
+            Cost <span className="font-semibold text-gray-800">{item.buyingPrice != null ? formatCurrency(item.buyingPrice) : '-'}</span>
           </span>
           <span className="truncate text-gray-500">
-            MRP <span className="font-semibold text-gray-800">{item.mrp ? formatCurrency(item.mrp) : '-'}</span>
+            MRP <span className="font-semibold text-gray-800">{item.mrp != null ? formatCurrency(item.mrp) : '-'}</span>
           </span>
         </div>
       </div>

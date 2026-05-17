@@ -107,7 +107,14 @@ export async function GET(
     const cacheKey = inventoryItemKey(userId, id);
     const cached = await cacheGet(cacheKey);
     if (cached) {
-      return NextResponse.json({ item: JSON.parse(cached) });
+      try {
+        return NextResponse.json({ item: JSON.parse(cached) });
+      } catch (parseError) {
+        console.warn('inventory item cache parse failed, falling back to DB:', parseError);
+        redis.del(cacheKey).catch((err) =>
+          console.warn('inventory item stale cache delete failed:', err)
+        );
+      }
     }
 
     const db = await getDb();
@@ -195,9 +202,7 @@ export async function PUT(
       return NextResponse.json({ error: 'Inventory item not found' }, { status: 404 });
     }
 
-    invalidateInventoryCache(userId, id).catch((err) => {
-      console.warn('Redis cache invalidation failed:', err);
-    });
+    await invalidateInventoryCache(userId, id);
 
     return NextResponse.json({
       message: 'Inventory item updated successfully',
@@ -241,9 +246,7 @@ export async function DELETE(
       return NextResponse.json({ error: 'Inventory item not found' }, { status: 404 });
     }
 
-    invalidateInventoryCache(userId, id).catch((err) => {
-      console.warn('Redis cache invalidation failed:', err);
-    });
+    await invalidateInventoryCache(userId, id);
 
     return NextResponse.json({ message: 'Inventory item deleted successfully' });
   } catch (error) {

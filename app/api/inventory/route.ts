@@ -169,6 +169,19 @@ async function getInventoryStats(userId: string): Promise<InventoryStats> {
 
 type SerializedItem = ReturnType<typeof serializeInventoryItem>;
 
+function safeParseCache<T>(cached: string | null, cacheKey: string): T | null {
+  if (!cached) return null;
+  try {
+    return JSON.parse(cached) as T;
+  } catch (err) {
+    console.warn(`cache parse failed for ${cacheKey}, treating as miss:`, err);
+    redis.del(cacheKey).catch((delErr) =>
+      console.warn(`stale cache delete failed for ${cacheKey}:`, delErr)
+    );
+    return null;
+  }
+}
+
 interface ListCachePayload {
   items: SerializedItem[];
   pagination: {
@@ -206,10 +219,8 @@ export async function GET(request: NextRequest) {
       cacheGet(summaryCacheKey),
     ]);
 
-    let listPayload: ListCachePayload | null = cachedList ? JSON.parse(cachedList) : null;
-    let summaryPayload: SummaryCachePayload | null = cachedSummary
-      ? JSON.parse(cachedSummary)
-      : null;
+    let listPayload = safeParseCache<ListCachePayload>(cachedList, listCacheKey);
+    let summaryPayload = safeParseCache<SummaryCachePayload>(cachedSummary, summaryCacheKey);
 
     if (!listPayload || !summaryPayload) {
       const db = await getDb();
