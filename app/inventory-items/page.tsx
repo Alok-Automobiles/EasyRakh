@@ -1,6 +1,6 @@
 'use client';
 
-import { ChangeEvent, useEffect, useMemo, useRef, useState } from 'react';
+import { ChangeEvent, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import Image from 'next/image';
 import { useRouter } from 'next/navigation';
 import { useForm } from 'react-hook-form';
@@ -10,16 +10,22 @@ import toast from 'react-hot-toast';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { motion } from 'motion/react';
 import {
+  AlertTriangle,
   Boxes,
   CalendarDays,
+  CheckCircle2,
+  ChevronLeft,
+  ChevronRight,
   Edit3,
   FileText,
   Filter,
   ImagePlus,
+  Loader2,
   MapPin,
   MoreVertical,
   Package,
   Plus,
+  RefreshCw,
   Search,
   Trash2,
   Upload,
@@ -64,6 +70,7 @@ import type { InventoryStats } from '@/lib/types';
 import { compressImage, formatFileSize, isCompressibleImage } from '@/lib/imageCompression';
 
 const MAX_FILE_SIZE_BYTES = 5 * 1024 * 1024;
+const COMPRESSION_TARGET_BYTES = 1 * 1024 * 1024;
 const ACCEPTED_BILL_TYPES = [
   'image/jpeg',
   'image/png',
@@ -73,6 +80,15 @@ const ACCEPTED_BILL_TYPES = [
   'application/pdf',
 ];
 const ACCEPTED_PART_TYPES = ACCEPTED_BILL_TYPES.filter((type) => type.startsWith('image/'));
+
+interface PendingUpload {
+  tempId: string;
+  previewUrl: string;
+  fileName: string;
+  isImage: boolean;
+  status: 'compressing' | 'uploading' | 'error';
+  error?: string;
+}
 
 const currencyFormatter = new Intl.NumberFormat('en-IN', {
   style: 'currency',
@@ -219,6 +235,103 @@ function normalizeSubmission(values: InventoryItemForm) {
   };
 }
 
+function ItemImageCarousel({ images, itemName }: { images: string[]; itemName: string }) {
+  const scrollRef = useRef<HTMLDivElement>(null);
+  const [activeIndex, setActiveIndex] = useState(0);
+
+  const scrollTo = useCallback((index: number) => {
+    const container = scrollRef.current;
+    if (!container) return;
+    const target = Math.max(0, Math.min(index, images.length - 1));
+    container.scrollTo({ left: target * container.clientWidth, behavior: 'smooth' });
+    setActiveIndex(target);
+  }, [images.length]);
+
+  const handleScroll = () => {
+    const container = scrollRef.current;
+    if (!container) return;
+    const idx = Math.round(container.scrollLeft / Math.max(container.clientWidth, 1));
+    if (idx !== activeIndex) setActiveIndex(idx);
+  };
+
+  if (images.length === 0) {
+    return (
+      <div className="flex h-full w-full items-center justify-center bg-gradient-to-br from-gray-50 to-slate-100">
+        <Package className="h-12 w-12 text-gray-300" strokeWidth={1.2} />
+      </div>
+    );
+  }
+
+  return (
+    <div className="relative h-full w-full">
+      <div
+        ref={scrollRef}
+        onScroll={handleScroll}
+        className="flex h-full w-full snap-x snap-mandatory overflow-x-auto scroll-smooth scrollbar-none [&::-webkit-scrollbar]:hidden"
+      >
+        {images.map((url, idx) => (
+          <div
+            key={`${url}-${idx}`}
+            className="relative h-full w-full shrink-0 snap-center"
+          >
+            <Image
+              src={url}
+              alt={`${itemName} ${idx + 1}`}
+              fill
+              sizes="(max-width: 768px) 50vw, 320px"
+              className="object-contain p-3"
+            />
+          </div>
+        ))}
+      </div>
+
+      {images.length > 1 && (
+        <>
+          <button
+            type="button"
+            onClick={(event) => {
+              event.preventDefault();
+              event.stopPropagation();
+              scrollTo(activeIndex - 1);
+            }}
+            disabled={activeIndex === 0}
+            className="absolute left-1.5 top-1/2 z-10 -translate-y-1/2 rounded-full bg-white/90 p-1.5 text-gray-700 opacity-0 shadow transition-opacity duration-200 hover:bg-white group-hover:opacity-100 disabled:cursor-not-allowed disabled:opacity-30 disabled:group-hover:opacity-30"
+            aria-label="Previous image"
+          >
+            <ChevronLeft className="h-4 w-4" />
+          </button>
+          <button
+            type="button"
+            onClick={(event) => {
+              event.preventDefault();
+              event.stopPropagation();
+              scrollTo(activeIndex + 1);
+            }}
+            disabled={activeIndex >= images.length - 1}
+            className="absolute right-1.5 top-1/2 z-10 -translate-y-1/2 rounded-full bg-white/90 p-1.5 text-gray-700 opacity-0 shadow transition-opacity duration-200 hover:bg-white group-hover:opacity-100 disabled:cursor-not-allowed disabled:opacity-30 disabled:group-hover:opacity-30"
+            aria-label="Next image"
+          >
+            <ChevronRight className="h-4 w-4" />
+          </button>
+          <div className="pointer-events-none absolute bottom-1.5 left-1/2 flex -translate-x-1/2 gap-1 rounded-full bg-white/80 px-1.5 py-1">
+            {images.map((_, idx) => (
+              <span
+                key={idx}
+                className={`h-1.5 rounded-full transition-all ${
+                  idx === activeIndex ? 'w-3.5 bg-slate-900' : 'w-1.5 bg-slate-300'
+                }`}
+              />
+            ))}
+          </div>
+          <span className="absolute right-2 top-2 rounded-full bg-black/60 px-2 py-0.5 text-[10px] font-semibold text-white">
+            {activeIndex + 1}/{images.length}
+          </span>
+        </>
+      )}
+    </div>
+  );
+}
+
 function InventoryItemCard({
   item,
   threshold,
@@ -231,8 +344,8 @@ function InventoryItemCard({
   onDelete: (item: InventoryItem) => void;
 }) {
   const status = getStockStatus(item, threshold);
-  const firstImage = item.partImages?.[0];
   const stockValue = (item.buyingPrice || 0) * (item.quantity || 0);
+  const images = item.partImages || [];
 
   return (
     <div className="group rounded-lg border border-gray-200 bg-white p-3 shadow-sm transition-all hover:-translate-y-0.5 hover:border-gray-300 hover:shadow-md">
@@ -264,19 +377,7 @@ function InventoryItemCard({
       </div>
 
       <div className="mt-3 aspect-[4/3] overflow-hidden rounded-lg bg-gray-50">
-        {firstImage ? (
-          <Image
-            src={firstImage}
-            alt={item.itemName}
-            width={320}
-            height={240}
-            className="h-full w-full object-contain p-3 transition-transform duration-300 group-hover:scale-105"
-          />
-        ) : (
-          <div className="flex h-full w-full items-center justify-center bg-gradient-to-br from-gray-50 to-slate-100">
-            <Package className="h-12 w-12 text-gray-300" strokeWidth={1.2} />
-          </div>
-        )}
+        <ItemImageCarousel images={images} itemName={item.itemName} />
       </div>
 
       <div className="mt-4 space-y-3">
@@ -332,13 +433,81 @@ export default function InventoryItemsPage() {
   const [editingItem, setEditingItem] = useState<InventoryItem | null>(null);
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [deletingItem, setDeletingItem] = useState<InventoryItem | null>(null);
-  const [uploadingPart, setUploadingPart] = useState(false);
-  const [uploadingBill, setUploadingBill] = useState(false);
+  const [pendingPartUploads, setPendingPartUploads] = useState<PendingUpload[]>([]);
+  const [pendingBillUploads, setPendingBillUploads] = useState<PendingUpload[]>([]);
+  const [itemNumberCheck, setItemNumberCheck] = useState<{
+    status: 'idle' | 'checking' | 'ok' | 'duplicate';
+    conflict?: { id: string; itemName: string; itemNumber: string };
+  }>({ status: 'idle' });
 
   const form = useForm<InventoryItemForm>({
     resolver: zodResolver(inventoryItemSchema),
     defaultValues: defaultFormValues,
   });
+
+  const watchedItemNumber = form.watch('itemNumber');
+  const editingItemId = editingItem?.id;
+
+  useEffect(() => {
+    if (!formOpen) return;
+    const trimmed = (watchedItemNumber || '').trim();
+    if (!trimmed) {
+      setItemNumberCheck({ status: 'idle' });
+      return;
+    }
+
+    if (editingItem && trimmed.toLowerCase() === editingItem.itemNumber.toLowerCase()) {
+      setItemNumberCheck({ status: 'idle' });
+      return;
+    }
+
+    setItemNumberCheck((prev) => ({ ...prev, status: 'checking' }));
+    const controller = new AbortController();
+    const timer = window.setTimeout(async () => {
+      try {
+        const params = new URLSearchParams({ itemNumber: trimmed });
+        if (editingItemId) params.set('excludeId', editingItemId);
+        const response = await fetch(`/api/inventory/check-number?${params.toString()}`, {
+          cache: 'no-store',
+          signal: controller.signal,
+        });
+        if (!response.ok) {
+          setItemNumberCheck({ status: 'idle' });
+          return;
+        }
+        const result = (await response.json()) as {
+          exists: boolean;
+          item?: { id: string; itemName: string; itemNumber: string };
+        };
+        if (result.exists && result.item) {
+          setItemNumberCheck({ status: 'duplicate', conflict: result.item });
+        } else {
+          setItemNumberCheck({ status: 'ok' });
+        }
+      } catch (error) {
+        if (!(error instanceof DOMException && error.name === 'AbortError')) {
+          setItemNumberCheck({ status: 'idle' });
+        }
+      }
+    }, 400);
+
+    return () => {
+      controller.abort();
+      window.clearTimeout(timer);
+    };
+  }, [watchedItemNumber, formOpen, editingItem, editingItemId]);
+
+  useEffect(() => {
+    return () => {
+      pendingPartUploads.forEach((upload) => {
+        if (upload.previewUrl) URL.revokeObjectURL(upload.previewUrl);
+      });
+      pendingBillUploads.forEach((upload) => {
+        if (upload.previewUrl) URL.revokeObjectURL(upload.previewUrl);
+      });
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
@@ -445,12 +614,16 @@ export default function InventoryItemsPage() {
   });
 
   const openNewItem = () => {
+    cancelAllPendingUploads();
+    setItemNumberCheck({ status: 'idle' });
     setEditingItem(null);
     form.reset(defaultFormValues);
     setFormOpen(true);
   };
 
   const openEditItem = (item: InventoryItem) => {
+    cancelAllPendingUploads();
+    setItemNumberCheck({ status: 'idle' });
     setEditingItem(item);
     form.reset({
       itemName: item.itemName,
@@ -471,65 +644,143 @@ export default function InventoryItemsPage() {
     setFormOpen(true);
   };
 
-  const uploadFiles = async (files: FileList | null, kind: UploadKind) => {
-    if (!files || files.length === 0) return;
-    const acceptedTypes = kind === 'part' ? ACCEPTED_PART_TYPES : ACCEPTED_BILL_TYPES;
-    const setUploading = kind === 'part' ? setUploadingPart : setUploadingBill;
+  const uploadSingleFile = useCallback(
+    async (file: File, kind: UploadKind) => {
+      const tempId = `${Date.now()}-${Math.random().toString(36).slice(2, 10)}`;
+      const isImage = file.type.startsWith('image/');
+      const previewUrl = isImage ? URL.createObjectURL(file) : '';
+      const setPending = kind === 'part' ? setPendingPartUploads : setPendingBillUploads;
 
-    setUploading(true);
-    try {
-      const uploadedUrls: string[] = [];
+      setPending((prev) => [
+        ...prev,
+        {
+          tempId,
+          previewUrl,
+          fileName: file.name,
+          isImage,
+          status: isCompressibleImage(file) ? 'compressing' : 'uploading',
+        },
+      ]);
 
-      for (const file of Array.from(files)) {
-        if (!acceptedTypes.includes(file.type)) {
-          toast.error(kind === 'part' ? 'Part photos must be images.' : 'Upload JPG, PNG, WEBP, HEIC/HEIF, or PDF files.');
-          continue;
-        }
-
+      try {
         let fileToUpload = file;
 
-        if (file.size > MAX_FILE_SIZE_BYTES && isCompressibleImage(file)) {
-          toast.loading('Compressing image...', { id: `compress-${kind}` });
-          const result = await compressImage(file, MAX_FILE_SIZE_BYTES);
-          toast.dismiss(`compress-${kind}`);
+        if (isCompressibleImage(file) && file.size > COMPRESSION_TARGET_BYTES) {
+          const result = await compressImage(file, COMPRESSION_TARGET_BYTES);
           if (result.wasCompressed) {
             fileToUpload = result.file;
-            toast.success(`Compressed: ${formatFileSize(result.originalSize)} to ${formatFileSize(result.compressedSize)}`);
           }
-        } else if (file.size > MAX_FILE_SIZE_BYTES) {
-          toast.error(`${file.name} must be under 5MB.`);
-          continue;
         }
+
+        if (fileToUpload.size > MAX_FILE_SIZE_BYTES) {
+          throw new Error(`${file.name} (${formatFileSize(fileToUpload.size)}) is over the 5MB limit.`);
+        }
+
+        setPending((prev) =>
+          prev.map((upload) =>
+            upload.tempId === tempId ? { ...upload, status: 'uploading' } : upload
+          )
+        );
 
         const formData = new FormData();
         formData.append('file', fileToUpload);
         const response = await fetch('/api/uploads/bill', { method: 'POST', body: formData });
         const result = await response.json();
         if (!response.ok) throw new Error(result.error || 'Upload failed');
-        uploadedUrls.push(result.url);
-      }
 
-      if (uploadedUrls.length > 0) {
         const fieldName = kind === 'part' ? 'partImages' : 'billImages';
         const currentUrls = (form.getValues(fieldName) || []) as string[];
-        form.setValue(fieldName, [...currentUrls, ...uploadedUrls], { shouldDirty: true });
-        toast.success(kind === 'part' ? 'Part images uploaded' : 'Bill files uploaded');
+        form.setValue(fieldName, [...currentUrls, result.url], { shouldDirty: true });
+
+        setPending((prev) => prev.filter((upload) => upload.tempId !== tempId));
+        if (previewUrl) URL.revokeObjectURL(previewUrl);
+      } catch (error) {
+        const message = error instanceof Error ? error.message : 'Upload failed';
+        setPending((prev) =>
+          prev.map((upload) =>
+            upload.tempId === tempId
+              ? { ...upload, status: 'error', error: message }
+              : upload
+          )
+        );
+        toast.error(message);
       }
-    } catch (error) {
-      toast.error(error instanceof Error ? error.message : 'Upload failed');
-    } finally {
-      setUploading(false);
-      if (kind === 'part' && partInputRef.current) partInputRef.current.value = '';
-      if (kind === 'bill' && billInputRef.current) billInputRef.current.value = '';
+    },
+    [form]
+  );
+
+  const handleFileSelect = (files: FileList | null, kind: UploadKind) => {
+    if (!files || files.length === 0) return;
+    const acceptedTypes = kind === 'part' ? ACCEPTED_PART_TYPES : ACCEPTED_BILL_TYPES;
+
+    const validFiles: File[] = [];
+    for (const file of Array.from(files)) {
+      if (!acceptedTypes.includes(file.type)) {
+        toast.error(
+          kind === 'part'
+            ? `${file.name}: part photos must be images.`
+            : `${file.name}: upload JPG, PNG, WEBP, HEIC/HEIF, or PDF.`
+        );
+        continue;
+      }
+      if (!isCompressibleImage(file) && file.size > MAX_FILE_SIZE_BYTES) {
+        toast.error(`${file.name} must be under 5MB.`);
+        continue;
+      }
+      validFiles.push(file);
     }
+
+    validFiles.forEach((file) => {
+      void uploadSingleFile(file, kind);
+    });
+
+    if (kind === 'part' && partInputRef.current) partInputRef.current.value = '';
+    if (kind === 'bill' && billInputRef.current) billInputRef.current.value = '';
   };
+
+  const removePendingUpload = (kind: UploadKind, tempId: string) => {
+    const setPending = kind === 'part' ? setPendingPartUploads : setPendingBillUploads;
+    setPending((prev) => {
+      const target = prev.find((upload) => upload.tempId === tempId);
+      if (target?.previewUrl) URL.revokeObjectURL(target.previewUrl);
+      return prev.filter((upload) => upload.tempId !== tempId);
+    });
+  };
+
+  const cancelAllPendingUploads = useCallback(() => {
+    setPendingPartUploads((prev) => {
+      prev.forEach((upload) => {
+        if (upload.previewUrl) URL.revokeObjectURL(upload.previewUrl);
+      });
+      return [];
+    });
+    setPendingBillUploads((prev) => {
+      prev.forEach((upload) => {
+        if (upload.previewUrl) URL.revokeObjectURL(upload.previewUrl);
+      });
+      return [];
+    });
+  }, []);
 
   const removeImage = (fieldName: 'partImages' | 'billImages', url: string) => {
     const nextUrls = ((form.getValues(fieldName) || []) as string[]).filter((item) => item !== url);
     form.setValue(fieldName, nextUrls, { shouldDirty: true });
   };
 
+  const partUploadingCount = pendingPartUploads.filter((u) => u.status !== 'error').length;
+  const billUploadingCount = pendingBillUploads.filter((u) => u.status !== 'error').length;
+  const totalUploadingCount = partUploadingCount + billUploadingCount;
+  const hasItemNumberConflict = itemNumberCheck.status === 'duplicate';
+
   const onSubmit = (values: InventoryItemForm) => {
+    if (hasItemNumberConflict) {
+      toast.error('Item number already exists. Use a different one.');
+      return;
+    }
+    if (totalUploadingCount > 0) {
+      toast.error(`Wait for ${totalUploadingCount} upload${totalUploadingCount > 1 ? 's' : ''} to finish first.`);
+      return;
+    }
     saveMutation.mutate(values);
   };
 
@@ -680,6 +931,8 @@ export default function InventoryItemsPage() {
           if (!open) {
             setEditingItem(null);
             form.reset(defaultFormValues);
+            cancelAllPendingUploads();
+            setItemNumberCheck({ status: 'idle' });
           }
         }}
       >
@@ -714,8 +967,38 @@ export default function InventoryItemsPage() {
                     <FormItem>
                       <FormLabel>Item number *</FormLabel>
                       <FormControl>
-                        <Input placeholder="BP-204" {...field} value={field.value || ''} />
+                        <div className="relative">
+                          <Input
+                            placeholder="BP-204"
+                            {...field}
+                            value={field.value || ''}
+                            className={`pr-9 ${
+                              itemNumberCheck.status === 'duplicate'
+                                ? 'border-red-300 focus-visible:ring-red-200'
+                                : itemNumberCheck.status === 'ok'
+                                  ? 'border-emerald-300 focus-visible:ring-emerald-200'
+                                  : ''
+                            }`}
+                          />
+                          <span className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-gray-400">
+                            {itemNumberCheck.status === 'checking' ? (
+                              <Loader2 className="h-4 w-4 animate-spin" />
+                            ) : itemNumberCheck.status === 'duplicate' ? (
+                              <AlertTriangle className="h-4 w-4 text-red-500" />
+                            ) : itemNumberCheck.status === 'ok' ? (
+                              <CheckCircle2 className="h-4 w-4 text-emerald-500" />
+                            ) : null}
+                          </span>
+                        </div>
                       </FormControl>
+                      {itemNumberCheck.status === 'duplicate' && itemNumberCheck.conflict ? (
+                        <p className="mt-1 text-xs text-red-600">
+                          Already used by{' '}
+                          <span className="font-semibold">{itemNumberCheck.conflict.itemName}</span>. Choose a unique number.
+                        </p>
+                      ) : itemNumberCheck.status === 'ok' ? (
+                        <p className="mt-1 text-xs text-emerald-600">Item number is available.</p>
+                      ) : null}
                       <FormMessage />
                     </FormItem>
                   )}
@@ -904,18 +1187,21 @@ export default function InventoryItemsPage() {
                   <div className="flex items-center justify-between gap-3">
                     <div>
                       <Label>Part images</Label>
-                      <p className="text-xs text-gray-500">Photos help identify stock faster.</p>
+                      <p className="text-xs text-gray-500">
+                        {partUploadingCount > 0
+                          ? `Uploading ${partUploadingCount} in background...`
+                          : 'Photos help identify stock faster.'}
+                      </p>
                     </div>
                     <Button
                       type="button"
                       variant="outline"
                       size="sm"
                       className="border-gray-300"
-                      disabled={uploadingPart}
                       onClick={() => partInputRef.current?.click()}
                     >
                       <ImagePlus className="h-4 w-4" />
-                      {uploadingPart ? 'Uploading' : 'Upload'}
+                      {partUploadingCount > 0 ? `Uploading (${partUploadingCount})` : 'Upload'}
                     </Button>
                   </div>
                   <input
@@ -924,27 +1210,71 @@ export default function InventoryItemsPage() {
                     accept="image/jpeg,image/png,image/webp,image/heic,image/heif"
                     multiple
                     className="hidden"
-                    onChange={(event: ChangeEvent<HTMLInputElement>) => uploadFiles(event.target.files, 'part')}
+                    onChange={(event: ChangeEvent<HTMLInputElement>) => handleFileSelect(event.target.files, 'part')}
                   />
                   <div className="mt-3 grid grid-cols-3 gap-2">
-                    {partImages.length === 0 ? (
+                    {partImages.length === 0 && pendingPartUploads.length === 0 ? (
                       <div className="col-span-3 rounded-md border-2 border-dashed border-gray-200 py-6 text-center text-xs text-gray-400">
                         No part images
                       </div>
                     ) : (
-                      partImages.map((url) => (
-                        <div key={url} className="relative aspect-square overflow-hidden rounded-md border border-gray-200 bg-gray-50">
-                          <Image src={url} alt="Part image" fill className="object-cover" />
-                          <button
-                            type="button"
-                            onClick={() => removeImage('partImages', url)}
-                            className="absolute right-1 top-1 rounded-full bg-white p-1 text-gray-600 shadow-sm hover:text-red-600"
-                            aria-label="Remove part image"
+                      <>
+                        {partImages.map((url) => (
+                          <div key={url} className="relative aspect-square overflow-hidden rounded-md border border-gray-200 bg-gray-50">
+                            <Image src={url} alt="Part image" fill className="object-cover" />
+                            <button
+                              type="button"
+                              onClick={() => removeImage('partImages', url)}
+                              className="absolute right-1 top-1 rounded-full bg-white p-1 text-gray-600 shadow-sm hover:text-red-600"
+                              aria-label="Remove part image"
+                            >
+                              <X className="h-3.5 w-3.5" />
+                            </button>
+                          </div>
+                        ))}
+                        {pendingPartUploads.map((upload) => (
+                          <div
+                            key={upload.tempId}
+                            className={`relative aspect-square overflow-hidden rounded-md border bg-gray-50 ${
+                              upload.status === 'error' ? 'border-red-300' : 'border-gray-200'
+                            }`}
                           >
-                            <X className="h-3.5 w-3.5" />
-                          </button>
-                        </div>
-                      ))
+                            {upload.previewUrl ? (
+                              // eslint-disable-next-line @next/next/no-img-element
+                              <img
+                                src={upload.previewUrl}
+                                alt={upload.fileName}
+                                className="absolute inset-0 h-full w-full object-cover"
+                              />
+                            ) : (
+                              <div className="absolute inset-0 flex items-center justify-center bg-gray-100 text-gray-400">
+                                <FileText className="h-6 w-6" />
+                              </div>
+                            )}
+                            {upload.status !== 'error' ? (
+                              <div className="absolute inset-0 flex flex-col items-center justify-center gap-1 bg-black/45 text-white">
+                                <Loader2 className="h-5 w-5 animate-spin" />
+                                <span className="text-[10px] font-semibold uppercase tracking-wide">
+                                  {upload.status === 'compressing' ? 'Compressing' : 'Uploading'}
+                                </span>
+                              </div>
+                            ) : (
+                              <div className="absolute inset-0 flex flex-col items-center justify-center gap-1 bg-red-500/70 px-2 text-center text-white">
+                                <AlertTriangle className="h-5 w-5" />
+                                <span className="line-clamp-2 text-[10px] font-semibold">{upload.error || 'Failed'}</span>
+                              </div>
+                            )}
+                            <button
+                              type="button"
+                              onClick={() => removePendingUpload('part', upload.tempId)}
+                              className="absolute right-1 top-1 rounded-full bg-white p-1 text-gray-700 shadow-sm hover:text-red-600"
+                              aria-label="Cancel upload"
+                            >
+                              <X className="h-3.5 w-3.5" />
+                            </button>
+                          </div>
+                        ))}
+                      </>
                     )}
                   </div>
                 </div>
@@ -953,18 +1283,21 @@ export default function InventoryItemsPage() {
                   <div className="flex items-center justify-between gap-3">
                     <div>
                       <Label>Bill images</Label>
-                      <p className="text-xs text-gray-500">Attach purchase bill images or PDFs.</p>
+                      <p className="text-xs text-gray-500">
+                        {billUploadingCount > 0
+                          ? `Uploading ${billUploadingCount} in background...`
+                          : 'Attach purchase bill images or PDFs.'}
+                      </p>
                     </div>
                     <Button
                       type="button"
                       variant="outline"
                       size="sm"
                       className="border-gray-300"
-                      disabled={uploadingBill}
                       onClick={() => billInputRef.current?.click()}
                     >
                       <Upload className="h-4 w-4" />
-                      {uploadingBill ? 'Uploading' : 'Upload'}
+                      {billUploadingCount > 0 ? `Uploading (${billUploadingCount})` : 'Upload'}
                     </Button>
                   </div>
                   <input
@@ -973,40 +1306,94 @@ export default function InventoryItemsPage() {
                     accept="image/jpeg,image/png,image/webp,image/heic,image/heif,application/pdf"
                     multiple
                     className="hidden"
-                    onChange={(event: ChangeEvent<HTMLInputElement>) => uploadFiles(event.target.files, 'bill')}
+                    onChange={(event: ChangeEvent<HTMLInputElement>) => handleFileSelect(event.target.files, 'bill')}
                   />
                   <div className="mt-3 space-y-2">
-                    {billImages.length === 0 ? (
+                    {billImages.length === 0 && pendingBillUploads.length === 0 ? (
                       <div className="rounded-md border-2 border-dashed border-gray-200 py-6 text-center text-xs text-gray-400">
                         No bills attached
                       </div>
                     ) : (
-                      billImages.map((url, index) => (
-                        <div key={url} className="flex items-center gap-3 rounded-md border border-gray-200 bg-gray-50 p-2">
-                          <div className="flex h-10 w-10 items-center justify-center rounded-md bg-white text-gray-500">
-                            <FileText className="h-5 w-5" />
+                      <>
+                        {billImages.map((url, index) => (
+                          <div key={url} className="flex items-center gap-3 rounded-md border border-gray-200 bg-gray-50 p-2">
+                            <div className="flex h-10 w-10 items-center justify-center rounded-md bg-white text-gray-500">
+                              <FileText className="h-5 w-5" />
+                            </div>
+                            <div className="min-w-0 flex-1">
+                              <p className="truncate text-sm font-medium text-gray-900">Bill {index + 1}</p>
+                              <p className="truncate text-xs text-gray-500">{url}</p>
+                            </div>
+                            <Button
+                              type="button"
+                              variant="ghost"
+                              size="icon-sm"
+                              onClick={() => removeImage('billImages', url)}
+                              className="text-gray-500 hover:text-red-600"
+                            >
+                              <X className="h-4 w-4" />
+                            </Button>
                           </div>
-                          <div className="min-w-0 flex-1">
-                            <p className="truncate text-sm font-medium text-gray-900">Bill {index + 1}</p>
-                            <p className="truncate text-xs text-gray-500">{url}</p>
-                          </div>
-                          <Button
-                            type="button"
-                            variant="ghost"
-                            size="icon-sm"
-                            onClick={() => removeImage('billImages', url)}
-                            className="text-gray-500 hover:text-red-600"
+                        ))}
+                        {pendingBillUploads.map((upload) => (
+                          <div
+                            key={upload.tempId}
+                            className={`flex items-center gap-3 rounded-md border bg-gray-50 p-2 ${
+                              upload.status === 'error' ? 'border-red-300' : 'border-gray-200'
+                            }`}
                           >
-                            <X className="h-4 w-4" />
-                          </Button>
-                        </div>
-                      ))
+                            <div className="relative flex h-10 w-10 items-center justify-center overflow-hidden rounded-md bg-white text-gray-500">
+                              {upload.isImage && upload.previewUrl ? (
+                                // eslint-disable-next-line @next/next/no-img-element
+                                <img
+                                  src={upload.previewUrl}
+                                  alt={upload.fileName}
+                                  className="h-full w-full object-cover"
+                                />
+                              ) : (
+                                <FileText className="h-5 w-5" />
+                              )}
+                              {upload.status !== 'error' && (
+                                <div className="absolute inset-0 flex items-center justify-center bg-black/40 text-white">
+                                  <Loader2 className="h-4 w-4 animate-spin" />
+                                </div>
+                              )}
+                            </div>
+                            <div className="min-w-0 flex-1">
+                              <p className="truncate text-sm font-medium text-gray-900">{upload.fileName}</p>
+                              <p className={`truncate text-xs ${upload.status === 'error' ? 'text-red-600' : 'text-gray-500'}`}>
+                                {upload.status === 'error'
+                                  ? upload.error || 'Upload failed'
+                                  : upload.status === 'compressing'
+                                    ? 'Compressing image...'
+                                    : 'Uploading in background...'}
+                              </p>
+                            </div>
+                            <Button
+                              type="button"
+                              variant="ghost"
+                              size="icon-sm"
+                              onClick={() => removePendingUpload('bill', upload.tempId)}
+                              className="text-gray-500 hover:text-red-600"
+                              aria-label="Cancel upload"
+                            >
+                              <X className="h-4 w-4" />
+                            </Button>
+                          </div>
+                        ))}
+                      </>
                     )}
                   </div>
                 </div>
               </div>
 
-              <DialogFooter className="gap-2 sm:gap-0">
+              <DialogFooter className="flex-col gap-2 sm:flex-row sm:items-center sm:justify-end sm:gap-2">
+                {totalUploadingCount > 0 && (
+                  <p className="mr-auto flex items-center gap-2 text-xs font-medium text-amber-700">
+                    <RefreshCw className="h-3.5 w-3.5 animate-spin" />
+                    {totalUploadingCount} upload{totalUploadingCount > 1 ? 's' : ''} still finishing
+                  </p>
+                )}
                 <Button
                   type="button"
                   variant="outline"
@@ -1015,16 +1402,29 @@ export default function InventoryItemsPage() {
                     setFormOpen(false);
                     setEditingItem(null);
                     form.reset(defaultFormValues);
+                    cancelAllPendingUploads();
+                    setItemNumberCheck({ status: 'idle' });
                   }}
                 >
                   Cancel
                 </Button>
                 <Button
                   type="submit"
-                  disabled={saveMutation.isPending || uploadingPart || uploadingBill}
+                  disabled={
+                    saveMutation.isPending ||
+                    totalUploadingCount > 0 ||
+                    hasItemNumberConflict ||
+                    itemNumberCheck.status === 'checking'
+                  }
                   className="bg-slate-900 text-white hover:bg-slate-800"
                 >
-                  {saveMutation.isPending ? 'Saving...' : editingItem ? 'Update Item' : 'Add Item'}
+                  {saveMutation.isPending
+                    ? 'Saving...'
+                    : totalUploadingCount > 0
+                      ? 'Uploading...'
+                      : editingItem
+                        ? 'Update Item'
+                        : 'Add Item'}
                 </Button>
               </DialogFooter>
             </form>

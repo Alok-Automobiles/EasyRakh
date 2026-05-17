@@ -84,6 +84,10 @@ function getObjectId(id: string) {
   return new ObjectId(id);
 }
 
+function escapeRegex(value: string) {
+  return value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+}
+
 export async function GET(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
@@ -152,6 +156,31 @@ export async function PUT(
 
     const db = await getDb();
     const inventoryCollection = db.collection('inventory');
+
+    const existing = await inventoryCollection.findOne(
+      {
+        userId,
+        _id: { $ne: objectId },
+        itemNumber: { $regex: `^${escapeRegex(itemData.itemNumber)}$`, $options: 'i' },
+      },
+      { projection: { _id: 1, itemName: 1, itemNumber: 1 } }
+    );
+
+    if (existing) {
+      return NextResponse.json(
+        {
+          error: `Item number "${existing.itemNumber}" already exists for "${existing.itemName}". Use a different item number.`,
+          code: 'DUPLICATE_ITEM_NUMBER',
+          existingItem: {
+            id: existing._id.toString(),
+            itemName: existing.itemName,
+            itemNumber: existing.itemNumber,
+          },
+        },
+        { status: 409 }
+      );
+    }
+
     const result = await inventoryCollection.updateOne(
       { _id: objectId, userId },
       {
