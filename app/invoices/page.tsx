@@ -13,7 +13,7 @@ import {
   Search,
   Download,
   Trash2,
-  Eye,
+  Share2,
   Filter,
   CheckCircle2,
   Clock,
@@ -287,12 +287,24 @@ export default function InvoicesPage() {
               const status = statusConfig[invoice.status];
               const StatusIcon = status.icon;
 
+              const openInvoice = () => router.push(`/invoices/${invoice.id}`);
+
               return (
                 <motion.div
                   key={invoice.id}
                   initial={{ opacity: 0, y: 10 }}
                   animate={{ opacity: 1, y: 0 }}
-                  className="bg-white rounded-xl border border-gray-200 shadow-sm hover:shadow-md transition-shadow p-4 sm:p-5"
+                  role="button"
+                  tabIndex={0}
+                  onClick={openInvoice}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter' || e.key === ' ') {
+                      e.preventDefault();
+                      openInvoice();
+                    }
+                  }}
+                  className="bg-white rounded-xl border border-gray-200 shadow-sm hover:shadow-md hover:border-blue-200 focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:outline-none transition-all p-4 sm:p-5 cursor-pointer"
+                  aria-label={`Open invoice ${invoice.invoiceNumber}`}
                 >
                   <div className="flex flex-col sm:flex-row sm:items-center gap-4">
                     {/* Invoice Info */}
@@ -331,18 +343,10 @@ export default function InvoicesPage() {
                       </div>
 
                       {/* Actions */}
-                      <div className="flex items-center gap-2">
-                        <Button
-                          variant="outline"
-                          size="icon"
-                          asChild
-                          className="h-9 w-9"
-                          title="View Invoice"
-                        >
-                          <Link href={`/invoices/${invoice.id}`}>
-                            <Eye className="w-4 h-4" />
-                          </Link>
-                        </Button>
+                      <div
+                        className="flex items-center gap-2"
+                        onClick={(e) => e.stopPropagation()}
+                      >
                         <Button
                           variant="outline"
                           size="icon"
@@ -352,6 +356,17 @@ export default function InvoicesPage() {
                         >
                           <Link href={`/invoices/${invoice.id}?download=true`}>
                             <Download className="w-4 h-4" />
+                          </Link>
+                        </Button>
+                        <Button
+                          variant="outline"
+                          size="icon"
+                          className="h-9 w-9 text-emerald-600 hover:text-emerald-700 hover:bg-emerald-50"
+                          title="Share Invoice"
+                          asChild
+                        >
+                          <Link href={`/invoices/${invoice.id}?share=true`}>
+                            <Share2 className="w-4 h-4" />
                           </Link>
                         </Button>
                         <Button
