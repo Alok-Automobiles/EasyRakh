@@ -165,6 +165,14 @@ export async function PUT(
     const inventoryCollection = db.collection('inventory');
 
     if (itemData.itemNumber) {
+      const target = await inventoryCollection.findOne(
+        { _id: objectId, userId },
+        { projection: { _id: 1 } }
+      );
+      if (!target) {
+        return NextResponse.json({ error: 'Inventory item not found' }, { status: 404 });
+      }
+
       const existing = await inventoryCollection.findOne(
         {
           userId,
