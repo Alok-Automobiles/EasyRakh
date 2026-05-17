@@ -11,6 +11,7 @@ import {
   invalidateInventoryCache,
 } from '@/lib/cache';
 import { z } from 'zod';
+import { uppercaseInventoryPayload } from '@/lib/inventory-text';
 
 const LOW_STOCK_THRESHOLD = 5;
 
@@ -68,7 +69,7 @@ function serializeInventoryItem(item: InventoryItem & { _id: { toString(): strin
 }
 
 function normalizeItemInput(data: z.infer<typeof inventoryItemSchema>) {
-  return {
+  return uppercaseInventoryPayload({
     itemName: data.itemName,
     itemNumber: data.itemNumber || '',
     uniqueCode: data.uniqueCode || '',
@@ -83,7 +84,7 @@ function normalizeItemInput(data: z.infer<typeof inventoryItemSchema>) {
     supplier: data.supplier || '',
     billingDate: data.billingDate,
     billImages: data.billImages || [],
-  };
+  });
 }
 
 async function getInventoryStats(userId: string): Promise<InventoryStats> {

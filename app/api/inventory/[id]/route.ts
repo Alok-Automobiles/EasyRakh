@@ -10,6 +10,7 @@ import {
   invalidateInventoryCache,
 } from '@/lib/cache';
 import { z } from 'zod';
+import { uppercaseInventoryPayload } from '@/lib/inventory-text';
 
 const optionalDateSchema = z.preprocess(
   (value) => {
@@ -61,7 +62,7 @@ function serializeInventoryItem(item: InventoryItem & { _id: { toString(): strin
 }
 
 function normalizeItemInput(data: z.infer<typeof inventoryItemSchema>) {
-  return {
+  return uppercaseInventoryPayload({
     itemName: data.itemName,
     itemNumber: data.itemNumber || '',
     uniqueCode: data.uniqueCode || '',
@@ -76,7 +77,7 @@ function normalizeItemInput(data: z.infer<typeof inventoryItemSchema>) {
     supplier: data.supplier || '',
     billingDate: data.billingDate,
     billImages: data.billImages || [],
-  };
+  });
 }
 
 function getObjectId(id: string) {
