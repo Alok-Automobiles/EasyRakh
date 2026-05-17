@@ -13,6 +13,7 @@ import {
   FileText,
   Download,
   Printer,
+  Share2,
   Edit2,
   CheckCircle2,
   Clock,
@@ -92,6 +93,7 @@ export default function InvoiceDetailPage() {
   const searchParams = useSearchParams();
   const id = params.id as string;
   const shouldDownload = searchParams.get('download') === 'true';
+  const shouldShare = searchParams.get('share') === 'true';
 
   const [invoice, setInvoice] = useState<InvoiceWithId | null>(null);
   const [firmInfo, setFirmInfo] = useState<FirmInfo | null>(null);
@@ -100,9 +102,10 @@ export default function InvoiceDetailPage() {
   const [saving, setSaving] = useState(false);
   const hasFetchedRef = useRef(false);
   const hasDownloadedRef = useRef(false);
+  const hasSharedRef = useRef(false);
 
   const [showFirmInfoModal, setShowFirmInfoModal] = useState(false);
-  const [pendingAction, setPendingAction] = useState<'download' | 'print' | null>(null);
+  const [pendingAction, setPendingAction] = useState<'download' | 'print' | 'share' | null>(null);
   const [editFirmInfo, setEditFirmInfo] = useState<FirmInfo>({
     firmTitle: '',
     gstNumber: '',
@@ -188,7 +191,10 @@ export default function InvoiceDetailPage() {
     );
   }, []);
 
-  const generatePDF = useCallback((download = true, overrideFirmInfo?: FirmInfo) => {
+  const generatePDF = useCallback(async (
+    mode: 'download' | 'print' | 'share' = 'download',
+    overrideFirmInfo?: FirmInfo,
+  ) => {
     const useFirmInfo = overrideFirmInfo || firmInfo;
     if (!invoice || !useFirmInfo) {
       toast.error('Invoice data not loaded');
@@ -422,13 +428,40 @@ export default function InvoiceDetailPage() {
 
       const fileName = `${invoice.invoiceNumber.replace(/[^a-z0-9]/gi, '_')}.pdf`;
 
-      if (download) {
+      if (mode === 'download') {
         doc.save(fileName);
         toast.success('Invoice downloaded');
-      } else {
+      } else if (mode === 'print') {
         const pdfBlob = doc.output('blob');
         const pdfUrl = URL.createObjectURL(pdfBlob);
         window.open(pdfUrl, '_blank');
+      } else if (mode === 'share') {
+        const pdfBlob = doc.output('blob');
+        const file = new File([pdfBlob], fileName, { type: 'application/pdf' });
+        const balanceDue = invoice.totalAmount - invoice.paidAmount;
+        const shareText =
+          `Invoice ${invoice.invoiceNumber} from ${useFirmInfo.firmTitle}\n` +
+          `Total: ₹${invoice.totalAmount.toLocaleString('en-IN')}` +
+          (balanceDue > 0 ? ` • Balance Due: ₹${balanceDue.toLocaleString('en-IN')}` : ' • Paid');
+
+        const nav = typeof navigator !== 'undefined' ? navigator : undefined;
+        const shareData: ShareData = { title: `Invoice ${invoice.invoiceNumber}`, text: shareText, files: [file] };
+
+        if (nav?.canShare?.(shareData) && nav.share) {
+          try {
+            await nav.share(shareData);
+            toast.success('Invoice shared');
+            return;
+          } catch (err) {
+            if ((err as DOMException)?.name === 'AbortError') return;
+            console.warn('Web Share failed, falling back:', err);
+          }
+        }
+
+        doc.save(fileName);
+        const waUrl = `https://wa.me/?text=${encodeURIComponent(shareText)}`;
+        window.open(waUrl, '_blank', 'noopener,noreferrer');
+        toast.success('PDF downloaded — attach it in the chat that just opened');
       }
     } catch (error) {
       console.error('Failed to generate PDF:', error);
@@ -436,26 +469,38 @@ export default function InvoiceDetailPage() {
     }
   }, [invoice, firmInfo, isFirmInfoComplete]);
 
-  const handlePDFAction = useCallback((action: 'download' | 'print') => {
+  const handlePDFAction = useCallback((action: 'download' | 'print' | 'share') => {
     if (!isFirmInfoComplete(firmInfo)) {
       setPendingAction(action);
       setShowFirmInfoModal(true);
       return;
     }
-    generatePDF(action === 'download');
+    generatePDF(action);
   }, [firmInfo, isFirmInfoComplete, generatePDF]);
 
   useEffect(() => {
     if (shouldDownload && invoice && !hasDownloadedRef.current) {
       hasDownloadedRef.current = true;
       if (isFirmInfoComplete(firmInfo)) {
-        generatePDF(true);
+        generatePDF('download');
       } else {
         setPendingAction('download');
         setShowFirmInfoModal(true);
       }
     }
   }, [shouldDownload, invoice, firmInfo, generatePDF, isFirmInfoComplete]);
+
+  useEffect(() => {
+    if (shouldShare && invoice && !hasSharedRef.current) {
+      hasSharedRef.current = true;
+      if (isFirmInfoComplete(firmInfo)) {
+        generatePDF('share');
+      } else {
+        setPendingAction('share');
+        setShowFirmInfoModal(true);
+      }
+    }
+  }, [shouldShare, invoice, firmInfo, generatePDF, isFirmInfoComplete]);
 
   const addEditItem = useCallback(() => {
     setEditItems((prev) => [...prev, { id: Date.now().toString(), description: '', amount: 0 }]);
@@ -696,6 +741,15 @@ export default function InvoiceDetailPage() {
                   <Button variant="outline" onClick={() => handlePDFAction('print')}>
                     <Printer className="w-4 h-4 mr-1" />
                     Print
+                  </Button>
+                  <Button
+                    variant="outline"
+                    onClick={() => handlePDFAction('share')}
+                    className="border-emerald-200 text-emerald-700 hover:bg-emerald-50 hover:text-emerald-800"
+                    title="Share via WhatsApp / Apps"
+                  >
+                    <Share2 className="w-4 h-4 mr-1" />
+                    Share
                   </Button>
                   <Button
                     onClick={() => handlePDFAction('download')}
@@ -996,13 +1050,17 @@ export default function InvoiceDetailPage() {
                   setFirmInfo(editFirmInfo);
                   setShowFirmInfoModal(false);
                   if (pendingAction) {
-                    generatePDF(pendingAction === 'download', editFirmInfo);
+                    generatePDF(pendingAction, editFirmInfo);
                     setPendingAction(null);
                   }
                 }}
                 className="bg-slate-900 hover:bg-slate-800"
               >
-                {pendingAction === 'download' ? 'Download Invoice' : 'Print Invoice'}
+                {pendingAction === 'download'
+                  ? 'Download Invoice'
+                  : pendingAction === 'share'
+                  ? 'Share Invoice'
+                  : 'Print Invoice'}
               </Button>
             </DialogFooter>
           </DialogContent>

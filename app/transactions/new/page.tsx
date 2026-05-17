@@ -21,6 +21,7 @@ import {
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
+import { Label } from '@/components/ui/label';
 import {
   Select,
   SelectContent,
@@ -28,7 +29,26 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
-import { motion } from 'motion/react'
+import { motion } from 'motion/react';
+import {
+  ArrowLeft,
+  Receipt,
+  Users,
+  Truck,
+  Building2,
+  Calendar,
+  IndianRupee,
+  Upload,
+  Plus,
+  FileText,
+  Wallet,
+  TrendingUp,
+  TrendingDown,
+  ChevronRight,
+  ImageIcon,
+  Trash2,
+  Loader2,
+} from 'lucide-react';
 
 const transactionSchema = z.object({
   entityType: z.string().min(1, 'Entity type is required'),
@@ -455,68 +475,107 @@ function NewTransactionPageContent() {
   };
 
   if (step === 'select') {
+    const selectionOptions = [
+      {
+        key: 'customer',
+        title: 'Customer',
+        description: 'Record a sale or payment received',
+        icon: Users,
+        iconBg: 'bg-blue-100',
+        iconColor: 'text-blue-600',
+        hoverBorder: 'hover:border-blue-300',
+        hoverBg: 'group-hover:bg-blue-50',
+      },
+      {
+        key: 'supplier',
+        title: 'Supplier',
+        description: 'Record stock received or payment made',
+        icon: Truck,
+        iconBg: 'bg-amber-100',
+        iconColor: 'text-amber-600',
+        hoverBorder: 'hover:border-amber-300',
+        hoverBg: 'group-hover:bg-amber-50',
+      },
+      ...collectionTypes.map((ct) => ({
+        key: ct.slug,
+        title: ct.name,
+        description: `Transaction with ${ct.name.toLowerCase()}`,
+        icon: Building2,
+        iconBg: 'bg-purple-100',
+        iconColor: 'text-purple-600',
+        hoverBorder: 'hover:border-purple-300',
+        hoverBg: 'group-hover:bg-purple-50',
+      })),
+    ];
+
     return (
       <motion.div
         initial={{ opacity: 0 }}
         animate={{ opacity: 1 }}
-        transition={{ duration: 1.3 }}
+        transition={{ duration: 0.4 }}
         exit={{ opacity: 0 }}
       >
-        <div className="max-w-2xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-          <h1 className="text-3xl font-bold text-gray-900 mb-6">New Transaction</h1>
-          <div className="bg-white rounded-lg shadow-md p-6">
-            <h2 className="text-xl font-semibold text-gray-900 mb-4">
-              Select Transaction Type
+        <div className="max-w-3xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+          {/* Header */}
+          <div className="mb-6">
+            <Link
+              href="/"
+              className="inline-flex items-center text-sm text-blue-600 hover:text-blue-800 mb-4"
+            >
+              <ArrowLeft className="w-4 h-4 mr-1" />
+              Back to Dashboard
+            </Link>
+            <div className="flex items-center gap-3">
+              <div className="p-2.5 rounded-xl bg-blue-100 shadow-sm">
+                <Receipt className="w-6 h-6 text-blue-600" />
+              </div>
+              <div>
+                <h1 className="text-2xl sm:text-3xl font-bold text-gray-900">
+                  New Transaction
+                </h1>
+                <p className="text-gray-500 text-sm">
+                  Record a credit or debit entry in your ledger
+                </p>
+              </div>
+            </div>
+          </div>
+
+          {/* Selection card */}
+          <div className="bg-white rounded-xl border border-gray-200 shadow-sm p-5 sm:p-6">
+            <h2 className="text-base font-semibold text-gray-900 mb-1">
+              Who is this transaction with?
             </h2>
-            <div className="space-y-4">
-              <Button
-                onClick={() => handleEntityTypeSelect('customer')}
-                variant="outline"
-                className="w-full p-6 h-auto justify-start"
-              >
-                <div className="flex items-center justify-between w-full">
-                  <div>
-                    <h3 className="text-lg font-semibold">Customer</h3>
-                    <p className="text-sm text-muted-foreground mt-1">
-                      Transaction with a customer
-                    </p>
-                  </div>
-                  <span className="text-2xl">→</span>
-                </div>
-              </Button>
-              <Button
-                onClick={() => handleEntityTypeSelect('supplier')}
-                variant="outline"
-                className="w-full p-6 h-auto justify-start"
-              >
-                <div className="flex items-center justify-between w-full">
-                  <div>
-                    <h3 className="text-lg font-semibold">Supplier</h3>
-                    <p className="text-sm text-muted-foreground mt-1">
-                      Transaction with a supplier
-                    </p>
-                  </div>
-                  <span className="text-2xl">→</span>
-                </div>
-              </Button>
-              {collectionTypes.map((ct) => (
-                <Button
-                  key={ct.id}
-                  onClick={() => handleEntityTypeSelect(ct.slug)}
-                  variant="outline"
-                  className="w-full p-6 h-auto justify-start"
-                >
-                  <div className="flex items-center justify-between w-full">
-                    <div>
-                      <h3 className="text-lg font-semibold">{ct.name}</h3>
-                      <p className="text-sm text-muted-foreground mt-1">
-                        Transaction with {ct.name.toLowerCase()}
-                      </p>
+            <p className="text-sm text-gray-500 mb-5">
+              Pick the type of counterparty to continue.
+            </p>
+
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              {selectionOptions.map((opt) => {
+                const Icon = opt.icon;
+                return (
+                  <button
+                    key={opt.key}
+                    type="button"
+                    onClick={() => handleEntityTypeSelect(opt.key)}
+                    className={`group text-left rounded-xl border border-gray-200 p-4 transition-all hover:shadow-md ${opt.hoverBorder} focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500`}
+                  >
+                    <div className="flex items-center gap-3">
+                      <div className={`p-2.5 rounded-lg ${opt.iconBg} transition-colors`}>
+                        <Icon className={`w-5 h-5 ${opt.iconColor}`} />
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <p className="font-semibold text-gray-900 truncate">
+                          {opt.title}
+                        </p>
+                        <p className="text-xs text-gray-500 mt-0.5 truncate">
+                          {opt.description}
+                        </p>
+                      </div>
+                      <ChevronRight className="w-4 h-4 text-gray-300 group-hover:text-gray-500 transition-colors" />
                     </div>
-                    <span className="text-2xl">→</span>
-                  </div>
-                </Button>
-              ))}
+                  </button>
+                );
+              })}
             </div>
           </div>
         </div>
@@ -541,59 +600,145 @@ function NewTransactionPageContent() {
   const urlEntityId = searchParams.get('entityId');
   const cameFromLedger = urlEntityType && urlEntityId;
 
+  const headerIconConfig = entityType === 'customer'
+    ? { Icon: Users, bg: 'bg-blue-100', color: 'text-blue-600' }
+    : entityType === 'supplier'
+      ? { Icon: Truck, bg: 'bg-amber-100', color: 'text-amber-600' }
+      : { Icon: Building2, bg: 'bg-purple-100', color: 'text-purple-600' };
+  const HeaderIcon = headerIconConfig.Icon;
+
+  const currentType = watch('type');
+  const currentEntityId = watch('entityId');
+  const selectedEntity = entities.find((e) => e.id === currentEntityId);
+
+  const typeOptions = entityType === 'supplier'
+    ? [
+        {
+          value: 'credit' as const,
+          label: 'Credit',
+          help: 'Parts supplied by supplier',
+          Icon: TrendingUp,
+          activeRing: 'ring-green-500',
+          activeBg: 'bg-green-50',
+          activeText: 'text-green-700',
+          activeIconBg: 'bg-green-100',
+        },
+        {
+          value: 'debit' as const,
+          label: 'Debit',
+          help: 'Money paid to supplier',
+          Icon: TrendingDown,
+          activeRing: 'ring-red-500',
+          activeBg: 'bg-red-50',
+          activeText: 'text-red-700',
+          activeIconBg: 'bg-red-100',
+        },
+      ]
+    : [
+        {
+          value: 'debit' as const,
+          label: 'Debit',
+          help: 'Customer owes you (sale on credit)',
+          Icon: TrendingDown,
+          activeRing: 'ring-red-500',
+          activeBg: 'bg-red-50',
+          activeText: 'text-red-700',
+          activeIconBg: 'bg-red-100',
+        },
+        {
+          value: 'credit' as const,
+          label: 'Credit',
+          help: 'Payment received from customer',
+          Icon: TrendingUp,
+          activeRing: 'ring-green-500',
+          activeBg: 'bg-green-50',
+          activeText: 'text-green-700',
+          activeIconBg: 'bg-green-100',
+        },
+      ];
+
   return (
     <motion.div
       initial={{ opacity: 0 }}
       animate={{ opacity: 1 }}
-      transition={{ duration: 1.3 }}
+      transition={{ duration: 0.4 }}
       exit={{ opacity: 0 }}
     >
-      <div className="max-w-2xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-        <div className="mb-4">
+      <div className="max-w-3xl mx-auto px-4 sm:px-6 lg:px-8 py-8 pb-32">
+        {/* Header */}
+        <div className="mb-6">
           {cameFromLedger ? (
             <Link
               href={`/ledger/${urlEntityType}/${urlEntityId}`}
-              className="text-blue-600 hover:text-blue-800 text-sm font-medium"
+              className="inline-flex items-center text-sm text-blue-600 hover:text-blue-800 mb-4"
             >
-              ← Back to Ledger
+              <ArrowLeft className="w-4 h-4 mr-1" />
+              Back to Ledger
             </Link>
           ) : (
-            <Button
+            <button
+              type="button"
               onClick={() => {
                 setStep('select');
                 setEntityType(null);
                 reset();
               }}
-              variant="link"
-              size="sm"
+              className="inline-flex items-center text-sm text-blue-600 hover:text-blue-800 mb-4"
             >
-              ← Back to Selection
-            </Button>
+              <ArrowLeft className="w-4 h-4 mr-1" />
+              Back to selection
+            </button>
           )}
-        </div>
-        <h1 className="text-3xl font-bold text-gray-900 mb-6">New Transaction</h1>
 
-        <form onSubmit={handleSubmit(onSubmit)} className="bg-white rounded-lg shadow-md p-6 space-y-6">
-          <div>
-            <div className="flex justify-between items-center mb-2">
-              <label className="block text-sm font-medium text-gray-700">
-                {entityName} *
-              </label>
+          <div className="flex items-center gap-3">
+            <div className={`p-2.5 rounded-xl ${headerIconConfig.bg} shadow-sm`}>
+              <HeaderIcon className={`w-6 h-6 ${headerIconConfig.color}`} />
+            </div>
+            <div>
+              <h1 className="text-2xl sm:text-3xl font-bold text-gray-900">
+                New {entityName} Transaction
+              </h1>
+              <p className="text-gray-500 text-sm">
+                Add a new entry to the {entityName.toLowerCase()} ledger.
+              </p>
+            </div>
+          </div>
+        </div>
+
+        <form onSubmit={handleSubmit(onSubmit)} className="space-y-6">
+          {/* Counterparty */}
+          <div className="bg-white rounded-xl border border-gray-200 shadow-sm p-5">
+            <div className="flex items-center justify-between mb-4">
+              <div className="flex items-center gap-2">
+                <HeaderIcon className={`w-5 h-5 ${headerIconConfig.color}`} />
+                <h2 className="text-lg font-semibold text-gray-900">
+                  {entityName}
+                </h2>
+              </div>
               <Button
                 type="button"
                 onClick={() => setShowCreateModal(true)}
-                variant="link"
+                variant="outline"
                 size="sm"
               >
-                + Create New {entityName}
+                <Plus className="w-4 h-4 mr-1" />
+                Create new
               </Button>
             </div>
+
+            <Label htmlFor="entity-select" className="text-sm text-gray-600">
+              Select {entityName.toLowerCase()} *
+            </Label>
             <Select
-              onValueChange={(value) => setValue('entityId', value)}
-              defaultValue={watch('entityId')}
+              value={currentEntityId || ''}
+              onValueChange={(value) => setValue('entityId', value, { shouldValidate: true })}
             >
-              <SelectTrigger className="w-full">
-                <SelectValue placeholder={`Select a ${entityName.toLowerCase()}`} />
+              <SelectTrigger id="entity-select" className="w-full mt-1">
+                <SelectValue placeholder={
+                  entities.length === 0
+                    ? `No ${entityName.toLowerCase()}s yet — create one`
+                    : `Choose a ${entityName.toLowerCase()}`
+                } />
               </SelectTrigger>
               <SelectContent>
                 {entities.map((entity) => (
@@ -606,82 +751,159 @@ function NewTransactionPageContent() {
             {errors.entityId && (
               <p className="mt-1 text-sm text-red-600">{errors.entityId.message}</p>
             )}
+            {selectedEntity && (
+              <div className="mt-3 flex items-center gap-2 px-3 py-2 bg-gray-50 rounded-lg text-sm text-gray-700">
+                <div className="w-2 h-2 rounded-full bg-green-500" />
+                <span className="font-medium">{selectedEntity.name}</span>
+                <span className="text-gray-400">selected</span>
+              </div>
+            )}
           </div>
 
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">
-              Transaction Type *
-            </label>
-            <Select
-              onValueChange={(value) => setValue('type', value as 'credit' | 'debit')}
-              defaultValue={watch('type')}
-            >
-              <SelectTrigger className="w-full">
-                <SelectValue placeholder="Select transaction type" />
-              </SelectTrigger>
-              <SelectContent>
-                {entityType === 'supplier' ? (
-                  <>
-                    <SelectItem value="credit">Credit (Parts supplied by supplier)</SelectItem>
-                    <SelectItem value="debit">Debit (Money paid to supplier)</SelectItem>
-                  </>
-                ) : (
-                  <>
-                    <SelectItem value="debit">Debit (Customer purchase - amount to be paid)</SelectItem>
-                    <SelectItem value="credit">Credit (Money received from customer)</SelectItem>
-                  </>
+          {/* Transaction details */}
+          <div className="bg-white rounded-xl border border-gray-200 shadow-sm p-5">
+            <div className="flex items-center gap-2 mb-4">
+              <Wallet className="w-5 h-5 text-gray-500" />
+              <h2 className="text-lg font-semibold text-gray-900">
+                Transaction Details
+              </h2>
+            </div>
+
+            <div className="space-y-5">
+              <div>
+                <Label className="text-sm text-gray-600">Type *</Label>
+                <div className="mt-2 grid grid-cols-1 sm:grid-cols-2 gap-2">
+                  {typeOptions.map((opt) => {
+                    const isActive = currentType === opt.value;
+                    const Icon = opt.Icon;
+                    return (
+                      <button
+                        key={opt.value}
+                        type="button"
+                        onClick={() => setValue('type', opt.value, { shouldValidate: true })}
+                        className={`text-left rounded-xl border p-3 transition-all ${
+                          isActive
+                            ? `border-transparent ring-2 ${opt.activeRing} ${opt.activeBg}`
+                            : 'border-gray-200 hover:border-gray-300 bg-white'
+                        }`}
+                      >
+                        <div className="flex items-center gap-3">
+                          <div
+                            className={`p-2 rounded-lg ${
+                              isActive ? opt.activeIconBg : 'bg-gray-100'
+                            }`}
+                          >
+                            <Icon
+                              className={`w-4 h-4 ${
+                                isActive ? opt.activeText : 'text-gray-500'
+                              }`}
+                            />
+                          </div>
+                          <div className="flex-1 min-w-0">
+                            <p
+                              className={`font-semibold ${
+                                isActive ? opt.activeText : 'text-gray-900'
+                              }`}
+                            >
+                              {opt.label}
+                            </p>
+                            <p className="text-xs text-gray-500 mt-0.5 truncate">
+                              {opt.help}
+                            </p>
+                          </div>
+                        </div>
+                      </button>
+                    );
+                  })}
+                </div>
+                {errors.type && (
+                  <p className="mt-1 text-sm text-red-600">{errors.type.message}</p>
                 )}
-              </SelectContent>
-            </Select>
-            {errors.type && (
-              <p className="mt-1 text-sm text-red-600">{errors.type.message}</p>
-            )}
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div>
+                  <Label htmlFor="amount" className="text-sm text-gray-600">
+                    Amount *
+                  </Label>
+                  <div className="relative mt-1">
+                    <IndianRupee className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
+                    <Input
+                      id="amount"
+                      {...register('amount', { valueAsNumber: true })}
+                      type="number"
+                      step="0.01"
+                      min="0.01"
+                      placeholder="0.00"
+                      className="pl-9"
+                    />
+                  </div>
+                  {errors.amount && (
+                    <p className="mt-1 text-sm text-red-600">{errors.amount.message}</p>
+                  )}
+                </div>
+
+                <div>
+                  <Label htmlFor="date" className="text-sm text-gray-600">
+                    Date *
+                  </Label>
+                  <div className="relative mt-1">
+                    <Calendar className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400 pointer-events-none" />
+                    <Input
+                      id="date"
+                      {...register('date')}
+                      type="date"
+                      className="pl-9"
+                    />
+                  </div>
+                  {errors.date && (
+                    <p className="mt-1 text-sm text-red-600">{errors.date.message}</p>
+                  )}
+                </div>
+              </div>
+            </div>
           </div>
 
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">
-              Amount *
-            </label>
-            <Input
-              {...register('amount', { valueAsNumber: true })}
-              type="number"
-              step="0.01"
-              min="0.01"
-              placeholder="0.00"
-            />
-            {errors.amount && (
-              <p className="mt-1 text-sm text-red-600">{errors.amount.message}</p>
-            )}
-          </div>
-
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">
-              Description
-            </label>
+          {/* Description */}
+          <div className="bg-white rounded-xl border border-gray-200 shadow-sm p-5">
+            <div className="flex items-center gap-2 mb-4">
+              <FileText className="w-5 h-5 text-gray-500" />
+              <h2 className="text-lg font-semibold text-gray-900">
+                Description
+              </h2>
+              <span className="text-xs text-gray-400">(optional)</span>
+            </div>
             <Textarea
               {...register('description')}
               rows={3}
-              placeholder="Transaction description (optional)"
+              placeholder="What is this transaction for? e.g. Brake pads order, Cash settlement, etc."
             />
           </div>
 
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">
-              Date *
-            </label>
-            <Input
-              {...register('date')}
-              type="date"
-            />
-            {errors.date && (
-              <p className="mt-1 text-sm text-red-600">{errors.date.message}</p>
-            )}
-          </div>
+          {/* Bill attachment */}
+          <div className="bg-white rounded-xl border border-gray-200 shadow-sm p-5">
+            <div className="flex items-center justify-between mb-4">
+              <div className="flex items-center gap-2">
+                <ImageIcon className="w-5 h-5 text-gray-500" />
+                <h2 className="text-lg font-semibold text-gray-900">
+                  Bill Attachment
+                </h2>
+                <span className="text-xs text-gray-400">(optional)</span>
+              </div>
+              {billUploadResult && !billUploading && (
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="sm"
+                  onClick={handleRemoveBill}
+                  className="text-red-600 hover:text-red-700 hover:bg-red-50"
+                >
+                  <Trash2 className="w-4 h-4 mr-1" />
+                  Remove
+                </Button>
+              )}
+            </div>
 
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">
-              Bill Attachment
-            </label>
             <input
               ref={fileInputRef}
               type="file"
@@ -689,26 +911,37 @@ function NewTransactionPageContent() {
               className="hidden"
               onChange={handleBillFileChange}
             />
-            <div className="flex flex-wrap items-center gap-3">
-              <Button
+
+            {!billUploadResult ? (
+              <button
                 type="button"
-                variant="outline"
                 onClick={() => fileInputRef.current?.click()}
                 disabled={billUploading}
+                className="w-full flex flex-col items-center justify-center gap-2 p-6 rounded-xl border-2 border-dashed border-gray-200 hover:border-blue-300 hover:bg-blue-50/40 transition-colors disabled:opacity-60 disabled:cursor-not-allowed"
               >
-                {billUploadResult ? 'Replace Bill' : 'Upload Bill'}
-              </Button>
-              {billUploadResult && (
-                <Button type="button" variant="ghost" onClick={handleRemoveBill} disabled={billUploading}>
-                  Remove
-                </Button>
-              )}
-            </div>
-            {billUploading && (
-              <p className="text-sm text-muted-foreground mt-2">Uploading bill...</p>
-            )}
-            {billUploadResult && (
-              <div className="mt-3 flex items-center gap-3">
+                {billUploading ? (
+                  <>
+                    <Loader2 className="w-6 h-6 text-blue-500 animate-spin" />
+                    <p className="text-sm font-medium text-gray-700">
+                      Uploading bill...
+                    </p>
+                  </>
+                ) : (
+                  <>
+                    <div className="p-2.5 rounded-full bg-blue-100">
+                      <Upload className="w-5 h-5 text-blue-600" />
+                    </div>
+                    <p className="text-sm font-medium text-gray-700">
+                      Click to upload a bill
+                    </p>
+                    <p className="text-xs text-gray-500">
+                      JPG, PNG, WEBP, HEIC/HEIF or PDF — large images auto-compressed
+                    </p>
+                  </>
+                )}
+              </button>
+            ) : (
+              <div className="flex items-center gap-4 p-3 rounded-xl border border-gray-200 bg-gray-50">
                 {billUploadResult.resourceType === 'image' ? (
                   <Image
                     src={billUploadResult.url}
@@ -716,27 +949,41 @@ function NewTransactionPageContent() {
                     width={80}
                     height={80}
                     unoptimized
-                    className="h-20 w-20 rounded-md object-cover border"
+                    className="h-20 w-20 rounded-lg object-cover border border-gray-200"
                   />
                 ) : (
-                  <div className="text-sm text-gray-600">PDF uploaded</div>
+                  <div className="h-20 w-20 rounded-lg border border-gray-200 bg-white flex items-center justify-center">
+                    <FileText className="w-8 h-8 text-gray-400" />
+                  </div>
                 )}
-                <a
-                  href={billUploadResult.url}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="text-sm text-blue-600 hover:underline"
+                <div className="flex-1 min-w-0">
+                  <p className="text-sm font-medium text-gray-900">
+                    {billUploadResult.resourceType === 'image' ? 'Image' : 'PDF'} uploaded
+                  </p>
+                  <a
+                    href={billUploadResult.url}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="text-xs text-blue-600 hover:underline"
+                  >
+                    View uploaded file
+                  </a>
+                </div>
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  onClick={() => fileInputRef.current?.click()}
+                  disabled={billUploading}
                 >
-                  View uploaded file
-                </a>
+                  Replace
+                </Button>
               </div>
             )}
-            <p className="text-xs text-gray-500 mt-2">
-              Accepted formats: JPG, PNG, WEBP, HEIC/HEIF, PDF. Large images will be auto-compressed.
-            </p>
           </div>
 
-          <div className="flex justify-end space-x-3 pt-4">
+          {/* Actions */}
+          <div className="flex justify-end gap-3 pt-2">
             <Button
               type="button"
               onClick={() => router.back()}
@@ -747,247 +994,314 @@ function NewTransactionPageContent() {
             <Button
               type="submit"
               disabled={loading || billUploading}
+              className="bg-slate-900 hover:bg-slate-800"
             >
-              {loading ? 'Creating...' : 'Create Transaction'}
+              {loading ? (
+                <>
+                  <Loader2 className="w-4 h-4 mr-1.5 animate-spin" />
+                  Creating...
+                </>
+              ) : (
+                'Create Transaction'
+              )}
             </Button>
           </div>
         </form>
 
         <Dialog open={showCreateModal} onOpenChange={setShowCreateModal}>
-          <DialogContent>
+          <DialogContent className="sm:max-w-lg">
             <DialogHeader>
-              <DialogTitle>Create New {entityName}</DialogTitle>
+              <DialogTitle className="flex items-center gap-2">
+                <div className={`p-1.5 rounded-lg ${headerIconConfig.bg}`}>
+                  <HeaderIcon className={`w-4 h-4 ${headerIconConfig.color}`} />
+                </div>
+                Create New {entityName}
+              </DialogTitle>
               <DialogDescription>
-                Add a new {entityName.toLowerCase()} to your ledger
+                Add a new {entityName.toLowerCase()} to your ledger.
               </DialogDescription>
             </DialogHeader>
             {entityType === 'customer' ? (
               <form onSubmit={handleSubmitCustomer(handleCreateCustomer)} className="space-y-4">
                 <div>
-                  <label className="block text-sm font-medium text-gray-700">Name *</label>
-                  <input
+                  <Label htmlFor="customer-name">Name *</Label>
+                  <Input
+                    id="customer-name"
                     {...registerCustomer('name')}
                     type="text"
-                    className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm px-3 py-2 border"
+                    placeholder="Customer name"
+                    className="mt-1"
                   />
                   {customerErrors.name && (
                     <p className="mt-1 text-sm text-red-600">{customerErrors.name.message}</p>
                   )}
                 </div>
-                <div>
-                  <label className="block text-sm font-medium text-gray-700">Phone</label>
-                  <input
-                    {...registerCustomer('phone')}
-                    type="text"
-                    className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm px-3 py-2 border"
-                  />
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                  <div>
+                    <Label htmlFor="customer-phone">Phone</Label>
+                    <Input
+                      id="customer-phone"
+                      {...registerCustomer('phone')}
+                      type="text"
+                      placeholder="Phone number"
+                      className="mt-1"
+                    />
+                  </div>
+                  <div>
+                    <Label htmlFor="customer-email">Email</Label>
+                    <Input
+                      id="customer-email"
+                      {...registerCustomer('email')}
+                      type="email"
+                      placeholder="email@example.com"
+                      className="mt-1"
+                    />
+                  </div>
                 </div>
                 <div>
-                  <label className="block text-sm font-medium text-gray-700">Email</label>
-                  <input
-                    {...registerCustomer('email')}
-                    type="email"
-                    className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm px-3 py-2 border"
-                  />
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-gray-700">Address</label>
-                  <textarea
+                  <Label htmlFor="customer-address">Address</Label>
+                  <Textarea
+                    id="customer-address"
                     {...registerCustomer('address')}
-                    rows={3}
-                    className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm px-3 py-2 border"
+                    rows={2}
+                    placeholder="Address"
+                    className="mt-1"
                   />
                 </div>
-                <div>
-                  <label className="block text-sm font-medium text-gray-700">Opening Balance</label>
-                  <input
-                    {...registerCustomer('openingBalance', { valueAsNumber: true })}
-                    type="number"
-                    step="0.01"
-                    className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm px-3 py-2 border"
-                  />
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                  <div>
+                    <Label htmlFor="customer-opening">Opening Balance</Label>
+                    <div className="relative mt-1">
+                      <IndianRupee className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
+                      <Input
+                        id="customer-opening"
+                        {...registerCustomer('openingBalance', { valueAsNumber: true })}
+                        type="number"
+                        step="0.01"
+                        defaultValue={0}
+                        className="pl-9"
+                      />
+                    </div>
+                  </div>
+                  <div>
+                    <Label htmlFor="customer-balance-type">Balance Type</Label>
+                    <select
+                      id="customer-balance-type"
+                      {...registerCustomer('balanceType')}
+                      className="mt-1 block w-full h-9 rounded-md border border-input bg-transparent px-3 py-1 text-sm shadow-sm focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+                    >
+                      <option value="debit">Debit (They owe you)</option>
+                      <option value="credit">Credit (You owe them)</option>
+                    </select>
+                  </div>
                 </div>
-                <div>
-                  <label className="block text-sm font-medium text-gray-700">Balance Type</label>
-                  <select
-                    {...registerCustomer('balanceType')}
-                    className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm px-3 py-2 border"
-                  >
-                    <option value="debit">Debit (They owe you)</option>
-                    <option value="credit">Credit (You owe them)</option>
-                  </select>
-                </div>
-                <div className="flex justify-end space-x-3 pt-4">
-                  <button
+                <div className="flex justify-end gap-2 pt-2">
+                  <Button
                     type="button"
+                    variant="outline"
                     onClick={() => {
                       setShowCreateModal(false);
                       resetCustomer();
                     }}
-                    className="px-4 py-2 border border-gray-300 rounded-md text-sm font-medium text-gray-700 hover:bg-gray-50"
                   >
                     Cancel
-                  </button>
-                  <button
+                  </Button>
+                  <Button
                     type="submit"
                     disabled={creatingEntity}
-                    className="px-4 py-2 bg-blue-600 text-white rounded-md text-sm font-medium hover:bg-blue-700 disabled:opacity-50"
+                    className="bg-slate-900 hover:bg-slate-800"
                   >
-                    {creatingEntity ? 'Creating...' : 'Create'}
-                  </button>
+                    {creatingEntity ? 'Creating...' : 'Create Customer'}
+                  </Button>
                 </div>
               </form>
             ) : entityType === 'supplier' ? (
               <form onSubmit={handleSubmitSupplier(handleCreateSupplier)} className="space-y-4">
                 <div>
-                  <label className="block text-sm font-medium text-gray-700">Name *</label>
-                  <input
+                  <Label htmlFor="supplier-name">Name *</Label>
+                  <Input
+                    id="supplier-name"
                     {...registerSupplier('name')}
                     type="text"
-                    className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm px-3 py-2 border"
+                    placeholder="Supplier name"
+                    className="mt-1"
                   />
                   {supplierErrors.name && (
                     <p className="mt-1 text-sm text-red-600">{supplierErrors.name.message}</p>
                   )}
                 </div>
-                <div>
-                  <label className="block text-sm font-medium text-gray-700">Phone</label>
-                  <input
-                    {...registerSupplier('phone')}
-                    type="text"
-                    className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm px-3 py-2 border"
-                  />
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                  <div>
+                    <Label htmlFor="supplier-phone">Phone</Label>
+                    <Input
+                      id="supplier-phone"
+                      {...registerSupplier('phone')}
+                      type="text"
+                      placeholder="Phone number"
+                      className="mt-1"
+                    />
+                  </div>
+                  <div>
+                    <Label htmlFor="supplier-email">Email</Label>
+                    <Input
+                      id="supplier-email"
+                      {...registerSupplier('email')}
+                      type="email"
+                      placeholder="email@example.com"
+                      className="mt-1"
+                    />
+                  </div>
                 </div>
                 <div>
-                  <label className="block text-sm font-medium text-gray-700">Email</label>
-                  <input
-                    {...registerSupplier('email')}
-                    type="email"
-                    className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm px-3 py-2 border"
-                  />
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-gray-700">Address</label>
-                  <textarea
+                  <Label htmlFor="supplier-address">Address</Label>
+                  <Textarea
+                    id="supplier-address"
                     {...registerSupplier('address')}
-                    rows={3}
-                    className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm px-3 py-2 border"
+                    rows={2}
+                    placeholder="Address"
+                    className="mt-1"
                   />
                 </div>
-                <div>
-                  <label className="block text-sm font-medium text-gray-700">Opening Balance</label>
-                  <input
-                    {...registerSupplier('openingBalance', { valueAsNumber: true })}
-                    type="number"
-                    step="0.01"
-                    className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm px-3 py-2 border"
-                  />
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                  <div>
+                    <Label htmlFor="supplier-opening">Opening Balance</Label>
+                    <div className="relative mt-1">
+                      <IndianRupee className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
+                      <Input
+                        id="supplier-opening"
+                        {...registerSupplier('openingBalance', { valueAsNumber: true })}
+                        type="number"
+                        step="0.01"
+                        defaultValue={0}
+                        className="pl-9"
+                      />
+                    </div>
+                  </div>
+                  <div>
+                    <Label htmlFor="supplier-balance-type">Balance Type</Label>
+                    <select
+                      id="supplier-balance-type"
+                      {...registerSupplier('balanceType')}
+                      className="mt-1 block w-full h-9 rounded-md border border-input bg-transparent px-3 py-1 text-sm shadow-sm focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+                    >
+                      <option value="debit">Debit (They owe you)</option>
+                      <option value="credit">Credit (You owe them)</option>
+                    </select>
+                  </div>
                 </div>
-                <div>
-                  <label className="block text-sm font-medium text-gray-700">Balance Type</label>
-                  <select
-                    {...registerSupplier('balanceType')}
-                    className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm px-3 py-2 border"
-                  >
-                    <option value="debit">Debit (They owe you)</option>
-                    <option value="credit">Credit (You owe them)</option>
-                  </select>
-                </div>
-                <div className="flex justify-end space-x-3 pt-4">
-                  <button
+                <div className="flex justify-end gap-2 pt-2">
+                  <Button
                     type="button"
+                    variant="outline"
                     onClick={() => {
                       setShowCreateModal(false);
                       resetSupplier();
                     }}
-                    className="px-4 py-2 border border-gray-300 rounded-md text-sm font-medium text-gray-700 hover:bg-gray-50"
                   >
                     Cancel
-                  </button>
-                  <button
+                  </Button>
+                  <Button
                     type="submit"
                     disabled={creatingEntity}
-                    className="px-4 py-2 bg-blue-600 text-white rounded-md text-sm font-medium hover:bg-blue-700 disabled:opacity-50"
+                    className="bg-slate-900 hover:bg-slate-800"
                   >
-                    {creatingEntity ? 'Creating...' : 'Create'}
-                  </button>
+                    {creatingEntity ? 'Creating...' : 'Create Supplier'}
+                  </Button>
                 </div>
               </form>
             ) : (
               <form onSubmit={handleSubmitCustomEntity(handleCreateCustomEntity)} className="space-y-4">
                 <input type="hidden" {...registerCustomEntity('collectionType')} value={entityType || ''} />
                 <div>
-                  <label className="block text-sm font-medium text-gray-700">Name *</label>
-                  <input
+                  <Label htmlFor="entity-name">Name *</Label>
+                  <Input
+                    id="entity-name"
                     {...registerCustomEntity('name')}
                     type="text"
-                    className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm px-3 py-2 border"
+                    placeholder={`${entityName} name`}
+                    className="mt-1"
                   />
                   {customEntityErrors.name && (
                     <p className="mt-1 text-sm text-red-600">{customEntityErrors.name.message}</p>
                   )}
                 </div>
-                <div>
-                  <label className="block text-sm font-medium text-gray-700">Phone</label>
-                  <input
-                    {...registerCustomEntity('phone')}
-                    type="text"
-                    className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm px-3 py-2 border"
-                  />
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                  <div>
+                    <Label htmlFor="entity-phone">Phone</Label>
+                    <Input
+                      id="entity-phone"
+                      {...registerCustomEntity('phone')}
+                      type="text"
+                      placeholder="Phone number"
+                      className="mt-1"
+                    />
+                  </div>
+                  <div>
+                    <Label htmlFor="entity-email">Email</Label>
+                    <Input
+                      id="entity-email"
+                      {...registerCustomEntity('email')}
+                      type="email"
+                      placeholder="email@example.com"
+                      className="mt-1"
+                    />
+                  </div>
                 </div>
                 <div>
-                  <label className="block text-sm font-medium text-gray-700">Email</label>
-                  <input
-                    {...registerCustomEntity('email')}
-                    type="email"
-                    className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm px-3 py-2 border"
-                  />
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-gray-700">Address</label>
-                  <textarea
+                  <Label htmlFor="entity-address">Address</Label>
+                  <Textarea
+                    id="entity-address"
                     {...registerCustomEntity('address')}
-                    rows={3}
-                    className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm px-3 py-2 border"
+                    rows={2}
+                    placeholder="Address"
+                    className="mt-1"
                   />
                 </div>
-                <div>
-                  <label className="block text-sm font-medium text-gray-700">Opening Balance</label>
-                  <input
-                    {...registerCustomEntity('openingBalance', { valueAsNumber: true })}
-                    type="number"
-                    step="0.01"
-                    className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm px-3 py-2 border"
-                  />
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                  <div>
+                    <Label htmlFor="entity-opening">Opening Balance</Label>
+                    <div className="relative mt-1">
+                      <IndianRupee className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
+                      <Input
+                        id="entity-opening"
+                        {...registerCustomEntity('openingBalance', { valueAsNumber: true })}
+                        type="number"
+                        step="0.01"
+                        defaultValue={0}
+                        className="pl-9"
+                      />
+                    </div>
+                  </div>
+                  <div>
+                    <Label htmlFor="entity-balance-type">Balance Type</Label>
+                    <select
+                      id="entity-balance-type"
+                      {...registerCustomEntity('balanceType')}
+                      className="mt-1 block w-full h-9 rounded-md border border-input bg-transparent px-3 py-1 text-sm shadow-sm focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+                    >
+                      <option value="debit">Debit (They owe you)</option>
+                      <option value="credit">Credit (You owe them)</option>
+                    </select>
+                  </div>
                 </div>
-                <div>
-                  <label className="block text-sm font-medium text-gray-700">Balance Type</label>
-                  <select
-                    {...registerCustomEntity('balanceType')}
-                    className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm px-3 py-2 border"
-                  >
-                    <option value="debit">Debit (They owe you)</option>
-                    <option value="credit">Credit (You owe them)</option>
-                  </select>
-                </div>
-                <div className="flex justify-end space-x-3 pt-4">
-                  <button
+                <div className="flex justify-end gap-2 pt-2">
+                  <Button
                     type="button"
+                    variant="outline"
                     onClick={() => {
                       setShowCreateModal(false);
                       resetCustomEntity();
                     }}
-                    className="px-4 py-2 border border-gray-300 rounded-md text-sm font-medium text-gray-700 hover:bg-gray-50"
                   >
                     Cancel
-                  </button>
-                  <button
+                  </Button>
+                  <Button
                     type="submit"
                     disabled={creatingEntity}
-                    className="px-4 py-2 bg-blue-600 text-white rounded-md text-sm font-medium hover:bg-blue-700 disabled:opacity-50"
+                    className="bg-slate-900 hover:bg-slate-800"
                   >
-                    {creatingEntity ? 'Creating...' : 'Create'}
-                  </button>
+                    {creatingEntity ? 'Creating...' : `Create ${entityName}`}
+                  </Button>
                 </div>
               </form>
             )}

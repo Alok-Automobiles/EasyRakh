@@ -15,6 +15,7 @@ import {
   Clock,
   AlertCircle,
   BookOpen,
+  X,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -74,6 +75,7 @@ export default function NewInvoicePage() {
   const [addToLedger, setAddToLedger] = useState(false);
 
   const inputRefs = useRef<Record<string, { description: HTMLInputElement | null; amount: HTMLInputElement | null }>>({});
+  const customerDropdownRef = useRef<HTMLDivElement | null>(null);
 
   const totalAmount = items.reduce((sum, item) => sum + (item.amount || 0), 0);
 
@@ -151,6 +153,40 @@ export default function NewInvoicePage() {
     setSelectedCustomer(null);
     setShowCustomerDropdown(false);
   };
+
+  const clearCustomerSelection = () => {
+    setSelectedCustomer(null);
+    setCreateNewCustomer(false);
+    setCustomerName('');
+    setCustomerSearch('');
+    setCustomerPhone('');
+    setCustomerAddress('');
+    setShowCustomerDropdown(false);
+  };
+
+  useEffect(() => {
+    if (!showCustomerDropdown) return;
+
+    const handlePointerDown = (event: MouseEvent | TouchEvent) => {
+      if (!customerDropdownRef.current) return;
+      if (!customerDropdownRef.current.contains(event.target as Node)) {
+        setShowCustomerDropdown(false);
+      }
+    };
+
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') setShowCustomerDropdown(false);
+    };
+
+    document.addEventListener('mousedown', handlePointerDown);
+    document.addEventListener('touchstart', handlePointerDown);
+    document.addEventListener('keydown', handleKeyDown);
+    return () => {
+      document.removeEventListener('mousedown', handlePointerDown);
+      document.removeEventListener('touchstart', handlePointerDown);
+      document.removeEventListener('keydown', handleKeyDown);
+    };
+  }, [showCustomerDropdown]);
 
   const addItem = useCallback(() => {
     const newId = Date.now().toString();
@@ -397,7 +433,7 @@ export default function NewInvoicePage() {
 
             <div className="space-y-4">
               {/* Customer Search */}
-              <div className="relative">
+              <div className="relative" ref={customerDropdownRef}>
                 <Label htmlFor="customerSearch">Customer Name *</Label>
                 <Input
                   id="customerSearch"
@@ -411,6 +447,17 @@ export default function NewInvoicePage() {
                 {/* Dropdown */}
                 {showCustomerDropdown && customerSearch && (
                   <div className="absolute z-10 w-full mt-1 bg-white border border-gray-200 rounded-lg shadow-lg max-h-60 overflow-y-auto">
+                    <div className="flex items-center justify-between px-3 py-1.5 border-b border-gray-100 bg-gray-50 text-xs text-gray-500">
+                      <span>Press Esc or click outside to close</span>
+                      <button
+                        type="button"
+                        onClick={() => setShowCustomerDropdown(false)}
+                        className="p-1 rounded hover:bg-gray-200 text-gray-500 hover:text-gray-700"
+                        aria-label="Close customer suggestions"
+                      >
+                        <X className="w-3.5 h-3.5" />
+                      </button>
+                    </div>
                     {filteredCustomers.length > 0 ? (
                       <>
                         {filteredCustomers.slice(0, 5).map((customer) => (
@@ -451,15 +498,37 @@ export default function NewInvoicePage() {
 
               {/* Show selected customer badge or new customer indicator */}
               {selectedCustomer && (
-                <div className="flex items-center gap-2 px-3 py-2 bg-green-50 rounded-lg text-sm text-green-700">
-                  <CheckCircle2 className="w-4 h-4" />
-                  <span>Existing customer selected</span>
+                <div className="flex items-center justify-between gap-2 px-3 py-2 bg-green-50 rounded-lg text-sm text-green-700">
+                  <div className="flex items-center gap-2">
+                    <CheckCircle2 className="w-4 h-4" />
+                    <span>Existing customer selected</span>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={clearCustomerSelection}
+                    className="p-1 rounded hover:bg-green-100 text-green-700"
+                    aria-label="Clear selected customer"
+                    title="Clear selection"
+                  >
+                    <X className="w-3.5 h-3.5" />
+                  </button>
                 </div>
               )}
               {createNewCustomer && !selectedCustomer && (
-                <div className="flex items-center gap-2 px-3 py-2 bg-blue-50 rounded-lg text-sm text-blue-700">
-                  <Plus className="w-4 h-4" />
-                  <span>New customer will be created</span>
+                <div className="flex items-center justify-between gap-2 px-3 py-2 bg-blue-50 rounded-lg text-sm text-blue-700">
+                  <div className="flex items-center gap-2">
+                    <Plus className="w-4 h-4" />
+                    <span>New customer will be created</span>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => setCreateNewCustomer(false)}
+                    className="p-1 rounded hover:bg-blue-100 text-blue-700"
+                    aria-label="Undo create new customer"
+                    title="Undo"
+                  >
+                    <X className="w-3.5 h-3.5" />
+                  </button>
                 </div>
               )}
 
