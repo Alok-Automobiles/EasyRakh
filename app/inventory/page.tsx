@@ -277,7 +277,7 @@ export default function InventoryPage() {
               lowStockItems.map((item) => (
                 <Link
                   key={item.id}
-                  href={`/inventory-items?search=${encodeURIComponent(item.itemNumber)}`}
+                  href={`/inventory-items?search=${encodeURIComponent(item.itemNumber || item.itemName)}`}
                   className="block rounded-lg border border-gray-200 bg-gray-50 p-3 transition-colors hover:bg-white"
                 >
                   <div className="flex items-start justify-between gap-3">
@@ -286,7 +286,10 @@ export default function InventoryPage() {
                         {item.itemName}
                       </p>
                       <p className="mt-1 truncate text-xs text-gray-500">
-                        {item.itemNumber} {item.brand ? `• ${item.brand}` : ''}
+                        {item.itemNumber
+                          ? item.itemNumber
+                          : <span className="italic text-gray-400">No item number</span>}
+                        {item.brand ? ` • ${item.brand}` : ''}
                       </p>
                     </div>
                     <span className="rounded-full bg-amber-100 px-2 py-1 text-xs font-bold text-amber-800">

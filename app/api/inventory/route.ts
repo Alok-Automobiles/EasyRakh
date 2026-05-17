@@ -26,7 +26,7 @@ const optionalDateSchema = z.preprocess(
 
 const inventoryItemSchema = z.object({
   itemName: z.string().trim().min(1, 'Item name is required'),
-  itemNumber: z.string().trim().min(1, 'Item number is required'),
+  itemNumber: z.string().trim().optional(),
   uniqueCode: z.string().trim().optional(),
   quantity: z.number().min(0, 'Quantity cannot be negative'),
   location: z.string().trim().min(1, 'Location is required'),
@@ -49,7 +49,7 @@ function serializeInventoryItem(item: InventoryItem & { _id: { toString(): strin
   return {
     id: item._id.toString(),
     itemName: item.itemName,
-    itemNumber: item.itemNumber,
+    itemNumber: item.itemNumber || '',
     uniqueCode: item.uniqueCode || '',
     quantity: item.quantity || 0,
     location: item.location || '',
@@ -70,7 +70,7 @@ function serializeInventoryItem(item: InventoryItem & { _id: { toString(): strin
 function normalizeItemInput(data: z.infer<typeof inventoryItemSchema>) {
   return {
     itemName: data.itemName,
-    itemNumber: data.itemNumber,
+    itemNumber: data.itemNumber || '',
     uniqueCode: data.uniqueCode || '',
     quantity: data.quantity,
     location: data.location,
@@ -333,27 +333,29 @@ export async function POST(request: NextRequest) {
     const db = await getDb();
     const inventoryCollection = db.collection<InventoryItem>('inventory');
 
-    const existing = await inventoryCollection.findOne(
-      {
-        userId,
-        itemNumber: { $regex: `^${escapeRegex(itemData.itemNumber)}$`, $options: 'i' },
-      },
-      { projection: { _id: 1, itemName: 1, itemNumber: 1 } }
-    );
-
-    if (existing) {
-      return NextResponse.json(
+    if (itemData.itemNumber) {
+      const existing = await inventoryCollection.findOne(
         {
-          error: `Item number "${existing.itemNumber}" already exists for "${existing.itemName}". Use a different item number.`,
-          code: 'DUPLICATE_ITEM_NUMBER',
-          existingItem: {
-            id: existing._id.toString(),
-            itemName: existing.itemName,
-            itemNumber: existing.itemNumber,
-          },
+          userId,
+          itemNumber: { $regex: `^${escapeRegex(itemData.itemNumber)}$`, $options: 'i' },
         },
-        { status: 409 }
+        { projection: { _id: 1, itemName: 1, itemNumber: 1 } }
       );
+
+      if (existing) {
+        return NextResponse.json(
+          {
+            error: `Item number "${existing.itemNumber}" already exists for "${existing.itemName}". Use a different item number.`,
+            code: 'DUPLICATE_ITEM_NUMBER',
+            existingItem: {
+              id: existing._id.toString(),
+              itemName: existing.itemName,
+              itemNumber: existing.itemNumber,
+            },
+          },
+          { status: 409 }
+        );
+      }
     }
 
     const result = await inventoryCollection.insertOne({

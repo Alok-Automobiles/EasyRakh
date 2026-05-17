@@ -145,7 +145,7 @@ export interface InventoryItem {
   _id?: string;
   userId: string;
   itemName: string;
-  itemNumber: string;
+  itemNumber?: string;
   uniqueCode?: string;
   quantity: number;
   location: string;

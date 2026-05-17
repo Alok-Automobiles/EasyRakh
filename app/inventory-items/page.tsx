@@ -98,7 +98,7 @@ const currencyFormatter = new Intl.NumberFormat('en-IN', {
 
 const inventoryItemSchema = z.object({
   itemName: z.string().min(1, 'Item name is required'),
-  itemNumber: z.string().min(1, 'Item number is required'),
+  itemNumber: z.string().optional(),
   uniqueCode: z.string().optional(),
   quantity: z.number().min(0, 'Quantity cannot be negative'),
   location: z.string().min(1, 'Location is required'),
@@ -220,7 +220,7 @@ function normalizeSubmission(values: InventoryItemForm) {
   return {
     ...values,
     itemName: values.itemName.trim(),
-    itemNumber: values.itemNumber.trim(),
+    itemNumber: values.itemNumber?.trim() || '',
     uniqueCode: values.uniqueCode?.trim() || '',
     location: values.location.trim(),
     unitOfMeasure: values.unitOfMeasure,
@@ -385,8 +385,9 @@ function InventoryItemCard({
           <h3 className="truncate text-sm font-semibold text-gray-950" title={item.itemName}>
             {item.itemName}
           </h3>
-          <p className="mt-1 truncate text-xs text-gray-500" title={item.itemNumber}>
-            {item.itemNumber} {item.brand ? `• ${item.brand}` : ''}
+          <p className="mt-1 truncate text-xs text-gray-500" title={item.itemNumber || 'No item number'}>
+            {item.itemNumber ? item.itemNumber : <span className="italic text-gray-400">No item number</span>}
+            {item.brand ? ` • ${item.brand}` : ''}
           </p>
         </div>
 
@@ -456,7 +457,7 @@ export default function InventoryItemsPage() {
       return;
     }
 
-    if (editingItem && trimmed.toLowerCase() === editingItem.itemNumber.toLowerCase()) {
+    if (editingItem && trimmed.toLowerCase() === (editingItem.itemNumber || '').toLowerCase()) {
       setItemNumberCheck({ status: 'idle' });
       return;
     }
@@ -627,7 +628,7 @@ export default function InventoryItemsPage() {
     setEditingItem(item);
     form.reset({
       itemName: item.itemName,
-      itemNumber: item.itemNumber,
+      itemNumber: item.itemNumber || '',
       uniqueCode: item.uniqueCode || '',
       quantity: item.quantity,
       location: item.location,
@@ -965,7 +966,9 @@ export default function InventoryItemsPage() {
                   name="itemNumber"
                   render={({ field }) => (
                     <FormItem>
-                      <FormLabel>Item number *</FormLabel>
+                      <FormLabel>
+                        Item number <span className="text-xs font-normal text-gray-400">(optional)</span>
+                      </FormLabel>
                       <FormControl>
                         <div className="relative">
                           <Input
