@@ -1,6 +1,15 @@
 'use client';
 
-import { ChangeEvent, useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import {
+  ChangeEvent,
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+  type KeyboardEvent as ReactKeyboardEvent,
+  type RefObject,
+} from 'react';
 import Image from 'next/image';
 import { useRouter } from 'next/navigation';
 import { useForm } from 'react-hook-form';
@@ -12,7 +21,6 @@ import { motion } from 'motion/react';
 import {
   AlertTriangle,
   Boxes,
-  CalendarDays,
   CheckCircle2,
   ChevronLeft,
   ChevronRight,
@@ -109,7 +117,11 @@ const inventoryItemSchema = z.object({
   buyingPrice: z.number().min(0, 'Buying price cannot be negative').optional(),
   mrp: z.number().min(0, 'MRP cannot be negative').optional(),
   supplier: z.string().optional(),
-  billingDate: z.string().optional(),
+  billingDate: z
+    .string()
+    .optional()
+    .refine((s) => !s?.trim() || /^\d{2}\/\d{2}\/\d{4}$/.test(s.trim()), 'Use DD/MM/YYYY')
+    .refine((s) => !s?.trim() || parseDdMmYyyyToIsoDate(s.trim()) !== undefined, 'Invalid billing date'),
   billImages: z.array(z.string()).default([]),
 });
 
@@ -185,14 +197,53 @@ const statusTabs: Array<{ value: StatusFilter; label: string }> = [
 
 const unitOptions = ['pcs', 'set', 'box', 'pair', 'kg', 'litre', 'meter', 'roll', 'pack'];
 
-const formatCurrency = (value?: number) => currencyFormatter.format(value || 0);
+function normalizeUnitForForm(unit: string) {
+  const u = unit.trim().toLowerCase();
+  return unitOptions.includes(u) ? u : 'pcs';
+}
 
-function dateToInputValue(value?: string) {
+/** Mask typed digits as DD/MM/YYYY while typing. */
+function formatBillingDateMask(raw: string): string {
+  const digits = raw.replace(/\D/g, '').slice(0, 8);
+  const parts: string[] = [];
+  if (digits.length > 0) parts.push(digits.slice(0, Math.min(2, digits.length)));
+  if (digits.length > 2) parts.push(digits.slice(2, Math.min(4, digits.length)));
+  if (digits.length > 4) parts.push(digits.slice(4));
+  return parts.join('/');
+}
+
+/** Parse DD/MM/YYYY to ISO string for API, or undefined if empty/invalid. */
+function parseDdMmYyyyToIsoDate(display: string): string | undefined {
+  const trimmed = display.trim();
+  if (!trimmed) return undefined;
+  const m = /^(\d{2})\/(\d{2})\/(\d{4})$/.exec(trimmed);
+  if (!m) return undefined;
+  const day = parseInt(m[1], 10);
+  const month = parseInt(m[2], 10);
+  const year = parseInt(m[3], 10);
+  const date = new Date(year, month - 1, day);
+  if (
+    date.getFullYear() !== year ||
+    date.getMonth() !== month - 1 ||
+    date.getDate() !== day
+  ) {
+    return undefined;
+  }
+  return date.toISOString();
+}
+
+/** Edit form: show stored ISO/API date as DD/MM/YYYY. */
+function isoOrStoredDateToDdMmYyyy(value?: string): string {
   if (!value) return '';
   const date = new Date(value);
   if (Number.isNaN(date.getTime())) return '';
-  return date.toISOString().slice(0, 10);
+  const d = String(date.getDate()).padStart(2, '0');
+  const mo = String(date.getMonth() + 1).padStart(2, '0');
+  const y = String(date.getFullYear());
+  return `${d}/${mo}/${y}`;
 }
+
+const formatCurrency = (value?: number) => currencyFormatter.format(value || 0);
 
 function getStockStatus(item: InventoryItem, threshold: number) {
   if (item.quantity <= 0) {
@@ -229,7 +280,7 @@ function normalizeSubmission(values: InventoryItemForm) {
     buyingPrice: values.buyingPrice === undefined || Number.isNaN(values.buyingPrice) ? undefined : values.buyingPrice,
     mrp: values.mrp === undefined || Number.isNaN(values.mrp) ? undefined : values.mrp,
     supplier: values.supplier?.trim() || '',
-    billingDate: values.billingDate || undefined,
+    billingDate: parseDdMmYyyyToIsoDate(values.billingDate?.trim() || '') || undefined,
     partImages: values.partImages || [],
     billImages: values.billImages || [],
   };
@@ -427,6 +478,22 @@ export default function InventoryItemsPage() {
   const queryClient = useQueryClient();
   const partInputRef = useRef<HTMLInputElement>(null);
   const billInputRef = useRef<HTMLInputElement>(null);
+  const partUploadTriggerRef = useRef<HTMLButtonElement>(null);
+  const billUploadTriggerRef = useRef<HTMLButtonElement>(null);
+  const submitItemRef = useRef<HTMLButtonElement>(null);
+  const itemNameInputRef = useRef<HTMLInputElement>(null);
+  const itemNumberInputRef = useRef<HTMLInputElement>(null);
+  const brandInputRef = useRef<HTMLInputElement>(null);
+  const uniqueCodeInputRef = useRef<HTMLInputElement>(null);
+  const quantityInputRef = useRef<HTMLInputElement>(null);
+  const unitSelectTriggerRef = useRef<HTMLElement | null>(null);
+  const locationInputRef = useRef<HTMLInputElement>(null);
+  const supplierInputRef = useRef<HTMLInputElement>(null);
+  const buyingPriceInputRef = useRef<HTMLInputElement>(null);
+  const mrpInputRef = useRef<HTMLInputElement>(null);
+  const billingDateInputRef = useRef<HTMLInputElement>(null);
+  const descriptionInputRef = useRef<HTMLTextAreaElement>(null);
+  const unitJustSelectedRef = useRef(false);
   const [searchQuery, setSearchQuery] = useState('');
   const [statusFilter, setStatusFilter] = useState<StatusFilter>('all');
   const [currentPage, setCurrentPage] = useState(1);
@@ -434,6 +501,7 @@ export default function InventoryItemsPage() {
   const [editingItem, setEditingItem] = useState<InventoryItem | null>(null);
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [deletingItem, setDeletingItem] = useState<InventoryItem | null>(null);
+  const [uploadPromptKind, setUploadPromptKind] = useState<'part' | 'bill' | null>(null);
   const [pendingPartUploads, setPendingPartUploads] = useState<PendingUpload[]>([]);
   const [pendingBillUploads, setPendingBillUploads] = useState<PendingUpload[]>([]);
   const [itemNumberCheck, setItemNumberCheck] = useState<{
@@ -566,6 +634,95 @@ export default function InventoryItemsPage() {
     [stats]
   );
 
+  const cancelAllPendingUploads = useCallback(() => {
+    setPendingPartUploads((prev) => {
+      prev.forEach((upload) => {
+        if (upload.previewUrl) URL.revokeObjectURL(upload.previewUrl);
+      });
+      return [];
+    });
+    setPendingBillUploads((prev) => {
+      prev.forEach((upload) => {
+        if (upload.previewUrl) URL.revokeObjectURL(upload.previewUrl);
+      });
+      return [];
+    });
+  }, []);
+
+  const focusChainAfterInput: RefObject<HTMLElement | null>[] = [
+    itemNameInputRef,
+    itemNumberInputRef,
+    brandInputRef,
+    uniqueCodeInputRef,
+    quantityInputRef,
+    unitSelectTriggerRef,
+    locationInputRef,
+    supplierInputRef,
+    buyingPriceInputRef,
+    mrpInputRef,
+    billingDateInputRef,
+    descriptionInputRef,
+    partUploadTriggerRef,
+    billUploadTriggerRef,
+    submitItemRef,
+  ];
+
+  const handleInventoryFormKeyDown = (event: ReactKeyboardEvent<HTMLFormElement>) => {
+    if (event.key !== 'Enter' || event.shiftKey) return;
+    const target = event.target as HTMLElement;
+    if (target.closest('[data-slot="select-content"]')) return;
+    if (target.closest('[data-slot="select-trigger"]')) return;
+
+    if (target.tagName === 'TEXTAREA') {
+      event.preventDefault();
+      partUploadTriggerRef.current?.focus();
+      return;
+    }
+
+    if (target.tagName === 'INPUT') {
+      const input = target as HTMLInputElement;
+      if (input.type === 'file' || input.type === 'hidden' || input.type === 'submit') return;
+      event.preventDefault();
+      const idx = focusChainAfterInput.findIndex((r) => r.current === input);
+      if (idx < 0 || idx >= focusChainAfterInput.length - 1) return;
+      focusChainAfterInput[idx + 1]?.current?.focus();
+    }
+  };
+
+  const openNewItem = useCallback(() => {
+    cancelAllPendingUploads();
+    setItemNumberCheck({ status: 'idle' });
+    setEditingItem(null);
+    form.reset(defaultFormValues);
+    setFormOpen(true);
+  }, [cancelAllPendingUploads, form]);
+
+  useEffect(() => {
+    const onWindowKeyDown = (event: KeyboardEvent) => {
+      if (event.repeat) return;
+      const key = event.key.toLowerCase();
+      if (key !== 'n') return;
+      const ctrlOrCmdN =
+        (event.ctrlKey || event.metaKey) && !event.altKey && !event.shiftKey;
+      const altN = event.altKey && !event.ctrlKey && !event.metaKey && !event.shiftKey;
+      if (!ctrlOrCmdN && !altN) return;
+
+      const target = event.target as HTMLElement;
+      if (target.closest('input, textarea, select, [contenteditable="true"]')) return;
+      if (formOpen || deleteDialogOpen) return;
+      event.preventDefault();
+      openNewItem();
+    };
+    window.addEventListener('keydown', onWindowKeyDown, true);
+    return () => window.removeEventListener('keydown', onWindowKeyDown, true);
+  }, [deleteDialogOpen, formOpen, openNewItem]);
+
+  useEffect(() => {
+    if (!formOpen) return;
+    const id = window.requestAnimationFrame(() => itemNameInputRef.current?.focus());
+    return () => window.cancelAnimationFrame(id);
+  }, [formOpen]);
+
   const saveMutation = useMutation({
     mutationFn: async (values: InventoryItemForm) => {
       const payload = normalizeSubmission(values);
@@ -614,14 +771,6 @@ export default function InventoryItemsPage() {
     },
   });
 
-  const openNewItem = () => {
-    cancelAllPendingUploads();
-    setItemNumberCheck({ status: 'idle' });
-    setEditingItem(null);
-    form.reset(defaultFormValues);
-    setFormOpen(true);
-  };
-
   const openEditItem = (item: InventoryItem) => {
     cancelAllPendingUploads();
     setItemNumberCheck({ status: 'idle' });
@@ -632,14 +781,14 @@ export default function InventoryItemsPage() {
       uniqueCode: item.uniqueCode || '',
       quantity: item.quantity,
       location: item.location,
-      unitOfMeasure: item.unitOfMeasure || 'pcs',
+      unitOfMeasure: normalizeUnitForForm(item.unitOfMeasure || ''),
       partImages: item.partImages || [],
       brand: item.brand || '',
       description: item.description || '',
       buyingPrice: item.buyingPrice,
       mrp: item.mrp,
       supplier: item.supplier || '',
-      billingDate: dateToInputValue(item.billingDate),
+      billingDate: isoOrStoredDateToDdMmYyyy(item.billingDate),
       billImages: item.billImages || [],
     });
     setFormOpen(true);
@@ -735,6 +884,13 @@ export default function InventoryItemsPage() {
       void uploadSingleFile(file, kind);
     });
 
+    if (validFiles.length > 0) {
+      window.requestAnimationFrame(() => {
+        if (kind === 'part') billUploadTriggerRef.current?.focus();
+        else submitItemRef.current?.focus();
+      });
+    }
+
     if (kind === 'part' && partInputRef.current) partInputRef.current.value = '';
     if (kind === 'bill' && billInputRef.current) billInputRef.current.value = '';
   };
@@ -747,21 +903,6 @@ export default function InventoryItemsPage() {
       return prev.filter((upload) => upload.tempId !== tempId);
     });
   };
-
-  const cancelAllPendingUploads = useCallback(() => {
-    setPendingPartUploads((prev) => {
-      prev.forEach((upload) => {
-        if (upload.previewUrl) URL.revokeObjectURL(upload.previewUrl);
-      });
-      return [];
-    });
-    setPendingBillUploads((prev) => {
-      prev.forEach((upload) => {
-        if (upload.previewUrl) URL.revokeObjectURL(upload.previewUrl);
-      });
-      return [];
-    });
-  }, []);
 
   const removeImage = (fieldName: 'partImages' | 'billImages', url: string) => {
     const nextUrls = ((form.getValues(fieldName) || []) as string[]).filter((item) => item !== url);
@@ -934,6 +1075,7 @@ export default function InventoryItemsPage() {
             form.reset(defaultFormValues);
             cancelAllPendingUploads();
             setItemNumberCheck({ status: 'idle' });
+            setUploadPromptKind(null);
           }
         }}
       >
@@ -946,7 +1088,7 @@ export default function InventoryItemsPage() {
           </DialogHeader>
 
           <Form {...form}>
-            <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-5">
+            <form onSubmit={form.handleSubmit(onSubmit)} onKeyDown={handleInventoryFormKeyDown} className="space-y-5">
               <div className="grid gap-4 sm:grid-cols-2">
                 <FormField
                   control={form.control}
@@ -955,7 +1097,15 @@ export default function InventoryItemsPage() {
                     <FormItem>
                       <FormLabel>Item name *</FormLabel>
                       <FormControl>
-                        <Input placeholder="Brake pad set" {...field} value={field.value || ''} />
+                        <Input
+                          placeholder="Brake pad set"
+                          {...field}
+                          value={field.value || ''}
+                          ref={(node) => {
+                            field.ref(node);
+                            itemNameInputRef.current = node;
+                          }}
+                        />
                       </FormControl>
                       <FormMessage />
                     </FormItem>
@@ -975,6 +1125,10 @@ export default function InventoryItemsPage() {
                             placeholder="BP-204"
                             {...field}
                             value={field.value || ''}
+                            ref={(node) => {
+                              field.ref(node);
+                              itemNumberInputRef.current = node;
+                            }}
                             className={`pr-9 ${
                               itemNumberCheck.status === 'duplicate'
                                 ? 'border-red-300 focus-visible:ring-red-200'
@@ -1013,7 +1167,15 @@ export default function InventoryItemsPage() {
                     <FormItem>
                       <FormLabel>Brand</FormLabel>
                       <FormControl>
-                        <Input placeholder="Bosch" {...field} value={field.value || ''} />
+                        <Input
+                          placeholder="Bosch"
+                          {...field}
+                          value={field.value || ''}
+                          ref={(node) => {
+                            field.ref(node);
+                            brandInputRef.current = node;
+                          }}
+                        />
                       </FormControl>
                       <FormMessage />
                     </FormItem>
@@ -1026,7 +1188,15 @@ export default function InventoryItemsPage() {
                     <FormItem>
                       <FormLabel>Buying code</FormLabel>
                       <FormControl>
-                        <Input placeholder="Shop code written on product" {...field} value={field.value || ''} />
+                        <Input
+                          placeholder="Shop code written on product"
+                          {...field}
+                          value={field.value || ''}
+                          ref={(node) => {
+                            field.ref(node);
+                            uniqueCodeInputRef.current = node;
+                          }}
+                        />
                       </FormControl>
                       <FormMessage />
                     </FormItem>
@@ -1045,6 +1215,10 @@ export default function InventoryItemsPage() {
                           min="0"
                           step="0.01"
                           {...field}
+                          ref={(node) => {
+                            field.ref(node);
+                            quantityInputRef.current = node;
+                          }}
                           value={field.value ?? ''}
                           onChange={(event) => field.onChange(parseFloat(event.target.value) || 0)}
                         />
@@ -1059,13 +1233,33 @@ export default function InventoryItemsPage() {
                   render={({ field }) => (
                     <FormItem>
                       <FormLabel>Unit *</FormLabel>
-                      <Select value={field.value} onValueChange={field.onChange}>
+                      <Select
+                        value={field.value}
+                        onValueChange={(value) => {
+                          unitJustSelectedRef.current = true;
+                          field.onChange(value);
+                        }}
+                      >
                         <FormControl>
-                          <SelectTrigger>
+                          <SelectTrigger
+                            ref={(node) => {
+                              unitSelectTriggerRef.current = node;
+                            }}
+                          >
                             <SelectValue placeholder="Select unit" />
                           </SelectTrigger>
                         </FormControl>
-                        <SelectContent>
+                        <SelectContent
+                          onCloseAutoFocus={(e) => {
+                            if (unitJustSelectedRef.current) {
+                              e.preventDefault();
+                              unitJustSelectedRef.current = false;
+                              window.requestAnimationFrame(() =>
+                                locationInputRef.current?.focus()
+                              );
+                            }
+                          }}
+                        >
                           {unitOptions.map((unit) => (
                             <SelectItem key={unit} value={unit}>
                               {unit}
@@ -1084,7 +1278,15 @@ export default function InventoryItemsPage() {
                     <FormItem>
                       <FormLabel>Location *</FormLabel>
                       <FormControl>
-                        <Input placeholder="Rack A / Godown 1" {...field} value={field.value || ''} />
+                        <Input
+                          placeholder="Rack A / Godown 1"
+                          {...field}
+                          value={field.value || ''}
+                          ref={(node) => {
+                            field.ref(node);
+                            locationInputRef.current = node;
+                          }}
+                        />
                       </FormControl>
                       <FormMessage />
                     </FormItem>
@@ -1097,7 +1299,15 @@ export default function InventoryItemsPage() {
                     <FormItem>
                       <FormLabel>Supplier</FormLabel>
                       <FormControl>
-                        <Input placeholder="Supplier name" {...field} value={field.value || ''} />
+                        <Input
+                          placeholder="Supplier name"
+                          {...field}
+                          value={field.value || ''}
+                          ref={(node) => {
+                            field.ref(node);
+                            supplierInputRef.current = node;
+                          }}
+                        />
                       </FormControl>
                       <FormMessage />
                     </FormItem>
@@ -1117,6 +1327,10 @@ export default function InventoryItemsPage() {
                           step="0.01"
                           placeholder="0"
                           {...field}
+                          ref={(node) => {
+                            field.ref(node);
+                            buyingPriceInputRef.current = node;
+                          }}
                           value={field.value ?? ''}
                           onChange={(event) => {
                             const value = event.target.value;
@@ -1142,6 +1356,10 @@ export default function InventoryItemsPage() {
                           step="0.01"
                           placeholder="0"
                           {...field}
+                          ref={(node) => {
+                            field.ref(node);
+                            mrpInputRef.current = node;
+                          }}
                           value={field.value ?? ''}
                           onChange={(event) => {
                             const value = event.target.value;
@@ -1160,10 +1378,21 @@ export default function InventoryItemsPage() {
                     <FormItem>
                       <FormLabel>Billing date</FormLabel>
                       <FormControl>
-                        <div className="relative">
-                          <CalendarDays className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400" />
-                          <Input type="date" className="pl-10" {...field} value={field.value || ''} />
-                        </div>
+                        <Input
+                          type="text"
+                          inputMode="numeric"
+                          placeholder="DD/MM/YYYY"
+                          autoComplete="off"
+                          {...field}
+                          value={field.value || ''}
+                          ref={(node) => {
+                            field.ref(node);
+                            billingDateInputRef.current = node;
+                          }}
+                          onChange={(event) =>
+                            field.onChange(formatBillingDateMask(event.target.value))
+                          }
+                        />
                       </FormControl>
                       <FormMessage />
                     </FormItem>
@@ -1178,7 +1407,16 @@ export default function InventoryItemsPage() {
                   <FormItem>
                     <FormLabel>Description</FormLabel>
                     <FormControl>
-                      <Textarea rows={3} placeholder="Fitment, notes, model compatibility..." {...field} value={field.value || ''} />
+                      <Textarea
+                        rows={3}
+                        placeholder="Fitment, notes, model compatibility..."
+                        {...field}
+                        value={field.value || ''}
+                        ref={(node) => {
+                          field.ref(node);
+                          descriptionInputRef.current = node;
+                        }}
+                      />
                     </FormControl>
                     <FormMessage />
                   </FormItem>
@@ -1201,7 +1439,8 @@ export default function InventoryItemsPage() {
                       variant="outline"
                       size="sm"
                       className="border-gray-300"
-                      onClick={() => partInputRef.current?.click()}
+                      ref={partUploadTriggerRef}
+                      onClick={() => setUploadPromptKind('part')}
                     >
                       <ImagePlus className="h-4 w-4" />
                       {partUploadingCount > 0 ? `Uploading (${partUploadingCount})` : 'Upload'}
@@ -1297,7 +1536,8 @@ export default function InventoryItemsPage() {
                       variant="outline"
                       size="sm"
                       className="border-gray-300"
-                      onClick={() => billInputRef.current?.click()}
+                      ref={billUploadTriggerRef}
+                      onClick={() => setUploadPromptKind('bill')}
                     >
                       <Upload className="h-4 w-4" />
                       {billUploadingCount > 0 ? `Uploading (${billUploadingCount})` : 'Upload'}
@@ -1413,6 +1653,7 @@ export default function InventoryItemsPage() {
                 </Button>
                 <Button
                   type="submit"
+                  ref={submitItemRef}
                   disabled={
                     saveMutation.isPending ||
                     totalUploadingCount > 0 ||
@@ -1432,6 +1673,55 @@ export default function InventoryItemsPage() {
               </DialogFooter>
             </form>
           </Form>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog
+        open={uploadPromptKind !== null}
+        onOpenChange={(open) => {
+          if (!open) setUploadPromptKind(null);
+        }}
+      >
+        <DialogContent className="sm:max-w-sm">
+          <DialogHeader>
+            <DialogTitle>{uploadPromptKind === 'part' ? 'Part images' : 'Bill images'}</DialogTitle>
+            <DialogDescription>
+              {uploadPromptKind === 'part'
+                ? 'Add part photos now, or skip and continue without images.'
+                : 'Attach bill photos or PDFs now, or skip and continue.'}
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter className="gap-2 sm:justify-end">
+            <Button
+              type="button"
+              variant="outline"
+              className="border-gray-300"
+              onClick={() => {
+                const kind = uploadPromptKind;
+                setUploadPromptKind(null);
+                window.requestAnimationFrame(() => {
+                  if (kind === 'part') billUploadTriggerRef.current?.focus();
+                  else submitItemRef.current?.focus();
+                });
+              }}
+            >
+              Skip
+            </Button>
+            <Button
+              type="button"
+              className="bg-slate-900 text-white hover:bg-slate-800"
+              onClick={() => {
+                const kind = uploadPromptKind;
+                setUploadPromptKind(null);
+                window.requestAnimationFrame(() => {
+                  if (kind === 'part') partInputRef.current?.click();
+                  else billInputRef.current?.click();
+                });
+              }}
+            >
+              Choose files
+            </Button>
+          </DialogFooter>
         </DialogContent>
       </Dialog>
 

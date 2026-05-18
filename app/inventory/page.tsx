@@ -1,5 +1,6 @@
 'use client';
 
+import { useEffect } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { useQuery } from '@tanstack/react-query';
@@ -87,6 +88,26 @@ const StatCard = ({
 
 export default function InventoryPage() {
   const router = useRouter();
+
+  useEffect(() => {
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (event.repeat) return;
+      const key = event.key.toLowerCase();
+      if (key !== 'n') return;
+      // Ctrl/Cmd+N — capture phase helps; some browsers still reserve it (use Alt+N below).
+      const ctrlOrCmdN =
+        (event.ctrlKey || event.metaKey) && !event.altKey && !event.shiftKey;
+      const altN = event.altKey && !event.ctrlKey && !event.metaKey && !event.shiftKey;
+      if (!ctrlOrCmdN && !altN) return;
+
+      const target = event.target as HTMLElement;
+      if (target.closest('input, textarea, select, [contenteditable="true"]')) return;
+      event.preventDefault();
+      router.push('/inventory-items?new=1');
+    };
+    window.addEventListener('keydown', onKeyDown, true);
+    return () => window.removeEventListener('keydown', onKeyDown, true);
+  }, [router]);
 
   const { data, isLoading } = useQuery<InventoryResponse>({
     queryKey: ['inventory-overview'],

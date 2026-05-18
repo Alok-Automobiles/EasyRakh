@@ -17,7 +17,6 @@ export function uppercaseInventoryPayload<
     itemNumber: data.itemNumber.toUpperCase(),
     uniqueCode: data.uniqueCode.toUpperCase(),
     location: data.location.toUpperCase(),
-    unitOfMeasure: data.unitOfMeasure.toUpperCase(),
     brand: data.brand.toUpperCase(),
     description: data.description.toUpperCase(),
     supplier: data.supplier.toUpperCase(),
