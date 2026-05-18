@@ -277,7 +277,7 @@ export async function GET(request: NextRequest) {
           inventoryCollection
             .find({ userId, quantity: { $gt: 0, $lte: LOW_STOCK_THRESHOLD } })
             .sort({ quantity: 1, updatedAt: -1 })
-            .limit(6)
+            .limit(20)
             .toArray(),
         ]);
 

@@ -45,6 +45,8 @@ import {
   Upload,
   FileText,
   X,
+  Eye,
+  EyeOff,
   Calendar as CalendarIcon,
   CalendarRange,
   ChevronLeft,
@@ -343,6 +345,7 @@ export default function DashboardClient() {
   const [currentPage, setCurrentPage] = useState(1);
   const [activeEntityTab, setActiveEntityTab] = useState<'customers' | 'suppliers'>('customers');
   const [addTransactionOpen, setAddTransactionOpen] = useState(false);
+  const [cashAmountsVisible, setCashAmountsVisible] = useState(true);
   const [entryType, setEntryType] = useState<'in' | 'out'>('in');
   const [amount, setAmount] = useState('');
   const [description, setDescription] = useState('');
@@ -494,6 +497,21 @@ export default function DashboardClient() {
   const todayCash = periodSectionLoading && currentDashboardData?.stats?.todayCash
     ? currentDashboardData.stats.todayCash
     : stats.todayCash;
+  const renderPrivateCashValue = (value: number) => (
+    <>
+      <span
+        aria-hidden={!cashAmountsVisible}
+        className={`inline-block transform-gpu transition-all duration-300 ease-out ${
+          cashAmountsVisible
+            ? 'scale-100 blur-0 opacity-100'
+            : 'scale-[0.99] select-none blur-md opacity-70'
+        }`}
+      >
+        {formatCurrency(value)}
+      </span>
+      {!cashAmountsVisible && <span className="sr-only">Cash amount blurred for privacy</span>}
+    </>
+  );
   const recentActivities = (periodSectionLoading ? currentDashboardData?.activities : data?.activities) ?? [];
   const dashboardNotes = (periodSectionLoading ? currentDashboardData?.dashboardNotes : data?.dashboardNotes) ?? [];
   const topCustomers = (periodSectionLoading ? currentDashboardData?.topCustomers : data?.topCustomers) ?? [];
@@ -715,14 +733,51 @@ export default function DashboardClient() {
                       <p className="text-[10px] sm:text-xs lg:text-sm font-medium text-slate-700 uppercase tracking-wider mb-1 sm:mb-2 lg:mb-3 truncate">
                         Today&apos;s Cash Position
                       </p>
-                      <p className="text-xl sm:text-2xl md:text-3xl lg:text-4xl xl:text-5xl font-bold text-gray-900 tracking-tight wrap-break-word overflow-hidden" title={formatCurrency(todayCash.totalLeft)}>
-                        {formatCurrency(todayCash.totalLeft)}
+                      <p
+                        className="text-xl sm:text-2xl md:text-3xl lg:text-4xl xl:text-5xl font-bold text-gray-900 tracking-tight wrap-break-word overflow-hidden"
+                        title={cashAmountsVisible ? formatCurrency(todayCash.totalLeft) : 'Cash amount blurred for privacy'}
+                      >
+                        {renderPrivateCashValue(todayCash.totalLeft)}
                       </p>
-                      <p className="text-[10px] sm:text-xs lg:text-sm text-gray-500 mt-0.5 sm:mt-1 lg:mt-2">
-                        Final balance as of {format(new Date(), 'h:mm a')}
+                      <p className="text-[10px] sm:text-xs lg:text-sm text-gray-500 mt-0.5 sm:mt-1 lg:mt-2 max-w-xl">
+                        {cashAmountsVisible
+                          ? `Final balance as of ${format(new Date(), 'h:mm a')}`
+                          : 'Amounts are blurred on the dashboard for privacy'}
                       </p>
                     </div>
                     <div className="flex flex-col items-end gap-2 shrink-0">
+                      <Button
+                        type="button"
+                        variant="outline"
+                        size="sm"
+                        aria-pressed={cashAmountsVisible}
+                        aria-label={cashAmountsVisible ? 'Hide cash amounts' : 'Show cash amounts'}
+                        onClick={() => setCashAmountsVisible((visible) => !visible)}
+                        className="h-9 border-slate-300 bg-white text-slate-700 hover:bg-slate-100"
+                      >
+                        <span className="relative inline-flex h-4 w-4 items-center justify-center overflow-hidden">
+                          <Eye
+                            className={`absolute h-4 w-4 transition-all duration-300 ease-out ${
+                              cashAmountsVisible
+                                ? 'rotate-0 scale-100 opacity-100'
+                                : '-rotate-45 scale-75 opacity-0'
+                            }`}
+                          />
+                          <EyeOff
+                            className={`absolute h-4 w-4 transition-all duration-300 ease-out ${
+                              cashAmountsVisible
+                                ? 'rotate-45 scale-75 opacity-0'
+                                : 'rotate-0 scale-100 opacity-100'
+                            }`}
+                          />
+                        </span>
+                        <span className="hidden sm:inline">
+                          {cashAmountsVisible ? 'Hide amounts' : 'Show amounts'}
+                        </span>
+                        <span className="sm:hidden">
+                          {cashAmountsVisible ? 'Hide' : 'Show'}
+                        </span>
+                      </Button>
                       <DialogTrigger asChild>
                         <Button
                           size="sm"
@@ -854,7 +909,7 @@ export default function DashboardClient() {
                       <span className="text-[9px] sm:text-[10px] lg:text-xs font-semibold uppercase tracking-wide">Cash In</span>
                     </div>
                     <p className="text-base sm:text-lg lg:text-xl xl:text-2xl font-bold text-green-700 wrap-break-word leading-tight">
-                      {formatCurrency(todayCash.totalIn)}
+                      {renderPrivateCashValue(todayCash.totalIn)}
                     </p>
                   </div>
                   <div className="rounded-lg sm:rounded-xl lg:rounded-2xl px-2 sm:px-4 lg:px-6 py-2 sm:py-3 lg:py-4 flex-1 min-w-0 sm:min-w-[140px] lg:min-w-[160px] bg-red-100">
@@ -863,7 +918,7 @@ export default function DashboardClient() {
                       <span className="text-[9px] sm:text-[10px] lg:text-xs font-semibold uppercase tracking-wide">Cash Out</span>
                     </div>
                     <p className="text-base sm:text-lg lg:text-xl xl:text-2xl font-bold text-red-700 wrap-break-word leading-tight">
-                      {formatCurrency(todayCash.totalOut)}
+                      {renderPrivateCashValue(todayCash.totalOut)}
                     </p>
                   </div>
                 </div>
