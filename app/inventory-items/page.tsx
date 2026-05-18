@@ -1258,6 +1258,7 @@ export default function InventoryItemsPage() {
                           }}
                           onCloseAutoFocus={(e) => {
                             if (unitSkipAdvanceFocusRef.current) {
+                              e.preventDefault();
                               unitSkipAdvanceFocusRef.current = false;
                               return;
                             }
