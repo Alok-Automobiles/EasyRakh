@@ -230,7 +230,7 @@ export default function InventoryPage() {
         />
       </div>
 
-      <div className="grid gap-4 lg:grid-cols-5">
+      <div className="grid gap-4 lg:grid-cols-5 lg:items-start">
         <div className="rounded-xl border border-gray-200 bg-white p-5 shadow-sm lg:col-span-3">
           <div className="flex flex-col gap-1 sm:flex-row sm:items-start sm:justify-between">
             <div>
@@ -277,54 +277,65 @@ export default function InventoryPage() {
           </div>
         </div>
 
-        <div className="rounded-xl border border-gray-200 bg-white p-5 shadow-sm lg:col-span-2">
-          <div className="flex items-start justify-between gap-3">
+        <div className="flex max-h-[min(26rem,62vh)] flex-col overflow-hidden rounded-xl border border-gray-200 bg-white p-5 shadow-sm lg:col-span-2 lg:max-h-[min(34rem,72vh)]">
+          <div className="flex shrink-0 items-start justify-between gap-3">
             <div>
               <p className="text-[11px] font-semibold uppercase tracking-wide text-gray-500">Restock Queue</p>
               <h2 className="mt-1 text-xl font-bold text-gray-950">Low quantity items</h2>
             </div>
-            <Button asChild size="sm" variant="outline" className="border-gray-300">
-              <Link href="/inventory-items?status=low-stock">View</Link>
+            <Button asChild size="sm" variant="outline" className="border-gray-300 shrink-0">
+              <Link href="/inventory-items?status=low-stock">View all</Link>
             </Button>
           </div>
 
-          <div className="mt-5 space-y-3">
-            {lowStockItems.length === 0 ? (
-              <div className="rounded-lg border-2 border-dashed border-gray-200 p-8 text-center">
-                <Package className="mx-auto h-9 w-9 text-gray-300" />
-                <p className="mt-3 text-sm font-medium text-gray-600">No restock alerts right now.</p>
-              </div>
-            ) : (
-              lowStockItems.map((item) => (
-                <Link
-                  key={item.id}
-                  href={`/inventory-items?search=${encodeURIComponent(item.itemNumber || item.itemName)}`}
-                  className="block rounded-lg border border-gray-200 bg-gray-50 p-3 transition-colors hover:bg-white"
-                >
-                  <div className="flex items-start justify-between gap-3">
-                    <div className="min-w-0">
-                      <p className="truncate text-sm font-semibold text-gray-950" title={item.itemName}>
-                        {item.itemName}
-                      </p>
-                      <p className="mt-1 truncate text-xs text-gray-500">
-                        {item.itemNumber
-                          ? item.itemNumber
-                          : <span className="italic text-gray-400">No item number</span>}
-                        {item.brand ? ` • ${item.brand}` : ''}
-                      </p>
+          <div className="mt-5 min-h-0 flex-1 overflow-y-auto overscroll-contain [-webkit-overflow-scrolling:touch] pr-1">
+            <div className="space-y-3">
+              {lowStockItems.length === 0 ? (
+                <div className="rounded-lg border-2 border-dashed border-gray-200 p-8 text-center">
+                  <Package className="mx-auto h-9 w-9 text-gray-300" />
+                  <p className="mt-3 text-sm font-medium text-gray-600">No restock alerts right now.</p>
+                </div>
+              ) : (
+                lowStockItems.map((item) => (
+                  <Link
+                    key={item.id}
+                    href={`/inventory-items?search=${encodeURIComponent(item.itemNumber || item.itemName)}`}
+                    className="block rounded-lg border border-gray-200 bg-gray-50 p-3 transition-colors hover:bg-white"
+                  >
+                    <div className="flex items-start justify-between gap-3">
+                      <div className="min-w-0">
+                        <p className="truncate text-sm font-semibold text-gray-950" title={item.itemName}>
+                          {item.itemName}
+                        </p>
+                        <p className="mt-1 truncate text-xs text-gray-500">
+                          {item.itemNumber
+                            ? item.itemNumber
+                            : <span className="italic text-gray-400">No item number</span>}
+                          {item.brand ? ` • ${item.brand}` : ''}
+                        </p>
+                      </div>
+                      <span className="rounded-full bg-amber-100 px-2 py-1 text-xs font-bold text-amber-800 shrink-0">
+                        {item.quantity} {item.unitOfMeasure}
+                      </span>
                     </div>
-                    <span className="rounded-full bg-amber-100 px-2 py-1 text-xs font-bold text-amber-800">
-                      {item.quantity} {item.unitOfMeasure}
-                    </span>
-                  </div>
-                  <div className="mt-3 flex items-center gap-1 text-xs text-gray-500">
-                    <MapPin className="h-3.5 w-3.5" />
-                    <span className="truncate">{item.location}</span>
-                  </div>
-                </Link>
-              ))
-            )}
+                    <div className="mt-3 flex items-center gap-1 text-xs text-gray-500">
+                      <MapPin className="h-3.5 w-3.5 shrink-0" />
+                      <span className="truncate">{item.location}</span>
+                    </div>
+                  </Link>
+                ))
+              )}
+            </div>
           </div>
+
+          {lowStockItems.length > 0 && stats.restockItems > lowStockItems.length ? (
+            <p className="mt-3 shrink-0 border-t border-gray-100 pt-3 text-center text-xs text-gray-500">
+              Showing top {lowStockItems.length} of {stats.restockItems.toLocaleString('en-IN')} low-stock items.{' '}
+              <Link href="/inventory-items?status=low-stock" className="font-semibold text-slate-800 underline-offset-2 hover:underline">
+                Open full list
+              </Link>
+            </p>
+          ) : null}
         </div>
       </div>
 

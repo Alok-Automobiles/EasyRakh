@@ -493,7 +493,7 @@ export default function InventoryItemsPage() {
   const mrpInputRef = useRef<HTMLInputElement>(null);
   const billingDateInputRef = useRef<HTMLInputElement>(null);
   const descriptionInputRef = useRef<HTMLTextAreaElement>(null);
-  const unitJustSelectedRef = useRef(false);
+  const unitSkipAdvanceFocusRef = useRef(false);
   const [searchQuery, setSearchQuery] = useState('');
   const [statusFilter, setStatusFilter] = useState<StatusFilter>('all');
   const [currentPage, setCurrentPage] = useState(1);
@@ -1235,9 +1235,9 @@ export default function InventoryItemsPage() {
                       <FormLabel>Unit *</FormLabel>
                       <Select
                         value={field.value}
-                        onValueChange={(value) => {
-                          unitJustSelectedRef.current = true;
-                          field.onChange(value);
+                        onValueChange={field.onChange}
+                        onOpenChange={(open) => {
+                          if (open) unitSkipAdvanceFocusRef.current = false;
                         }}
                       >
                         <FormControl>
@@ -1250,14 +1250,21 @@ export default function InventoryItemsPage() {
                           </SelectTrigger>
                         </FormControl>
                         <SelectContent
+                          onEscapeKeyDown={() => {
+                            unitSkipAdvanceFocusRef.current = true;
+                          }}
+                          onPointerDownOutside={() => {
+                            unitSkipAdvanceFocusRef.current = true;
+                          }}
                           onCloseAutoFocus={(e) => {
-                            if (unitJustSelectedRef.current) {
-                              e.preventDefault();
-                              unitJustSelectedRef.current = false;
-                              window.requestAnimationFrame(() =>
-                                locationInputRef.current?.focus()
-                              );
+                            if (unitSkipAdvanceFocusRef.current) {
+                              unitSkipAdvanceFocusRef.current = false;
+                              return;
                             }
+                            e.preventDefault();
+                            window.requestAnimationFrame(() =>
+                              locationInputRef.current?.focus()
+                            );
                           }}
                         >
                           {unitOptions.map((unit) => (
