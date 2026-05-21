@@ -399,7 +399,7 @@ function InventoryItemCard({
   const images = item.partImages || [];
 
   return (
-    <div className="group rounded-lg border border-gray-200 bg-white p-3 shadow-sm transition-all hover:-translate-y-0.5 hover:border-gray-300 hover:shadow-md">
+    <div className="group rounded-xl border border-gray-200 bg-white p-2.5 shadow-sm transition-all hover:-translate-y-0.5 hover:border-gray-300 hover:shadow-md sm:p-3">
       <div className="flex items-center justify-between">
         <Badge variant="outline" className={`gap-1.5 border ${status.className}`}>
           <span className={`h-1.5 w-1.5 rounded-full ${status.dotClassName}`} />
@@ -427,13 +427,14 @@ function InventoryItemCard({
         </DropdownMenu>
       </div>
 
-      <div className="mt-3 aspect-[4/3] overflow-hidden rounded-lg bg-gray-50">
-        <ItemImageCarousel images={images} itemName={item.itemName} />
-      </div>
+      <div className="mt-3 flex gap-3 sm:block">
+        <div className="h-28 w-28 shrink-0 overflow-hidden rounded-lg bg-gray-50 sm:h-auto sm:w-full sm:aspect-[4/3]">
+          <ItemImageCarousel images={images} itemName={item.itemName} />
+        </div>
 
-      <div className="mt-4 space-y-3">
+      <div className="min-w-0 flex-1 space-y-2 sm:mt-4 sm:space-y-3">
         <div>
-          <h3 className="truncate text-sm font-semibold text-gray-950" title={item.itemName}>
+          <h3 className="line-clamp-2 text-sm font-semibold leading-snug text-gray-950 sm:truncate" title={item.itemName}>
             {item.itemName}
           </h3>
           <p className="mt-1 truncate text-xs text-gray-500" title={item.itemNumber || 'No item number'}>
@@ -442,7 +443,7 @@ function InventoryItemCard({
           </p>
         </div>
 
-        <div className="grid grid-cols-2 gap-2 text-xs">
+        <div className="grid grid-cols-2 gap-1.5 text-[11px] sm:gap-2 sm:text-xs">
           <div className="rounded-md bg-gray-50 p-2">
             <p className="text-gray-400">Quantity</p>
             <p className="truncate font-bold text-gray-900">
@@ -460,7 +461,7 @@ function InventoryItemCard({
           <span className="truncate" title={item.location}>{item.location}</span>
         </div>
 
-        <div className="flex items-center justify-between gap-2 border-t border-gray-100 pt-3 text-xs">
+        <div className="flex items-center justify-between gap-2 border-t border-gray-100 pt-2 text-[11px] sm:pt-3 sm:text-xs">
           <span className="truncate text-gray-500">
             Cost <span className="font-semibold text-gray-800">{item.buyingPrice != null ? formatCurrency(item.buyingPrice) : '-'}</span>
           </span>
@@ -468,6 +469,7 @@ function InventoryItemCard({
             MRP <span className="font-semibold text-gray-800">{item.mrp != null ? formatCurrency(item.mrp) : '-'}</span>
           </span>
         </div>
+      </div>
       </div>
     </div>
   );
@@ -931,42 +933,42 @@ export default function InventoryItemsPage() {
       initial={{ opacity: 0, y: 12 }}
       animate={{ opacity: 1, y: 0 }}
       transition={{ duration: 0.35 }}
-      className="max-w-7xl mx-auto px-3 sm:px-4 lg:px-8 py-6 space-y-5"
+      className="max-w-7xl mx-auto px-3 pb-6 pt-4 sm:px-4 sm:py-6 lg:px-8 space-y-4 sm:space-y-5"
     >
-      <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
-        <div className="flex items-center gap-3">
-          <div className="rounded-xl bg-slate-900 p-3 text-white shadow-sm">
-            <Boxes className="h-6 w-6" />
+      <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
+        <div className="flex min-w-0 items-center gap-3">
+          <div className="rounded-xl bg-slate-900 p-2.5 text-white shadow-sm sm:p-3">
+            <Boxes className="h-5 w-5 sm:h-6 sm:w-6" />
           </div>
-          <div>
-            <h1 className="text-2xl font-bold text-gray-950 sm:text-3xl">Inventory Items</h1>
-            <p className="text-sm text-gray-500">
+          <div className="min-w-0">
+            <h1 className="truncate text-xl font-bold text-gray-950 sm:text-3xl">Inventory Items</h1>
+            <p className="truncate text-xs text-gray-500 sm:text-sm">
               {pagination?.total ?? stats.totalItems} products across {stats.locations.length} locations
             </p>
           </div>
         </div>
-        <Button onClick={openNewItem} className="bg-slate-900 text-white hover:bg-slate-800">
+        <Button onClick={openNewItem} className="h-10 w-full bg-slate-900 text-white hover:bg-slate-800 sm:w-auto">
           <Plus className="h-4 w-4" />
           Add Item
         </Button>
       </div>
 
-      <div className="rounded-lg border border-gray-200 bg-white p-3 shadow-sm">
+      <div className="rounded-xl border border-gray-200 bg-white p-2.5 shadow-sm sm:p-3">
         <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
-          <div className="flex overflow-x-auto rounded-lg border border-gray-200 bg-gray-50 p-1">
+          <div className="grid grid-cols-2 gap-1 rounded-lg border border-gray-200 bg-gray-50 p-1 sm:flex sm:overflow-x-auto">
             {statusTabs.map((tab) => (
               <button
                 key={tab.value}
                 type="button"
                 onClick={() => setStatusFilter(tab.value)}
-                className={`whitespace-nowrap rounded-md px-3 py-2 text-xs font-semibold transition-colors ${
+                className={`flex min-w-0 items-center justify-center whitespace-nowrap rounded-md px-2 py-2 text-xs font-semibold transition-colors sm:px-3 ${
                   statusFilter === tab.value
                     ? 'bg-white text-slate-950 shadow-sm'
                     : 'text-gray-500 hover:text-gray-900'
                 }`}
               >
-                {tab.label}
-                <span className="ml-2 rounded-full bg-gray-100 px-2 py-0.5 text-[10px] text-gray-500">
+                <span className="truncate">{tab.label}</span>
+                <span className="ml-1.5 rounded-full bg-gray-100 px-1.5 py-0.5 text-[10px] text-gray-500 sm:ml-2 sm:px-2">
                   {tabCounts[tab.value]}
                 </span>
               </button>
@@ -980,10 +982,10 @@ export default function InventoryItemsPage() {
                 value={searchQuery}
                 onChange={(event) => setSearchQuery(event.target.value)}
                 placeholder="Search item, brand, code..."
-                className="pl-10"
+                className="h-10 pl-10"
               />
             </div>
-            <div className="flex items-center gap-2 rounded-md border border-gray-200 px-3 py-2 text-xs font-medium text-gray-500">
+            <div className="flex h-10 items-center gap-2 rounded-md border border-gray-200 px-3 text-xs font-medium text-gray-500">
               <Filter className="h-4 w-4" />
               {isFetching ? 'Refreshing' : `${items.length} shown`}
             </div>
@@ -992,7 +994,7 @@ export default function InventoryItemsPage() {
       </div>
 
       {isLoading ? (
-        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+        <div className="grid gap-3 sm:grid-cols-2 sm:gap-4 lg:grid-cols-3 xl:grid-cols-4">
           {Array.from({ length: 8 }).map((_, index) => (
             <Skeleton key={index} className="h-80 rounded-lg" />
           ))}
@@ -1008,7 +1010,7 @@ export default function InventoryItemsPage() {
           </Button>
         </div>
       ) : (
-        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+        <div className="grid gap-3 sm:grid-cols-2 sm:gap-4 lg:grid-cols-3 xl:grid-cols-4">
           {items.map((item) => (
             <InventoryItemCard
               key={item.id}
