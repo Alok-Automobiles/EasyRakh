@@ -568,6 +568,7 @@ export default function InventoryItemsPage() {
     status: 'idle' | 'checking' | 'ok' | 'duplicate';
     conflict?: { id: string; itemName: string; itemNumber: string };
   }>({ status: 'idle' });
+  const [adjustingItemIds, setAdjustingItemIds] = useState<Set<string>>(new Set());
 
   const form = useForm<InventoryItemForm>({
     resolver: zodResolver(inventoryItemSchema),
@@ -885,12 +886,17 @@ export default function InventoryItemsPage() {
       return result as { item: InventoryItem };
     },
     onMutate: async ({ id, delta }) => {
-      await queryClient.cancelQueries({ queryKey: inventoryListQueryKey });
-      const previous = queryClient.getQueryData<InventoryItemsResponse>(inventoryListQueryKey);
-      if (previous) {
-        queryClient.setQueryData<InventoryItemsResponse>(inventoryListQueryKey, {
-          ...previous,
-          items: previous.items.map((entry) =>
+      setAdjustingItemIds((prev) => new Set(prev).add(id));
+      const key = inventoryListQueryKey;
+      await queryClient.cancelQueries({ queryKey: key });
+      const current = queryClient.getQueryData<InventoryItemsResponse>(key);
+      const prevItem = current?.items.find((entry) => entry.id === id);
+      const prevQuantity = prevItem?.quantity ?? 0;
+      const prevUpdatedAt = prevItem?.updatedAt;
+      if (current) {
+        queryClient.setQueryData<InventoryItemsResponse>(key, {
+          ...current,
+          items: current.items.map((entry) =>
             entry.id === id
               ? {
                   ...entry,
@@ -901,16 +907,27 @@ export default function InventoryItemsPage() {
           ),
         });
       }
-      return { previous };
+      return { key, rollbackId: id, prevQuantity, prevUpdatedAt };
     },
     onError: (error: Error, _vars, context) => {
-      if (context?.previous) {
-        queryClient.setQueryData(inventoryListQueryKey, context.previous);
+      if (context?.key && context.rollbackId) {
+        queryClient.setQueryData<InventoryItemsResponse>(context.key, (current) => {
+          if (!current) return current;
+          return {
+            ...current,
+            items: current.items.map((entry) =>
+              entry.id === context.rollbackId
+                ? { ...entry, quantity: context.prevQuantity, updatedAt: context.prevUpdatedAt ?? entry.updatedAt }
+                : entry
+            ),
+          };
+        });
       }
       toast.error(error.message || 'Failed to update quantity');
     },
-    onSuccess: (result) => {
-      queryClient.setQueryData<InventoryItemsResponse>(inventoryListQueryKey, (current) => {
+    onSuccess: (result, _vars, context) => {
+      if (!context?.key) return;
+      queryClient.setQueryData<InventoryItemsResponse>(context.key, (current) => {
         if (!current) return current;
         return {
           ...current,
@@ -920,7 +937,14 @@ export default function InventoryItemsPage() {
         };
       });
     },
-    onSettled: () => {
+    onSettled: (_data, _error, variables) => {
+      if (variables?.id) {
+        setAdjustingItemIds((prev) => {
+          const next = new Set(prev);
+          next.delete(variables.id);
+          return next;
+        });
+      }
       queryClient.invalidateQueries({ queryKey: ['inventory-items'] });
       queryClient.invalidateQueries({ queryKey: ['inventory-overview'] });
       queryClient.invalidateQueries({ queryKey: ['dashboard'] });
@@ -1204,10 +1228,7 @@ export default function InventoryItemsPage() {
                 setDeleteDialogOpen(true);
               }}
               onAdjustQuantity={handleAdjustQuantity}
-              isAdjusting={
-                adjustQuantityMutation.isPending &&
-                adjustQuantityMutation.variables?.id === item.id
-              }
+              isAdjusting={adjustingItemIds.has(item.id)}
             />
           ))}
         </div>

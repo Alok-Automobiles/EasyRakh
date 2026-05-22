@@ -258,28 +258,43 @@ export async function PATCH(
 
     const db = await getDb();
     const inventoryCollection = db.collection('inventory');
-    const existing = await inventoryCollection.findOne({ _id: objectId, userId });
-
-    if (!existing) {
-      return NextResponse.json({ error: 'Inventory item not found' }, { status: 404 });
-    }
-
-    const currentQuantity = Number(existing.quantity) || 0;
-    const nextQuantity = Math.max(0, currentQuantity + delta);
     const updatedAt = new Date();
 
-    await inventoryCollection.updateOne(
-      { _id: objectId, userId },
-      { $set: { quantity: nextQuantity, updatedAt } }
+    // Atomic update: use $inc with a guard filter to prevent negative quantities
+    const filter: Record<string, unknown> = { _id: objectId, userId };
+    if (delta === -1) {
+      filter.quantity = { $gte: 1 };
+    }
+
+    const result = await inventoryCollection.findOneAndUpdate(
+      filter,
+      { $inc: { quantity: delta }, $set: { updatedAt } },
+      { returnDocument: 'after' }
     );
+
+    if (!result) {
+      // Either item doesn't exist, or quantity is already 0 for a decrement
+      const exists = await inventoryCollection.findOne(
+        { _id: objectId, userId },
+        { projection: { _id: 1, quantity: 1 } }
+      );
+      if (!exists) {
+        return NextResponse.json({ error: 'Inventory item not found' }, { status: 404 });
+      }
+      // Quantity was already 0; return current state unchanged
+      const current = await inventoryCollection.findOne({ _id: objectId, userId });
+      await invalidateInventoryCache(userId, id);
+      const item = serializeInventoryItem(
+        current as unknown as InventoryItem & { _id: { toString(): string } }
+      );
+      return NextResponse.json({ message: 'Quantity already at minimum', item });
+    }
 
     await invalidateInventoryCache(userId, id);
 
-    const item = serializeInventoryItem({
-      ...(existing as unknown as InventoryItem),
-      quantity: nextQuantity,
-      updatedAt,
-    } as InventoryItem & { _id: { toString(): string } });
+    const item = serializeInventoryItem(
+      result as unknown as InventoryItem & { _id: { toString(): string } }
+    );
 
     return NextResponse.json({
       message: 'Quantity updated successfully',
