@@ -169,7 +169,7 @@ export default function InventoryPage() {
       initial={{ opacity: 0, y: 12 }}
       animate={{ opacity: 1, y: 0 }}
       transition={{ duration: 0.35 }}
-      className="max-w-7xl mx-auto px-3 sm:px-4 lg:px-8 py-6 space-y-6"
+      className="max-w-7xl mx-auto px-3 sm:px-4 lg:px-8 py-6 space-y-6 [&_button:not(:disabled)]:cursor-pointer [&_a]:cursor-pointer"
     >
       <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
         <div className="flex items-center gap-3">
@@ -300,7 +300,7 @@ export default function InventoryPage() {
                   <Link
                     key={item.id}
                     href={`/inventory-items?search=${encodeURIComponent(item.itemNumber || item.itemName)}`}
-                    className="block rounded-lg border border-gray-200 bg-gray-50 p-3 transition-colors hover:bg-white"
+                    className="block cursor-pointer rounded-lg border border-gray-200 bg-gray-50 p-3 transition-colors hover:bg-white"
                   >
                     <div className="flex items-start justify-between gap-3">
                       <div className="min-w-0">
@@ -331,7 +331,7 @@ export default function InventoryPage() {
           {lowStockItems.length > 0 && stats.restockItems > lowStockItems.length ? (
             <p className="mt-3 shrink-0 border-t border-gray-100 pt-3 text-center text-xs text-gray-500">
               Showing top {lowStockItems.length} of {stats.restockItems.toLocaleString('en-IN')} low-stock items.{' '}
-              <Link href="/inventory-items?status=low-stock" className="font-semibold text-slate-800 underline-offset-2 hover:underline">
+              <Link href="/inventory-items?status=low-stock" className="cursor-pointer font-semibold text-slate-800 underline-offset-2 hover:underline">
                 Open full list
               </Link>
             </p>

@@ -233,6 +233,83 @@ export async function PUT(
   }
 }
 
+const quantityPatchSchema = z.object({
+  delta: z.union([z.literal(1), z.literal(-1)]),
+});
+
+export async function PATCH(
+  request: NextRequest,
+  { params }: { params: Promise<{ id: string }> }
+) {
+  try {
+    const userId = getUserIdFromRequest(request);
+    if (!userId) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    }
+
+    const { id } = await params;
+    const objectId = getObjectId(id);
+    if (!objectId) {
+      return NextResponse.json({ error: 'Invalid inventory item id' }, { status: 400 });
+    }
+
+    const body = await request.json();
+    const { delta } = quantityPatchSchema.parse(body);
+
+    const db = await getDb();
+    const inventoryCollection = db.collection('inventory');
+    const updatedAt = new Date();
+
+    // Atomic update: use $inc with a guard filter to prevent negative quantities
+    const filter: Record<string, unknown> = { _id: objectId, userId };
+    if (delta === -1) {
+      filter.quantity = { $gte: 1 };
+    }
+
+    const result = await inventoryCollection.findOneAndUpdate(
+      filter,
+      { $inc: { quantity: delta }, $set: { updatedAt } },
+      { returnDocument: 'after' }
+    );
+
+    if (!result) {
+      // Either item doesn't exist, or quantity is already 0 for a decrement
+      const exists = await inventoryCollection.findOne(
+        { _id: objectId, userId },
+        { projection: { _id: 1, quantity: 1 } }
+      );
+      if (!exists) {
+        return NextResponse.json({ error: 'Inventory item not found' }, { status: 404 });
+      }
+      // Quantity was already 0; return current state unchanged
+      const current = await inventoryCollection.findOne({ _id: objectId, userId });
+      await invalidateInventoryCache(userId, id);
+      const item = serializeInventoryItem(
+        current as unknown as InventoryItem & { _id: { toString(): string } }
+      );
+      return NextResponse.json({ message: 'Quantity already at minimum', item });
+    }
+
+    await invalidateInventoryCache(userId, id);
+
+    const item = serializeInventoryItem(
+      result as unknown as InventoryItem & { _id: { toString(): string } }
+    );
+
+    return NextResponse.json({
+      message: 'Quantity updated successfully',
+      item,
+    });
+  } catch (error) {
+    if (error instanceof z.ZodError) {
+      return NextResponse.json({ error: error.issues[0].message }, { status: 400 });
+    }
+
+    console.error('Patch inventory quantity error:', error);
+    return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
+  }
+}
+
 export async function DELETE(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
