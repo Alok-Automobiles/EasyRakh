@@ -10,6 +10,7 @@ import {
   type KeyboardEvent as ReactKeyboardEvent,
   type RefObject,
 } from 'react';
+import { format } from 'date-fns';
 import Image from 'next/image';
 import { useRouter } from 'next/navigation';
 import { useForm } from 'react-hook-form';
@@ -30,6 +31,7 @@ import {
   ImagePlus,
   Loader2,
   MapPin,
+  Minus,
   MoreVertical,
   Package,
   Plus,
@@ -197,6 +199,10 @@ const statusTabs: Array<{ value: StatusFilter; label: string }> = [
 
 const unitOptions = ['pcs', 'set', 'box', 'pair', 'kg', 'litre', 'meter', 'roll', 'pack'];
 
+/** Pointer on all clickable inventory UI (native buttons, links, menu items). */
+const inventoryPointerClass =
+  '[&_button:not(:disabled)]:cursor-pointer [&_a]:cursor-pointer [&_[role=menuitem]:not([data-disabled])]:cursor-pointer [&_[data-slot=dialog-close]]:cursor-pointer [&_[data-slot=select-trigger]:not(:disabled)]:cursor-pointer';
+
 function normalizeUnitForForm(unit: string) {
   const u = unit.trim().toLowerCase();
   return unitOptions.includes(u) ? u : 'pcs';
@@ -244,6 +250,13 @@ function isoOrStoredDateToDdMmYyyy(value?: string): string {
 }
 
 const formatCurrency = (value?: number) => currencyFormatter.format(value || 0);
+
+function formatItemUpdatedAt(value?: string) {
+  if (!value) return '—';
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return '—';
+  return format(date, 'dd MMM yyyy, h:mm a');
+}
 
 function getStockStatus(item: InventoryItem, threshold: number) {
   if (item.quantity <= 0) {
@@ -346,7 +359,7 @@ function ItemImageCarousel({ images, itemName }: { images: string[]; itemName: s
               scrollTo(activeIndex - 1);
             }}
             disabled={activeIndex === 0}
-            className="absolute left-1.5 top-1/2 z-10 -translate-y-1/2 rounded-full bg-white/90 p-1.5 text-gray-700 opacity-0 shadow transition-opacity duration-200 hover:bg-white group-hover:opacity-100 disabled:cursor-not-allowed disabled:opacity-30 disabled:group-hover:opacity-30"
+            className="absolute left-1.5 top-1/2 z-10 -translate-y-1/2 cursor-pointer rounded-full bg-white/90 p-1.5 text-gray-700 opacity-0 shadow transition-opacity duration-200 hover:bg-white group-hover:opacity-100 disabled:cursor-not-allowed disabled:opacity-30 disabled:group-hover:opacity-30"
             aria-label="Previous image"
           >
             <ChevronLeft className="h-4 w-4" />
@@ -359,7 +372,7 @@ function ItemImageCarousel({ images, itemName }: { images: string[]; itemName: s
               scrollTo(activeIndex + 1);
             }}
             disabled={activeIndex >= images.length - 1}
-            className="absolute right-1.5 top-1/2 z-10 -translate-y-1/2 rounded-full bg-white/90 p-1.5 text-gray-700 opacity-0 shadow transition-opacity duration-200 hover:bg-white group-hover:opacity-100 disabled:cursor-not-allowed disabled:opacity-30 disabled:group-hover:opacity-30"
+            className="absolute right-1.5 top-1/2 z-10 -translate-y-1/2 cursor-pointer rounded-full bg-white/90 p-1.5 text-gray-700 opacity-0 shadow transition-opacity duration-200 hover:bg-white group-hover:opacity-100 disabled:cursor-not-allowed disabled:opacity-30 disabled:group-hover:opacity-30"
             aria-label="Next image"
           >
             <ChevronRight className="h-4 w-4" />
@@ -388,11 +401,15 @@ function InventoryItemCard({
   threshold,
   onEdit,
   onDelete,
+  onAdjustQuantity,
+  isAdjusting,
 }: {
   item: InventoryItem;
   threshold: number;
   onEdit: (item: InventoryItem) => void;
   onDelete: (item: InventoryItem) => void;
+  onAdjustQuantity: (item: InventoryItem, delta: 1 | -1) => void;
+  isAdjusting: boolean;
 }) {
   const status = getStockStatus(item, threshold);
   const stockValue = (item.buyingPrice || 0) * (item.quantity || 0);
@@ -401,10 +418,18 @@ function InventoryItemCard({
   return (
     <div className="group rounded-xl border border-gray-200 bg-white p-2.5 shadow-sm transition-all hover:-translate-y-0.5 hover:border-gray-300 hover:shadow-md sm:p-3">
       <div className="flex items-center justify-between">
-        <Badge variant="outline" className={`gap-1.5 border ${status.className}`}>
-          <span className={`h-1.5 w-1.5 rounded-full ${status.dotClassName}`} />
-          {status.label}
-        </Badge>
+        <div className="flex items-center gap-1.5">
+          <Badge variant="outline" className={`gap-1.5 border ${status.className}`}>
+            <span className={`h-1.5 w-1.5 rounded-full ${status.dotClassName}`} />
+            {status.label}
+          </Badge>
+          {item.location && (
+            <span className="inline-flex items-center gap-1 rounded bg-slate-100 px-1.5 py-0.5 text-[10px] font-medium text-slate-600" title={`Location: ${item.location}`}>
+              <MapPin className="h-2.5 w-2.5 text-slate-400" />
+              {item.location}
+            </span>
+          )}
+        </div>
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
             <Button variant="ghost" size="icon-sm" className="h-8 w-8 text-gray-500 hover:text-gray-900">
@@ -443,31 +468,63 @@ function InventoryItemCard({
           </p>
         </div>
 
-        <div className="grid grid-cols-2 gap-1.5 text-[11px] sm:gap-2 sm:text-xs">
-          <div className="rounded-md bg-gray-50 p-2">
-            <p className="text-gray-400">Quantity</p>
-            <p className="truncate font-bold text-gray-900">
-              {item.quantity} {item.unitOfMeasure}
-            </p>
+        <div className="grid grid-cols-2 gap-1.5">
+          <div className="flex flex-col justify-between rounded-lg border border-gray-100 bg-gray-50/80 p-2">
+            <span className="text-[10px] font-medium text-gray-400">Quantity</span>
+            <div className={`mt-1.5 flex items-center justify-between ${isAdjusting ? 'pointer-events-none opacity-60' : ''}`}>
+              <button
+                type="button"
+                disabled={isAdjusting || item.quantity <= 0}
+                aria-label={`Decrease quantity for ${item.itemName}`}
+                onClick={() => onAdjustQuantity(item, -1)}
+                className="flex h-5 w-5 cursor-pointer items-center justify-center rounded border border-gray-200 bg-white text-gray-600 shadow-sm transition-colors hover:bg-gray-50 disabled:cursor-not-allowed disabled:opacity-40"
+              >
+                <Minus className="h-2.5 w-2.5" />
+              </button>
+              <span className="text-xs font-bold tabular-nums text-gray-900 mx-1 flex items-baseline gap-0.5">
+                {item.quantity}
+                <span className="text-[9px] font-medium text-gray-400">{item.unitOfMeasure}</span>
+              </span>
+              <button
+                type="button"
+                disabled={isAdjusting}
+                aria-label={`Increase quantity for ${item.itemName}`}
+                onClick={() => onAdjustQuantity(item, 1)}
+                className="flex h-5 w-5 cursor-pointer items-center justify-center rounded border border-gray-200 bg-white text-gray-600 shadow-sm transition-colors hover:bg-gray-50 disabled:cursor-not-allowed disabled:opacity-40"
+              >
+                <Plus className="h-2.5 w-2.5" />
+              </button>
+            </div>
           </div>
-          <div className="rounded-md bg-gray-50 p-2">
-            <p className="text-gray-400">Stock Value</p>
-            <p className="truncate font-bold text-gray-900">{formatCurrency(stockValue)}</p>
+
+          <div className="flex flex-col justify-between rounded-lg border border-gray-100 bg-gray-50/80 p-2">
+            <span className="text-[10px] font-medium text-gray-400">Stock value</span>
+            <div className="mt-1.5 flex items-center h-5">
+              <span className="text-xs font-bold tabular-nums text-gray-900" title={formatCurrency(stockValue)}>
+                {formatCurrency(stockValue)}
+              </span>
+            </div>
           </div>
         </div>
 
-        <div className="flex items-center gap-1.5 text-xs text-gray-500">
-          <MapPin className="h-3.5 w-3.5 shrink-0" />
-          <span className="truncate" title={item.location}>{item.location}</span>
-        </div>
-
-        <div className="flex items-center justify-between gap-2 border-t border-gray-100 pt-2 text-[11px] sm:pt-3 sm:text-xs">
-          <span className="truncate text-gray-500">
-            Cost <span className="font-semibold text-gray-800">{item.buyingPrice != null ? formatCurrency(item.buyingPrice) : '-'}</span>
-          </span>
-          <span className="truncate text-gray-500">
-            MRP <span className="font-semibold text-gray-800">{item.mrp != null ? formatCurrency(item.mrp) : '-'}</span>
-          </span>
+        <div className="space-y-1 border-t border-gray-100 pt-2.5">
+          <div className="flex items-center justify-between gap-2 text-xs">
+            <span className="truncate text-gray-500">
+              Cost{' '}
+              <span className="font-semibold tabular-nums text-gray-800">
+                {item.buyingPrice != null ? formatCurrency(item.buyingPrice) : '—'}
+              </span>
+            </span>
+            <span className="truncate text-gray-500">
+              MRP{' '}
+              <span className="font-semibold tabular-nums text-gray-800">
+                {item.mrp != null ? formatCurrency(item.mrp) : '—'}
+              </span>
+            </span>
+          </div>
+          <p className="text-[10px] text-gray-400" title={item.updatedAt ? formatItemUpdatedAt(item.updatedAt) : undefined}>
+            Updated {formatItemUpdatedAt(item.updatedAt)}
+          </p>
         </div>
       </div>
       </div>
@@ -478,6 +535,7 @@ function InventoryItemCard({
 export default function InventoryItemsPage() {
   const router = useRouter();
   const queryClient = useQueryClient();
+  const searchInputRef = useRef<HTMLInputElement>(null);
   const partInputRef = useRef<HTMLInputElement>(null);
   const billInputRef = useRef<HTMLInputElement>(null);
   const partUploadTriggerRef = useRef<HTMLButtonElement>(null);
@@ -623,6 +681,7 @@ export default function InventoryItemsPage() {
   const items = data?.items || [];
   const stats = data?.stats || defaultStats;
   const pagination = data?.pagination;
+  const inventoryListQueryKey = ['inventory-items', searchQuery, statusFilter, currentPage] as const;
   const partImages = form.watch('partImages') || [];
   const billImages = form.watch('billImages') || [];
 
@@ -670,24 +729,43 @@ export default function InventoryItemsPage() {
   ];
 
   const handleInventoryFormKeyDown = (event: ReactKeyboardEvent<HTMLFormElement>) => {
-    if (event.key !== 'Enter' || event.shiftKey) return;
+    if (event.key !== 'Enter') return;
     const target = event.target as HTMLElement;
     if (target.closest('[data-slot="select-content"]')) return;
     if (target.closest('[data-slot="select-trigger"]')) return;
 
-    if (target.tagName === 'TEXTAREA') {
+    const isInputOrTextArea = target.tagName === 'INPUT' || target.tagName === 'TEXTAREA';
+
+    if (isInputOrTextArea) {
+      if (target.tagName === 'INPUT') {
+        const input = target as HTMLInputElement;
+        if (input.type === 'file' || input.type === 'hidden' || input.type === 'submit') return;
+      }
+
       event.preventDefault();
-      partUploadTriggerRef.current?.focus();
+
+      const isShift = event.shiftKey;
+      const idx = focusChainAfterInput.findIndex((r) => r.current === target);
+      if (idx < 0) return;
+
+      if (isShift) {
+        if (idx > 0) {
+          focusChainAfterInput[idx - 1]?.current?.focus();
+        }
+      } else {
+        if (idx < focusChainAfterInput.length - 1) {
+          focusChainAfterInput[idx + 1]?.current?.focus();
+        }
+      }
       return;
     }
 
-    if (target.tagName === 'INPUT') {
-      const input = target as HTMLInputElement;
-      if (input.type === 'file' || input.type === 'hidden' || input.type === 'submit') return;
-      event.preventDefault();
-      const idx = focusChainAfterInput.findIndex((r) => r.current === input);
-      if (idx < 0 || idx >= focusChainAfterInput.length - 1) return;
-      focusChainAfterInput[idx + 1]?.current?.focus();
+    if (event.shiftKey) {
+      const idx = focusChainAfterInput.findIndex((r) => r.current === target);
+      if (idx > 0) {
+        event.preventDefault();
+        focusChainAfterInput[idx - 1]?.current?.focus();
+      }
     }
   };
 
@@ -718,6 +796,28 @@ export default function InventoryItemsPage() {
     window.addEventListener('keydown', onWindowKeyDown, true);
     return () => window.removeEventListener('keydown', onWindowKeyDown, true);
   }, [deleteDialogOpen, formOpen, openNewItem]);
+
+  useEffect(() => {
+    const handleSearchShortcut = (event: KeyboardEvent) => {
+      const target = event.target as HTMLElement;
+      if (target.closest('input, textarea, select, [contenteditable="true"]')) {
+        return;
+      }
+      
+      const isMac = typeof window !== 'undefined' && /Mac|iPod|iPhone|iPad/.test(navigator.platform);
+      const isCmdOrCtrlK = isMac
+        ? event.metaKey && event.key.toLowerCase() === 'k'
+        : event.ctrlKey && event.key.toLowerCase() === 'k';
+
+      if (event.key === '/' || isCmdOrCtrlK) {
+        event.preventDefault();
+        searchInputRef.current?.focus();
+        searchInputRef.current?.select();
+      }
+    };
+    window.addEventListener('keydown', handleSearchShortcut);
+    return () => window.removeEventListener('keydown', handleSearchShortcut);
+  }, []);
 
   useEffect(() => {
     if (!formOpen) return;
@@ -772,6 +872,68 @@ export default function InventoryItemsPage() {
       toast.error(error.message || 'Failed to delete item');
     },
   });
+
+  const adjustQuantityMutation = useMutation({
+    mutationFn: async ({ id, delta }: { id: string; delta: 1 | -1 }) => {
+      const response = await fetch(`/api/inventory/${id}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ delta }),
+      });
+      const result = await response.json();
+      if (!response.ok) throw new Error(result.error || 'Failed to update quantity');
+      return result as { item: InventoryItem };
+    },
+    onMutate: async ({ id, delta }) => {
+      await queryClient.cancelQueries({ queryKey: inventoryListQueryKey });
+      const previous = queryClient.getQueryData<InventoryItemsResponse>(inventoryListQueryKey);
+      if (previous) {
+        queryClient.setQueryData<InventoryItemsResponse>(inventoryListQueryKey, {
+          ...previous,
+          items: previous.items.map((entry) =>
+            entry.id === id
+              ? {
+                  ...entry,
+                  quantity: Math.max(0, entry.quantity + delta),
+                  updatedAt: new Date().toISOString(),
+                }
+              : entry
+          ),
+        });
+      }
+      return { previous };
+    },
+    onError: (error: Error, _vars, context) => {
+      if (context?.previous) {
+        queryClient.setQueryData(inventoryListQueryKey, context.previous);
+      }
+      toast.error(error.message || 'Failed to update quantity');
+    },
+    onSuccess: (result) => {
+      queryClient.setQueryData<InventoryItemsResponse>(inventoryListQueryKey, (current) => {
+        if (!current) return current;
+        return {
+          ...current,
+          items: current.items.map((entry) =>
+            entry.id === result.item.id ? { ...entry, ...result.item } : entry
+          ),
+        };
+      });
+    },
+    onSettled: () => {
+      queryClient.invalidateQueries({ queryKey: ['inventory-items'] });
+      queryClient.invalidateQueries({ queryKey: ['inventory-overview'] });
+      queryClient.invalidateQueries({ queryKey: ['dashboard'] });
+    },
+  });
+
+  const handleAdjustQuantity = useCallback(
+    (item: InventoryItem, delta: 1 | -1) => {
+      if (delta === -1 && item.quantity <= 0) return;
+      adjustQuantityMutation.mutate({ id: item.id, delta });
+    },
+    [adjustQuantityMutation]
+  );
 
   const openEditItem = (item: InventoryItem) => {
     cancelAllPendingUploads();
@@ -933,7 +1095,7 @@ export default function InventoryItemsPage() {
       initial={{ opacity: 0, y: 12 }}
       animate={{ opacity: 1, y: 0 }}
       transition={{ duration: 0.35 }}
-      className="max-w-7xl mx-auto px-3 pb-6 pt-4 sm:px-4 sm:py-6 lg:px-8 space-y-4 sm:space-y-5"
+      className={`max-w-7xl mx-auto px-3 pb-6 pt-4 sm:px-4 sm:py-6 lg:px-8 space-y-4 sm:space-y-5 ${inventoryPointerClass}`}
     >
       <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
         <div className="flex min-w-0 items-center gap-3">
@@ -961,7 +1123,7 @@ export default function InventoryItemsPage() {
                 key={tab.value}
                 type="button"
                 onClick={() => setStatusFilter(tab.value)}
-                className={`flex min-w-0 items-center justify-center whitespace-nowrap rounded-md px-2 py-2 text-xs font-semibold transition-colors sm:px-3 ${
+                className={`flex min-w-0 cursor-pointer items-center justify-center whitespace-nowrap rounded-md px-2 py-2 text-xs font-semibold transition-colors sm:px-3 ${
                   statusFilter === tab.value
                     ? 'bg-white text-slate-950 shadow-sm'
                     : 'text-gray-500 hover:text-gray-900'
@@ -979,11 +1141,31 @@ export default function InventoryItemsPage() {
             <div className="relative w-full sm:w-72">
               <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400" />
               <Input
+                ref={searchInputRef}
                 value={searchQuery}
                 onChange={(event) => setSearchQuery(event.target.value)}
                 placeholder="Search item, brand, code..."
-                className="h-10 pl-10"
+                className="h-10 pl-10 pr-9"
               />
+              <div className="absolute right-3 top-1/2 -translate-y-1/2 flex items-center">
+                {searchQuery ? (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setSearchQuery('');
+                      searchInputRef.current?.focus();
+                    }}
+                    className="flex h-5 w-5 cursor-pointer items-center justify-center rounded-full text-gray-400 transition-colors hover:bg-gray-100 hover:text-gray-600"
+                    aria-label="Clear search"
+                  >
+                    <X className="h-3.5 w-3.5" />
+                  </button>
+                ) : (
+                  <kbd className="pointer-events-none hidden h-5 select-none items-center rounded border border-gray-200 bg-gray-50 px-1.5 font-mono text-[10px] font-medium text-gray-400 sm:inline-flex">
+                    /
+                  </kbd>
+                )}
+              </div>
             </div>
             <div className="flex h-10 items-center gap-2 rounded-md border border-gray-200 px-3 text-xs font-medium text-gray-500">
               <Filter className="h-4 w-4" />
@@ -1021,6 +1203,11 @@ export default function InventoryItemsPage() {
                 setDeletingItem(selectedItem);
                 setDeleteDialogOpen(true);
               }}
+              onAdjustQuantity={handleAdjustQuantity}
+              isAdjusting={
+                adjustQuantityMutation.isPending &&
+                adjustQuantityMutation.variables?.id === item.id
+              }
             />
           ))}
         </div>
@@ -1081,16 +1268,25 @@ export default function InventoryItemsPage() {
           }
         }}
       >
-        <DialogContent className="max-h-[90vh] overflow-y-auto sm:max-w-3xl">
-          <DialogHeader>
-            <DialogTitle>{editingItem ? 'Edit inventory item' : 'Add inventory item'}</DialogTitle>
-            <DialogDescription>
+        <DialogContent
+          className={`flex max-h-[min(90vh,820px)] flex-col gap-0 overflow-hidden rounded-xl border-gray-200 p-0 shadow-xl sm:max-w-3xl [&_[data-slot=dialog-close]]:top-5 [&_[data-slot=dialog-close]]:right-5 [&_[data-slot=dialog-close]]:cursor-pointer [&_[data-slot=dialog-close]]:rounded-lg [&_[data-slot=dialog-close]]:hover:bg-gray-100 ${inventoryPointerClass}`}
+        >
+          <DialogHeader className="shrink-0 space-y-1 border-b border-gray-100 px-6 py-5 pr-14 text-left">
+            <DialogTitle className="text-xl font-semibold text-gray-950">
+              {editingItem ? 'Edit inventory item' : 'Add inventory item'}
+            </DialogTitle>
+            <DialogDescription className="text-sm text-gray-500">
               Capture quantity, location, buying code, pricing and bills in one place.
             </DialogDescription>
           </DialogHeader>
 
           <Form {...form}>
-            <form onSubmit={form.handleSubmit(onSubmit)} onKeyDown={handleInventoryFormKeyDown} className="space-y-5">
+            <form
+              onSubmit={form.handleSubmit(onSubmit)}
+              onKeyDown={handleInventoryFormKeyDown}
+              className="flex min-h-0 flex-1 flex-col"
+            >
+              <div className="min-h-0 flex-1 space-y-5 overflow-y-auto overscroll-contain px-6 py-5 [scrollbar-gutter:stable]">
               <div className="grid gap-4 sm:grid-cols-2">
                 <FormField
                   control={form.control}
@@ -1477,7 +1673,7 @@ export default function InventoryItemsPage() {
                             <button
                               type="button"
                               onClick={() => removeImage('partImages', url)}
-                              className="absolute right-1 top-1 rounded-full bg-white p-1 text-gray-600 shadow-sm hover:text-red-600"
+                              className="absolute right-1 top-1 cursor-pointer rounded-full bg-white p-1 text-gray-600 shadow-sm hover:text-red-600"
                               aria-label="Remove part image"
                             >
                               <X className="h-3.5 w-3.5" />
@@ -1640,7 +1836,9 @@ export default function InventoryItemsPage() {
                 </div>
               </div>
 
-              <DialogFooter className="flex-col gap-2 sm:flex-row sm:items-center sm:justify-end sm:gap-2">
+              </div>
+
+              <DialogFooter className="shrink-0 flex-col gap-2 border-t border-gray-100 bg-gray-50/60 px-6 py-4 sm:flex-row sm:items-center sm:justify-end sm:gap-2">
                 {totalUploadingCount > 0 && (
                   <p className="mr-auto flex items-center gap-2 text-xs font-medium text-amber-700">
                     <RefreshCw className="h-3.5 w-3.5 animate-spin" />
@@ -1692,7 +1890,7 @@ export default function InventoryItemsPage() {
           if (!open) setUploadPromptKind(null);
         }}
       >
-        <DialogContent className="sm:max-w-sm">
+        <DialogContent className={`sm:max-w-sm ${inventoryPointerClass}`}>
           <DialogHeader>
             <DialogTitle>{uploadPromptKind === 'part' ? 'Part images' : 'Bill images'}</DialogTitle>
             <DialogDescription>
@@ -1736,7 +1934,7 @@ export default function InventoryItemsPage() {
       </Dialog>
 
       <Dialog open={deleteDialogOpen} onOpenChange={setDeleteDialogOpen}>
-        <DialogContent>
+        <DialogContent className={inventoryPointerClass}>
           <DialogHeader>
             <DialogTitle>Delete inventory item</DialogTitle>
             <DialogDescription asChild>

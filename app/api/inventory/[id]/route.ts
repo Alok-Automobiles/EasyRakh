@@ -233,6 +233,68 @@ export async function PUT(
   }
 }
 
+const quantityPatchSchema = z.object({
+  delta: z.union([z.literal(1), z.literal(-1)]),
+});
+
+export async function PATCH(
+  request: NextRequest,
+  { params }: { params: Promise<{ id: string }> }
+) {
+  try {
+    const userId = getUserIdFromRequest(request);
+    if (!userId) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    }
+
+    const { id } = await params;
+    const objectId = getObjectId(id);
+    if (!objectId) {
+      return NextResponse.json({ error: 'Invalid inventory item id' }, { status: 400 });
+    }
+
+    const body = await request.json();
+    const { delta } = quantityPatchSchema.parse(body);
+
+    const db = await getDb();
+    const inventoryCollection = db.collection('inventory');
+    const existing = await inventoryCollection.findOne({ _id: objectId, userId });
+
+    if (!existing) {
+      return NextResponse.json({ error: 'Inventory item not found' }, { status: 404 });
+    }
+
+    const currentQuantity = Number(existing.quantity) || 0;
+    const nextQuantity = Math.max(0, currentQuantity + delta);
+    const updatedAt = new Date();
+
+    await inventoryCollection.updateOne(
+      { _id: objectId, userId },
+      { $set: { quantity: nextQuantity, updatedAt } }
+    );
+
+    await invalidateInventoryCache(userId, id);
+
+    const item = serializeInventoryItem({
+      ...(existing as unknown as InventoryItem),
+      quantity: nextQuantity,
+      updatedAt,
+    } as InventoryItem & { _id: { toString(): string } });
+
+    return NextResponse.json({
+      message: 'Quantity updated successfully',
+      item,
+    });
+  } catch (error) {
+    if (error instanceof z.ZodError) {
+      return NextResponse.json({ error: error.issues[0].message }, { status: 400 });
+    }
+
+    console.error('Patch inventory quantity error:', error);
+    return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
+  }
+}
+
 export async function DELETE(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
