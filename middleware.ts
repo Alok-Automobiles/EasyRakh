@@ -37,7 +37,7 @@ export const config = {
      * - public folder
      * - forgot-password flow (handled client-side)
      */
-    '/((?!api|_next/static|_next/image|favicon.ico|forgot-password|.*\\.(?:svg|png|jpg|jpeg|gif|webp)$).*)',
+    '/((?!api|_next/static|_next/image|favicon.ico|sitemap.xml|robots.txt|forgot-password|.*\\.(?:svg|png|jpg|jpeg|gif|webp)$).*)',
   ],
 };
 
