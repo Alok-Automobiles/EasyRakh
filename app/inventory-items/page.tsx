@@ -570,6 +570,17 @@ export default function InventoryItemsPage() {
   }>({ status: 'idle' });
   const [adjustingItemIds, setAdjustingItemIds] = useState<Set<string>>(new Set());
 
+  const QUANTITY_ADJUST_DEBOUNCE_MS = 400;
+
+  type PendingQuantityAdjustment = {
+    baselineQuantity: number;
+    targetQuantity: number;
+    timerId: ReturnType<typeof setTimeout> | null;
+  };
+
+  const pendingQuantityRef = useRef<Map<string, PendingQuantityAdjustment>>(new Map());
+  const flushQuantityAdjustRef = useRef<((id: string) => void) | null>(null);
+
   const form = useForm<InventoryItemForm>({
     resolver: zodResolver(inventoryItemSchema),
     defaultValues: defaultFormValues,
@@ -781,6 +792,7 @@ export default function InventoryItemsPage() {
   useEffect(() => {
     const onWindowKeyDown = (event: KeyboardEvent) => {
       if (event.repeat) return;
+      if (typeof event.key !== 'string' || !event.key) return;
       const key = event.key.toLowerCase();
       if (key !== 'n') return;
       const ctrlOrCmdN =
@@ -800,17 +812,20 @@ export default function InventoryItemsPage() {
 
   useEffect(() => {
     const handleSearchShortcut = (event: KeyboardEvent) => {
+      const key = typeof event.key === 'string' ? event.key.toLowerCase() : '';
+      if (!key) return;
+
       const target = event.target as HTMLElement;
       if (target.closest('input, textarea, select, [contenteditable="true"]')) {
         return;
       }
-      
+
       const isMac = typeof window !== 'undefined' && /Mac|iPod|iPhone|iPad/.test(navigator.platform);
       const isCmdOrCtrlK = isMac
-        ? event.metaKey && event.key.toLowerCase() === 'k'
-        : event.ctrlKey && event.key.toLowerCase() === 'k';
+        ? event.metaKey && key === 'k'
+        : event.ctrlKey && key === 'k';
 
-      if (event.key === '/' || isCmdOrCtrlK) {
+      if (key === '/' || isCmdOrCtrlK) {
         event.preventDefault();
         searchInputRef.current?.focus();
         searchInputRef.current?.select();
@@ -874,40 +889,53 @@ export default function InventoryItemsPage() {
     },
   });
 
+  const setItemQuantityInCache = useCallback(
+    (id: string, quantity: number) => {
+      queryClient.setQueryData<InventoryItemsResponse>(inventoryListQueryKey, (current) => {
+        if (!current) return current;
+        return {
+          ...current,
+          items: current.items.map((entry) =>
+            entry.id === id
+              ? { ...entry, quantity, updatedAt: new Date().toISOString() }
+              : entry
+          ),
+        };
+      });
+    },
+    [queryClient, inventoryListQueryKey]
+  );
+
   const adjustQuantityMutation = useMutation({
-    mutationFn: async ({ id, delta }: { id: string; delta: 1 | -1 }) => {
+    mutationFn: async ({
+      id,
+      quantity,
+    }: {
+      id: string;
+      quantity: number;
+      baselineQuantity: number;
+    }) => {
       const response = await fetch(`/api/inventory/${id}`, {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ delta }),
+        body: JSON.stringify({ quantity }),
       });
       const result = await response.json();
       if (!response.ok) throw new Error(result.error || 'Failed to update quantity');
       return result as { item: InventoryItem };
     },
-    onMutate: async ({ id, delta }) => {
+    onMutate: async ({ id, baselineQuantity }) => {
       setAdjustingItemIds((prev) => new Set(prev).add(id));
       const key = inventoryListQueryKey;
       await queryClient.cancelQueries({ queryKey: key });
       const current = queryClient.getQueryData<InventoryItemsResponse>(key);
       const prevItem = current?.items.find((entry) => entry.id === id);
-      const prevQuantity = prevItem?.quantity ?? 0;
-      const prevUpdatedAt = prevItem?.updatedAt;
-      if (current) {
-        queryClient.setQueryData<InventoryItemsResponse>(key, {
-          ...current,
-          items: current.items.map((entry) =>
-            entry.id === id
-              ? {
-                  ...entry,
-                  quantity: Math.max(0, entry.quantity + delta),
-                  updatedAt: new Date().toISOString(),
-                }
-              : entry
-          ),
-        });
-      }
-      return { key, rollbackId: id, prevQuantity, prevUpdatedAt };
+      return {
+        key,
+        rollbackId: id,
+        prevQuantity: baselineQuantity,
+        prevUpdatedAt: prevItem?.updatedAt,
+      };
     },
     onError: (error: Error, _vars, context) => {
       if (context?.key && context.rollbackId) {
@@ -951,12 +979,80 @@ export default function InventoryItemsPage() {
     },
   });
 
-  const handleAdjustQuantity = useCallback(
-    (item: InventoryItem, delta: 1 | -1) => {
-      if (delta === -1 && item.quantity <= 0) return;
-      adjustQuantityMutation.mutate({ id: item.id, delta });
+  const flushQuantityAdjust = useCallback(
+    (id: string) => {
+      const pending = pendingQuantityRef.current.get(id);
+      if (!pending) return;
+
+      if (pending.timerId) {
+        clearTimeout(pending.timerId);
+        pending.timerId = null;
+      }
+
+      const { baselineQuantity, targetQuantity } = pending;
+      pendingQuantityRef.current.delete(id);
+
+      if (targetQuantity === baselineQuantity) return;
+
+      adjustQuantityMutation.mutate({ id, quantity: targetQuantity, baselineQuantity });
     },
     [adjustQuantityMutation]
+  );
+
+  useEffect(() => {
+    flushQuantityAdjustRef.current = flushQuantityAdjust;
+  }, [flushQuantityAdjust]);
+
+  useEffect(() => {
+    const pending = pendingQuantityRef.current;
+    return () => {
+      for (const [id, entry] of pending.entries()) {
+        if (entry.timerId) clearTimeout(entry.timerId);
+        flushQuantityAdjustRef.current?.(id);
+      }
+    };
+  }, []);
+
+  const scheduleQuantityPersist = useCallback(
+    (id: string) => {
+      const pending = pendingQuantityRef.current.get(id);
+      if (!pending) return;
+
+      if (pending.timerId) clearTimeout(pending.timerId);
+      pending.timerId = setTimeout(() => {
+        flushQuantityAdjustRef.current?.(id);
+      }, QUANTITY_ADJUST_DEBOUNCE_MS);
+    },
+    [QUANTITY_ADJUST_DEBOUNCE_MS]
+  );
+
+  const handleAdjustQuantity = useCallback(
+    (item: InventoryItem, delta: 1 | -1) => {
+      if (adjustingItemIds.has(item.id)) return;
+
+      const current = queryClient.getQueryData<InventoryItemsResponse>(inventoryListQueryKey);
+      const cachedItem = current?.items.find((entry) => entry.id === item.id);
+      const existingPending = pendingQuantityRef.current.get(item.id);
+      const currentQty = existingPending?.targetQuantity ?? cachedItem?.quantity ?? item.quantity;
+
+      if (delta === -1 && currentQty <= 0) return;
+
+      const targetQuantity = Math.max(0, currentQty + delta);
+
+      if (!existingPending) {
+        pendingQuantityRef.current.set(item.id, {
+          baselineQuantity: cachedItem?.quantity ?? item.quantity,
+          targetQuantity,
+          timerId: null,
+        });
+      } else {
+        existingPending.targetQuantity = targetQuantity;
+      }
+
+      setItemQuantityInCache(item.id, targetQuantity);
+      scheduleQuantityPersist(item.id);
+    },
+    [adjustingItemIds, queryClient, inventoryListQueryKey, setItemQuantityInCache, scheduleQuantityPersist]
   );
 
   const openEditItem = (item: InventoryItem) => {

@@ -233,9 +233,17 @@ export async function PUT(
   }
 }
 
-const quantityPatchSchema = z.object({
-  delta: z.union([z.literal(1), z.literal(-1)]),
-});
+const quantityPatchSchema = z
+  .object({
+    delta: z.union([z.literal(1), z.literal(-1)]).optional(),
+    quantity: z.number().int().min(0, 'Quantity cannot be negative').optional(),
+  })
+  .refine(
+    (data) =>
+      (data.delta !== undefined && data.quantity === undefined) ||
+      (data.quantity !== undefined && data.delta === undefined),
+    { message: 'Provide either delta or quantity, not both' }
+  );
 
 export async function PATCH(
   request: NextRequest,
@@ -254,11 +262,36 @@ export async function PATCH(
     }
 
     const body = await request.json();
-    const { delta } = quantityPatchSchema.parse(body);
+    const patch = quantityPatchSchema.parse(body);
 
     const db = await getDb();
     const inventoryCollection = db.collection('inventory');
     const updatedAt = new Date();
+
+    if (patch.quantity !== undefined) {
+      const result = await inventoryCollection.findOneAndUpdate(
+        { _id: objectId, userId },
+        { $set: { quantity: patch.quantity, updatedAt } },
+        { returnDocument: 'after' }
+      );
+
+      if (!result) {
+        return NextResponse.json({ error: 'Inventory item not found' }, { status: 404 });
+      }
+
+      await invalidateInventoryCache(userId, id);
+
+      const item = serializeInventoryItem(
+        result as unknown as InventoryItem & { _id: { toString(): string } }
+      );
+
+      return NextResponse.json({
+        message: 'Quantity updated successfully',
+        item,
+      });
+    }
+
+    const { delta } = patch;
 
     // Atomic update: use $inc with a guard filter to prevent negative quantities
     const filter: Record<string, unknown> = { _id: objectId, userId };
