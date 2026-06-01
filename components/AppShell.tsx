@@ -24,7 +24,7 @@ export default function AppShell({ children }: AppShellProps) {
 
   if (isAuthPage) {
     return (
-      <div className="min-h-screen bg-gray-50">
+      <div className="min-h-screen bg-gray-50 neo-brutalist">
         <MainContent sidebarCollapsed={false}>{children}</MainContent>
       </div>
     );
@@ -32,7 +32,7 @@ export default function AppShell({ children }: AppShellProps) {
 
   return (
     <div
-      className="min-h-screen bg-gray-50"
+      className="min-h-screen bg-gray-50 neo-brutalist"
       style={{ ['--sidebar-width' as string]: sidebarWidth }}
     >
       <Sidebar />

@@ -1386,13 +1386,13 @@ export default function InventoryItemsPage() {
         }}
       >
         <DialogContent
-          className={`flex max-h-[min(90vh,820px)] flex-col gap-0 overflow-hidden rounded-xl border-gray-200 p-0 shadow-xl sm:max-w-3xl [&_[data-slot=dialog-close]]:top-5 [&_[data-slot=dialog-close]]:right-5 [&_[data-slot=dialog-close]]:cursor-pointer [&_[data-slot=dialog-close]]:rounded-lg [&_[data-slot=dialog-close]]:hover:bg-gray-100 ${inventoryPointerClass}`}
+          className={`flex max-h-[min(90vh,820px)] flex-col gap-0 overflow-hidden p-0 sm:max-w-3xl ${inventoryPointerClass}`}
         >
-          <DialogHeader className="shrink-0 space-y-1 border-b border-gray-100 px-6 py-5 pr-14 text-left">
-            <DialogTitle className="text-xl font-semibold text-gray-950">
+          <DialogHeader className="shrink-0 space-y-1 border-b-4 border-black px-6 py-5 pr-14 text-left">
+            <DialogTitle className="text-xl font-semibold text-[#111111]">
               {editingItem ? 'Edit inventory item' : 'Add inventory item'}
             </DialogTitle>
-            <DialogDescription className="text-sm text-gray-500">
+            <DialogDescription className="text-sm text-[#555555]">
               Capture quantity, location, buying code, pricing and bills in one place.
             </DialogDescription>
           </DialogHeader>
@@ -1955,7 +1955,7 @@ export default function InventoryItemsPage() {
 
               </div>
 
-              <DialogFooter className="shrink-0 flex-col gap-2 border-t border-gray-100 bg-gray-50/60 px-6 py-4 sm:flex-row sm:items-center sm:justify-end sm:gap-2">
+              <DialogFooter className="shrink-0 flex-col gap-2 border-t border-[#E5E5E5] bg-[#FFFFFF] px-6 py-4 sm:flex-row sm:items-center sm:justify-end sm:gap-2">
                 {totalUploadingCount > 0 && (
                   <p className="mr-auto flex items-center gap-2 text-xs font-medium text-amber-700">
                     <RefreshCw className="h-3.5 w-3.5 animate-spin" />

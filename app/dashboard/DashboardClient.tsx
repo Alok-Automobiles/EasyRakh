@@ -745,7 +745,7 @@ export default function DashboardClient() {
                           : 'Amounts are blurred on the dashboard for privacy'}
                       </p>
                     </div>
-                    <div className="flex flex-col items-end gap-2 shrink-0">
+                    <div className="flex flex-col items-stretch gap-2 shrink-0 min-w-[9.75rem] sm:min-w-[10.5rem]">
                       <Button
                         type="button"
                         variant="outline"
@@ -753,7 +753,7 @@ export default function DashboardClient() {
                         aria-pressed={cashAmountsVisible}
                         aria-label={cashAmountsVisible ? 'Hide cash amounts' : 'Show cash amounts'}
                         onClick={() => setCashAmountsVisible((visible) => !visible)}
-                        className="h-9 border-slate-300 bg-white text-slate-700 hover:bg-slate-100"
+                        className="h-9 w-full border-slate-300 bg-white text-slate-700 hover:bg-slate-100"
                       >
                         <span className="relative inline-flex h-4 w-4 items-center justify-center overflow-hidden">
                           <Eye
@@ -781,7 +781,7 @@ export default function DashboardClient() {
                       <DialogTrigger asChild>
                         <Button
                           size="sm"
-                          className="bg-slate-900 hover:bg-slate-800 text-white h-9 sm:h-9"
+                          className="h-9 w-full bg-slate-900 text-white hover:bg-slate-800 sm:h-9"
                         >
                           <Plus className="w-4 h-4 mr-1" />
                           Add Transaction
@@ -789,7 +789,7 @@ export default function DashboardClient() {
                       </DialogTrigger>
                       <Link
                         href="/daily-cash-record"
-                        className="text-[11px] sm:text-xs text-blue-700 hover:text-blue-800 underline-offset-4 hover:underline"
+                        className="text-center text-[11px] sm:text-xs text-blue-700 hover:text-blue-800 underline-offset-4 hover:underline"
                       >
                         View daily cash record
                       </Link>
