@@ -543,6 +543,14 @@
 .neo-brutalist button.bg-emerald-600,
 .neo-brutalist button.bg-emerald-500 {
   background-color: #10b981 !important; /* Emerald green active */
+  color: #ffffff !important;
+}
+.neo-brutalist [data-slot=button][data-variant=default].bg-slate-900,
+.neo-brutalist [data-slot=button][data-variant=default].bg-slate-800,
+.neo-brutalist [data-slot=button][data-variant=default].bg-gray-900,
+.neo-brutalist [data-slot=button][data-variant=default].bg-gray-800 {
+  background-color: #0f172a !important;
+  color: #ffffff !important;
 }
 .neo-brutalist [data-slot=button][data-variant=secondary] {
   background-color: #fde047 !important; /* Yellow */
