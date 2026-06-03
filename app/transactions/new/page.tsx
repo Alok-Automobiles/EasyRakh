@@ -994,7 +994,7 @@ function NewTransactionPageContent() {
             <Button
               type="submit"
               disabled={loading || billUploading}
-              className="bg-slate-900 hover:bg-slate-800"
+              variant="default"
             >
               {loading ? (
                 <>
@@ -1109,7 +1109,7 @@ function NewTransactionPageContent() {
                   <Button
                     type="submit"
                     disabled={creatingEntity}
-                    className="bg-slate-900 hover:bg-slate-800"
+                    variant="default"
                   >
                     {creatingEntity ? 'Creating...' : 'Create Customer'}
                   </Button>
@@ -1203,7 +1203,7 @@ function NewTransactionPageContent() {
                   <Button
                     type="submit"
                     disabled={creatingEntity}
-                    className="bg-slate-900 hover:bg-slate-800"
+                    variant="default"
                   >
                     {creatingEntity ? 'Creating...' : 'Create Supplier'}
                   </Button>
@@ -1298,7 +1298,7 @@ function NewTransactionPageContent() {
                   <Button
                     type="submit"
                     disabled={creatingEntity}
-                    className="bg-slate-900 hover:bg-slate-800"
+                    variant="default"
                   >
                     {creatingEntity ? 'Creating...' : `Create ${entityName}`}
                   </Button>

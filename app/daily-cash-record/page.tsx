@@ -19,6 +19,7 @@ import {
   DialogTrigger,
 } from '@/components/ui/dialog';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Table, TableHeader, TableBody, TableHead, TableRow, TableCell } from '@/components/ui/table';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Edit2, CalendarIcon, Plus, Upload, FileText, X, Download, Loader2 } from 'lucide-react';
 import { ASSISTANT_DATA_UPDATED_EVENT } from '@/lib/assistant-events';
@@ -916,30 +917,32 @@ export default function DailyCashRecordPage() {
 
         {/* View Record Dialog */}
         <Dialog open={viewRecordOpen} onOpenChange={setViewRecordOpen}>
-          <DialogContent className="max-w-[95vw] sm:max-w-[90vw] lg:max-w-5xl max-h-[92vh] flex flex-col p-0 rounded-2xl border-0 shadow-2xl overflow-hidden">
+          <DialogContent className="max-w-[95vw] sm:max-w-[90vw] lg:max-w-5xl max-h-[92vh] flex flex-col p-0 overflow-hidden">
             {/* Clean Header */}
-            <DialogHeader className="px-5 sm:px-6 pt-5 pb-4 pr-12 flex-shrink-0 bg-white border-b border-gray-100">
+            <DialogHeader className="px-5 sm:px-6 pt-5 pb-4 pr-12 flex-shrink-0 bg-white border-b-4 border-black">
               <div className="flex flex-col gap-4">
-                <DialogTitle className="text-2xl sm:text-3xl font-bold text-gray-900">
+                <DialogTitle className="text-2xl sm:text-3xl font-black text-black font-mono uppercase tracking-tight">
                   {viewingRecord?.date || format(selectedDate, 'dd-MM-yyyy')}
                 </DialogTitle>
                 
                 {viewingRecord && (
-                  <div className="flex flex-wrap items-center gap-4">
+                  <div className="flex flex-wrap items-center gap-4 mt-1">
                     {/* Stats Pills */}
-                    <div className="flex items-center gap-2">
-                      <span className="text-sm text-gray-500">In:</span>
-                      <span className="text-lg font-bold text-green-600">{formatCurrency(viewingRecord.totalIn)}</span>
+                    <div className="flex items-center gap-2 bg-[#86efac] border-2 border-black px-3 py-1 rounded-md shadow-[2px_2px_0px_rgba(0,0,0,1)]">
+                      <span className="text-xs font-black uppercase text-black font-mono">In:</span>
+                      <span className="text-base font-extrabold text-black font-mono">{formatCurrency(viewingRecord.totalIn)}</span>
                     </div>
-                    <div className="w-px h-5 bg-gray-200 hidden sm:block"></div>
-                    <div className="flex items-center gap-2">
-                      <span className="text-sm text-gray-500">Out:</span>
-                      <span className="text-lg font-bold text-red-600">{formatCurrency(viewingRecord.totalOut)}</span>
+                    
+                    <div className="flex items-center gap-2 bg-[#fca5a5] border-2 border-black px-3 py-1 rounded-md shadow-[2px_2px_0px_rgba(0,0,0,1)]">
+                      <span className="text-xs font-black uppercase text-black font-mono">Out:</span>
+                      <span className="text-base font-extrabold text-black font-mono">{formatCurrency(viewingRecord.totalOut)}</span>
                     </div>
-                    <div className="w-px h-5 bg-gray-200 hidden sm:block"></div>
-                    <div className="flex items-center gap-2">
-                      <span className="text-sm text-gray-500">Balance:</span>
-                      <span className={`text-lg font-bold ${viewingRecord.totalLeft >= 0 ? 'text-green-600' : 'text-red-600'}`}>
+                    
+                    <div className={`flex items-center gap-2 border-2 border-black px-3 py-1 rounded-md shadow-[2px_2px_0px_rgba(0,0,0,1)] ${
+                      viewingRecord.totalLeft >= 0 ? 'bg-[#93c5fd]' : 'bg-[#fca5a5]'
+                    }`}>
+                      <span className="text-xs font-black uppercase text-black font-mono">Balance:</span>
+                      <span className="text-base font-extrabold text-black font-mono">
                         {formatCurrency(viewingRecord.totalLeft)}
                       </span>
                     </div>
@@ -954,9 +957,9 @@ export default function DailyCashRecordPage() {
                         setAddTransactionOpen(true);
                       }}
                       size="sm"
-                      className="gap-1.5 bg-gray-900 hover:bg-gray-800 text-white ml-auto"
+                      className="gap-1.5 bg-[#fde047] hover:bg-[#facc15] text-black border-2 border-black shadow-[2px_2px_0px_rgba(0,0,0,1)] hover:translate-x-[-1px] hover:translate-y-[-1px] hover:shadow-[3px_3px_0px_rgba(0,0,0,1)] active:translate-x-[1px] active:translate-y-[1px] active:shadow-[1px_1px_0px_rgba(0,0,0,1)] transition-all font-mono font-black uppercase ml-auto"
                     >
-                      <Plus className="h-4 w-4" />
+                      <Plus className="h-4 w-4 stroke-[3px]" />
                       Add
                     </Button>
                   </div>
@@ -964,11 +967,11 @@ export default function DailyCashRecordPage() {
               </div>
             </DialogHeader>
             {/* Content Area */}
-            <div className="flex-1 overflow-auto bg-white">
+            <div className="flex-1 overflow-auto bg-[#faf9f6] p-4 lg:p-6">
               {viewingRecord && viewingRecord.entries && viewingRecord.entries.length > 0 ? (
                 <>
                   {/* Mobile Card View */}
-                  <div className="block lg:hidden p-4 space-y-3">
+                  <div className="block lg:hidden space-y-4">
                     {viewingRecord.entries.map((entry, idx) => {
                       const entryDate = entry.createdAt
                         ? format(new Date(entry.createdAt), 'dd-MM-yyyy')
@@ -979,42 +982,48 @@ export default function DailyCashRecordPage() {
                           initial={{ opacity: 0, y: 10 }}
                           animate={{ opacity: 1, y: 0 }}
                           transition={{ delay: idx * 0.03 }}
-                          className={`rounded-xl p-4 ${
-                            entry.type === 'in' 
-                              ? 'bg-green-50 border border-green-200' 
-                              : 'bg-red-50 border border-red-200'
-                          }`}
+                          className="rounded-lg p-4 bg-white border-2 border-black shadow-[3px_3px_0px_rgba(0,0,0,1)] text-left"
                         >
-                          <div className="flex items-start justify-between gap-3">
-                            <div className="flex-1 min-w-0">
-                              <p className="text-sm text-gray-500 mb-1">{entryDate}</p>
-                              <p className="font-medium text-gray-900 break-words">{entry.description}</p>
+                          <div className="flex items-center justify-between gap-3 mb-3">
+                            <div className="flex items-center gap-2">
+                              <span className={`px-2 py-0.5 rounded border-2 border-black text-[10px] font-black uppercase shadow-[1px_1px_0px_rgba(0,0,0,1)] shrink-0 ${
+                                entry.type === 'in'
+                                  ? 'bg-[#86efac] text-black'
+                                  : 'bg-[#fca5a5] text-black'
+                              }`}>
+                                {entry.type === 'in' ? 'IN' : 'OUT'}
+                              </span>
+                              <p className="text-xs font-bold font-mono text-gray-700">{entryDate}</p>
                             </div>
                             <div className="flex items-center gap-2 shrink-0">
-                              <span className={`text-lg font-bold ${
-                                entry.type === 'in' ? 'text-green-600' : 'text-red-600'
-                              }`}>
-                                {entry.type === 'out' && '-'}{formatCurrency(entry.amount)}
-                              </span>
                               {entry.billUrl && (
                                 <Button
                                   size="sm"
-                                  variant="ghost"
+                                  variant="outline"
                                   onClick={() => { setBillViewUrl(entry.billUrl!); setBillViewOpen(true); }}
-                                  className="h-8 w-8 p-0"
+                                  className="h-8 px-2 text-[11px] font-mono font-bold uppercase rounded border-2 border-black bg-white shadow-[1px_1px_0px_rgba(0,0,0,1)] hover:bg-[#86efac] transition-all"
                                 >
-                                  <FileText className="h-4 w-4 text-blue-500" />
+                                  Bill
                                 </Button>
                               )}
                               <Button
                                 size="sm"
-                                variant="ghost"
+                                variant="outline"
                                 onClick={() => handleEditEntry(entry, viewingRecord)}
-                                className="h-8 w-8 p-0"
+                                className="h-8 px-2 text-[11px] font-mono font-bold uppercase rounded border-2 border-black bg-white shadow-[1px_1px_0px_rgba(0,0,0,1)] hover:bg-[#fde047] transition-all"
                               >
-                                <Edit2 className="h-4 w-4 text-gray-400" />
+                                Edit
                               </Button>
                             </div>
+                          </div>
+                          
+                          <div className="flex items-center justify-between gap-3 bg-[#faf9f6] border-2 border-black p-2 rounded shadow-[1px_1px_0px_rgba(0,0,0,1)]">
+                            <p className="text-sm font-extrabold text-black truncate max-w-[200px]">{entry.description}</p>
+                            <span className={`text-sm font-black font-mono border-2 border-black px-2 py-0.5 rounded shadow-[1px_1px_0px_rgba(0,0,0,1)] ${
+                              entry.type === 'in' ? 'bg-[#86efac] text-black' : 'bg-[#fca5a5] text-black'
+                            }`}>
+                              {entry.type === 'out' && '-'}{formatCurrency(entry.amount)}
+                            </span>
                           </div>
                         </motion.div>
                       );
@@ -1023,88 +1032,90 @@ export default function DailyCashRecordPage() {
 
                   {/* Desktop Table View */}
                   <div className="hidden lg:block">
-                    <table className="w-full">
-                      <thead className="bg-gray-50 sticky top-0">
-                        <tr>
-                          <th className="text-left text-xs font-semibold text-gray-500 uppercase tracking-wider px-6 py-4">Date</th>
-                          <th className="text-left text-xs font-semibold text-gray-500 uppercase tracking-wider px-6 py-4">Description</th>
-                          <th className="text-right text-xs font-semibold text-gray-500 uppercase tracking-wider px-6 py-4">Money Out</th>
-                          <th className="text-right text-xs font-semibold text-gray-500 uppercase tracking-wider px-6 py-4">Money In</th>
-                          <th className="text-center text-xs font-semibold text-gray-500 uppercase tracking-wider px-4 py-4">Bill</th>
-                          <th className="w-16 px-6 py-4"></th>
-                        </tr>
-                      </thead>
-                      <tbody className="divide-y divide-gray-100">
+                    <Table>
+                      <TableHeader>
+                        <TableRow>
+                          <TableHead className="px-6 py-4 text-xs font-black uppercase text-black font-mono">Date</TableHead>
+                          <TableHead className="px-6 py-4 text-xs font-black uppercase text-black font-mono">Description</TableHead>
+                          <TableHead className="text-right px-6 py-4 text-xs font-black uppercase text-black font-mono">Money Out</TableHead>
+                          <TableHead className="text-right px-6 py-4 text-xs font-black uppercase text-black font-mono">Money In</TableHead>
+                          <TableHead className="text-center px-4 py-4 text-xs font-black uppercase text-black font-mono">Bill</TableHead>
+                          <TableHead className="w-16 px-6 py-4"></TableHead>
+                        </TableRow>
+                      </TableHeader>
+                      <TableBody>
                         {viewingRecord.entries.map((entry) => {
                           const entryDate = entry.createdAt
                             ? format(new Date(entry.createdAt), 'dd-MM-yyyy')
                             : viewingRecord.date;
                           return (
-                            <tr key={entry.id} className="hover:bg-gray-50 transition-colors">
-                              <td className="px-6 py-4 text-sm text-gray-600 whitespace-nowrap">{entryDate}</td>
-                              <td className="px-6 py-4 text-sm text-gray-900">{entry.description}</td>
-                              <td className="px-6 py-4 text-right whitespace-nowrap">
+                            <TableRow key={entry.id}>
+                              <TableCell className="px-6 py-4 font-mono text-sm text-black">{entryDate}</TableCell>
+                              <TableCell className="px-6 py-4 font-bold text-sm text-black">{entry.description}</TableCell>
+                              <TableCell className="px-6 py-4 text-right">
                                 {entry.type === 'out' ? (
-                                  <span className="text-red-600 font-semibold">{formatCurrency(entry.amount)}</span>
+                                  <span className="bg-[#fca5a5] border-2 border-black px-2 py-0.5 rounded shadow-[1px_1px_0px_rgba(0,0,0,1)] text-black font-black font-mono text-xs">{formatCurrency(entry.amount)}</span>
                                 ) : (
-                                  <span className="text-gray-300">—</span>
+                                  <span className="text-gray-400 font-mono">—</span>
                                 )}
-                              </td>
-                              <td className="px-6 py-4 text-right whitespace-nowrap">
+                              </TableCell>
+                              <TableCell className="px-6 py-4 text-right">
                                 {entry.type === 'in' ? (
-                                  <span className="text-green-600 font-semibold">{formatCurrency(entry.amount)}</span>
+                                  <span className="bg-[#86efac] border-2 border-black px-2 py-0.5 rounded shadow-[1px_1px_0px_rgba(0,0,0,1)] text-black font-black font-mono text-xs">{formatCurrency(entry.amount)}</span>
                                 ) : (
-                                  <span className="text-gray-300">—</span>
+                                  <span className="text-gray-400 font-mono">—</span>
                                 )}
-                              </td>
-                              <td className="px-4 py-4 text-center">
+                              </TableCell>
+                              <TableCell className="px-4 py-4 text-center">
                                 {entry.billUrl ? (
                                   <Button
                                     size="sm"
-                                    variant="ghost"
+                                    variant="outline"
                                     onClick={() => { setBillViewUrl(entry.billUrl!); setBillViewOpen(true); }}
-                                    className="h-8 w-8 p-0"
+                                    className="h-8 w-8 p-0 bg-white border-2 border-black hover:bg-[#86efac] shadow-[1px_1px_0px_rgba(0,0,0,1)] hover:translate-x-[-1px] hover:translate-y-[-1px] hover:shadow-[2px_2px_0px_rgba(0,0,0,1)] active:translate-x-[0px] active:translate-y-[0px] active:shadow-[1px_1px_0px_rgba(0,0,0,1)] transition-all"
                                     title="View Bill"
                                   >
-                                    <FileText className="h-4 w-4 text-blue-500" />
+                                    <FileText className="h-4 w-4 text-black stroke-[2.5px]" />
                                   </Button>
                                 ) : (
-                                  <span className="text-gray-300">—</span>
+                                  <span className="text-gray-400 font-mono">—</span>
                                 )}
-                              </td>
-                              <td className="px-6 py-4 text-center">
+                              </TableCell>
+                              <TableCell className="px-6 py-4 text-center">
                                 <Button
                                   size="sm"
-                                  variant="ghost"
+                                  variant="outline"
                                   onClick={() => handleEditEntry(entry, viewingRecord)}
-                                  className="h-8 w-8 p-0 opacity-50 hover:opacity-100"
+                                  className="h-8 w-8 p-0 bg-white border-2 border-black hover:bg-[#fde047] shadow-[1px_1px_0px_rgba(0,0,0,1)] hover:translate-x-[-1px] hover:translate-y-[-1px] hover:shadow-[2px_2px_0px_rgba(0,0,0,1)] active:translate-x-[0px] active:translate-y-[0px] active:shadow-[1px_1px_0px_rgba(0,0,0,1)] transition-all"
                                 >
-                                  <Edit2 className="h-4 w-4 text-gray-500" />
+                                  <Edit2 className="h-4 w-4 text-black stroke-[2.5px]" />
                                 </Button>
-                              </td>
-                            </tr>
+                              </TableCell>
+                            </TableRow>
                           );
                         })}
-                      </tbody>
-                    </table>
+                      </TableBody>
+                    </Table>
                   </div>
 
                   {/* Summary Footer */}
-                  <div className="sticky bottom-0 bg-white border-t border-gray-200 px-4 sm:px-6 py-4">
+                  <div className="sticky bottom-0 bg-[#faf9f6] border-t-4 border-black px-4 sm:px-6 py-4 mt-4 rounded-lg border-2 border-black shadow-[4px_4px_0px_rgba(0,0,0,1)]">
                     <div className="flex flex-wrap items-center justify-between gap-4">
-                      <div className="flex flex-wrap gap-6">
-                        <div>
-                          <p className="text-xs text-gray-500 uppercase tracking-wide">Total Out</p>
-                          <p className="text-lg font-bold text-red-600">{formatCurrency(viewingRecord.totalOut)}</p>
+                      <div className="flex flex-wrap gap-4">
+                        <div className="bg-[#fca5a5] border-2 border-black px-3 py-1.5 rounded-md shadow-[2px_2px_0px_rgba(0,0,0,1)]">
+                          <p className="text-[10px] font-black uppercase text-black font-mono tracking-wide">Total Out</p>
+                          <p className="text-base font-extrabold text-black font-mono">{formatCurrency(viewingRecord.totalOut)}</p>
                         </div>
-                        <div>
-                          <p className="text-xs text-gray-500 uppercase tracking-wide">Total In</p>
-                          <p className="text-lg font-bold text-green-600">{formatCurrency(viewingRecord.totalIn)}</p>
+                        <div className="bg-[#86efac] border-2 border-black px-3 py-1.5 rounded-md shadow-[2px_2px_0px_rgba(0,0,0,1)]">
+                          <p className="text-[10px] font-black uppercase text-black font-mono tracking-wide">Total In</p>
+                          <p className="text-base font-extrabold text-black font-mono">{formatCurrency(viewingRecord.totalIn)}</p>
                         </div>
                       </div>
-                      <div className="text-right">
-                        <p className="text-xs text-gray-500 uppercase tracking-wide">Balance</p>
-                        <p className={`text-2xl font-bold ${viewingRecord.totalLeft >= 0 ? 'text-green-600' : 'text-red-600'}`}>
+                      <div className={`border-2 border-black px-4 py-2 rounded-md shadow-[4px_4px_0px_rgba(0,0,0,1)] text-right ${
+                        viewingRecord.totalLeft >= 0 ? 'bg-[#93c5fd]' : 'bg-[#fca5a5]'
+                      }`}>
+                        <p className="text-[10px] font-black uppercase text-black font-mono tracking-wide">Balance</p>
+                        <p className="text-xl font-black text-black font-mono">
                           {formatCurrency(viewingRecord.totalLeft)}
                         </p>
                       </div>
@@ -1112,12 +1123,12 @@ export default function DailyCashRecordPage() {
                   </div>
                 </>
               ) : (
-                <div className="flex flex-col items-center justify-center py-16 text-center">
-                  <div className="w-16 h-16 rounded-full bg-gray-100 flex items-center justify-center mb-4">
-                    <CalendarIcon className="h-8 w-8 text-gray-400" />
+                <div className="flex flex-col items-center justify-center py-16 text-center border-4 border-dashed border-black rounded-lg bg-white p-6 shadow-[4px_4px_0px_rgba(0,0,0,1)]">
+                  <div className="w-16 h-16 rounded-lg bg-[#fde047] border-2 border-black shadow-[2px_2px_0px_rgba(0,0,0,1)] flex items-center justify-center mb-4">
+                    <CalendarIcon className="h-8 w-8 text-black stroke-[2.5px]" />
                   </div>
-                  <p className="text-lg font-medium text-gray-900 mb-1">No entries yet</p>
-                  <p className="text-sm text-gray-500">Add your first transaction for this date</p>
+                  <p className="text-lg font-black font-mono uppercase text-black mb-1">No entries yet</p>
+                  <p className="text-sm font-medium text-gray-700">Add your first transaction for this date</p>
                 </div>
               )}
             </div>
