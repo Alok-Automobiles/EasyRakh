@@ -26,6 +26,7 @@ import {
   ChevronLeft,
   ChevronRight,
   Edit3,
+  FileDown,
   FileText,
   Filter,
   ImagePlus,
@@ -569,6 +570,30 @@ export default function InventoryItemsPage() {
     conflict?: { id: string; itemName: string; itemNumber: string };
   }>({ status: 'idle' });
   const [adjustingItemIds, setAdjustingItemIds] = useState<Set<string>>(new Set());
+  const [downloadingPdf, setDownloadingPdf] = useState(false);
+
+  const handleDownloadPdf = useCallback(async () => {
+    setDownloadingPdf(true);
+    try {
+      const params = new URLSearchParams({ status: statusFilter });
+      const response = await fetch(`/api/inventory/export-pdf?${params.toString()}`);
+      if (!response.ok) throw new Error('Failed to generate PDF');
+      const blob = await response.blob();
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      const suffix = statusFilter === 'all' ? 'All_Items' : statusFilter;
+      a.download = `Inventory_Report_${suffix}_${new Date().toISOString().slice(0, 10)}.pdf`;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : 'Failed to download PDF');
+    } finally {
+      setDownloadingPdf(false);
+    }
+  }, [statusFilter]);
 
   const QUANTITY_ADJUST_DEBOUNCE_MS = 400;
 
@@ -1229,10 +1254,25 @@ export default function InventoryItemsPage() {
             </p>
           </div>
         </div>
-        <Button onClick={openNewItem} className="h-10 w-full bg-slate-900 text-white hover:bg-slate-800 sm:w-auto">
-          <Plus className="h-4 w-4" />
-          Add Item
-        </Button>
+        <div className="flex w-full gap-2 sm:w-auto">
+          <Button onClick={openNewItem} className="h-10 flex-1 bg-slate-900 text-white hover:bg-slate-800 sm:flex-initial">
+            <Plus className="h-4 w-4" />
+            Add Item
+          </Button>
+          <Button
+            onClick={handleDownloadPdf}
+            disabled={downloadingPdf}
+            variant="outline"
+            className="h-10 flex-1 border-gray-300 sm:flex-initial"
+          >
+            {downloadingPdf ? (
+              <Loader2 className="h-4 w-4 animate-spin" />
+            ) : (
+              <FileDown className="h-4 w-4" />
+            )}
+            {downloadingPdf ? 'Generating...' : 'PDF'}
+          </Button>
+        </div>
       </div>
 
       <div className="rounded-xl border border-gray-200 bg-white p-2.5 shadow-sm sm:p-3">
