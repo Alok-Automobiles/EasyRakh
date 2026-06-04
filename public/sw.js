@@ -61,8 +61,13 @@ self.addEventListener('fetch', (event) => {
           return response;
         })
         .catch(() => {
-          // Fallback to cache for offline
-          return caches.match(request);
+          // Fallback to cache for offline, or return a 503 if nothing cached
+          return caches.match(request).then((cached) => {
+            return cached || new Response(JSON.stringify({ error: 'Offline' }), {
+              status: 503,
+              headers: { 'Content-Type': 'application/json' },
+            });
+          });
         })
     );
     return;
@@ -81,7 +86,12 @@ self.addEventListener('fetch', (event) => {
           }
           return networkResponse;
         })
-        .catch(() => cachedResponse);
+        .catch(() => {
+          return cachedResponse || new Response('Offline', {
+            status: 503,
+            headers: { 'Content-Type': 'text/plain' },
+          });
+        });
 
       return cachedResponse || fetchPromise;
     })
