@@ -417,17 +417,17 @@ function InventoryItemCard({
   const images = item.partImages || [];
 
   return (
-    <div className="group rounded-xl border border-gray-200 bg-white p-2.5 shadow-sm transition-all hover:-translate-y-0.5 hover:border-gray-300 hover:shadow-md sm:p-3">
-      <div className="flex items-center justify-between">
-        <div className="flex items-center gap-1.5">
+    <div className="group max-w-full overflow-hidden rounded-xl border border-gray-200 bg-white p-2.5 shadow-sm transition-all hover:-translate-y-0.5 hover:border-gray-300 hover:shadow-md sm:p-3">
+      <div className="flex min-w-0 items-center justify-between gap-2">
+        <div className="flex min-w-0 items-center gap-1.5">
           <Badge variant="outline" className={`gap-1.5 border ${status.className}`}>
             <span className={`h-1.5 w-1.5 rounded-full ${status.dotClassName}`} />
             {status.label}
           </Badge>
           {item.location && (
-            <span className="inline-flex items-center gap-1 rounded bg-slate-100 px-1.5 py-0.5 text-[10px] font-medium text-slate-600" title={`Location: ${item.location}`}>
+            <span className="inline-flex min-w-0 max-w-[5.5rem] items-center gap-1 rounded bg-slate-100 px-1.5 py-0.5 text-[10px] font-medium text-slate-600 sm:max-w-[8rem]" title={`Location: ${item.location}`}>
               <MapPin className="h-2.5 w-2.5 text-slate-400" />
-              {item.location}
+              <span className="truncate">{item.location}</span>
             </span>
           )}
         </div>
@@ -469,8 +469,8 @@ function InventoryItemCard({
           </p>
         </div>
 
-        <div className="grid grid-cols-2 gap-1.5">
-          <div className="flex flex-col justify-between rounded-lg border border-gray-100 bg-gray-50/80 p-2">
+        <div className="grid min-w-0 grid-cols-2 gap-1.5">
+          <div className="flex min-w-0 flex-col justify-between rounded-lg border border-gray-100 bg-gray-50/80 p-2">
             <span className="text-[10px] font-medium text-gray-400">Quantity</span>
             <div className={`mt-1.5 flex items-center justify-between ${isAdjusting ? 'pointer-events-none opacity-60' : ''}`}>
               <button
@@ -482,7 +482,7 @@ function InventoryItemCard({
               >
                 <Minus className="h-2.5 w-2.5" />
               </button>
-              <span className="text-xs font-bold tabular-nums text-gray-900 mx-1 flex items-baseline gap-0.5">
+              <span className="mx-1 flex min-w-0 items-baseline gap-0.5 text-xs font-bold tabular-nums text-gray-900">
                 {item.quantity}
                 <span className="text-[9px] font-medium text-gray-400">{item.unitOfMeasure}</span>
               </span>
@@ -498,32 +498,32 @@ function InventoryItemCard({
             </div>
           </div>
 
-          <div className="flex flex-col justify-between rounded-lg border border-gray-100 bg-gray-50/80 p-2">
+          <div className="flex min-w-0 flex-col justify-between rounded-lg border border-gray-100 bg-gray-50/80 p-2">
             <span className="text-[10px] font-medium text-gray-400">Stock value</span>
-            <div className="mt-1.5 flex items-center h-5">
-              <span className="text-xs font-bold tabular-nums text-gray-900" title={formatCurrency(stockValue)}>
+            <div className="mt-1.5 flex h-5 min-w-0 items-center">
+              <span className="truncate text-xs font-bold tabular-nums text-gray-900" title={formatCurrency(stockValue)}>
                 {formatCurrency(stockValue)}
               </span>
             </div>
           </div>
         </div>
 
-        <div className="space-y-1 border-t border-gray-100 pt-2.5">
-          <div className="flex items-center justify-between gap-2 text-xs">
+        <div className="min-w-0 space-y-1 border-t border-gray-100 pt-2.5">
+          <div className="flex min-w-0 items-center justify-between gap-2 text-xs">
             <span className="truncate text-gray-500">
               Cost{' '}
               <span className="font-semibold tabular-nums text-gray-800">
                 {item.buyingPrice != null ? formatCurrency(item.buyingPrice) : '—'}
               </span>
             </span>
-            <span className="truncate text-gray-500">
+            <span className="truncate text-right text-gray-500">
               MRP{' '}
               <span className="font-semibold tabular-nums text-gray-800">
                 {item.mrp != null ? formatCurrency(item.mrp) : '—'}
               </span>
             </span>
           </div>
-          <p className="text-[10px] text-gray-400" title={item.updatedAt ? formatItemUpdatedAt(item.updatedAt) : undefined}>
+          <p className="truncate text-[10px] text-gray-400" title={item.updatedAt ? formatItemUpdatedAt(item.updatedAt) : undefined}>
             Updated {formatItemUpdatedAt(item.updatedAt)}
           </p>
         </div>
@@ -1371,43 +1371,54 @@ export default function InventoryItemsPage() {
       )}
 
       {pagination && pagination.totalPages > 1 && (
-        <div className="flex items-center justify-between rounded-lg border border-gray-200 bg-white px-3 py-3">
+        <div className="grid grid-cols-[auto_minmax(0,1fr)_auto] items-center gap-2 overflow-hidden rounded-lg border border-gray-200 bg-white px-2 py-2 sm:px-3 sm:py-3">
           <Button
             variant="outline"
             size="sm"
-            className="border-gray-300"
+            className="h-9 w-9 border-gray-300 p-0 sm:w-auto sm:px-3"
             disabled={currentPage <= 1}
             onClick={() => setCurrentPage((page) => Math.max(page - 1, 1))}
+            aria-label="Previous page"
           >
-            Previous
+            <ChevronLeft className="h-4 w-4 sm:hidden" />
+            <span className="hidden sm:inline">Previous</span>
           </Button>
-          <div className="flex items-center gap-1">
-            {Array.from({ length: Math.min(pagination.totalPages, 5) }, (_, index) => {
-              let page = index + 1;
-              if (pagination.totalPages > 5 && currentPage > 3) {
-                page = Math.min(currentPage - 2 + index, pagination.totalPages - 4 + index);
-              }
-              return (
-                <Button
-                  key={page}
-                  variant={currentPage === page ? 'default' : 'outline'}
-                  size="sm"
-                  className={currentPage === page ? 'bg-slate-900 text-white hover:bg-slate-800' : 'border-gray-300'}
-                  onClick={() => setCurrentPage(page)}
-                >
-                  {page}
-                </Button>
-              );
-            })}
+          <div className="min-w-0 overflow-x-auto hide-scrollbar">
+            <div className="mx-auto flex w-max items-center gap-1 px-1">
+              {Array.from({ length: Math.min(pagination.totalPages, 5) }, (_, index) => {
+                let page = index + 1;
+                if (pagination.totalPages > 5 && currentPage > 3) {
+                  page = Math.min(currentPage - 2 + index, pagination.totalPages - 4 + index);
+                }
+                return (
+                  <Button
+                    key={page}
+                    variant={currentPage === page ? 'default' : 'outline'}
+                    size="sm"
+                    className={`h-9 min-w-9 px-3 ${
+                      currentPage === page
+                        ? 'bg-slate-900 text-white hover:bg-slate-800'
+                        : 'border-gray-300'
+                    }`}
+                    onClick={() => setCurrentPage(page)}
+                    aria-current={currentPage === page ? 'page' : undefined}
+                  >
+                    {page}
+                  </Button>
+                );
+              })}
+            </div>
           </div>
           <Button
             variant="outline"
             size="sm"
-            className="border-gray-300"
+            className="h-9 w-9 border-gray-300 p-0 sm:w-auto sm:px-3"
             disabled={currentPage >= pagination.totalPages}
             onClick={() => setCurrentPage((page) => Math.min(page + 1, pagination.totalPages))}
+            aria-label="Next page"
           >
-            Next
+            <span className="hidden sm:inline">Next</span>
+            <ChevronRight className="h-4 w-4 sm:hidden" />
           </Button>
         </div>
       )}

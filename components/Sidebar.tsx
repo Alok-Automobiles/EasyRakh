@@ -196,7 +196,7 @@ export default function Sidebar({ collapsed = false }: SidebarProps) {
         </Link>
       </div>
 
-      <nav className="flex-1 overflow-y-auto px-2 lg:px-3 py-6 space-y-1 sidebar-scrollbar min-h-0">
+      <nav className="flex-1 overflow-y-auto overscroll-contain px-2 py-3 lg:px-3 lg:py-6 space-y-1 sidebar-scrollbar min-h-0">
         {navLinks.map((link) => {
           const Icon = link.icon;
           const active = isActive(link.href);
@@ -277,7 +277,7 @@ export default function Sidebar({ collapsed = false }: SidebarProps) {
         )}
       </nav>
 
-      <div className="p-4 border-t border-gray-200 bg-gray-50 sticky bottom-0 lg:static">
+      <div className="shrink-0 p-3 lg:p-4 border-t border-gray-200 bg-gray-50">
         <DropdownMenu modal={false}>
           <DropdownMenuTrigger asChild>
             <button 
@@ -352,14 +352,27 @@ export default function Sidebar({ collapsed = false }: SidebarProps) {
 
   return (
     <>
-      <button
-        type="button"
-        className="lg:hidden fixed top-4 left-4 z-50 p-2 rounded-lg bg-white shadow-lg border border-gray-200 hover:bg-gray-50 transition-colors"
-        onClick={() => setIsMobileOpen(true)}
-        aria-label="Open menu"
-      >
-        <Menu className="h-5 w-5 text-gray-700" />
-      </button>
+      <div className="lg:hidden fixed inset-x-0 top-0 z-30 flex h-14 items-center gap-3 border-b border-gray-200 bg-white/95 px-3 shadow-sm backdrop-blur">
+        <button
+          type="button"
+          className="flex h-10 w-10 cursor-pointer items-center justify-center rounded-lg border border-gray-200 bg-white shadow-sm hover:bg-gray-50 transition-colors"
+          onClick={() => setIsMobileOpen(true)}
+          aria-label="Open menu"
+          aria-expanded={isMobileOpen}
+        >
+          <Menu className="h-5 w-5 text-gray-700" />
+        </button>
+        <Link href="/dashboard" className="flex min-w-0 items-center gap-2">
+          <Image
+            src="/logo.png"
+            alt="EasyRakh logo"
+            width={34}
+            height={34}
+            className="shrink-0"
+          />
+          <span className="truncate text-sm font-black text-gray-950">EasyRakh</span>
+        </Link>
+      </div>
 
       {isMobileOpen && (
         <div
@@ -369,24 +382,20 @@ export default function Sidebar({ collapsed = false }: SidebarProps) {
       )}
 
       <aside
-        className={`lg:hidden fixed left-0 top-0 h-screen w-72 bg-white shadow-xl z-50 transform transition-transform duration-300 ease-in-out ${
+        className={`lg:hidden fixed left-0 top-0 h-[100dvh] w-[min(20rem,calc(100vw-1.25rem))] max-w-[calc(100vw-1.25rem)] bg-white shadow-xl z-50 transform transition-transform duration-300 ease-in-out ${
           isMobileOpen ? 'translate-x-0' : '-translate-x-full'
         }`}
       >
-        <div className="flex flex-col h-full overflow-hidden">
-          <div className="flex items-center justify-between  shrink-0">
-            <button
-              type="button"
-              onClick={() => setIsMobileOpen(false)}
-              className="p-2 rounded-lg hover:bg-gray-100 transition-colors"
-              aria-label="Close menu"
-            >
-              <X className="h-5 w-5 text-gray-700" />
-            </button>
-          </div>
-          <div className="flex-1 overflow-y-auto sidebar-scrollbar min-h-0">
-            {sidebarContent}
-          </div>
+        <div className="relative flex h-full min-h-0 flex-col overflow-hidden">
+          <button
+            type="button"
+            onClick={() => setIsMobileOpen(false)}
+            className="absolute right-3 top-3 z-10 flex h-10 w-10 items-center justify-center rounded-lg bg-white border border-gray-200 shadow-sm hover:bg-gray-50 transition-colors"
+            aria-label="Close menu"
+          >
+            <X className="h-5 w-5 text-gray-700" />
+          </button>
+          {sidebarContent}
         </div>
       </aside>
 
