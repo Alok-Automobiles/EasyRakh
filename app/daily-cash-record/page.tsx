@@ -917,32 +917,32 @@ export default function DailyCashRecordPage() {
 
         {/* View Record Dialog */}
         <Dialog open={viewRecordOpen} onOpenChange={setViewRecordOpen}>
-          <DialogContent className="max-w-[95vw] sm:max-w-[90vw] lg:max-w-5xl max-h-[92vh] flex flex-col p-0 overflow-hidden">
+          <DialogContent className="flex max-h-[calc(100dvh-1rem)] w-[calc(100vw-1rem)] max-w-[calc(100vw-1rem)] flex-col overflow-hidden p-0 sm:max-h-[92vh] sm:w-full sm:max-w-[90vw] lg:max-w-5xl">
             {/* Clean Header */}
-            <DialogHeader className="px-5 sm:px-6 pt-5 pb-4 pr-12 flex-shrink-0 bg-white border-b-4 border-black">
-              <div className="flex flex-col gap-4">
-                <DialogTitle className="text-2xl sm:text-3xl font-black text-black font-mono uppercase tracking-tight">
+            <DialogHeader className="flex-shrink-0 border-b-4 border-black bg-white px-3.5 pb-3 pt-4 pr-14 sm:px-6 sm:pb-4 sm:pt-5">
+              <div className="flex min-w-0 flex-col gap-3 sm:gap-4">
+                <DialogTitle className="text-2xl font-black text-black font-mono uppercase leading-none tracking-tight sm:text-3xl">
                   {viewingRecord?.date || format(selectedDate, 'dd-MM-yyyy')}
                 </DialogTitle>
                 
                 {viewingRecord && (
-                  <div className="flex flex-wrap items-center gap-4 mt-1">
+                  <div className="mt-1 grid grid-cols-2 gap-2 sm:flex sm:flex-wrap sm:items-center sm:gap-4">
                     {/* Stats Pills */}
-                    <div className="flex items-center gap-2 bg-[#86efac] border-2 border-black px-3 py-1 rounded-md shadow-[2px_2px_0px_rgba(0,0,0,1)]">
-                      <span className="text-xs font-black uppercase text-black font-mono">In:</span>
-                      <span className="text-base font-extrabold text-black font-mono">{formatCurrency(viewingRecord.totalIn)}</span>
+                    <div className="flex min-w-0 items-center justify-center gap-1.5 bg-[#86efac] border-2 border-black px-2 py-1 rounded-md shadow-[2px_2px_0px_rgba(0,0,0,1)] sm:gap-2 sm:px-3">
+                      <span className="shrink-0 text-[11px] font-black uppercase text-black font-mono sm:text-xs">In:</span>
+                      <span className="truncate text-sm font-extrabold text-black font-mono sm:text-base">{formatCurrency(viewingRecord.totalIn)}</span>
                     </div>
                     
-                    <div className="flex items-center gap-2 bg-[#fca5a5] border-2 border-black px-3 py-1 rounded-md shadow-[2px_2px_0px_rgba(0,0,0,1)]">
-                      <span className="text-xs font-black uppercase text-black font-mono">Out:</span>
-                      <span className="text-base font-extrabold text-black font-mono">{formatCurrency(viewingRecord.totalOut)}</span>
+                    <div className="flex min-w-0 items-center justify-center gap-1.5 bg-[#fca5a5] border-2 border-black px-2 py-1 rounded-md shadow-[2px_2px_0px_rgba(0,0,0,1)] sm:gap-2 sm:px-3">
+                      <span className="shrink-0 text-[11px] font-black uppercase text-black font-mono sm:text-xs">Out:</span>
+                      <span className="truncate text-sm font-extrabold text-black font-mono sm:text-base">{formatCurrency(viewingRecord.totalOut)}</span>
                     </div>
                     
-                    <div className={`flex items-center gap-2 border-2 border-black px-3 py-1 rounded-md shadow-[2px_2px_0px_rgba(0,0,0,1)] ${
+                    <div className={`flex min-w-0 items-center justify-center gap-1.5 border-2 border-black px-2 py-1 rounded-md shadow-[2px_2px_0px_rgba(0,0,0,1)] sm:gap-2 sm:px-3 ${
                       viewingRecord.totalLeft >= 0 ? 'bg-[#93c5fd]' : 'bg-[#fca5a5]'
                     }`}>
-                      <span className="text-xs font-black uppercase text-black font-mono">Balance:</span>
-                      <span className="text-base font-extrabold text-black font-mono">
+                      <span className="shrink-0 text-[11px] font-black uppercase text-black font-mono sm:text-xs">Balance:</span>
+                      <span className="truncate text-sm font-extrabold text-black font-mono sm:text-base">
                         {formatCurrency(viewingRecord.totalLeft)}
                       </span>
                     </div>
@@ -957,7 +957,7 @@ export default function DailyCashRecordPage() {
                         setAddTransactionOpen(true);
                       }}
                       size="sm"
-                      className="gap-1.5 bg-[#fde047] hover:bg-[#facc15] text-black border-2 border-black shadow-[2px_2px_0px_rgba(0,0,0,1)] hover:translate-x-[-1px] hover:translate-y-[-1px] hover:shadow-[3px_3px_0px_rgba(0,0,0,1)] active:translate-x-[1px] active:translate-y-[1px] active:shadow-[1px_1px_0px_rgba(0,0,0,1)] transition-all font-mono font-black uppercase ml-auto"
+                      className="w-full gap-1.5 bg-[#fde047] hover:bg-[#facc15] text-black border-2 border-black shadow-[2px_2px_0px_rgba(0,0,0,1)] hover:translate-x-[-1px] hover:translate-y-[-1px] hover:shadow-[3px_3px_0px_rgba(0,0,0,1)] active:translate-x-[1px] active:translate-y-[1px] active:shadow-[1px_1px_0px_rgba(0,0,0,1)] transition-all font-mono font-black uppercase sm:ml-auto sm:w-auto"
                     >
                       <Plus className="h-4 w-4 stroke-[3px]" />
                       Add
@@ -967,11 +967,11 @@ export default function DailyCashRecordPage() {
               </div>
             </DialogHeader>
             {/* Content Area */}
-            <div className="flex-1 overflow-auto bg-[#faf9f6] p-4 lg:p-6">
+            <div className="flex-1 overflow-auto overscroll-contain bg-[#faf9f6] p-3 sm:p-4 lg:p-6">
               {viewingRecord && viewingRecord.entries && viewingRecord.entries.length > 0 ? (
                 <>
                   {/* Mobile Card View */}
-                  <div className="block lg:hidden space-y-4">
+                  <div className="block space-y-3 lg:hidden">
                     {viewingRecord.entries.map((entry, idx) => {
                       const entryDate = entry.createdAt
                         ? format(new Date(entry.createdAt), 'dd-MM-yyyy')
@@ -982,10 +982,10 @@ export default function DailyCashRecordPage() {
                           initial={{ opacity: 0, y: 10 }}
                           animate={{ opacity: 1, y: 0 }}
                           transition={{ delay: idx * 0.03 }}
-                          className="rounded-lg p-4 bg-white border-2 border-black shadow-[3px_3px_0px_rgba(0,0,0,1)] text-left"
+                          className="rounded-lg bg-white p-3 text-left border-2 border-black shadow-[3px_3px_0px_rgba(0,0,0,1)]"
                         >
-                          <div className="flex items-center justify-between gap-3 mb-3">
-                            <div className="flex items-center gap-2">
+                          <div className="mb-3 flex min-w-0 items-center justify-between gap-2">
+                            <div className="flex min-w-0 items-center gap-2">
                               <span className={`px-2 py-0.5 rounded border-2 border-black text-[10px] font-black uppercase shadow-[1px_1px_0px_rgba(0,0,0,1)] shrink-0 ${
                                 entry.type === 'in'
                                   ? 'bg-[#86efac] text-black'
@@ -993,15 +993,15 @@ export default function DailyCashRecordPage() {
                               }`}>
                                 {entry.type === 'in' ? 'IN' : 'OUT'}
                               </span>
-                              <p className="text-xs font-bold font-mono text-gray-700">{entryDate}</p>
+                              <p className="truncate text-xs font-bold font-mono text-gray-700">{entryDate}</p>
                             </div>
-                            <div className="flex items-center gap-2 shrink-0">
+                            <div className="flex shrink-0 items-center gap-1.5">
                               {entry.billUrl && (
                                 <Button
                                   size="sm"
                                   variant="outline"
                                   onClick={() => { setBillViewUrl(entry.billUrl!); setBillViewOpen(true); }}
-                                  className="h-8 px-2 text-[11px] font-mono font-bold uppercase rounded border-2 border-black bg-white shadow-[1px_1px_0px_rgba(0,0,0,1)] hover:bg-[#86efac] transition-all"
+                                  className="h-8 px-2 text-[10px] font-mono font-bold uppercase rounded border-2 border-black bg-white shadow-[1px_1px_0px_rgba(0,0,0,1)] hover:bg-[#86efac] transition-all sm:text-[11px]"
                                 >
                                   Bill
                                 </Button>
@@ -1010,16 +1010,16 @@ export default function DailyCashRecordPage() {
                                 size="sm"
                                 variant="outline"
                                 onClick={() => handleEditEntry(entry, viewingRecord)}
-                                className="h-8 px-2 text-[11px] font-mono font-bold uppercase rounded border-2 border-black bg-white shadow-[1px_1px_0px_rgba(0,0,0,1)] hover:bg-[#fde047] transition-all"
+                                className="h-8 px-2 text-[10px] font-mono font-bold uppercase rounded border-2 border-black bg-white shadow-[1px_1px_0px_rgba(0,0,0,1)] hover:bg-[#fde047] transition-all sm:text-[11px]"
                               >
                                 Edit
                               </Button>
                             </div>
                           </div>
                           
-                          <div className="flex items-center justify-between gap-3 bg-[#faf9f6] border-2 border-black p-2 rounded shadow-[1px_1px_0px_rgba(0,0,0,1)]">
-                            <p className="text-sm font-extrabold text-black truncate max-w-[200px]">{entry.description}</p>
-                            <span className={`text-sm font-black font-mono border-2 border-black px-2 py-0.5 rounded shadow-[1px_1px_0px_rgba(0,0,0,1)] ${
+                          <div className="flex min-w-0 items-center justify-between gap-2 bg-[#faf9f6] border-2 border-black p-2 rounded shadow-[1px_1px_0px_rgba(0,0,0,1)]">
+                            <p className="min-w-0 flex-1 truncate text-sm font-extrabold text-black">{entry.description}</p>
+                            <span className={`shrink-0 truncate text-xs font-black font-mono border-2 border-black px-2 py-0.5 rounded shadow-[1px_1px_0px_rgba(0,0,0,1)] sm:text-sm ${
                               entry.type === 'in' ? 'bg-[#86efac] text-black' : 'bg-[#fca5a5] text-black'
                             }`}>
                               {entry.type === 'out' && '-'}{formatCurrency(entry.amount)}
@@ -1099,23 +1099,23 @@ export default function DailyCashRecordPage() {
                   </div>
 
                   {/* Summary Footer */}
-                  <div className="sticky bottom-0 bg-[#faf9f6] border-t-4 border-black px-4 sm:px-6 py-4 mt-4 rounded-lg border-2 border-black shadow-[4px_4px_0px_rgba(0,0,0,1)]">
-                    <div className="flex flex-wrap items-center justify-between gap-4">
-                      <div className="flex flex-wrap gap-4">
-                        <div className="bg-[#fca5a5] border-2 border-black px-3 py-1.5 rounded-md shadow-[2px_2px_0px_rgba(0,0,0,1)]">
+                  <div className="bottom-0 mt-3 rounded-lg bg-[#faf9f6] px-3 py-3 border-2 border-black shadow-[3px_3px_0px_rgba(0,0,0,1)] sm:sticky sm:mt-4 sm:px-6 sm:py-4 sm:shadow-[4px_4px_0px_rgba(0,0,0,1)]">
+                    <div className="grid grid-cols-2 gap-2 sm:flex sm:flex-wrap sm:items-center sm:justify-between sm:gap-4">
+                      <div className="contents sm:flex sm:flex-wrap sm:gap-4">
+                        <div className="min-w-0 bg-[#fca5a5] border-2 border-black px-2.5 py-1.5 rounded-md shadow-[2px_2px_0px_rgba(0,0,0,1)] sm:px-3">
                           <p className="text-[10px] font-black uppercase text-black font-mono tracking-wide">Total Out</p>
-                          <p className="text-base font-extrabold text-black font-mono">{formatCurrency(viewingRecord.totalOut)}</p>
+                          <p className="truncate text-base font-extrabold text-black font-mono">{formatCurrency(viewingRecord.totalOut)}</p>
                         </div>
-                        <div className="bg-[#86efac] border-2 border-black px-3 py-1.5 rounded-md shadow-[2px_2px_0px_rgba(0,0,0,1)]">
+                        <div className="min-w-0 bg-[#86efac] border-2 border-black px-2.5 py-1.5 rounded-md shadow-[2px_2px_0px_rgba(0,0,0,1)] sm:px-3">
                           <p className="text-[10px] font-black uppercase text-black font-mono tracking-wide">Total In</p>
-                          <p className="text-base font-extrabold text-black font-mono">{formatCurrency(viewingRecord.totalIn)}</p>
+                          <p className="truncate text-base font-extrabold text-black font-mono">{formatCurrency(viewingRecord.totalIn)}</p>
                         </div>
                       </div>
-                      <div className={`border-2 border-black px-4 py-2 rounded-md shadow-[4px_4px_0px_rgba(0,0,0,1)] text-right ${
+                      <div className={`col-span-2 min-w-0 border-2 border-black px-3 py-2 rounded-md shadow-[3px_3px_0px_rgba(0,0,0,1)] text-left sm:col-span-1 sm:ml-auto sm:px-4 sm:text-right sm:shadow-[4px_4px_0px_rgba(0,0,0,1)] ${
                         viewingRecord.totalLeft >= 0 ? 'bg-[#93c5fd]' : 'bg-[#fca5a5]'
                       }`}>
                         <p className="text-[10px] font-black uppercase text-black font-mono tracking-wide">Balance</p>
-                        <p className="text-xl font-black text-black font-mono">
+                        <p className="truncate text-xl font-black text-black font-mono">
                           {formatCurrency(viewingRecord.totalLeft)}
                         </p>
                       </div>

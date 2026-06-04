@@ -1,4 +1,4 @@
-import type { Metadata } from "next";
+import type { Metadata, Viewport } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
 import "./globals.css";
 import "react-day-picker/dist/style.css";
@@ -7,6 +7,7 @@ import { Toaster } from "react-hot-toast";
 import VoiceAssistantWrapper from "@/components/VoiceAssistantWrapper";
 import { Analytics } from "@vercel/analytics/next";
 import { Providers } from "./providers";
+import ServiceWorkerRegistration from "@/components/ServiceWorkerRegistration";
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -18,11 +19,28 @@ const geistMono = Geist_Mono({
   subsets: ["latin"],
 });
 
+export const viewport: Viewport = {
+  themeColor: '#000000',
+  width: 'device-width',
+  initialScale: 1,
+  maximumScale: 1,
+};
+
 export const metadata: Metadata = {
   title: "EasyRakh - Simple Ledger Management",
   description: "Manage your customers, suppliers, and transactions with ease. Track credits, debits, and balances all in one place.",
+  manifest: '/manifest.json',
   icons: {
     icon: '/favicon.ico',
+    apple: '/icon-192x192.png',
+  },
+  appleWebApp: {
+    capable: true,
+    statusBarStyle: 'default',
+    title: 'EasyRakh',
+  },
+  formatDetection: {
+    telephone: false,
   },
 };
 
@@ -43,6 +61,7 @@ export default function RootLayout({
           <Toaster position="top-right" />
           <VoiceAssistantWrapper />
         </Providers>
+        <ServiceWorkerRegistration />
         <Analytics />
       </body>
     </html>
