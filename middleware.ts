@@ -33,11 +33,13 @@ export const config = {
      * - api (API routes)
      * - _next/static (static files)
      * - _next/image (image optimization files)
-     * - favicon.ico (favicon file)
-     * - public folder
+     * - favicon.ico, sitemap.xml, robots.txt
+     * - manifest.json (PWA manifest)
+     * - sw.js (service worker)
+     * - public folder assets (images)
      * - forgot-password flow (handled client-side)
      */
-    '/((?!api|_next/static|_next/image|favicon\\.ico$|sitemap\\.xml$|robots\\.txt$|forgot-password|.*\\.(?:svg|png|jpg|jpeg|gif|webp)$).*)',
+    '/((?!api|_next/static|_next/image|favicon\\.ico$|sitemap\\.xml$|robots\\.txt$|manifest\\.json$|sw\\.js$|forgot-password|.*\\.(?:svg|png|jpg|jpeg|gif|webp)$).*)',
   ],
 };
 
