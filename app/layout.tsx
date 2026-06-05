@@ -8,6 +8,7 @@ import VoiceAssistantWrapper from "@/components/VoiceAssistantWrapper";
 import { Analytics } from "@vercel/analytics/next";
 import { Providers } from "./providers";
 import ServiceWorkerRegistration from "@/components/ServiceWorkerRegistration";
+import InstallPrompt from "@/components/InstallPrompt";
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -62,6 +63,7 @@ export default function RootLayout({
           <VoiceAssistantWrapper />
         </Providers>
         <ServiceWorkerRegistration />
+        <InstallPrompt />
         <Analytics />
       </body>
     </html>
