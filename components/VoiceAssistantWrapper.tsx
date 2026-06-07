@@ -17,6 +17,8 @@ const VOICE_ASSISTANT_PAGES = [
   '/daily-cash-record',
   '/collection-types',
   '/custom-entities',
+  '/inventory',
+  '/inventory-items',
 ];
 
 export default function VoiceAssistantWrapper() {
