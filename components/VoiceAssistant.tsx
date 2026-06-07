@@ -556,6 +556,54 @@ export default function VoiceAssistant() {
     setMessages((prev) => [...prev, message]);
   }, []);
 
+  const sanitizeForSpeech = useCallback((text: string): string => {
+    let cleaned = text;
+
+    // Remove markdown bold/italic markers
+    cleaned = cleaned.replace(/\*{1,3}([^*]+)\*{1,3}/g, '$1');
+    cleaned = cleaned.replace(/_{1,3}([^_]+)_{1,3}/g, '$1');
+
+    // Remove parenthetical translations that cause double-reading
+    // e.g. "टाटा (TATA)" → "TATA", "ऑयल फ़िल्टर (OIL FILTER)" → "OIL FILTER"
+    // Pattern: Hindi/Devanagari text followed by (ENGLISH) → keep only the English
+    cleaned = cleaned.replace(/[\u0900-\u097F][\u0900-\u097F\u093C-\u094D\u0901-\u0903\s\.]+\s*\(([^)]+)\)/g, '$1');
+
+    // Also handle ENGLISH (Hindi) → keep only English
+    cleaned = cleaned.replace(/([A-Za-z][A-Za-z0-9\s.-]+)\s*\([\u0900-\u097F][^)]*\)/g, '$1');
+
+    // Remove any remaining standalone parenthetical notes that are just translations
+    cleaned = cleaned.replace(/\(([^)]{1,30})\)/g, (match, inner) => {
+      // If parenthetical is a short label like "पार्ट नंबर:" keep it out
+      if (/[\u0900-\u097F]/.test(inner) && /[A-Za-z]/.test(match.slice(0, match.indexOf('(')))) {
+        return '';
+      }
+      return inner;
+    });
+
+    // Space out long numbers (6+ digits) for digit-by-digit reading
+    cleaned = cleaned.replace(/\b(\d{6,})\b/g, (num) => num.split('').join(' '));
+
+    // Remove markdown headers (# ## ###)
+    cleaned = cleaned.replace(/^#{1,6}\s+/gm, '');
+
+    // Remove markdown links [text](url) → text
+    cleaned = cleaned.replace(/\[([^\]]+)\]\([^)]+\)/g, '$1');
+
+    // Remove bullet points and list markers
+    cleaned = cleaned.replace(/^\s*[-*•]\s+/gm, '');
+
+    // Remove backticks
+    cleaned = cleaned.replace(/`/g, '');
+
+    // Replace colons that act as labels with a brief pause (comma)
+    cleaned = cleaned.replace(/:\s+/g, ', ');
+
+    // Collapse multiple spaces/newlines into single space
+    cleaned = cleaned.replace(/\s+/g, ' ').trim();
+
+    return cleaned;
+  }, []);
+
   const speak = useCallback((text: string, lang: AssistantLanguage = 'hi') => {
     if (!synthRef.current || isMuted) {
       return;
@@ -563,9 +611,10 @@ export default function VoiceAssistant() {
 
     synthRef.current.cancel();
 
-    const utterance = new SpeechSynthesisUtterance(text);
+    const speechText = sanitizeForSpeech(text);
+    const utterance = new SpeechSynthesisUtterance(speechText);
     utterance.lang = lang === 'hi' ? 'hi-IN' : 'en-IN';
-    utterance.rate = 0.9;
+    utterance.rate = 1.05;
     utterance.pitch = 1;
 
     const voices = synthRef.current.getVoices();
@@ -583,7 +632,7 @@ export default function VoiceAssistant() {
     utterance.onerror = () => setIsSpeaking(false);
 
     synthRef.current.speak(utterance);
-  }, [isMuted]);
+  }, [isMuted, sanitizeForSpeech]);
 
   const notifyDataUpdate = useCallback((action: AssistantPendingAction) => {
     if (typeof window === 'undefined') {

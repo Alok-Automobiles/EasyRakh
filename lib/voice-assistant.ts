@@ -54,6 +54,11 @@ const prepareLedgerTransactionArgsSchema = z.object({
   date: isoDateSchema,
 });
 
+const searchInventoryArgsSchema = z.object({
+  query: z.string().trim().min(1, 'query is required'),
+  limit: z.number().int().min(1).max(MAX_TOOL_LIMIT).optional(),
+});
+
 export type AssistantPendingAction =
   | {
       kind: 'cash_entry';
@@ -146,13 +151,13 @@ export const VOICE_ASSISTANT_TOOLS: FunctionDeclarationsTool[] = [
       {
         name: 'find_entities',
         description:
-          'Search customers, suppliers, and custom entities by name. Use this only for ledger/account queries or explicit entity lookup. Do not use it for daily cash, cashbook, or sale narration just because a person name appears in the description.',
+          'Search customers, suppliers, and custom entities by name. Use this only for ledger/account queries or explicit entity lookup. Do not use it for daily cash, cashbook, or sale narration just because a person name appears in the description. Pass only the core name keywords — strip Hindi particles like ka, ki, ke, kaha, etc. Prefer English/Roman script but Devanagari is also accepted.',
         parameters: {
           type: SchemaType.OBJECT,
           properties: {
             nameQuery: {
               type: SchemaType.STRING,
-              description: 'Name or partial name to search for.',
+              description: 'Name or partial name to search for. Pass only core keywords, strip filler words like ka/ki/ke/hai. Prefer English/Roman script.',
             },
             entityTypeHint: {
               type: SchemaType.STRING,
@@ -269,6 +274,25 @@ export const VOICE_ASSISTANT_TOOLS: FunctionDeclarationsTool[] = [
             },
           },
           required: ['entityType', 'entityId', 'type', 'amount', 'date'],
+        },
+      },
+      {
+        name: 'search_inventory',
+        description:
+          'Search inventory / stock items by name, part number, brand, or description. Use when the user asks about a part, product, stock item, its location, price (buying price or MRP), quantity, or availability. Pass ONLY the core product/part keywords — strip Hindi grammar particles like ka, ki, ke, kaha, hai, etc. Prefer English but Devanagari is accepted. Example: if user says "Scorpio ka clutch set kaha rakha hai" pass query as "SCORPIO CLUTCH SET". If user says "tata flywheel" pass "TATA FLYWHEEL".',
+        parameters: {
+          type: SchemaType.OBJECT,
+          properties: {
+            query: {
+              type: SchemaType.STRING,
+              description: 'Core item/part/brand keywords to search for. Strip filler words (ka, ki, kaha, hai). Prefer UPPERCASE ENGLISH but any script works.',
+            },
+            limit: {
+              type: SchemaType.INTEGER,
+              description: 'Max items to return (default 5).',
+            },
+          },
+          required: ['query'],
         },
       },
     ],
@@ -424,6 +448,7 @@ function buildHindiResponseRule(script: AssistantHindiScript = 'roman') {
       'Reply only in Hindi using Devanagari script.',
       'Do not switch to English sentences.',
       'Only keep exact names, ids, amounts, model numbers, or unavoidable business terms as-is.',
+      'NEVER repeat the same word in both Devanagari and English parenthetical. Say it once only.',
     ].join(' ');
   }
 
@@ -431,6 +456,7 @@ function buildHindiResponseRule(script: AssistantHindiScript = 'roman') {
     'Reply only in Hindi written in Roman script.',
     'Do not switch to English sentences or Hinglish filler.',
     'Only keep exact names, ids, amounts, model numbers, or unavoidable business terms as-is.',
+    'NEVER repeat the same word in both Hindi and English parenthetical. Say it once only.',
   ].join(' ');
 }
 
@@ -471,6 +497,7 @@ export function buildAssistantSystemInstruction(
     'You must use tools for business facts, balances, cash records, and ledger lookups. Never guess ledger data.',
     'When a user wants to add a cash entry or ledger transaction, do not say it is saved yet. First call the appropriate prepare tool and then ask if they want to attach a bill photo.',
     'Use absolute YYYY-MM-DD dates in tool calls.',
+    'DATA SEARCH RULE: All business data is stored in English/Roman script (often UPPERCASE). When calling search tools (find_entities, search_inventory), pass ONLY the core keywords — strip Hindi grammar particles like ka, ki, ke, ko, se, mein, kaha, hai, etc. For example: if user says "Scorpio ka clutch set kaha rakha hai" pass query "SCORPIO CLUTCH SET". If user says "राजेश का खाता" pass "Rajesh". If user says "tata ka flywheel" pass "TATA FLYWHEEL". Prefer English/Roman script, but the backend can handle Devanagari too. Always reply in the user\'s language.',
     'Interpretation rules:',
     '- Daily cash / cashbook / sale-add / cash-in commands map to prepare_cash_entry.',
     '- If the user says to add something in today sale, sale, cash record, or cashbook, do not call find_entities just because a person name appears in the narration.',
@@ -478,8 +505,14 @@ export function buildAssistantSystemInstruction(
     '- Customer ledger: debit increases what the customer owes, credit records money received from the customer.',
     '- Supplier ledger: credit records goods/value received from the supplier, debit records payment made to the supplier.',
     '- Custom entity ledgers follow the same debit/credit behavior as customer ledgers unless the user clearly indicates otherwise.',
+    '- If the user asks about a part, product, stock item, its location, price, quantity, or availability, use search_inventory. Never guess inventory data.',
+    '- When reporting inventory results, only include the item location and available quantity. NEVER mention buying price, MRP, or any cost information in your reply — customers may overhear.',
     'If entity matches are ambiguous, ask a short clarification question.',
-    'Keep answers concise and practical.',
+    'RESPONSE FORMATTING (your replies are read aloud via text-to-speech):',
+    '- NEVER use markdown formatting: no asterisks for bold, no underscores, no backticks, no headers, no bullet markers.',
+    '- NEVER repeat words in two languages or scripts. Do NOT write things like \"टाटा (TATA)\" or \"ऑयल फ़िल्टर (OIL FILTER)\". Just say the word once in whichever language you are replying in.',
+    '- For part numbers and item codes, write each digit separated by spaces so TTS reads them individually. Example: write \"2 7 8 6 1 8\" not \"278618\".',
+    '- Keep answers short, natural, and conversational — like speaking to a person, not writing a document.',
   ].join('\n');
 }
 
@@ -504,8 +537,10 @@ export async function executeVoiceAssistantTool(
     switch (toolName) {
       case 'get_business_overview':
         return await getBusinessOverview(context.userId);
-      case 'find_entities':
-        return await findEntities(context.userId, findEntitiesArgsSchema.parse(rawArgs));
+      case 'find_entities': {
+        const findArgs = findEntitiesArgsSchema.parse(rawArgs);
+        return await findEntities(context.userId, findArgs);
+      }
       case 'get_entity_ledger':
         return await getEntityLedger(context.userId, getEntityLedgerArgsSchema.parse(rawArgs));
       case 'get_cash_record_by_date':
@@ -514,6 +549,10 @@ export async function executeVoiceAssistantTool(
         return await prepareCashEntry(context, prepareCashEntryArgsSchema.parse(rawArgs));
       case 'prepare_ledger_transaction':
         return await prepareLedgerTransaction(context, prepareLedgerTransactionArgsSchema.parse(rawArgs));
+      case 'search_inventory': {
+        const invArgs = searchInventoryArgsSchema.parse(rawArgs);
+        return await searchInventory(context.userId, invArgs);
+      }
       default:
         return {
           ok: false,
@@ -530,6 +569,311 @@ export async function executeVoiceAssistantTool(
 
 function escapeRegex(value: string) {
   return value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+}
+
+function containsDevanagari(text: string) {
+  return /[\u0900-\u097F]/.test(text);
+}
+
+// ---------------------------------------------------------------------------
+// Search utilities: stop words, transliteration, cleaning, fuzzy scoring
+// ---------------------------------------------------------------------------
+
+const SEARCH_STOP_WORDS = new Set([
+  // Hindi particles / grammar
+  'ka', 'ki', 'ke', 'ko', 'se', 'me', 'mein', 'mai', 'par', 'pe',
+  'hai', 'hain', 'ho', 'tha', 'the', 'thi',
+  'aur', 'ya', 'bhi', 'na', 'nahi', 'nahin', 'mat',
+  'kya', 'kaise', 'kaha', 'kahan', 'kidhar', 'kaun', 'kitna', 'kitne', 'kitni',
+  'batao', 'bata', 'dikhao', 'dikha', 'dikhana', 'bol', 'bolo',
+  'mera', 'meri', 'mere', 'tera', 'teri', 'tere', 'uska', 'uski', 'uske',
+  'ek', 'do', 'yeh', 'ye', 'woh', 'wo', 'is', 'us', 'in', 'un',
+  'abhi', 'ab', 'to', 'toh',
+  'rakh', 'rakha', 'rakhe', 'rakhi',
+  'wala', 'wale', 'wali',
+  'kaha', 'raha', 'rahe', 'rahi',
+  // English stop words
+  'the', 'a', 'an', 'is', 'are', 'was', 'were', 'be', 'been',
+  'of', 'in', 'on', 'at', 'to', 'for', 'with', 'by', 'from',
+  'and', 'or', 'but', 'not', 'it', 'its', 'this', 'that',
+  'what', 'where', 'how', 'much', 'many', 'which',
+  'show', 'tell', 'find', 'get', 'give', 'me', 'my',
+  'please', 'can', 'you',
+  // Hindi inventory filler
+  'ka', 'ki', 'price', 'location', 'stock', 'available',
+  'khata', 'khaata', 'hisab', 'hisaab',
+]);
+
+/** Simple Devanagari → Roman phonetic transliteration map */
+const DEVANAGARI_MAP: Record<string, string> = {
+  // Vowels
+  '\u0905': 'a', '\u0906': 'aa', '\u0907': 'i', '\u0908': 'ee',
+  '\u0909': 'u', '\u090A': 'oo', '\u090B': 'ri', '\u090F': 'e',
+  '\u0910': 'ai', '\u0913': 'o', '\u0914': 'au',
+  // Vowel marks (matras)
+  '\u093E': 'aa', '\u093F': 'i', '\u0940': 'ee', '\u0941': 'u',
+  '\u0942': 'oo', '\u0943': 'ri', '\u0947': 'e', '\u0948': 'ai',
+  '\u094B': 'o', '\u094C': 'au',
+  // Consonants
+  '\u0915': 'k', '\u0916': 'kh', '\u0917': 'g', '\u0918': 'gh', '\u0919': 'ng',
+  '\u091A': 'ch', '\u091B': 'chh', '\u091C': 'j', '\u091D': 'jh', '\u091E': 'ny',
+  '\u091F': 't', '\u0920': 'th', '\u0921': 'd', '\u0922': 'dh', '\u0923': 'n',
+  '\u0924': 't', '\u0925': 'th', '\u0926': 'd', '\u0927': 'dh', '\u0928': 'n',
+  '\u092A': 'p', '\u092B': 'ph', '\u092C': 'b', '\u092D': 'bh', '\u092E': 'm',
+  '\u092F': 'y', '\u0930': 'r', '\u0932': 'l', '\u0935': 'v',
+  '\u0936': 'sh', '\u0937': 'sh', '\u0938': 's', '\u0939': 'h',
+  // Nukta variants
+  '\u0958': 'k', '\u0959': 'kh', '\u095A': 'g', '\u095B': 'z',
+  '\u095C': 'd', '\u095D': 'dh', '\u095E': 'f', '\u095F': 'y',
+  // Special
+  '\u0902': 'n', // anusvara
+  '\u0903': 'h', // visarga
+  '\u094D': '',  // halant (virama) — suppresses inherent 'a'
+  '\u0901': 'n', // chandrabindu
+  '\u0964': '',  // danda
+  '\u0965': '',  // double danda
+  // Avagraha and nukta
+  '\u093D': '', '\u093C': '',
+  // Devanagari digits → ASCII digits
+  '\u0966': '0', '\u0967': '1', '\u0968': '2', '\u0969': '3', '\u096A': '4',
+  '\u096B': '5', '\u096C': '6', '\u096D': '7', '\u096E': '8', '\u096F': '9',
+  // Common conjunct — क्ष, त्र, ज्ñ, श्र handled by halant rule above
+  '\u0949': 'o',  // candra o
+  '\u094A': 'o',  // short o
+};
+
+function transliterateDevanagari(text: string): string {
+  if (!containsDevanagari(text)) return text;
+
+  let result = '';
+  let prevWasConsonant = false;
+
+  for (let i = 0; i < text.length; i++) {
+    const ch = text[i];
+    const code = ch.charCodeAt(0);
+
+    // Non-Devanagari — pass through
+    if (code < 0x0900 || code > 0x097F) {
+      prevWasConsonant = false;
+      result += ch;
+      continue;
+    }
+
+    const mapped = DEVANAGARI_MAP[ch];
+
+    if (mapped === undefined) {
+      // Unknown Devanagari char — skip
+      prevWasConsonant = false;
+      continue;
+    }
+
+    // Halant (virama) suppresses the inherent 'a'
+    if (ch === '\u094D') {
+      prevWasConsonant = false;
+      continue;
+    }
+
+    // Vowel sign (matra) replaces the inherent 'a' of prev consonant
+    const isMatra = code >= 0x093E && code <= 0x094C;
+    if (isMatra) {
+      result += mapped;
+      prevWasConsonant = false;
+      continue;
+    }
+
+    // Consonant range: 0x0915-0x0939 + nukta variants
+    const isConsonant =
+      (code >= 0x0915 && code <= 0x0939) ||
+      (code >= 0x0958 && code <= 0x095F);
+
+    if (isConsonant) {
+      // If prev char was a consonant without a following matra, add inherent 'a'
+      if (prevWasConsonant) {
+        result += 'a';
+      }
+      result += mapped;
+      // Check if next char is halant → don't add inherent 'a'
+      if (i + 1 < text.length && text[i + 1] === '\u094D') {
+        prevWasConsonant = false;
+        i++; // skip halant
+      } else {
+        prevWasConsonant = true;
+      }
+      continue;
+    }
+
+    // Independent vowel or other
+    if (prevWasConsonant) {
+      // An independent vowel after a consonant means the consonant keeps inherent 'a'
+      result += 'a';
+      prevWasConsonant = false;
+    }
+    result += mapped;
+  }
+
+  // Trailing consonant gets inherent 'a'
+  if (prevWasConsonant) {
+    result += 'a';
+  }
+
+  return result;
+}
+
+/**
+ * Clean a search query: transliterate Devanagari, lowercase, strip
+ * punctuation and stop words, return meaningful keyword tokens.
+ */
+function cleanSearchQuery(raw: string): string[] {
+  const romanized = transliterateDevanagari(raw);
+  const tokens = romanized
+    .toLowerCase()
+    .replace(/[^a-z0-9\s]/g, ' ')
+    .split(/\s+/)
+    .filter(Boolean);
+
+  const meaningful = tokens.filter((t) => !SEARCH_STOP_WORDS.has(t));
+  // If everything was stop words, return original tokens (minus empty)
+  return meaningful.length > 0 ? meaningful : tokens.filter((t) => t.length > 1);
+}
+
+/** Levenshtein edit distance */
+function levenshtein(a: string, b: string): number {
+  const la = a.length;
+  const lb = b.length;
+  if (la === 0) return lb;
+  if (lb === 0) return la;
+
+  // Use two rows for space efficiency
+  let prev = Array.from({ length: lb + 1 }, (_, i) => i);
+  let curr = new Array<number>(lb + 1);
+
+  for (let i = 1; i <= la; i++) {
+    curr[0] = i;
+    for (let j = 1; j <= lb; j++) {
+      const cost = a[i - 1] === b[j - 1] ? 0 : 1;
+      curr[j] = Math.min(
+        prev[j] + 1,      // deletion
+        curr[j - 1] + 1,  // insertion
+        prev[j - 1] + cost // substitution
+      );
+    }
+    [prev, curr] = [curr, prev];
+  }
+  return prev[lb];
+}
+
+/**
+ * Normalize a string for fuzzy comparison: collapse w/v, remove doubled
+ * consonants, strip common phonetic noise.
+ */
+function phoneticNormalize(s: string): string {
+  return s
+    .toLowerCase()
+    .replace(/w/g, 'v')     // v/w equivalence
+    .replace(/ph/g, 'f')    // ph → f
+    .replace(/(.)\.?\1+/g, '$1')  // collapse repeated chars (ee→e, ll→l)
+    .replace(/[^a-z0-9]/g, '');  // strip non-alphanumeric
+}
+
+/**
+ * Score how well a single query token matches a single target word.
+ * Returns 0.0 (no match) to 1.0 (perfect match).
+ */
+function tokenSimilarity(queryToken: string, targetWord: string): number {
+  const qn = phoneticNormalize(queryToken);
+  const tn = phoneticNormalize(targetWord);
+  if (!qn || !tn) return 0;
+
+  // Exact match after normalization
+  if (qn === tn) return 1.0;
+
+  // Prefix match
+  if (tn.startsWith(qn) || qn.startsWith(tn)) {
+    return 0.9;
+  }
+
+  // Contains match
+  if (tn.includes(qn) || qn.includes(tn)) {
+    return 0.8;
+  }
+
+  // Levenshtein similarity
+  const maxLen = Math.max(qn.length, tn.length);
+  const dist = levenshtein(qn, tn);
+  const sim = 1.0 - dist / maxLen;
+
+  // Only consider it a match if similarity is reasonable
+  return sim >= 0.55 ? sim * 0.7 : 0;
+}
+
+/**
+ * Score how well query tokens match a multi-word target string.
+ * Returns 0.0 (no match) to 1.0 (perfect match).
+ */
+function fuzzyFieldScore(queryTokens: string[], fieldValue: string): number {
+  if (!fieldValue) return 0;
+
+  const fieldLower = fieldValue.toLowerCase();
+  const fieldWords = fieldLower.replace(/[^a-z0-9\s]/g, ' ').split(/\s+/).filter(Boolean);
+  const fieldConcat = phoneticNormalize(fieldLower);
+
+  if (!fieldWords.length) return 0;
+
+  let totalScore = 0;
+
+  for (const qt of queryTokens) {
+    // Best match for this query token against all field words
+    let bestWordScore = 0;
+    for (const fw of fieldWords) {
+      const sim = tokenSimilarity(qt, fw);
+      if (sim > bestWordScore) bestWordScore = sim;
+    }
+
+    // Also check concatenated field (handles "marcopolo" vs "marco polo")
+    const qtNorm = phoneticNormalize(qt);
+    if (fieldConcat.includes(qtNorm) && qtNorm.length >= 3) {
+      bestWordScore = Math.max(bestWordScore, 0.85);
+    }
+
+    totalScore += bestWordScore;
+  }
+
+  // Also check the entire query concatenated against the field concatenated
+  const queryConcat = phoneticNormalize(queryTokens.join(''));
+  if (queryConcat.length >= 3 && fieldConcat.includes(queryConcat)) {
+    totalScore = Math.max(totalScore, queryTokens.length * 0.85);
+  }
+
+  return totalScore / queryTokens.length;
+}
+
+type InventoryFieldWeights = { field: string; weight: number };
+
+const INVENTORY_FIELD_WEIGHTS: InventoryFieldWeights[] = [
+  { field: 'itemName', weight: 1.0 },
+  { field: 'description', weight: 0.85 },
+  { field: 'brand', weight: 0.8 },
+  { field: 'itemNumber', weight: 0.9 },
+  { field: 'uniqueCode', weight: 0.9 },
+  { field: 'supplier', weight: 0.6 },
+];
+
+/** Score an inventory item against cleaned query tokens. */
+function scoreInventoryItem(
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  item: Record<string, any>,
+  queryTokens: string[]
+): number {
+  let bestScore = 0;
+
+  for (const { field, weight } of INVENTORY_FIELD_WEIGHTS) {
+    const val = String(item[field] || '');
+    if (!val) continue;
+    const fieldScore = fuzzyFieldScore(queryTokens, val) * weight;
+    if (fieldScore > bestScore) bestScore = fieldScore;
+  }
+
+  return bestScore;
 }
 
 function clampToolLimit(value?: number) {
@@ -759,45 +1103,80 @@ async function findEntities(
 ) {
   const db = await getDb();
   const limit = clampToolLimit(args.limit);
-  const escapedQuery = escapeRegex(args.nameQuery);
-  const regex = { $regex: escapedQuery, $options: 'i' };
-  const loweredQuery = args.nameQuery.trim().toLowerCase();
   const hint = args.entityTypeHint?.trim().toLowerCase();
   const collectionTypeMap = await getCollectionTypeMap(userId);
+
+  // Clean the query: transliterate Devanagari, remove stop words
+  const cleanedTokens = cleanSearchQuery(args.nameQuery);
+  const cleanedQuery = cleanedTokens.join(' ');
+  const loweredQuery = cleanedQuery.toLowerCase();
+
+  // Build regex patterns: match each token individually with AND logic in-memory,
+  // but use OR in MongoDB to cast a wide net
+  const regexPatterns = cleanedTokens.map((token) => ({
+    $regex: escapeRegex(token),
+    $options: 'i',
+  }));
+
+  // Build a broad OR query from all tokens
+  const orConditions = regexPatterns.flatMap((regex) => [
+    { name: regex },
+    { phone: regex },
+    { email: regex },
+  ]);
+
+  const entityOrConditions = regexPatterns.flatMap((regex) => [
+    { name: regex },
+    { phone: regex },
+    { email: regex },
+    { collectionType: regex },
+  ]);
+
+  // Also try the original query as a single regex for exact phrase matching
+  const originalRegex = { $regex: escapeRegex(args.nameQuery.trim()), $options: 'i' };
+  orConditions.push({ name: originalRegex });
+  entityOrConditions.push({ name: originalRegex });
+
+  const fetchLimit = limit * 3; // Fetch more to allow in-memory scoring
 
   const [customers, suppliers, customEntities] = await Promise.all([
     db.collection('customers')
       .find({
         userId,
-        $or: [{ name: regex }, { phone: regex }, { email: regex }],
+        $or: orConditions,
       })
       .project({ _id: 1, name: 1, phone: 1, email: 1 })
-      .limit(limit)
+      .limit(fetchLimit)
       .toArray(),
     db.collection('suppliers')
       .find({
         userId,
-        $or: [{ name: regex }, { phone: regex }, { email: regex }],
+        $or: orConditions,
       })
       .project({ _id: 1, name: 1, phone: 1, email: 1 })
-      .limit(limit)
+      .limit(fetchLimit)
       .toArray(),
     db.collection('customEntities')
       .find({
         userId,
-        $or: [{ name: regex }, { phone: regex }, { email: regex }, { collectionType: regex }],
+        $or: entityOrConditions,
       })
       .project({ _id: 1, name: 1, phone: 1, email: 1, collectionType: 1 })
-      .limit(limit)
+      .limit(fetchLimit)
       .toArray(),
   ]);
 
-  const scoreMatch = (name: string) => {
+  const scoreMatch = (name: string): number => {
     const loweredName = name.toLowerCase();
     if (loweredName === loweredQuery) return 0;
     if (loweredName.startsWith(loweredQuery)) return 1;
     if (loweredName.includes(loweredQuery)) return 2;
-    return 3;
+
+    // Fuzzy token scoring
+    const nameScore = fuzzyFieldScore(cleanedTokens, name);
+    if (nameScore >= 0.8) return 2;
+    if (nameScore >= 0.5) return 3;
+    return 4;
   };
 
   const matches: EntityMatch[] = [];
@@ -1077,5 +1456,103 @@ async function prepareLedgerTransaction(
       date: args.date,
       displayDate: formatDisplayDate(args.date),
     },
+  };
+}
+
+async function searchInventory(
+  userId: string,
+  args: z.infer<typeof searchInventoryArgsSchema>
+) {
+  const db = await getDb();
+  const limit = clampToolLimit(args.limit ?? 5);
+
+  // Clean the query: transliterate Devanagari, strip stop words
+  const queryTokens = cleanSearchQuery(args.query);
+
+  if (!queryTokens.length) {
+    return {
+      ok: true,
+      matches: [],
+      totalMatches: 0,
+      message: `No meaningful search terms found in query "${args.query}".`,
+    };
+  }
+
+  const projection = {
+    _id: 1,
+    itemName: 1,
+    itemNumber: 1,
+    uniqueCode: 1,
+    quantity: 1,
+    location: 1,
+    unitOfMeasure: 1,
+    brand: 1,
+    description: 1,
+    buyingPrice: 1,
+    mrp: 1,
+    supplier: 1,
+  };
+
+  // Build broad regex OR conditions from each query token
+  const searchFields = ['itemName', 'itemNumber', 'uniqueCode', 'brand', 'description', 'supplier'];
+  const orConditions = queryTokens.flatMap((token) => {
+    const regex = { $regex: escapeRegex(token), $options: 'i' };
+    return searchFields.map((field) => ({ [field]: regex }));
+  });
+
+  // Also add the original raw query (cleaned of stop words, joined) as a phrase
+  const phraseRegex = { $regex: escapeRegex(queryTokens.join(' ')), $options: 'i' };
+  orConditions.push(
+    ...searchFields.map((field) => ({ [field]: phraseRegex }))
+  );
+
+  // Fetch candidates (cast a wide net, score in memory)
+  const fetchLimit = Math.max(limit * 10, 50);
+  const candidates = await db
+    .collection('inventory')
+    .find({
+      userId,
+      $or: orConditions,
+    })
+    .project(projection)
+    .limit(fetchLimit)
+    .toArray();
+
+  // Score each candidate with fuzzy matching
+  const scored = candidates
+    .map((item) => ({
+      item,
+      score: scoreInventoryItem(item as Record<string, unknown>, queryTokens),
+    }))
+    .filter(({ score }) => score >= 0.3)
+    .sort((a, b) => b.score - a.score)
+    .slice(0, limit);
+
+  if (!scored.length) {
+    return {
+      ok: true,
+      matches: [],
+      totalMatches: 0,
+      message: `No inventory items found matching "${args.query}" (searched as: ${queryTokens.join(', ')}).`,
+    };
+  }
+
+  return {
+    ok: true,
+    matches: scored.map(({ item }) => ({
+      itemId: item._id.toString(),
+      itemName: item.itemName as string,
+      itemNumber: (item.itemNumber as string) || '',
+      uniqueCode: (item.uniqueCode as string) || '',
+      location: (item.location as string) || '',
+      quantity: Number(item.quantity || 0),
+      unitOfMeasure: (item.unitOfMeasure as string) || '',
+      brand: (item.brand as string) || '',
+      description: (item.description as string) || '',
+      buyingPrice: item.buyingPrice != null ? Number(item.buyingPrice) : null,
+      mrp: item.mrp != null ? Number(item.mrp) : null,
+      supplier: (item.supplier as string) || '',
+    })),
+    totalMatches: scored.length,
   };
 }
