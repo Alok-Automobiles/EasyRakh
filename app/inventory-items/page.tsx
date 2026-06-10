@@ -556,6 +556,19 @@ export default function InventoryItemsPage() {
   const descriptionInputRef = useRef<HTMLTextAreaElement>(null);
   const unitSkipAdvanceFocusRef = useRef(false);
   const [searchQuery, setSearchQuery] = useState('');
+  const [debouncedSearchQuery, setDebouncedSearchQuery] = useState('');
+
+  useEffect(() => {
+    if (searchQuery === '') {
+      setDebouncedSearchQuery('');
+      return;
+    }
+    const handler = setTimeout(() => {
+      setDebouncedSearchQuery(searchQuery);
+    }, 350); // 350ms debounce
+    return () => clearTimeout(handler);
+  }, [searchQuery]);
+
   const [statusFilter, setStatusFilter] = useState<StatusFilter>('all');
   const [currentPage, setCurrentPage] = useState(1);
   const [formOpen, setFormOpen] = useState(false);
@@ -694,13 +707,13 @@ export default function InventoryItemsPage() {
 
   useEffect(() => {
     setCurrentPage(1);
-  }, [searchQuery, statusFilter]);
+  }, [debouncedSearchQuery, statusFilter]);
 
   const { data, isLoading, isFetching } = useQuery<InventoryItemsResponse>({
-    queryKey: ['inventory-items', searchQuery, statusFilter, currentPage],
+    queryKey: ['inventory-items', debouncedSearchQuery, statusFilter, currentPage],
     queryFn: async () => {
       const params = new URLSearchParams();
-      if (searchQuery.trim()) params.set('search', searchQuery.trim());
+      if (debouncedSearchQuery.trim()) params.set('search', debouncedSearchQuery.trim());
       if (statusFilter !== 'all') params.set('status', statusFilter);
       params.set('page', currentPage.toString());
       params.set('limit', '16');
@@ -718,7 +731,7 @@ export default function InventoryItemsPage() {
   const items = data?.items || [];
   const stats = data?.stats || defaultStats;
   const pagination = data?.pagination;
-  const inventoryListQueryKey = ['inventory-items', searchQuery, statusFilter, currentPage] as const;
+  const inventoryListQueryKey = ['inventory-items', debouncedSearchQuery, statusFilter, currentPage] as const;
   const partImages = form.watch('partImages') || [];
   const billImages = form.watch('billImages') || [];
 

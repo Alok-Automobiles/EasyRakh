@@ -20,6 +20,7 @@ import {
   Cloud,
   Search,
   PlusCircle,
+  Package,
   Sparkles,
 } from 'lucide-react';
 import React from 'react';
@@ -43,6 +44,7 @@ import {
   ArtMini06InvoiceKhata,
   ArtMini07Collections,
   ArtMini08Counter,
+  ArtMain09Inventory,
 } from '@/components/landing/FeatureArtSvgs';
 
 type ArtComponent = React.ComponentType<{ className?: string }>;
@@ -348,6 +350,22 @@ export default function Features() {
           />
 
           <FeatureBlock
+            icon={Package}
+            title="Inventory & stock tracking"
+            description="Keep a live record of every part and product on your shelves. Add items, track quantities by location, upload bill and part images, and spot what needs restocking before you run out—all from one screen."
+            points={[
+              'Full item catalog with search, status filters, and pagination for quick lookups',
+              'Inline quantity adjustment, duplicate detection, and bulk actions to manage stock efficiently',
+              'Part and bill image uploads with PDF export to keep paperwork alongside inventory',
+            ]}
+            color={brandColor}
+            bgColor={brandBg}
+            Art={ArtMain09Inventory}
+            align="left"
+            delay={0.32}
+          />
+
+          <FeatureBlock
             icon={Cloud}
             title="Cloud data & protected passwords"
             description="Your ledgers, invoices, and uploads live in the cloud—not only on one phone—so you can sign in from another device and pick up where you left off. Passwords are never stored in readable form: they are protected with secure one-way hashing."
@@ -360,7 +378,7 @@ export default function Features() {
             bgColor={brandBg}
             Art={ArtMain08Cloud}
             align="right"
-            delay={0.32}
+            delay={0.36}
           />
         </div>
 

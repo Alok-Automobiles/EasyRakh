@@ -1,6 +1,6 @@
 # Easy Rakh
 
-A modern **Khata (Ledger) Management System** built with Next.js. Track customers, suppliers, daily cash records, and use an AI Voice Assistant powered by Google Gemini.
+A modern **Khata (Ledger) Management System** built with Next.js. Track customers, suppliers, daily cash records, inventory/stock, invoices, and use an AI Voice Assistant powered by Google Gemini.
 
 ---
 
@@ -8,6 +8,7 @@ A modern **Khata (Ledger) Management System** built with Next.js. Track customer
 
 - **Ledger Management** - Track debit/credit for customers and suppliers
 - **Daily Cash Book** - Monitor daily cash flow
+- **Inventory & Stock Tracking** - Manage parts and products with quantities, locations, images, and PDF export
 - **Smart Dashboard** - Business analytics at a glance
 - **AI Voice Assistant** - Ask questions in English or Hindi
 - **Redis Caching** - Fast performance with rate limiting
