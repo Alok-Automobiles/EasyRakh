@@ -12,6 +12,7 @@ import {
 } from '@/lib/cache';
 import { z } from 'zod';
 import { uppercaseInventoryPayload } from '@/lib/inventory-text';
+import { cleanSearchQuery, scoreInventoryItem } from '@/lib/voice-assistant';
 
 const LOW_STOCK_THRESHOLD = 5;
 
@@ -230,18 +231,6 @@ export async function GET(request: NextRequest) {
       const buildListPayload = async (): Promise<ListCachePayload> => {
         const query: Record<string, unknown> = { userId };
 
-        if (search) {
-          const regex = new RegExp(escapeRegex(search), 'i');
-          query.$or = [
-            { itemName: regex },
-            { itemNumber: regex },
-            { uniqueCode: regex },
-            { brand: regex },
-            { location: regex },
-            { supplier: regex },
-          ];
-        }
-
         if (status === 'in-stock') {
           query.quantity = { $gt: LOW_STOCK_THRESHOLD };
         } else if (status === 'low-stock' || status === 'restock') {
@@ -250,25 +239,70 @@ export async function GET(request: NextRequest) {
           query.quantity = { $lte: 0 };
         }
 
-        const [items, total] = await Promise.all([
-          inventoryCollection
-            .find(query)
-            .sort({ updatedAt: -1, createdAt: -1 })
-            .skip(skip)
-            .limit(limit)
-            .toArray(),
-          inventoryCollection.countDocuments(query),
-        ]);
+        const queryTokens = search ? cleanSearchQuery(search, false) : [];
 
-        return {
-          items: items.map(serializeInventoryItem),
-          pagination: {
-            total,
-            page,
-            pageSize: limit,
-            totalPages: Math.max(Math.ceil(total / limit), 1),
-          },
-        };
+        if (search && queryTokens.length > 0) {
+          const searchFields = ['itemName', 'itemNumber', 'uniqueCode', 'brand', 'description', 'location', 'supplier'];
+          const orConditions = queryTokens.flatMap((token) => {
+            const regex = { $regex: escapeRegex(token), $options: 'i' };
+            return searchFields.map((field) => ({ [field]: regex }));
+          });
+
+          const phraseRegex = { $regex: escapeRegex(queryTokens.join(' ')), $options: 'i' };
+          orConditions.push(
+            ...searchFields.map((field) => ({ [field]: phraseRegex }))
+          );
+
+          query.$or = orConditions;
+
+          // Fetch candidates up to a safe limit to perform fuzzy scoring in-memory
+          const candidates = await inventoryCollection
+            .find(query)
+            .toArray();
+
+          const scored = candidates
+            .map((item) => ({
+              item,
+              score: scoreInventoryItem(item, queryTokens),
+            }))
+            .filter(({ score }) => score >= 0.25)
+            .sort((a, b) => b.score - a.score || b.item.updatedAt.getTime() - a.item.updatedAt.getTime());
+
+          const total = scored.length;
+          const paginatedItems = scored
+            .slice(skip, skip + limit)
+            .map(({ item }) => item);
+
+          return {
+            items: paginatedItems.map(serializeInventoryItem),
+            pagination: {
+              total,
+              page,
+              pageSize: limit,
+              totalPages: Math.max(Math.ceil(total / limit), 1),
+            },
+          };
+        } else {
+          const [items, total] = await Promise.all([
+            inventoryCollection
+              .find(query)
+              .sort({ updatedAt: -1, createdAt: -1 })
+              .skip(skip)
+              .limit(limit)
+              .toArray(),
+            inventoryCollection.countDocuments(query),
+          ]);
+
+          return {
+            items: items.map(serializeInventoryItem),
+            pagination: {
+              total,
+              page,
+              pageSize: limit,
+              totalPages: Math.max(Math.ceil(total / limit), 1),
+            },
+          };
+        }
       };
 
       const buildSummaryPayload = async (): Promise<SummaryCachePayload> => {

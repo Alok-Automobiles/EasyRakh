@@ -723,8 +723,8 @@ function transliterateDevanagari(text: string): string {
  * Clean a search query: transliterate Devanagari, lowercase, strip
  * punctuation and stop words, return meaningful keyword tokens.
  */
-function cleanSearchQuery(raw: string): string[] {
-  const romanized = transliterateDevanagari(raw);
+export function cleanSearchQuery(raw: string, transliterate = true): string[] {
+  const romanized = transliterate ? transliterateDevanagari(raw) : raw;
   const tokens = romanized
     .toLowerCase()
     .replace(/[^a-z0-9\s]/g, ' ')
@@ -859,7 +859,7 @@ const INVENTORY_FIELD_WEIGHTS: InventoryFieldWeights[] = [
 ];
 
 /** Score an inventory item against cleaned query tokens. */
-function scoreInventoryItem(
+export function scoreInventoryItem(
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   item: Record<string, any>,
   queryTokens: string[]

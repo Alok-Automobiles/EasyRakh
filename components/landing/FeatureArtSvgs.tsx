@@ -705,6 +705,76 @@ export function ArtMini07Collections({ className = '' }: ArtProps) {
   );
 }
 
+export function ArtMain09Inventory({ className = '' }: ArtProps) {
+  return (
+    <svg viewBox="0 0 360 220" className={className} fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden>
+      <defs>
+        <filter id="inv-blur" x="-40%" y="-40%" width="180%" height="180%">
+          <feGaussianBlur stdDeviation="8" />
+        </filter>
+      </defs>
+      <rect width="360" height="220" fill="#F0FDF4" />
+      <circle cx="330" cy="30" r="60" fill="#DCFCE7" opacity="0.55" filter="url(#inv-blur)" />
+      <circle cx="30" cy="190" r="50" fill="#DCFCE7" opacity="0.45" filter="url(#inv-blur)" />
+      <rect x="20" y="18" width="198" height="186" rx="14" fill="white" stroke="#E2E8F0" strokeWidth="1" />
+      <rect x="20" y="18" width="198" height="32" rx="14" fill="#16A34A" />
+      <rect x="20" y="38" width="198" height="12" fill="#16A34A" />
+      <text x="119" y="36" textAnchor="middle" fontFamily="Sora,system-ui,sans-serif" fontSize="10" fontWeight="700" fill="white">INVENTORY</text>
+      <rect x="28" y="56" width="42" height="16" rx="4" fill="#DCFCE7" />
+      <text x="49" y="68" textAnchor="middle" fontFamily="system-ui,sans-serif" fontSize="7" fontWeight="600" fill="#166534">All</text>
+      <rect x="74" y="56" width="48" height="16" rx="4" fill="#F1F5F9" />
+      <text x="98" y="68" textAnchor="middle" fontFamily="system-ui,sans-serif" fontSize="7" fill="#64748B">In Stock</text>
+      <rect x="126" y="56" width="40" height="16" rx="4" fill="#F1F5F9" />
+      <text x="146" y="68" textAnchor="middle" fontFamily="system-ui,sans-serif" fontSize="7" fill="#64748B">Restock</text>
+      <rect x="170" y="56" width="40" height="16" rx="4" fill="#F1F5F9" />
+      <text x="190" y="68" textAnchor="middle" fontFamily="system-ui,sans-serif" fontSize="7" fill="#64748B">Out</text>
+      <rect x="28" y="78" width="182" height="6" rx="3" fill="#E2E8F0" />
+      <rect x="28" y="78" width="100" height="6" rx="3" fill="#16A34A" />
+      <rect x="128" y="78" width="40" height="6" rx="3" fill="#F59E0B" />
+      <rect x="168" y="78" width="42" height="6" rx="3" fill="#EF4444" />
+      <rect x="28" y="90" width="182" height="18" rx="4" fill="#F8FAFC" />
+      <rect x="32" y="93" width="12" height="12" rx="2" fill="#DCFCE7" />
+      <text x="48" y="103" fontFamily="system-ui,sans-serif" fontSize="7" fontWeight="600" fill="#1E293B">Brake Pad</text>
+      <text x="102" y="103" fontFamily="system-ui,sans-serif" fontSize="6.5" fill="#64748B">Aisle 3</text>
+      <text x="202" y="103" textAnchor="end" fontFamily="system-ui,sans-serif" fontSize="7" fill="#16A34A">24</text>
+      <rect x="28" y="112" width="182" height="18" rx="4" fill="#F8FAFC" />
+      <rect x="32" y="115" width="12" height="12" rx="2" fill="#FEF3C7" />
+      <text x="48" y="125" fontFamily="system-ui,sans-serif" fontSize="7" fontWeight="600" fill="#1E293B">Engine Oil 10W40</text>
+      <text x="140" y="125" fontFamily="system-ui,sans-serif" fontSize="6.5" fill="#64748B">Shelf 2</text>
+      <text x="202" y="125" textAnchor="end" fontFamily="system-ui,sans-serif" fontSize="7" fill="#F59E0B">4</text>
+      <rect x="28" y="134" width="182" height="18" rx="4" fill="#F8FAFC" />
+      <rect x="32" y="137" width="12" height="12" rx="2" fill="white" stroke="#E2E8F0" />
+      <text x="48" y="147" fontFamily="system-ui,sans-serif" fontSize="7" fontWeight="600" fill="#1E293B">Air Filter</text>
+      <text x="88" y="147" fontFamily="system-ui,sans-serif" fontSize="6.5" fill="#64748B">Bay 1</text>
+      <text x="202" y="147" textAnchor="end" fontFamily="system-ui,sans-serif" fontSize="7" fill="#EF4444">0</text>
+      <rect x="28" y="156" width="182" height="18" rx="4" fill="#F8FAFC" />
+      <rect x="32" y="159" width="12" height="12" rx="2" fill="#DCFCE7" />
+      <text x="48" y="169" fontFamily="system-ui,sans-serif" fontSize="7" fontWeight="600" fill="#1E293B">Spark Plug</text>
+      <text x="100" y="169" fontFamily="system-ui,sans-serif" fontSize="6.5" fill="#64748B">Drawer 7</text>
+      <text x="202" y="169" textAnchor="end" fontFamily="system-ui,sans-serif" fontSize="7" fill="#16A34A">36</text>
+      <rect x="28" y="178" width="182" height="18" rx="4" fill="#F8FAFC" />
+      <rect x="32" y="181" width="12" height="12" rx="2" fill="#DCFCE7" />
+      <text x="48" y="191" fontFamily="system-ui,sans-serif" fontSize="7" fontWeight="600" fill="#1E293B">Clutch Cable</text>
+      <text x="110" y="191" fontFamily="system-ui,sans-serif" fontSize="6.5" fill="#64748B">Aisle 1</text>
+      <text x="202" y="191" textAnchor="end" fontFamily="system-ui,sans-serif" fontSize="7" fill="#16A34A">12</text>
+      <rect x="228" y="30" width="112" height="50" rx="12" fill="white" stroke="#E2E8F0" />
+      <text x="284" y="47" textAnchor="middle" fontFamily="Sora,system-ui,sans-serif" fontSize="8" fontWeight="600" fill="#1E293B">Total Items</text>
+      <text x="284" y="67" textAnchor="middle" fontFamily="Sora,system-ui,sans-serif" fontSize="18" fontWeight="700" fill="#16A34A">86</text>
+      <rect x="228" y="88" width="112" height="50" rx="12" fill="white" stroke="#E2E8F0" />
+      <text x="284" y="105" textAnchor="middle" fontFamily="Sora,system-ui,sans-serif" fontSize="8" fontWeight="600" fill="#1E293B">Stock Value</text>
+      <text x="284" y="125" textAnchor="middle" fontFamily="Sora,system-ui,sans-serif" fontSize="18" fontWeight="700" fill="#14532D">₹4.2L</text>
+      <rect x="228" y="146" width="54" height="50" rx="12" fill="white" stroke="#E2E8F0" />
+      <text x="255" y="163" textAnchor="middle" fontFamily="system-ui,sans-serif" fontSize="7" fill="#64748B">Out</text>
+      <text x="255" y="185" textAnchor="middle" fontFamily="Sora,system-ui,sans-serif" fontSize="16" fontWeight="700" fill="#EF4444">3</text>
+      <rect x="286" y="146" width="54" height="50" rx="12" fill="white" stroke="#E2E8F0" />
+      <text x="313" y="163" textAnchor="middle" fontFamily="system-ui,sans-serif" fontSize="7" fill="#64748B">Restock</text>
+      <text x="313" y="185" textAnchor="middle" fontFamily="Sora,system-ui,sans-serif" fontSize="16" fontWeight="700" fill="#F59E0B">5</text>
+      <rect x="110" y="198" width="48" height="14" rx="7" fill="#16A34A" />
+      <text x="134" y="209" textAnchor="middle" fontFamily="system-ui,sans-serif" fontSize="7" fontWeight="600" fill="white">+ Add Item</text>
+    </svg>
+  );
+}
+
 export function ArtMini08Counter({ className = '' }: ArtProps) {
   return (
     <svg viewBox="0 0 260 160" className={className} fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden>
