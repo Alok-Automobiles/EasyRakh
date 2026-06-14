@@ -158,6 +158,7 @@ export interface InventoryItem {
   supplier?: string;
   billingDate?: Date;
   billImages?: string[];
+  lastQuantityUpdatedAt?: Date;
   createdAt: Date;
   updatedAt: Date;
 }
@@ -167,6 +168,7 @@ export interface InventoryStats {
   totalQuantity: number;
   totalValue: number;
   outOfStockItems: number;
+  inactiveItems: number;
   restockItems: number;
   lowStockThreshold: number;
   locations: string[];

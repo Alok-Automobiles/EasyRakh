@@ -56,6 +56,7 @@ function serializeInventoryItem(item: InventoryItem & { _id: { toString(): strin
     supplier: item.supplier || '',
     billingDate: item.billingDate,
     billImages: item.billImages || [],
+    lastQuantityUpdatedAt: item.lastQuantityUpdatedAt,
     createdAt: item.createdAt,
     updatedAt: item.updatedAt,
   };
@@ -161,6 +162,12 @@ export async function PUT(
     const validatedData = inventoryItemSchema.parse(body);
     const itemData = normalizeItemInput(validatedData);
     const updatedAt = new Date();
+    const hasQuantity = Object.prototype.hasOwnProperty.call(body, 'quantity');
+    const updateData = {
+      ...itemData,
+      ...(hasQuantity ? { lastQuantityUpdatedAt: updatedAt } : {}),
+      updatedAt,
+    };
 
     const db = await getDb();
     const inventoryCollection = db.collection('inventory');
@@ -203,8 +210,7 @@ export async function PUT(
       { _id: objectId, userId },
       {
         $set: {
-          ...itemData,
-          updatedAt,
+          ...updateData,
         },
       }
     );
@@ -219,8 +225,7 @@ export async function PUT(
       message: 'Inventory item updated successfully',
       item: {
         id,
-        ...itemData,
-        updatedAt,
+        ...updateData,
       },
     });
   } catch (error) {
@@ -271,7 +276,7 @@ export async function PATCH(
     if (patch.quantity !== undefined) {
       const result = await inventoryCollection.findOneAndUpdate(
         { _id: objectId, userId },
-        { $set: { quantity: patch.quantity, updatedAt } },
+        { $set: { quantity: patch.quantity, lastQuantityUpdatedAt: updatedAt, updatedAt } },
         { returnDocument: 'after' }
       );
 
@@ -301,7 +306,7 @@ export async function PATCH(
 
     const result = await inventoryCollection.findOneAndUpdate(
       filter,
-      { $inc: { quantity: delta }, $set: { updatedAt } },
+      { $inc: { quantity: delta }, $set: { lastQuantityUpdatedAt: updatedAt, updatedAt } },
       { returnDocument: 'after' }
     );
 

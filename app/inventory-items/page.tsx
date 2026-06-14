@@ -91,6 +91,8 @@ const ACCEPTED_BILL_TYPES = [
   'application/pdf',
 ];
 const ACCEPTED_PART_TYPES = ACCEPTED_BILL_TYPES.filter((type) => type.startsWith('image/'));
+const INACTIVE_THRESHOLD_DAYS = 60;
+const MS_PER_DAY = 24 * 60 * 60 * 1000;
 
 interface PendingUpload {
   tempId: string;
@@ -129,7 +131,7 @@ const inventoryItemSchema = z.object({
 });
 
 type InventoryItemForm = z.input<typeof inventoryItemSchema>;
-type StatusFilter = 'all' | 'in-stock' | 'low-stock' | 'out-of-stock';
+type StatusFilter = 'all' | 'in-stock' | 'low-stock' | 'out-of-stock' | 'inactive';
 type UploadKind = 'part' | 'bill';
 
 interface InventoryItem {
@@ -148,6 +150,7 @@ interface InventoryItem {
   supplier?: string;
   billingDate?: string;
   billImages: string[];
+  lastQuantityUpdatedAt?: string;
   createdAt: string;
   updatedAt: string;
 }
@@ -168,6 +171,7 @@ const defaultStats: InventoryStats = {
   totalQuantity: 0,
   totalValue: 0,
   outOfStockItems: 0,
+  inactiveItems: 0,
   restockItems: 0,
   lowStockThreshold: 5,
   locations: [],
@@ -196,6 +200,7 @@ const statusTabs: Array<{ value: StatusFilter; label: string }> = [
   { value: 'in-stock', label: 'In Stock' },
   { value: 'low-stock', label: 'Restock' },
   { value: 'out-of-stock', label: 'Out of Stock' },
+  { value: 'inactive', label: 'Inactive' },
 ];
 
 const unitOptions = ['pcs', 'set', 'box', 'pair', 'kg', 'litre', 'meter', 'roll', 'pack'];
@@ -261,6 +266,22 @@ function formatItemUpdatedAt(value?: string) {
 
 function getStockStatus(item: InventoryItem, threshold: number) {
   if (item.quantity <= 0) {
+    const quantityUpdatedAt = item.lastQuantityUpdatedAt || item.updatedAt;
+    const quantityUpdatedAtTime = quantityUpdatedAt
+      ? new Date(quantityUpdatedAt).getTime()
+      : Number.NaN;
+
+    if (
+      !Number.isNaN(quantityUpdatedAtTime) &&
+      quantityUpdatedAtTime < Date.now() - INACTIVE_THRESHOLD_DAYS * MS_PER_DAY
+    ) {
+      return {
+        label: 'Inactive',
+        className: 'bg-gray-100 text-gray-700 border-gray-200',
+        dotClassName: 'bg-gray-500',
+      };
+    }
+
     return {
       label: 'Out',
       className: 'bg-red-100 text-red-700 border-red-200',
@@ -734,15 +755,17 @@ export default function InventoryItemsPage() {
   const inventoryListQueryKey = ['inventory-items', debouncedSearchQuery, statusFilter, currentPage] as const;
   const partImages = form.watch('partImages') || [];
   const billImages = form.watch('billImages') || [];
+  const inactiveItems = stats.inactiveItems || 0;
 
   const tabCounts = useMemo(
     () => ({
       all: stats.totalItems,
-      'in-stock': Math.max(stats.totalItems - stats.outOfStockItems - stats.restockItems, 0),
+      'in-stock': Math.max(stats.totalItems - stats.outOfStockItems - inactiveItems - stats.restockItems, 0),
       'low-stock': stats.restockItems,
       'out-of-stock': stats.outOfStockItems,
+      inactive: inactiveItems,
     }),
-    [stats]
+    [inactiveItems, stats]
   );
 
   const cancelAllPendingUploads = useCallback(() => {
@@ -931,11 +954,12 @@ export default function InventoryItemsPage() {
     (id: string, quantity: number) => {
       queryClient.setQueryData<InventoryItemsResponse>(inventoryListQueryKey, (current) => {
         if (!current) return current;
+        const now = new Date().toISOString();
         return {
           ...current,
           items: current.items.map((entry) =>
             entry.id === id
-              ? { ...entry, quantity, updatedAt: new Date().toISOString() }
+              ? { ...entry, quantity, lastQuantityUpdatedAt: now, updatedAt: now }
               : entry
           ),
         };
@@ -973,6 +997,7 @@ export default function InventoryItemsPage() {
         rollbackId: id,
         prevQuantity: baselineQuantity,
         prevUpdatedAt: prevItem?.updatedAt,
+        prevLastQuantityUpdatedAt: prevItem?.lastQuantityUpdatedAt,
       };
     },
     onError: (error: Error, _vars, context) => {
@@ -983,7 +1008,12 @@ export default function InventoryItemsPage() {
             ...current,
             items: current.items.map((entry) =>
               entry.id === context.rollbackId
-                ? { ...entry, quantity: context.prevQuantity, updatedAt: context.prevUpdatedAt ?? entry.updatedAt }
+                ? {
+                    ...entry,
+                    quantity: context.prevQuantity,
+                    lastQuantityUpdatedAt: context.prevLastQuantityUpdatedAt ?? entry.lastQuantityUpdatedAt,
+                    updatedAt: context.prevUpdatedAt ?? entry.updatedAt,
+                  }
                 : entry
             ),
           };

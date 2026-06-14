@@ -54,6 +54,7 @@ import {
   Boxes,
   PackageCheck,
   AlertTriangle,
+  Archive,
 } from 'lucide-react';
 import { compressImage, isCompressibleImage, formatFileSize } from '@/lib/imageCompression';
 import GlobalSearch from '@/components/GlobalSearch';
@@ -111,6 +112,7 @@ interface DashboardStats {
     totalQuantity: number;
     totalValue: number;
     outOfStockItems: number;
+    inactiveItems: number;
     restockItems: number;
     lowStockThreshold: number;
   };
@@ -140,6 +142,7 @@ const defaultStats: DashboardStats = {
     totalQuantity: 0,
     totalValue: 0,
     outOfStockItems: 0,
+    inactiveItems: 0,
     restockItems: 0,
     lowStockThreshold: 5,
   },
@@ -1002,7 +1005,7 @@ export default function DashboardClient() {
               </Button>
             </div>
 
-            <div className="mt-4 grid grid-cols-2 gap-2 sm:gap-3 lg:grid-cols-4">
+            <div className="mt-4 grid grid-cols-2 gap-2 sm:grid-cols-3 sm:gap-3 lg:grid-cols-5">
               <div className="rounded-lg border border-blue-100 bg-blue-50 p-3 min-w-0">
                 <div className="flex items-center gap-2 text-blue-700">
                   <PackageCheck className="h-4 w-4 shrink-0" />
@@ -1029,7 +1032,16 @@ export default function DashboardClient() {
                   <span className="text-[10px] sm:text-xs font-semibold uppercase tracking-wide truncate">Out</span>
                 </div>
                 <p className="mt-2 text-lg sm:text-xl font-bold text-gray-900 truncate">{(displayStats.inventory?.outOfStockItems || 0).toLocaleString('en-IN')}</p>
-                <p className="text-[10px] sm:text-xs text-gray-500 truncate">zero quantity</p>
+                <p className="text-[10px] sm:text-xs text-gray-500 truncate">under 60 days</p>
+              </div>
+
+              <div className="rounded-lg border border-gray-200 bg-gray-50 p-3 min-w-0">
+                <div className="flex items-center gap-2 text-gray-700">
+                  <Archive className="h-4 w-4 shrink-0" />
+                  <span className="text-[10px] sm:text-xs font-semibold uppercase tracking-wide truncate">Inactive</span>
+                </div>
+                <p className="mt-2 text-lg sm:text-xl font-bold text-gray-900 truncate">{(displayStats.inventory?.inactiveItems || 0).toLocaleString('en-IN')}</p>
+                <p className="text-[10px] sm:text-xs text-gray-500 truncate">60+ days zero</p>
               </div>
 
               <div className="rounded-lg border border-amber-100 bg-amber-50 p-3 min-w-0">

@@ -52,6 +52,7 @@ export async function initializeIndexes(db: Db): Promise<void> {
       inventory.createIndex({ userId: 1, itemName: 1 }),
       inventory.createIndex({ userId: 1, itemNumber: 1 }),
       inventory.createIndex({ userId: 1, quantity: 1 }),
+      inventory.createIndex({ userId: 1, quantity: 1, lastQuantityUpdatedAt: 1 }),
       inventory.createIndex({ userId: 1, location: 1 }),
     ]);
   } catch (error) {
