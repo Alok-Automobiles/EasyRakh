@@ -9,6 +9,9 @@ import { ObjectId } from 'mongodb';
 const MONTH_REGEX = /^\d{4}-(0[1-9]|1[0-2])$/;
 const DATE_REGEX = /^\d{4}-(0[1-9]|1[0-2])-(0[1-9]|[12]\d|3[01])$/;
 const LOW_STOCK_THRESHOLD = 5;
+const INACTIVE_THRESHOLD_DAYS = 60;
+const MS_PER_DAY = 24 * 60 * 60 * 1000;
+const UNKNOWN_QUANTITY_UPDATED_AT = new Date(0);
 
 export async function GET(request: NextRequest) {
   try {
@@ -94,6 +97,13 @@ export async function GET(request: NextRequest) {
     const tomorrow = new Date(Date.UTC(today.getUTCFullYear(), today.getUTCMonth(), today.getUTCDate() + 1, 0, 0, 0, 0));
     const thirtyDaysAgo = new Date(Date.UTC(now.getFullYear(), now.getMonth(), now.getDate() - 29, 0, 0, 0, 0));
     const currentMonthStart = new Date(Date.UTC(today.getUTCFullYear(), today.getUTCMonth(), 1, 0, 0, 0, 0));
+    const inactiveCutoff = new Date(now.getTime() - INACTIVE_THRESHOLD_DAYS * MS_PER_DAY);
+    const quantityDateExpression = {
+      $ifNull: [
+        '$lastQuantityUpdatedAt',
+        { $ifNull: ['$createdAt', UNKNOWN_QUANTITY_UPDATED_AT] },
+      ],
+    };
 
     const dailyCashQuery = hasDateFilter
       ? { userId, date: { $gte: rangeStart!, $lt: rangeEnd! } }
@@ -329,7 +339,32 @@ export async function GET(request: NextRequest) {
                 },
               },
               outOfStockItems: {
-                $sum: { $cond: [{ $lte: [{ $ifNull: ['$quantity', 0] }, 0] }, 1, 0] },
+                $sum: {
+                  $cond: [
+                    {
+                      $and: [
+                        { $lte: [{ $ifNull: ['$quantity', 0] }, 0] },
+                        { $gt: [quantityDateExpression, inactiveCutoff] },
+                      ],
+                    },
+                    1,
+                    0,
+                  ],
+                },
+              },
+              inactiveItems: {
+                $sum: {
+                  $cond: [
+                    {
+                      $and: [
+                        { $lte: [{ $ifNull: ['$quantity', 0] }, 0] },
+                        { $lte: [quantityDateExpression, inactiveCutoff] },
+                      ],
+                    },
+                    1,
+                    0,
+                  ],
+                },
               },
               restockItems: {
                 $sum: {
@@ -354,6 +389,7 @@ export async function GET(request: NextRequest) {
               totalQuantity: 1,
               totalValue: 1,
               outOfStockItems: 1,
+              inactiveItems: 1,
               restockItems: 1,
               lowStockThreshold: { $literal: LOW_STOCK_THRESHOLD },
             },
@@ -587,6 +623,7 @@ export async function GET(request: NextRequest) {
       totalQuantity: 0,
       totalValue: 0,
       outOfStockItems: 0,
+      inactiveItems: 0,
       restockItems: 0,
       lowStockThreshold: LOW_STOCK_THRESHOLD,
     };

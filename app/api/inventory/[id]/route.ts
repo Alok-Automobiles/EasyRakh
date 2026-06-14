@@ -56,6 +56,7 @@ function serializeInventoryItem(item: InventoryItem & { _id: { toString(): strin
     supplier: item.supplier || '',
     billingDate: item.billingDate,
     billImages: item.billImages || [],
+    lastQuantityUpdatedAt: item.lastQuantityUpdatedAt,
     createdAt: item.createdAt,
     updatedAt: item.updatedAt,
   };
@@ -165,15 +166,22 @@ export async function PUT(
     const db = await getDb();
     const inventoryCollection = db.collection('inventory');
 
-    if (itemData.itemNumber) {
-      const target = await inventoryCollection.findOne(
-        { _id: objectId, userId },
-        { projection: { _id: 1 } }
-      );
-      if (!target) {
-        return NextResponse.json({ error: 'Inventory item not found' }, { status: 404 });
-      }
+    const target = await inventoryCollection.findOne(
+      { _id: objectId, userId },
+      { projection: { _id: 1, quantity: 1 } }
+    );
+    if (!target) {
+      return NextResponse.json({ error: 'Inventory item not found' }, { status: 404 });
+    }
 
+    const quantityChanged = (target.quantity ?? 0) !== itemData.quantity;
+    const updateData = {
+      ...itemData,
+      ...(quantityChanged ? { lastQuantityUpdatedAt: updatedAt } : {}),
+      updatedAt,
+    };
+
+    if (itemData.itemNumber) {
       const existing = await inventoryCollection.findOne(
         {
           userId,
@@ -203,8 +211,7 @@ export async function PUT(
       { _id: objectId, userId },
       {
         $set: {
-          ...itemData,
-          updatedAt,
+          ...updateData,
         },
       }
     );
@@ -219,8 +226,7 @@ export async function PUT(
       message: 'Inventory item updated successfully',
       item: {
         id,
-        ...itemData,
-        updatedAt,
+        ...updateData,
       },
     });
   } catch (error) {
@@ -271,7 +277,7 @@ export async function PATCH(
     if (patch.quantity !== undefined) {
       const result = await inventoryCollection.findOneAndUpdate(
         { _id: objectId, userId },
-        { $set: { quantity: patch.quantity, updatedAt } },
+        { $set: { quantity: patch.quantity, lastQuantityUpdatedAt: updatedAt, updatedAt } },
         { returnDocument: 'after' }
       );
 
@@ -301,7 +307,7 @@ export async function PATCH(
 
     const result = await inventoryCollection.findOneAndUpdate(
       filter,
-      { $inc: { quantity: delta }, $set: { updatedAt } },
+      { $inc: { quantity: delta }, $set: { lastQuantityUpdatedAt: updatedAt, updatedAt } },
       { returnDocument: 'after' }
     );
 

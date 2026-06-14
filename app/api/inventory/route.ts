@@ -15,6 +15,27 @@ import { uppercaseInventoryPayload } from '@/lib/inventory-text';
 import { cleanSearchQuery, scoreInventoryItem } from '@/lib/voice-assistant';
 
 const LOW_STOCK_THRESHOLD = 5;
+const INACTIVE_THRESHOLD_DAYS = 60;
+const MS_PER_DAY = 24 * 60 * 60 * 1000;
+const UNKNOWN_QUANTITY_UPDATED_AT = new Date(0);
+
+function getInactiveCutoff() {
+  return new Date(Date.now() - INACTIVE_THRESHOLD_DAYS * MS_PER_DAY);
+}
+
+function zeroStockDateCondition(operator: '$gt' | '$lte', cutoff: Date) {
+  const dateCondition = { [operator]: cutoff };
+  const conditions: Record<string, unknown>[] = [
+    { lastQuantityUpdatedAt: dateCondition },
+    { lastQuantityUpdatedAt: null, createdAt: dateCondition },
+  ];
+
+  if (operator === '$lte') {
+    conditions.push({ lastQuantityUpdatedAt: null, createdAt: null });
+  }
+
+  return { $or: conditions };
+}
 
 const optionalDateSchema = z.preprocess(
   (value) => {
@@ -64,6 +85,7 @@ function serializeInventoryItem(item: InventoryItem & { _id: { toString(): strin
     supplier: item.supplier || '',
     billingDate: item.billingDate,
     billImages: item.billImages || [],
+    lastQuantityUpdatedAt: item.lastQuantityUpdatedAt,
     createdAt: item.createdAt,
     updatedAt: item.updatedAt,
   };
@@ -91,6 +113,13 @@ function normalizeItemInput(data: z.infer<typeof inventoryItemSchema>) {
 async function getInventoryStats(userId: string): Promise<InventoryStats> {
   const db = await getDb();
   const inventoryCollection = db.collection<InventoryItem>('inventory');
+  const inactiveCutoff = getInactiveCutoff();
+  const quantityDateExpression = {
+    $ifNull: [
+      '$lastQuantityUpdatedAt',
+      { $ifNull: ['$createdAt', UNKNOWN_QUANTITY_UPDATED_AT] },
+    ],
+  };
 
   const [stats] = await inventoryCollection
     .aggregate<InventoryStats>([
@@ -109,7 +138,32 @@ async function getInventoryStats(userId: string): Promise<InventoryStats> {
             },
           },
           outOfStockItems: {
-            $sum: { $cond: [{ $lte: [{ $ifNull: ['$quantity', 0] }, 0] }, 1, 0] },
+            $sum: {
+              $cond: [
+                {
+                  $and: [
+                    { $lte: [{ $ifNull: ['$quantity', 0] }, 0] },
+                    { $gt: [quantityDateExpression, inactiveCutoff] },
+                  ],
+                },
+                1,
+                0,
+              ],
+            },
+          },
+          inactiveItems: {
+            $sum: {
+              $cond: [
+                {
+                  $and: [
+                    { $lte: [{ $ifNull: ['$quantity', 0] }, 0] },
+                    { $lte: [quantityDateExpression, inactiveCutoff] },
+                  ],
+                },
+                1,
+                0,
+              ],
+            },
           },
           restockItems: {
             $sum: {
@@ -136,6 +190,7 @@ async function getInventoryStats(userId: string): Promise<InventoryStats> {
           totalQuantity: 1,
           totalValue: 1,
           outOfStockItems: 1,
+          inactiveItems: 1,
           restockItems: 1,
           lowStockThreshold: { $literal: LOW_STOCK_THRESHOLD },
           locations: {
@@ -162,6 +217,7 @@ async function getInventoryStats(userId: string): Promise<InventoryStats> {
     totalQuantity: 0,
     totalValue: 0,
     outOfStockItems: 0,
+    inactiveItems: 0,
     restockItems: 0,
     lowStockThreshold: LOW_STOCK_THRESHOLD,
     locations: [],
@@ -230,6 +286,8 @@ export async function GET(request: NextRequest) {
 
       const buildListPayload = async (): Promise<ListCachePayload> => {
         const query: Record<string, unknown> = { userId };
+        const andConditions: Record<string, unknown>[] = [];
+        const inactiveCutoff = getInactiveCutoff();
 
         if (status === 'in-stock') {
           query.quantity = { $gt: LOW_STOCK_THRESHOLD };
@@ -237,6 +295,10 @@ export async function GET(request: NextRequest) {
           query.quantity = { $gt: 0, $lte: LOW_STOCK_THRESHOLD };
         } else if (status === 'out-of-stock') {
           query.quantity = { $lte: 0 };
+          andConditions.push(zeroStockDateCondition('$gt', inactiveCutoff));
+        } else if (status === 'inactive') {
+          query.quantity = { $lte: 0 };
+          andConditions.push(zeroStockDateCondition('$lte', inactiveCutoff));
         }
 
         const queryTokens = search ? cleanSearchQuery(search, false) : [];
@@ -253,8 +315,14 @@ export async function GET(request: NextRequest) {
             ...searchFields.map((field) => ({ [field]: phraseRegex }))
           );
 
-          query.$or = orConditions;
+          andConditions.push({ $or: orConditions });
+        }
 
+        if (andConditions.length > 0) {
+          query.$and = andConditions;
+        }
+
+        if (search && queryTokens.length > 0) {
           // Fetch candidates up to a safe limit to perform fuzzy scoring in-memory
           const candidates = await inventoryCollection
             .find(query)
@@ -396,6 +464,7 @@ export async function POST(request: NextRequest) {
     const result = await inventoryCollection.insertOne({
       userId,
       ...itemData,
+      lastQuantityUpdatedAt: now,
       createdAt: now,
       updatedAt: now,
     });
@@ -410,6 +479,7 @@ export async function POST(request: NextRequest) {
         item: {
           id: result.insertedId.toString(),
           ...itemData,
+          lastQuantityUpdatedAt: now,
           createdAt: now,
           updatedAt: now,
         },

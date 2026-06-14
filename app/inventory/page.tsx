@@ -8,6 +8,7 @@ import { motion } from 'motion/react';
 import {
   AlertTriangle,
   ArrowRight,
+  Archive,
   Boxes,
   MapPin,
   Package,
@@ -49,6 +50,7 @@ const defaultStats: InventoryStats = {
   totalQuantity: 0,
   totalValue: 0,
   outOfStockItems: 0,
+  inactiveItems: 0,
   restockItems: 0,
   lowStockThreshold: 5,
   locations: [],
@@ -124,7 +126,8 @@ export default function InventoryPage() {
 
   const stats = data?.stats || defaultStats;
   const lowStockItems = data?.lowStockItems || [];
-  const inStockItems = Math.max(stats.totalItems - stats.outOfStockItems - stats.restockItems, 0);
+  const inactiveItems = stats.inactiveItems || 0;
+  const inStockItems = Math.max(stats.totalItems - stats.outOfStockItems - inactiveItems - stats.restockItems, 0);
   const stockSegments = [
     {
       label: 'Healthy',
@@ -141,6 +144,11 @@ export default function InventoryPage() {
       count: stats.outOfStockItems,
       className: 'bg-red-500',
     },
+    {
+      label: 'Inactive',
+      count: inactiveItems,
+      className: 'bg-gray-500',
+    },
   ];
   const totalForSegments = Math.max(stats.totalItems, 1);
 
@@ -154,8 +162,8 @@ export default function InventoryPage() {
           </div>
           <Skeleton className="h-10 w-32" />
         </div>
-        <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
-          {[1, 2, 3, 4].map((item) => (
+        <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-5">
+          {[1, 2, 3, 4, 5].map((item) => (
             <Skeleton key={item} className="h-32 rounded-xl" />
           ))}
         </div>
@@ -199,7 +207,7 @@ export default function InventoryPage() {
         </div>
       </div>
 
-      <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+      <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-5">
         <StatCard
           label="Total Items"
           value={stats.totalItems.toLocaleString('en-IN')}
@@ -217,9 +225,16 @@ export default function InventoryPage() {
         <StatCard
           label="Out Of Stock"
           value={stats.outOfStockItems.toLocaleString('en-IN')}
-          subtext="Quantity is zero"
+          subtext="Zero for under 60 days"
           icon={<AlertTriangle className="h-5 w-5" />}
           tone="bg-red-100 text-red-700"
+        />
+        <StatCard
+          label="Inactive"
+          value={inactiveItems.toLocaleString('en-IN')}
+          subtext="Zero stock for 60+ days"
+          icon={<Archive className="h-5 w-5" />}
+          tone="bg-gray-100 text-gray-700"
         />
         <StatCard
           label="Restock Items"
@@ -254,7 +269,7 @@ export default function InventoryPage() {
             </div>
           </div>
 
-          <div className="mt-5 grid gap-3 sm:grid-cols-3">
+          <div className="mt-5 grid gap-3 sm:grid-cols-4">
             {stockSegments.map((segment) => (
               <div key={segment.label} className="rounded-lg border border-gray-200 bg-gray-50 p-3">
                 <div className="flex items-center gap-2">

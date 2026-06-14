@@ -8,12 +8,29 @@ import { ObjectId } from 'mongodb';
 import type { InventoryItem } from '@/lib/types';
 
 const LOW_STOCK_THRESHOLD = 5;
+const INACTIVE_THRESHOLD_DAYS = 60;
+const MS_PER_DAY = 24 * 60 * 60 * 1000;
 const STATUS_LABELS: Record<string, string> = {
   all: 'All Items',
   'in-stock': 'In Stock',
   'low-stock': 'Restock Items',
   'out-of-stock': 'Out of Stock Items',
+  inactive: 'Inactive Items',
 };
+
+function zeroStockDateCondition(operator: '$gt' | '$lte', cutoff: Date) {
+  const dateCondition = { [operator]: cutoff };
+  const conditions: Record<string, unknown>[] = [
+    { lastQuantityUpdatedAt: dateCondition },
+    { lastQuantityUpdatedAt: null, createdAt: dateCondition },
+  ];
+
+  if (operator === '$lte') {
+    conditions.push({ lastQuantityUpdatedAt: null, createdAt: null });
+  }
+
+  return { $or: conditions };
+}
 
 function escapeRegex(value: string) {
   return value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
@@ -34,6 +51,7 @@ export async function GET(request: NextRequest) {
     const inventoryCollection = db.collection<InventoryItem>('inventory');
 
     const query: Record<string, unknown> = { userId };
+    const inactiveCutoff = new Date(Date.now() - INACTIVE_THRESHOLD_DAYS * MS_PER_DAY);
 
     if (status === 'in-stock') {
       query.quantity = { $gt: LOW_STOCK_THRESHOLD };
@@ -41,6 +59,10 @@ export async function GET(request: NextRequest) {
       query.quantity = { $gt: 0, $lte: LOW_STOCK_THRESHOLD };
     } else if (status === 'out-of-stock') {
       query.quantity = { $lte: 0 };
+      query.$and = [zeroStockDateCondition('$gt', inactiveCutoff)];
+    } else if (status === 'inactive') {
+      query.quantity = { $lte: 0 };
+      query.$and = [zeroStockDateCondition('$lte', inactiveCutoff)];
     }
 
     const items = await inventoryCollection
