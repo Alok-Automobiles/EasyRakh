@@ -468,7 +468,7 @@ function InventoryItemCard({
           )}
         </div>
         {isOrderMode ? (
-          <label className="inline-flex h-8 cursor-pointer items-center gap-2 rounded-md border border-gray-300 bg-white px-2.5 text-xs font-semibold text-gray-800 shadow-sm transition-colors hover:bg-gray-50">
+          <label className="inline-flex min-h-11 min-w-11 cursor-pointer items-center gap-2 rounded-md border border-gray-300 bg-white px-3 text-xs font-semibold text-gray-800 shadow-sm transition-colors hover:bg-gray-50">
             <input
               type="checkbox"
               checked={isSelected}

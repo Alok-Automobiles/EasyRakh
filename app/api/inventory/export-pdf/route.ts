@@ -297,9 +297,22 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
-    const body = await request.json();
+    let body: unknown;
+    try {
+      body = await request.json();
+    } catch {
+      return NextResponse.json({ error: 'Invalid JSON request body' }, { status: 400 });
+    }
+
     const payload = supplierOrderSchema.parse(body);
     const requestedIds = payload.items.map((item) => item.id);
+
+    if (new Set(requestedIds).size !== requestedIds.length) {
+      return NextResponse.json(
+        { error: 'Duplicate inventory items are not allowed in one supplier order' },
+        { status: 400 }
+      );
+    }
 
     if (requestedIds.some((id) => !ObjectId.isValid(id))) {
       return NextResponse.json({ error: 'Invalid inventory item selected' }, { status: 400 });
