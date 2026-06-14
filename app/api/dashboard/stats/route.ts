@@ -11,6 +11,7 @@ const DATE_REGEX = /^\d{4}-(0[1-9]|1[0-2])-(0[1-9]|[12]\d|3[01])$/;
 const LOW_STOCK_THRESHOLD = 5;
 const INACTIVE_THRESHOLD_DAYS = 60;
 const MS_PER_DAY = 24 * 60 * 60 * 1000;
+const UNKNOWN_QUANTITY_UPDATED_AT = new Date(0);
 
 export async function GET(request: NextRequest) {
   try {
@@ -100,7 +101,7 @@ export async function GET(request: NextRequest) {
     const quantityDateExpression = {
       $ifNull: [
         '$lastQuantityUpdatedAt',
-        { $ifNull: ['$updatedAt', { $ifNull: ['$createdAt', inactiveCutoff] }] },
+        { $ifNull: ['$createdAt', UNKNOWN_QUANTITY_UPDATED_AT] },
       ],
     };
 
@@ -343,7 +344,7 @@ export async function GET(request: NextRequest) {
                     {
                       $and: [
                         { $lte: [{ $ifNull: ['$quantity', 0] }, 0] },
-                        { $gte: [quantityDateExpression, inactiveCutoff] },
+                        { $gt: [quantityDateExpression, inactiveCutoff] },
                       ],
                     },
                     1,
@@ -357,7 +358,7 @@ export async function GET(request: NextRequest) {
                     {
                       $and: [
                         { $lte: [{ $ifNull: ['$quantity', 0] }, 0] },
-                        { $lt: [quantityDateExpression, inactiveCutoff] },
+                        { $lte: [quantityDateExpression, inactiveCutoff] },
                       ],
                     },
                     1,

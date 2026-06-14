@@ -18,20 +18,18 @@ const STATUS_LABELS: Record<string, string> = {
   inactive: 'Inactive Items',
 };
 
-function zeroStockDateCondition(operator: '$gte' | '$lt', cutoff: Date) {
+function zeroStockDateCondition(operator: '$gt' | '$lte', cutoff: Date) {
   const dateCondition = { [operator]: cutoff };
+  const conditions: Record<string, unknown>[] = [
+    { lastQuantityUpdatedAt: dateCondition },
+    { lastQuantityUpdatedAt: null, createdAt: dateCondition },
+  ];
 
-  return {
-    $or: [
-      { lastQuantityUpdatedAt: dateCondition },
-      { lastQuantityUpdatedAt: { $exists: false }, updatedAt: dateCondition },
-      {
-        lastQuantityUpdatedAt: { $exists: false },
-        updatedAt: { $exists: false },
-        createdAt: dateCondition,
-      },
-    ],
-  };
+  if (operator === '$lte') {
+    conditions.push({ lastQuantityUpdatedAt: null, createdAt: null });
+  }
+
+  return { $or: conditions };
 }
 
 function escapeRegex(value: string) {
@@ -61,10 +59,10 @@ export async function GET(request: NextRequest) {
       query.quantity = { $gt: 0, $lte: LOW_STOCK_THRESHOLD };
     } else if (status === 'out-of-stock') {
       query.quantity = { $lte: 0 };
-      query.$and = [zeroStockDateCondition('$gte', inactiveCutoff)];
+      query.$and = [zeroStockDateCondition('$gt', inactiveCutoff)];
     } else if (status === 'inactive') {
       query.quantity = { $lte: 0 };
-      query.$and = [zeroStockDateCondition('$lt', inactiveCutoff)];
+      query.$and = [zeroStockDateCondition('$lte', inactiveCutoff)];
     }
 
     const items = await inventoryCollection

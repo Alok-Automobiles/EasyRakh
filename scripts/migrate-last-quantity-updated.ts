@@ -6,6 +6,7 @@ config({ path: path.resolve(process.cwd(), '.env.local') });
 config();
 
 const uri = process.env.MONGODB_URI;
+const UNKNOWN_QUANTITY_UPDATED_AT = new Date(0);
 
 if (!uri) {
   console.error('MONGODB_URI is required. Add it to .env.local before running this migration.');
@@ -21,12 +22,17 @@ async function main() {
   const inventoryCollection = db.collection('inventory');
 
   const result = await inventoryCollection.updateMany(
-    { lastQuantityUpdatedAt: { $exists: false } },
+    {
+      $or: [
+        { lastQuantityUpdatedAt: { $exists: false } },
+        { lastQuantityUpdatedAt: null },
+      ],
+    },
     [
       {
         $set: {
           lastQuantityUpdatedAt: {
-            $ifNull: ['$updatedAt', { $ifNull: ['$createdAt', new Date()] }],
+            $ifNull: ['$updatedAt', { $ifNull: ['$createdAt', UNKNOWN_QUANTITY_UPDATED_AT] }],
           },
         },
       },

@@ -17,25 +17,24 @@ import { cleanSearchQuery, scoreInventoryItem } from '@/lib/voice-assistant';
 const LOW_STOCK_THRESHOLD = 5;
 const INACTIVE_THRESHOLD_DAYS = 60;
 const MS_PER_DAY = 24 * 60 * 60 * 1000;
+const UNKNOWN_QUANTITY_UPDATED_AT = new Date(0);
 
 function getInactiveCutoff() {
   return new Date(Date.now() - INACTIVE_THRESHOLD_DAYS * MS_PER_DAY);
 }
 
-function zeroStockDateCondition(operator: '$gte' | '$lt', cutoff: Date) {
+function zeroStockDateCondition(operator: '$gt' | '$lte', cutoff: Date) {
   const dateCondition = { [operator]: cutoff };
+  const conditions: Record<string, unknown>[] = [
+    { lastQuantityUpdatedAt: dateCondition },
+    { lastQuantityUpdatedAt: null, createdAt: dateCondition },
+  ];
 
-  return {
-    $or: [
-      { lastQuantityUpdatedAt: dateCondition },
-      { lastQuantityUpdatedAt: { $exists: false }, updatedAt: dateCondition },
-      {
-        lastQuantityUpdatedAt: { $exists: false },
-        updatedAt: { $exists: false },
-        createdAt: dateCondition,
-      },
-    ],
-  };
+  if (operator === '$lte') {
+    conditions.push({ lastQuantityUpdatedAt: null, createdAt: null });
+  }
+
+  return { $or: conditions };
 }
 
 const optionalDateSchema = z.preprocess(
@@ -118,7 +117,7 @@ async function getInventoryStats(userId: string): Promise<InventoryStats> {
   const quantityDateExpression = {
     $ifNull: [
       '$lastQuantityUpdatedAt',
-      { $ifNull: ['$updatedAt', { $ifNull: ['$createdAt', inactiveCutoff] }] },
+      { $ifNull: ['$createdAt', UNKNOWN_QUANTITY_UPDATED_AT] },
     ],
   };
 
@@ -144,7 +143,7 @@ async function getInventoryStats(userId: string): Promise<InventoryStats> {
                 {
                   $and: [
                     { $lte: [{ $ifNull: ['$quantity', 0] }, 0] },
-                    { $gte: [quantityDateExpression, inactiveCutoff] },
+                    { $gt: [quantityDateExpression, inactiveCutoff] },
                   ],
                 },
                 1,
@@ -158,7 +157,7 @@ async function getInventoryStats(userId: string): Promise<InventoryStats> {
                 {
                   $and: [
                     { $lte: [{ $ifNull: ['$quantity', 0] }, 0] },
-                    { $lt: [quantityDateExpression, inactiveCutoff] },
+                    { $lte: [quantityDateExpression, inactiveCutoff] },
                   ],
                 },
                 1,
@@ -296,10 +295,10 @@ export async function GET(request: NextRequest) {
           query.quantity = { $gt: 0, $lte: LOW_STOCK_THRESHOLD };
         } else if (status === 'out-of-stock') {
           query.quantity = { $lte: 0 };
-          andConditions.push(zeroStockDateCondition('$gte', inactiveCutoff));
+          andConditions.push(zeroStockDateCondition('$gt', inactiveCutoff));
         } else if (status === 'inactive') {
           query.quantity = { $lte: 0 };
-          andConditions.push(zeroStockDateCondition('$lt', inactiveCutoff));
+          andConditions.push(zeroStockDateCondition('$lte', inactiveCutoff));
         }
 
         const queryTokens = search ? cleanSearchQuery(search, false) : [];

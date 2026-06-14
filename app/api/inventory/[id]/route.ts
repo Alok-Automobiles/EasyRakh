@@ -162,25 +162,26 @@ export async function PUT(
     const validatedData = inventoryItemSchema.parse(body);
     const itemData = normalizeItemInput(validatedData);
     const updatedAt = new Date();
-    const hasQuantity = Object.prototype.hasOwnProperty.call(body, 'quantity');
-    const updateData = {
-      ...itemData,
-      ...(hasQuantity ? { lastQuantityUpdatedAt: updatedAt } : {}),
-      updatedAt,
-    };
 
     const db = await getDb();
     const inventoryCollection = db.collection('inventory');
 
-    if (itemData.itemNumber) {
-      const target = await inventoryCollection.findOne(
-        { _id: objectId, userId },
-        { projection: { _id: 1 } }
-      );
-      if (!target) {
-        return NextResponse.json({ error: 'Inventory item not found' }, { status: 404 });
-      }
+    const target = await inventoryCollection.findOne(
+      { _id: objectId, userId },
+      { projection: { _id: 1, quantity: 1 } }
+    );
+    if (!target) {
+      return NextResponse.json({ error: 'Inventory item not found' }, { status: 404 });
+    }
 
+    const quantityChanged = (target.quantity ?? 0) !== itemData.quantity;
+    const updateData = {
+      ...itemData,
+      ...(quantityChanged ? { lastQuantityUpdatedAt: updatedAt } : {}),
+      updatedAt,
+    };
+
+    if (itemData.itemNumber) {
       const existing = await inventoryCollection.findOne(
         {
           userId,

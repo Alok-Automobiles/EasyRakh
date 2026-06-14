@@ -266,14 +266,14 @@ function formatItemUpdatedAt(value?: string) {
 
 function getStockStatus(item: InventoryItem, threshold: number) {
   if (item.quantity <= 0) {
-    const quantityUpdatedAt = item.lastQuantityUpdatedAt || item.updatedAt;
+    const quantityUpdatedAt = item.lastQuantityUpdatedAt;
     const quantityUpdatedAtTime = quantityUpdatedAt
       ? new Date(quantityUpdatedAt).getTime()
       : Number.NaN;
 
     if (
       !Number.isNaN(quantityUpdatedAtTime) &&
-      quantityUpdatedAtTime < Date.now() - INACTIVE_THRESHOLD_DAYS * MS_PER_DAY
+      quantityUpdatedAtTime <= Date.now() - INACTIVE_THRESHOLD_DAYS * MS_PER_DAY
     ) {
       return {
         label: 'Inactive',
