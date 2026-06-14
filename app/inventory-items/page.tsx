@@ -21,10 +21,13 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { motion } from 'motion/react';
 import {
   AlertTriangle,
+  ArrowLeft,
   Boxes,
   CheckCircle2,
+  CheckSquare,
   ChevronLeft,
   ChevronRight,
+  ClipboardList,
   Edit3,
   FileDown,
   FileText,
@@ -133,6 +136,7 @@ const inventoryItemSchema = z.object({
 type InventoryItemForm = z.input<typeof inventoryItemSchema>;
 type StatusFilter = 'all' | 'in-stock' | 'low-stock' | 'out-of-stock' | 'inactive';
 type UploadKind = 'part' | 'bill';
+type OrderStep = 'select' | 'review';
 
 interface InventoryItem {
   id: string;
@@ -425,6 +429,9 @@ function InventoryItemCard({
   onDelete,
   onAdjustQuantity,
   isAdjusting,
+  isOrderMode,
+  isSelected,
+  onToggleOrderSelection,
 }: {
   item: InventoryItem;
   threshold: number;
@@ -432,13 +439,21 @@ function InventoryItemCard({
   onDelete: (item: InventoryItem) => void;
   onAdjustQuantity: (item: InventoryItem, delta: 1 | -1) => void;
   isAdjusting: boolean;
+  isOrderMode: boolean;
+  isSelected: boolean;
+  onToggleOrderSelection: (item: InventoryItem) => void;
 }) {
   const status = getStockStatus(item, threshold);
   const stockValue = (item.buyingPrice || 0) * (item.quantity || 0);
   const images = item.partImages || [];
+  const quantityControlsDisabled = isAdjusting || isOrderMode;
 
   return (
-    <div className="group max-w-full overflow-hidden rounded-xl border border-gray-200 bg-white p-2.5 shadow-sm transition-all hover:-translate-y-0.5 hover:border-gray-300 hover:shadow-md sm:p-3">
+    <div
+      className={`group max-w-full overflow-hidden rounded-xl border bg-white p-2.5 shadow-sm transition-all hover:-translate-y-0.5 hover:border-gray-300 hover:shadow-md sm:p-3 ${
+        isOrderMode && isSelected ? 'border-slate-900 ring-2 ring-slate-900/10' : 'border-gray-200'
+      }`}
+    >
       <div className="flex min-w-0 items-center justify-between gap-2">
         <div className="flex min-w-0 items-center gap-1.5">
           <Badge variant="outline" className={`gap-1.5 border ${status.className}`}>
@@ -452,26 +467,39 @@ function InventoryItemCard({
             </span>
           )}
         </div>
-        <DropdownMenu>
-          <DropdownMenuTrigger asChild>
-            <Button variant="ghost" size="icon-sm" className="h-8 w-8 text-gray-500 hover:text-gray-900">
-              <MoreVertical className="h-4 w-4" />
-            </Button>
-          </DropdownMenuTrigger>
-          <DropdownMenuContent align="end" className="w-36">
-            <DropdownMenuItem onClick={() => onEdit(item)}>
-              <Edit3 className="mr-2 h-4 w-4" />
-              Edit
-            </DropdownMenuItem>
-            <DropdownMenuItem
-              onClick={() => onDelete(item)}
-              className="text-red-600 focus:bg-red-50 focus:text-red-700"
-            >
-              <Trash2 className="mr-2 h-4 w-4" />
-              Delete
-            </DropdownMenuItem>
-          </DropdownMenuContent>
-        </DropdownMenu>
+        {isOrderMode ? (
+          <label className="inline-flex min-h-11 min-w-11 cursor-pointer items-center gap-2 rounded-md border border-gray-300 bg-white px-3 text-xs font-semibold text-gray-800 shadow-sm transition-colors hover:bg-gray-50">
+            <input
+              type="checkbox"
+              checked={isSelected}
+              onChange={() => onToggleOrderSelection(item)}
+              className="h-4 w-4 cursor-pointer accent-slate-900"
+              aria-label={`Select ${item.itemName} for supplier order`}
+            />
+            <span>Select</span>
+          </label>
+        ) : (
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button variant="ghost" size="icon-sm" className="h-8 w-8 text-gray-500 hover:text-gray-900">
+                <MoreVertical className="h-4 w-4" />
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end" className="w-36">
+              <DropdownMenuItem onClick={() => onEdit(item)}>
+                <Edit3 className="mr-2 h-4 w-4" />
+                Edit
+              </DropdownMenuItem>
+              <DropdownMenuItem
+                onClick={() => onDelete(item)}
+                className="text-red-600 focus:bg-red-50 focus:text-red-700"
+              >
+                <Trash2 className="mr-2 h-4 w-4" />
+                Delete
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
+        )}
       </div>
 
       <div className="mt-3 flex gap-3 sm:block">
@@ -493,10 +521,10 @@ function InventoryItemCard({
         <div className="grid min-w-0 grid-cols-2 gap-1.5">
           <div className="flex min-w-0 flex-col justify-between rounded-lg border border-gray-100 bg-gray-50/80 p-2">
             <span className="text-[10px] font-medium text-gray-400">Quantity</span>
-            <div className={`mt-1.5 flex items-center justify-between ${isAdjusting ? 'pointer-events-none opacity-60' : ''}`}>
+            <div className={`mt-1.5 flex items-center justify-between ${quantityControlsDisabled ? 'pointer-events-none opacity-60' : ''}`}>
               <button
                 type="button"
-                disabled={isAdjusting || item.quantity <= 0}
+                disabled={quantityControlsDisabled || item.quantity <= 0}
                 aria-label={`Decrease quantity for ${item.itemName}`}
                 onClick={() => onAdjustQuantity(item, -1)}
                 className="flex h-5 w-5 cursor-pointer items-center justify-center rounded border border-gray-200 bg-white text-gray-600 shadow-sm transition-colors hover:bg-gray-50 disabled:cursor-not-allowed disabled:opacity-40"
@@ -509,7 +537,7 @@ function InventoryItemCard({
               </span>
               <button
                 type="button"
-                disabled={isAdjusting}
+                disabled={quantityControlsDisabled}
                 aria-label={`Increase quantity for ${item.itemName}`}
                 onClick={() => onAdjustQuantity(item, 1)}
                 className="flex h-5 w-5 cursor-pointer items-center justify-center rounded border border-gray-200 bg-white text-gray-600 shadow-sm transition-colors hover:bg-gray-50 disabled:cursor-not-allowed disabled:opacity-40"
@@ -605,6 +633,12 @@ export default function InventoryItemsPage() {
   }>({ status: 'idle' });
   const [adjustingItemIds, setAdjustingItemIds] = useState<Set<string>>(new Set());
   const [downloadingPdf, setDownloadingPdf] = useState(false);
+  const [isOrderMode, setIsOrderMode] = useState(false);
+  const [orderStep, setOrderStep] = useState<OrderStep>('select');
+  const [selectedOrderIds, setSelectedOrderIds] = useState<Set<string>>(() => new Set());
+  const [selectedOrderItems, setSelectedOrderItems] = useState<Record<string, InventoryItem>>({});
+  const [orderQuantities, setOrderQuantities] = useState<Record<string, string>>({});
+  const [downloadingOrderPdf, setDownloadingOrderPdf] = useState(false);
 
   const handleDownloadPdf = useCallback(async () => {
     setDownloadingPdf(true);
@@ -767,6 +801,117 @@ export default function InventoryItemsPage() {
     }),
     [inactiveItems, stats]
   );
+  const selectedOrderCount = selectedOrderIds.size;
+  const selectedOrderItemsList = useMemo(
+    () =>
+      Array.from(selectedOrderIds)
+        .map((id) => selectedOrderItems[id])
+        .filter((item): item is InventoryItem => Boolean(item)),
+    [selectedOrderIds, selectedOrderItems]
+  );
+
+  const resetOrderFlow = useCallback(() => {
+    setIsOrderMode(false);
+    setOrderStep('select');
+    setSelectedOrderIds(new Set());
+    setSelectedOrderItems({});
+    setOrderQuantities({});
+  }, []);
+
+  const startOrderFlow = useCallback(() => {
+    setIsOrderMode(true);
+    setOrderStep('select');
+    setSelectedOrderIds(new Set());
+    setSelectedOrderItems({});
+    setOrderQuantities({});
+  }, []);
+
+  const toggleOrderSelection = useCallback((item: InventoryItem) => {
+    setSelectedOrderIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(item.id)) {
+        next.delete(item.id);
+        setSelectedOrderItems((current) => {
+          const updated = { ...current };
+          delete updated[item.id];
+          return updated;
+        });
+        setOrderQuantities((current) => {
+          const updated = { ...current };
+          delete updated[item.id];
+          return updated;
+        });
+      } else {
+        next.add(item.id);
+        setSelectedOrderItems((current) => ({ ...current, [item.id]: item }));
+      }
+      return next;
+    });
+  }, []);
+
+  const updateOrderQuantity = useCallback((id: string, value: string) => {
+    if (value !== '' && Number(value) < 0) return;
+    setOrderQuantities((current) => ({ ...current, [id]: value }));
+  }, []);
+
+  const continueToOrderReview = useCallback(() => {
+    if (selectedOrderCount === 0) return;
+    setOrderStep('review');
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  }, [selectedOrderCount]);
+
+  const handleDownloadOrderPdf = useCallback(async () => {
+    const invalidItem = selectedOrderItemsList.find((item) => {
+      const rawQuantity = orderQuantities[item.id]?.trim() || '';
+      const quantity = Number(rawQuantity);
+      return rawQuantity === '' || !Number.isFinite(quantity) || quantity <= 0;
+    });
+
+    if (invalidItem) {
+      toast.error(`Enter a quantity greater than zero for ${invalidItem.itemName}.`);
+      return;
+    }
+
+    setDownloadingOrderPdf(true);
+    try {
+      const response = await fetch('/api/inventory/export-pdf', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          mode: 'order',
+          items: selectedOrderItemsList.map((item) => ({
+            id: item.id,
+            quantity: Number(orderQuantities[item.id]),
+          })),
+        }),
+      });
+
+      if (!response.ok) {
+        let message = 'Failed to generate supplier order PDF';
+        try {
+          const result = await response.json();
+          if (result?.error) message = result.error;
+        } catch {
+          // Keep the default message when the server returns a non-JSON error.
+        }
+        throw new Error(message);
+      }
+
+      const blob = await response.blob();
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `supplier-order-${new Date().toISOString().slice(0, 10)}.pdf`;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : 'Failed to download supplier order PDF');
+    } finally {
+      setDownloadingOrderPdf(false);
+    }
+  }, [orderQuantities, selectedOrderItemsList]);
 
   const cancelAllPendingUploads = useCallback(() => {
     setPendingPartUploads((prev) => {
@@ -863,13 +1008,13 @@ export default function InventoryItemsPage() {
 
       const target = event.target as HTMLElement;
       if (target.closest('input, textarea, select, [contenteditable="true"]')) return;
-      if (formOpen || deleteDialogOpen) return;
+      if (formOpen || deleteDialogOpen || isOrderMode) return;
       event.preventDefault();
       openNewItem();
     };
     window.addEventListener('keydown', onWindowKeyDown, true);
     return () => window.removeEventListener('keydown', onWindowKeyDown, true);
-  }, [deleteDialogOpen, formOpen, openNewItem]);
+  }, [deleteDialogOpen, formOpen, isOrderMode, openNewItem]);
 
   useEffect(() => {
     const handleSearchShortcut = (event: KeyboardEvent) => {
@@ -1283,7 +1428,9 @@ export default function InventoryItemsPage() {
       initial={{ opacity: 0, y: 12 }}
       animate={{ opacity: 1, y: 0 }}
       transition={{ duration: 0.35 }}
-      className={`max-w-7xl mx-auto px-3 pb-6 pt-4 sm:px-4 sm:py-6 lg:px-8 space-y-4 sm:space-y-5 ${inventoryPointerClass}`}
+      className={`max-w-7xl mx-auto px-3 pt-4 sm:px-4 sm:pt-6 lg:px-8 space-y-4 sm:space-y-5 ${
+        isOrderMode && orderStep === 'select' ? 'pb-28 sm:pb-24' : 'pb-6 sm:pb-6'
+      } ${inventoryPointerClass}`}
     >
       <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
         <div className="flex min-w-0 items-center gap-3">
@@ -1297,172 +1444,327 @@ export default function InventoryItemsPage() {
             </p>
           </div>
         </div>
-        <div className="flex w-full gap-2 sm:w-auto">
-          <Button onClick={openNewItem} className="h-10 flex-1 bg-slate-900 text-white hover:bg-slate-800 sm:flex-initial">
-            <Plus className="h-4 w-4" />
-            Add Item
-          </Button>
-          <Button
-            onClick={handleDownloadPdf}
-            disabled={downloadingPdf}
-            variant="outline"
-            className="h-10 flex-1 border-gray-300 sm:flex-initial"
-          >
-            {downloadingPdf ? (
-              <Loader2 className="h-4 w-4 animate-spin" />
-            ) : (
-              <FileDown className="h-4 w-4" />
-            )}
-            {downloadingPdf ? 'Generating...' : 'PDF'}
-          </Button>
+        <div className="flex w-full flex-wrap gap-2 sm:w-auto sm:flex-nowrap">
+          {isOrderMode ? (
+            <Button
+              type="button"
+              onClick={resetOrderFlow}
+              variant="outline"
+              className="h-10 flex-1 border-gray-300 sm:flex-initial"
+            >
+              <X className="h-4 w-4" />
+              Cancel
+            </Button>
+          ) : (
+            <>
+              <Button onClick={openNewItem} className="h-10 flex-1 bg-slate-900 text-white hover:bg-slate-800 sm:flex-initial">
+                <Plus className="h-4 w-4" />
+                Add Item
+              </Button>
+              <Button
+                type="button"
+                onClick={startOrderFlow}
+                variant="outline"
+                className="h-10 flex-1 border-gray-300 sm:flex-initial"
+              >
+                <ClipboardList className="h-4 w-4" />
+                Create Order
+              </Button>
+              <Button
+                onClick={handleDownloadPdf}
+                disabled={downloadingPdf}
+                variant="outline"
+                className="h-10 flex-1 border-gray-300 sm:flex-initial"
+              >
+                {downloadingPdf ? (
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                ) : (
+                  <FileDown className="h-4 w-4" />
+                )}
+                {downloadingPdf ? 'Generating...' : 'PDF'}
+              </Button>
+            </>
+          )}
         </div>
       </div>
 
-      <div className="rounded-xl border border-gray-200 bg-white p-2.5 shadow-sm sm:p-3">
-        <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
-          <div className="grid grid-cols-2 gap-1 rounded-lg border border-gray-200 bg-gray-50 p-1 sm:flex sm:overflow-x-auto">
-            {statusTabs.map((tab) => (
-              <button
-                key={tab.value}
-                type="button"
-                onClick={() => setStatusFilter(tab.value)}
-                className={`flex min-w-0 cursor-pointer items-center justify-center whitespace-nowrap rounded-md px-2 py-2 text-xs font-semibold transition-colors sm:px-3 ${
-                  statusFilter === tab.value
-                    ? 'bg-white text-slate-950 shadow-sm'
-                    : 'text-gray-500 hover:text-gray-900'
-                }`}
-              >
-                <span className="truncate">{tab.label}</span>
-                <span className="ml-1.5 rounded-full bg-gray-100 px-1.5 py-0.5 text-[10px] text-gray-500 sm:ml-2 sm:px-2">
-                  {tabCounts[tab.value]}
-                </span>
-              </button>
-            ))}
-          </div>
+      {orderStep === 'select' && (
+        <div className="rounded-xl border border-gray-200 bg-white p-2.5 shadow-sm sm:p-3">
+          <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
+            <div className="grid grid-cols-2 gap-1 rounded-lg border border-gray-200 bg-gray-50 p-1 sm:flex sm:overflow-x-auto">
+              {statusTabs.map((tab) => (
+                <button
+                  key={tab.value}
+                  type="button"
+                  onClick={() => setStatusFilter(tab.value)}
+                  className={`flex min-w-0 cursor-pointer items-center justify-center whitespace-nowrap rounded-md px-2 py-2 text-xs font-semibold transition-colors sm:px-3 ${
+                    statusFilter === tab.value
+                      ? 'bg-white text-slate-950 shadow-sm'
+                      : 'text-gray-500 hover:text-gray-900'
+                  }`}
+                >
+                  <span className="truncate">{tab.label}</span>
+                  <span className="ml-1.5 rounded-full bg-gray-100 px-1.5 py-0.5 text-[10px] text-gray-500 sm:ml-2 sm:px-2">
+                    {tabCounts[tab.value]}
+                  </span>
+                </button>
+              ))}
+            </div>
 
-          <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
-            <div className="relative w-full sm:w-72">
-              <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400" />
-              <Input
-                ref={searchInputRef}
-                value={searchQuery}
-                onChange={(event) => setSearchQuery(event.target.value)}
-                placeholder="Search item, brand, code..."
-                className="h-10 pl-10 pr-9"
-              />
-              <div className="absolute right-3 top-1/2 -translate-y-1/2 flex items-center">
-                {searchQuery ? (
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setSearchQuery('');
-                      searchInputRef.current?.focus();
-                    }}
-                    className="flex h-5 w-5 cursor-pointer items-center justify-center rounded-full text-gray-400 transition-colors hover:bg-gray-100 hover:text-gray-600"
-                    aria-label="Clear search"
-                  >
-                    <X className="h-3.5 w-3.5" />
-                  </button>
-                ) : (
-                  <kbd className="pointer-events-none hidden h-5 select-none items-center rounded border border-gray-200 bg-gray-50 px-1.5 font-mono text-[10px] font-medium text-gray-400 sm:inline-flex">
-                    /
-                  </kbd>
-                )}
+            <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
+              <div className="relative w-full sm:w-72">
+                <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400" />
+                <Input
+                  ref={searchInputRef}
+                  value={searchQuery}
+                  onChange={(event) => setSearchQuery(event.target.value)}
+                  placeholder="Search item, brand, code..."
+                  className="h-10 pl-10 pr-9"
+                />
+                <div className="absolute right-3 top-1/2 -translate-y-1/2 flex items-center">
+                  {searchQuery ? (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setSearchQuery('');
+                        searchInputRef.current?.focus();
+                      }}
+                      className="flex h-5 w-5 cursor-pointer items-center justify-center rounded-full text-gray-400 transition-colors hover:bg-gray-100 hover:text-gray-600"
+                      aria-label="Clear search"
+                    >
+                      <X className="h-3.5 w-3.5" />
+                    </button>
+                  ) : (
+                    <kbd className="pointer-events-none hidden h-5 select-none items-center rounded border border-gray-200 bg-gray-50 px-1.5 font-mono text-[10px] font-medium text-gray-400 sm:inline-flex">
+                      /
+                    </kbd>
+                  )}
+                </div>
+              </div>
+              <div className="flex h-10 items-center gap-2 rounded-md border border-gray-200 px-3 text-xs font-medium text-gray-500">
+                <Filter className="h-4 w-4" />
+                {isFetching ? 'Refreshing' : `${items.length} shown`}
               </div>
             </div>
-            <div className="flex h-10 items-center gap-2 rounded-md border border-gray-200 px-3 text-xs font-medium text-gray-500">
-              <Filter className="h-4 w-4" />
-              {isFetching ? 'Refreshing' : `${items.length} shown`}
-            </div>
           </div>
-        </div>
-      </div>
-
-      {isLoading ? (
-        <div className="grid gap-3 sm:grid-cols-2 sm:gap-4 lg:grid-cols-3 xl:grid-cols-4">
-          {Array.from({ length: 8 }).map((_, index) => (
-            <Skeleton key={index} className="h-80 rounded-lg" />
-          ))}
-        </div>
-      ) : items.length === 0 ? (
-        <div className="rounded-lg border-2 border-dashed border-gray-200 bg-white px-4 py-16 text-center">
-          <Package className="mx-auto h-12 w-12 text-gray-300" strokeWidth={1.2} />
-          <h2 className="mt-4 text-lg font-semibold text-gray-900">No inventory items found</h2>
-          <p className="mt-2 text-sm text-gray-500">Add your first stock item or clear the current filters.</p>
-          <Button onClick={openNewItem} className="mt-5 bg-slate-900 text-white hover:bg-slate-800">
-            <Plus className="h-4 w-4" />
-            Add Item
-          </Button>
-        </div>
-      ) : (
-        <div className="grid gap-3 sm:grid-cols-2 sm:gap-4 lg:grid-cols-3 xl:grid-cols-4">
-          {items.map((item) => (
-            <InventoryItemCard
-              key={item.id}
-              item={item}
-              threshold={stats.lowStockThreshold}
-              onEdit={openEditItem}
-              onDelete={(selectedItem) => {
-                setDeletingItem(selectedItem);
-                setDeleteDialogOpen(true);
-              }}
-              onAdjustQuantity={handleAdjustQuantity}
-              isAdjusting={adjustingItemIds.has(item.id)}
-            />
-          ))}
         </div>
       )}
 
-      {pagination && pagination.totalPages > 1 && (
-        <div className="grid grid-cols-[auto_minmax(0,1fr)_auto] items-center gap-2 overflow-hidden rounded-lg border border-gray-200 bg-white px-2 py-2 sm:px-3 sm:py-3">
-          <Button
-            variant="outline"
-            size="sm"
-            className="h-9 w-9 border-gray-300 p-0 sm:w-auto sm:px-3"
-            disabled={currentPage <= 1}
-            onClick={() => setCurrentPage((page) => Math.max(page - 1, 1))}
-            aria-label="Previous page"
-          >
-            <ChevronLeft className="h-4 w-4 sm:hidden" />
-            <span className="hidden sm:inline">Previous</span>
-          </Button>
-          <div className="min-w-0 overflow-x-auto hide-scrollbar">
-            <div className="mx-auto flex w-max items-center gap-1 px-1">
-              {Array.from({ length: Math.min(pagination.totalPages, 5) }, (_, index) => {
-                let page = index + 1;
-                if (pagination.totalPages > 5 && currentPage > 3) {
-                  page = Math.min(currentPage - 2 + index, pagination.totalPages - 4 + index);
-                }
-                return (
-                  <Button
-                    key={page}
-                    variant={currentPage === page ? 'default' : 'outline'}
-                    size="sm"
-                    className={`h-9 min-w-9 px-3 ${
-                      currentPage === page
-                        ? 'bg-slate-900 text-white hover:bg-slate-800'
-                        : 'border-gray-300'
-                    }`}
-                    onClick={() => setCurrentPage(page)}
-                    aria-current={currentPage === page ? 'page' : undefined}
-                  >
-                    {page}
-                  </Button>
-                );
-              })}
+      {isOrderMode && orderStep === 'review' ? (
+        <div className="overflow-hidden rounded-xl border border-gray-200 bg-white shadow-sm">
+          <div className="flex flex-col gap-3 border-b border-gray-200 px-4 py-4 sm:flex-row sm:items-center sm:justify-between">
+            <div className="min-w-0">
+              <h2 className="text-lg font-semibold text-gray-950">Review & Quantities</h2>
+              <p className="text-sm text-gray-500">{selectedOrderItemsList.length} items selected</p>
+            </div>
+            <Button
+              type="button"
+              variant="outline"
+              className="border-gray-300"
+              onClick={() => setOrderStep('select')}
+            >
+              <ArrowLeft className="h-4 w-4" />
+              Back
+            </Button>
+          </div>
+
+          {selectedOrderItemsList.length === 0 ? (
+            <div className="px-4 py-14 text-center">
+              <Package className="mx-auto h-10 w-10 text-gray-300" strokeWidth={1.2} />
+              <h3 className="mt-3 text-base font-semibold text-gray-900">No selected items</h3>
+              <Button
+                type="button"
+                variant="outline"
+                className="mt-4 border-gray-300"
+                onClick={() => setOrderStep('select')}
+              >
+                <ArrowLeft className="h-4 w-4" />
+                Back
+              </Button>
+            </div>
+          ) : (
+            <>
+              <div className="overflow-x-auto">
+                <table className="w-full min-w-[760px] border-collapse text-left text-sm">
+                  <thead className="border-b border-gray-200 bg-white text-xs font-semibold uppercase text-gray-500">
+                    <tr>
+                      <th className="w-12 px-4 py-3">#</th>
+                      <th className="px-4 py-3">Item Name</th>
+                      <th className="w-40 px-4 py-3">SKU</th>
+                      <th className="w-40 px-4 py-3">Brand</th>
+                      <th className="w-44 px-4 py-3">Qty to Order</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-gray-100">
+                    {selectedOrderItemsList.map((item, index) => (
+                      <tr key={item.id} className="bg-white">
+                        <td className="px-4 py-3 text-sm font-medium text-gray-500">{index + 1}</td>
+                        <td className="px-4 py-3">
+                          <div className="max-w-md truncate font-medium text-gray-950" title={item.itemName}>
+                            {item.itemName}
+                          </div>
+                        </td>
+                        <td className="px-4 py-3 text-gray-700">{item.itemNumber || item.uniqueCode || '-'}</td>
+                        <td className="px-4 py-3 text-gray-700">{item.brand || '-'}</td>
+                        <td className="px-4 py-3">
+                          <Input
+                            type="number"
+                            inputMode="decimal"
+                            min="0"
+                            step="1"
+                            value={orderQuantities[item.id] || ''}
+                            onChange={(event) => updateOrderQuantity(item.id, event.target.value)}
+                            className="h-9 w-32"
+                            aria-label={`Quantity to order for ${item.itemName}`}
+                          />
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+              <div className="flex flex-col gap-2 border-t border-gray-200 px-4 py-4 sm:flex-row sm:items-center sm:justify-end">
+                <Button
+                  type="button"
+                  onClick={handleDownloadOrderPdf}
+                  disabled={downloadingOrderPdf}
+                  className="bg-slate-900 text-white hover:bg-slate-800"
+                >
+                  {downloadingOrderPdf ? (
+                    <Loader2 className="h-4 w-4 animate-spin" />
+                  ) : (
+                    <FileDown className="h-4 w-4" />
+                  )}
+                  {downloadingOrderPdf ? 'Generating...' : 'Download PDF'}
+                </Button>
+              </div>
+            </>
+          )}
+        </div>
+      ) : (
+        <>
+          {isLoading ? (
+            <div className="grid gap-3 sm:grid-cols-2 sm:gap-4 lg:grid-cols-3 xl:grid-cols-4">
+              {Array.from({ length: 8 }).map((_, index) => (
+                <Skeleton key={index} className="h-80 rounded-lg" />
+              ))}
+            </div>
+          ) : items.length === 0 ? (
+            <div className="rounded-lg border-2 border-dashed border-gray-200 bg-white px-4 py-16 text-center">
+              <Package className="mx-auto h-12 w-12 text-gray-300" strokeWidth={1.2} />
+              <h2 className="mt-4 text-lg font-semibold text-gray-900">No inventory items found</h2>
+              <p className="mt-2 text-sm text-gray-500">Add your first stock item or clear the current filters.</p>
+              {!isOrderMode && (
+                <Button onClick={openNewItem} className="mt-5 bg-slate-900 text-white hover:bg-slate-800">
+                  <Plus className="h-4 w-4" />
+                  Add Item
+                </Button>
+              )}
+            </div>
+          ) : (
+            <div className="grid gap-3 sm:grid-cols-2 sm:gap-4 lg:grid-cols-3 xl:grid-cols-4">
+              {items.map((item) => (
+                <InventoryItemCard
+                  key={item.id}
+                  item={item}
+                  threshold={stats.lowStockThreshold}
+                  onEdit={openEditItem}
+                  onDelete={(selectedItem) => {
+                    setDeletingItem(selectedItem);
+                    setDeleteDialogOpen(true);
+                  }}
+                  onAdjustQuantity={handleAdjustQuantity}
+                  isAdjusting={adjustingItemIds.has(item.id)}
+                  isOrderMode={isOrderMode}
+                  isSelected={selectedOrderIds.has(item.id)}
+                  onToggleOrderSelection={toggleOrderSelection}
+                />
+              ))}
+            </div>
+          )}
+
+          {pagination && pagination.totalPages > 1 && (
+            <div className="grid grid-cols-[auto_minmax(0,1fr)_auto] items-center gap-2 overflow-hidden rounded-lg border border-gray-200 bg-white px-2 py-2 sm:px-3 sm:py-3">
+              <Button
+                variant="outline"
+                size="sm"
+                className="h-9 w-9 border-gray-300 p-0 sm:w-auto sm:px-3"
+                disabled={currentPage <= 1}
+                onClick={() => setCurrentPage((page) => Math.max(page - 1, 1))}
+                aria-label="Previous page"
+              >
+                <ChevronLeft className="h-4 w-4 sm:hidden" />
+                <span className="hidden sm:inline">Previous</span>
+              </Button>
+              <div className="min-w-0 overflow-x-auto hide-scrollbar">
+                <div className="mx-auto flex w-max items-center gap-1 px-1">
+                  {Array.from({ length: Math.min(pagination.totalPages, 5) }, (_, index) => {
+                    let page = index + 1;
+                    if (pagination.totalPages > 5 && currentPage > 3) {
+                      page = Math.min(currentPage - 2 + index, pagination.totalPages - 4 + index);
+                    }
+                    return (
+                      <Button
+                        key={page}
+                        variant={currentPage === page ? 'default' : 'outline'}
+                        size="sm"
+                        className={`h-9 min-w-9 px-3 ${
+                          currentPage === page
+                            ? 'bg-slate-900 text-white hover:bg-slate-800'
+                            : 'border-gray-300'
+                        }`}
+                        onClick={() => setCurrentPage(page)}
+                        aria-current={currentPage === page ? 'page' : undefined}
+                      >
+                        {page}
+                      </Button>
+                    );
+                  })}
+                </div>
+              </div>
+              <Button
+                variant="outline"
+                size="sm"
+                className="h-9 w-9 border-gray-300 p-0 sm:w-auto sm:px-3"
+                disabled={currentPage >= pagination.totalPages}
+                onClick={() => setCurrentPage((page) => Math.min(page + 1, pagination.totalPages))}
+                aria-label="Next page"
+              >
+                <span className="hidden sm:inline">Next</span>
+                <ChevronRight className="h-4 w-4 sm:hidden" />
+              </Button>
+            </div>
+          )}
+        </>
+      )}
+
+      {isOrderMode && orderStep === 'select' && (
+        <div className="fixed inset-x-0 bottom-0 z-40 border-t border-gray-200 bg-white/95 shadow-[0_-8px_24px_rgba(15,23,42,0.08)] backdrop-blur">
+          <div className="mx-auto flex max-w-7xl flex-col gap-3 px-3 py-3 sm:flex-row sm:items-center sm:justify-between sm:px-4 lg:px-8">
+            <div className="flex min-w-0 items-center gap-2 text-sm font-semibold text-gray-900">
+              <CheckSquare className="h-4 w-4 text-slate-700" />
+              <span>{selectedOrderCount} item{selectedOrderCount === 1 ? '' : 's'} selected</span>
+            </div>
+            <div className="grid grid-cols-2 gap-2 sm:flex sm:items-center">
+              <Button
+                type="button"
+                variant="outline"
+                className="h-10 border-gray-300"
+                onClick={resetOrderFlow}
+              >
+                <X className="h-4 w-4" />
+                Cancel
+              </Button>
+              <Button
+                type="button"
+                className="h-10 bg-slate-900 text-white hover:bg-slate-800"
+                disabled={selectedOrderCount === 0}
+                onClick={continueToOrderReview}
+              >
+                Continue
+              </Button>
             </div>
           </div>
-          <Button
-            variant="outline"
-            size="sm"
-            className="h-9 w-9 border-gray-300 p-0 sm:w-auto sm:px-3"
-            disabled={currentPage >= pagination.totalPages}
-            onClick={() => setCurrentPage((page) => Math.min(page + 1, pagination.totalPages))}
-            aria-label="Next page"
-          >
-            <span className="hidden sm:inline">Next</span>
-            <ChevronRight className="h-4 w-4 sm:hidden" />
-          </Button>
         </div>
       )}
 

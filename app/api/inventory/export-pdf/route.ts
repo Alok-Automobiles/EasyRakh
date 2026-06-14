@@ -5,6 +5,7 @@ import { format } from 'date-fns';
 import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
 import { ObjectId } from 'mongodb';
+import { z } from 'zod';
 import type { InventoryItem } from '@/lib/types';
 
 const LOW_STOCK_THRESHOLD = 5;
@@ -17,6 +18,19 @@ const STATUS_LABELS: Record<string, string> = {
   'out-of-stock': 'Out of Stock Items',
   inactive: 'Inactive Items',
 };
+
+const supplierOrderSchema = z.object({
+  mode: z.literal('order'),
+  items: z
+    .array(
+      z.object({
+        id: z.string().min(1),
+        quantity: z.coerce.number().positive(),
+      })
+    )
+    .min(1, 'Select at least one inventory item')
+    .max(300, 'Supplier orders can include up to 300 items'),
+});
 
 function zeroStockDateCondition(operator: '$gt' | '$lte', cutoff: Date) {
   const dateCondition = { [operator]: cutoff };
@@ -34,6 +48,29 @@ function zeroStockDateCondition(operator: '$gt' | '$lte', cutoff: Date) {
 
 function escapeRegex(value: string) {
   return value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+}
+
+async function getFirmDetails(db: Awaited<ReturnType<typeof getDb>>, userId: string) {
+  const usersCollection = db.collection('users');
+  const user = await usersCollection.findOne(
+    { _id: new ObjectId(userId) },
+    { projection: { firmTitle: 1, gstNumber: 1, firmPhone: 1, firmEmail: 1, firmAddress: 1 } }
+  );
+
+  const firmTitle = user?.firmTitle?.trim() || '';
+  const gstNumber = user?.gstNumber?.trim() || '';
+  const firmPhone = user?.firmPhone?.trim() || '';
+  const firmEmail = user?.firmEmail?.trim() || '';
+  const firmAddress = user?.firmAddress?.trim() || '';
+
+  return {
+    firmTitle,
+    gstNumber,
+    firmPhone,
+    firmEmail,
+    firmAddress,
+    hasFirmDetails: Boolean(firmTitle || gstNumber || firmPhone || firmEmail || firmAddress),
+  };
 }
 
 export async function GET(request: NextRequest) {
@@ -70,19 +107,14 @@ export async function GET(request: NextRequest) {
       .sort({ itemName: 1 })
       .toArray();
 
-    // Fetch user firm details
-    const usersCollection = db.collection('users');
-    const user = await usersCollection.findOne(
-      { _id: new ObjectId(userId) },
-      { projection: { firmTitle: 1, gstNumber: 1, firmPhone: 1, firmEmail: 1, firmAddress: 1 } }
-    );
-
-    const firmTitle = user?.firmTitle?.trim() || '';
-    const gstNumber = user?.gstNumber?.trim() || '';
-    const firmPhone = user?.firmPhone?.trim() || '';
-    const firmEmail = user?.firmEmail?.trim() || '';
-    const firmAddress = user?.firmAddress?.trim() || '';
-    const hasFirmDetails = firmTitle || gstNumber || firmPhone || firmEmail || firmAddress;
+    const {
+      firmTitle,
+      gstNumber,
+      firmPhone,
+      firmEmail,
+      firmAddress,
+      hasFirmDetails,
+    } = await getFirmDetails(db, userId);
 
     // Generate PDF
     const doc = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4' });
@@ -252,6 +284,190 @@ export async function GET(request: NextRequest) {
     console.error('Error generating inventory PDF:', error);
     return NextResponse.json(
       { error: 'Failed to generate PDF report' },
+      { status: 500 }
+    );
+  }
+}
+
+export async function POST(request: NextRequest) {
+  try {
+    const userId = getUserIdFromRequest(request);
+
+    if (!userId) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    }
+
+    let body: unknown;
+    try {
+      body = await request.json();
+    } catch {
+      return NextResponse.json({ error: 'Invalid JSON request body' }, { status: 400 });
+    }
+
+    const payload = supplierOrderSchema.parse(body);
+    const requestedIds = payload.items.map((item) => item.id);
+
+    if (new Set(requestedIds).size !== requestedIds.length) {
+      return NextResponse.json(
+        { error: 'Duplicate inventory items are not allowed in one supplier order' },
+        { status: 400 }
+      );
+    }
+
+    if (requestedIds.some((id) => !ObjectId.isValid(id))) {
+      return NextResponse.json({ error: 'Invalid inventory item selected' }, { status: 400 });
+    }
+
+    const db = await getDb();
+    const inventoryCollection = db.collection<InventoryItem>('inventory');
+    const objectIds = requestedIds.map((id) => new ObjectId(id));
+    const quantityById = new Map(payload.items.map((item) => [item.id, item.quantity]));
+
+    const inventoryItems = await inventoryCollection
+      .find({ userId, _id: { $in: objectIds } } as Record<string, unknown>)
+      .toArray();
+
+    const inventoryById = new Map(
+      inventoryItems.map((item) => [
+        ((item as InventoryItem & { _id: ObjectId })._id).toString(),
+        item,
+      ])
+    );
+
+    const orderItems = requestedIds.map((id) => {
+      const item = inventoryById.get(id);
+      if (!item) return null;
+      return {
+        itemName: item.itemName || '-',
+        itemNumber: item.itemNumber || item.uniqueCode || '-',
+        brand: item.brand || '-',
+        quantity: quantityById.get(id) || 0,
+      };
+    });
+
+    if (orderItems.some((item) => item === null)) {
+      return NextResponse.json(
+        { error: 'Some selected items are no longer available' },
+        { status: 400 }
+      );
+    }
+
+    const {
+      firmTitle,
+      gstNumber,
+      firmPhone,
+      firmEmail,
+      firmAddress,
+    } = await getFirmDetails(db, userId);
+
+    const generatedAt = new Date();
+    const doc = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4' });
+    const pageWidth = doc.internal.pageSize.getWidth();
+    const pageHeight = doc.internal.pageSize.getHeight();
+    const margin = 14;
+    const black: [number, number, number] = [0, 0, 0];
+    const muted: [number, number, number] = [70, 70, 70];
+
+    doc.setTextColor(...black);
+    doc.setFont('helvetica', 'bold');
+    doc.setFontSize(16);
+    doc.text(firmTitle || 'Supplier Order', margin, 16);
+
+    doc.setFont('helvetica', 'normal');
+    doc.setFontSize(8.5);
+    doc.setTextColor(...muted);
+    const detailLines = [
+      [gstNumber ? `GST: ${gstNumber}` : '', firmPhone ? `Phone: ${firmPhone}` : '', firmEmail ? `Email: ${firmEmail}` : '']
+        .filter(Boolean)
+        .join('  |  '),
+      firmAddress,
+    ].filter(Boolean);
+
+    detailLines.forEach((line, index) => {
+      doc.text(line, margin, 24 + index * 5);
+    });
+
+    doc.setTextColor(...black);
+    doc.setFont('helvetica', 'bold');
+    doc.setFontSize(15);
+    doc.text('Supplier Order List', pageWidth - margin, 16, { align: 'right' });
+    doc.setFont('helvetica', 'normal');
+    doc.setFontSize(9);
+    doc.text(format(generatedAt, 'dd MMM yyyy'), pageWidth - margin, 23, { align: 'right' });
+
+    doc.setDrawColor(...black);
+    doc.setLineWidth(0.2);
+    doc.line(margin, 34, pageWidth - margin, 34);
+
+    const tableData = (orderItems as NonNullable<(typeof orderItems)[number]>[]).map((item, idx) => [
+      (idx + 1).toString(),
+      item.itemName,
+      item.itemNumber,
+      item.brand,
+      item.quantity.toString(),
+    ]);
+
+    autoTable(doc, {
+      startY: 40,
+      head: [['#', 'Item Name', 'SKU', 'Brand', 'Qty to Order']],
+      body: tableData,
+      theme: 'grid',
+      margin: { left: margin, right: margin },
+      styles: {
+        fontSize: 8.5,
+        cellPadding: 2.4,
+        lineColor: black,
+        lineWidth: 0.1,
+        textColor: black,
+        fillColor: [255, 255, 255],
+      },
+      headStyles: {
+        fillColor: [255, 255, 255],
+        textColor: black,
+        fontStyle: 'bold',
+        lineColor: black,
+        lineWidth: 0.15,
+      },
+      alternateRowStyles: {
+        fillColor: [255, 255, 255],
+      },
+      columnStyles: {
+        0: { cellWidth: 10, halign: 'center' },
+        1: { cellWidth: 'auto' },
+        2: { cellWidth: 34 },
+        3: { cellWidth: 34 },
+        4: { cellWidth: 24, halign: 'center' },
+      },
+    });
+
+    const totalPages = doc.getNumberOfPages();
+    for (let p = 1; p <= totalPages; p++) {
+      doc.setPage(p);
+      doc.setFontSize(7);
+      doc.setTextColor(...muted);
+      doc.setFont('helvetica', 'normal');
+      doc.text('EasyRakh  |  Supplier Order', margin, pageHeight - 6);
+      doc.text(`Page ${p} of ${totalPages}`, pageWidth - margin, pageHeight - 6, { align: 'right' });
+    }
+
+    const pdfBuffer = doc.output('arraybuffer');
+    const fileName = `supplier-order-${format(generatedAt, 'yyyy-MM-dd')}.pdf`;
+
+    return new NextResponse(pdfBuffer, {
+      status: 200,
+      headers: {
+        'Content-Type': 'application/pdf',
+        'Content-Disposition': `attachment; filename="${fileName}"`,
+      },
+    });
+  } catch (error) {
+    if (error instanceof z.ZodError) {
+      return NextResponse.json({ error: error.issues[0]?.message || 'Invalid order payload' }, { status: 400 });
+    }
+
+    console.error('Error generating supplier order PDF:', error);
+    return NextResponse.json(
+      { error: 'Failed to generate supplier order PDF' },
       { status: 500 }
     );
   }
