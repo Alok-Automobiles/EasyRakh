@@ -10,6 +10,7 @@ import toast from 'react-hot-toast';
 import { motion } from 'motion/react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { RecentActivity } from '@/lib/types';
+import { ACTION_SHORTCUTS } from '@/lib/keyboard-shortcuts';
 import { Button } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
 import {
@@ -59,6 +60,7 @@ import {
 import { compressImage, isCompressibleImage, formatFileSize } from '@/lib/imageCompression';
 import GlobalSearch from '@/components/GlobalSearch';
 import { Calendar } from '@/components/ui/calendar';
+import { focusNextFormFieldAfterSelect, handleEnterToNextFormField } from '@/lib/form-keyboard-navigation';
 
 const MAX_BILL_SIZE_BYTES = 5 * 1024 * 1024;
 const ACCEPTED_BILL_TYPES = [
@@ -388,6 +390,7 @@ export default function DashboardClient() {
   const [billUploadedPublicId, setBillUploadedPublicId] = useState('');
   const [billUploading, setBillUploading] = useState(false);
   const billFileInputRef = useRef<HTMLInputElement>(null);
+  const todayEntryTypeTriggerRef = useRef<HTMLButtonElement>(null);
 
   const resetBillState = () => {
     setBillPreviewUrl('');
@@ -785,6 +788,9 @@ export default function DashboardClient() {
                         <Button
                           size="sm"
                           className="h-9 w-full bg-slate-900 text-white hover:bg-slate-800 sm:h-9"
+                          data-shortcut-action="new"
+                          data-app-shortcut={ACTION_SHORTCUTS.primary.display}
+                          aria-keyshortcuts={ACTION_SHORTCUTS.primary.aria}
                         >
                           <Plus className="w-4 h-4 mr-1" />
                           Add Transaction
@@ -803,14 +809,17 @@ export default function DashboardClient() {
                     <DialogHeader>
                       <DialogTitle>Add today&apos;s cash transaction</DialogTitle>
                     </DialogHeader>
-                    <div className="space-y-4">
+                    <div className="space-y-4" onKeyDown={handleEnterToNextFormField}>
                       <div className="grid gap-2">
                         <Label>Transaction type *</Label>
                         <Select
                           value={entryType}
-                          onValueChange={(value: 'in' | 'out') => setEntryType(value)}
+                          onValueChange={(value: 'in' | 'out') => {
+                            setEntryType(value);
+                            focusNextFormFieldAfterSelect(todayEntryTypeTriggerRef.current);
+                          }}
                         >
-                          <SelectTrigger className="w-full">
+                          <SelectTrigger ref={todayEntryTypeTriggerRef} className="w-full">
                             <SelectValue placeholder="Select type" />
                           </SelectTrigger>
                           <SelectContent>
@@ -898,6 +907,7 @@ export default function DashboardClient() {
                         className="w-full bg-slate-900 hover:bg-slate-800 text-white"
                         onClick={handleAddTodayTransaction}
                         disabled={addTransactionMutation.isPending || billUploading}
+                        data-form-advance
                       >
                         {addTransactionMutation.isPending ? 'Adding...' : 'Add Transaction'}
                       </Button>

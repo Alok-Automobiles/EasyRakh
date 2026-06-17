@@ -11,6 +11,7 @@ import toast from 'react-hot-toast';
 import { format } from 'date-fns';
 import { Customer, Supplier, CustomEntity, CollectionType } from '@/lib/types';
 import { compressImage, isCompressibleImage, formatFileSize } from '@/lib/imageCompression';
+import { ACTION_SHORTCUTS } from '@/lib/keyboard-shortcuts';
 import {
   Dialog,
   DialogContent,
@@ -18,6 +19,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog';
+import { focusNextFormFieldAfterSelect, handleEnterToNextFormField } from '@/lib/form-keyboard-navigation';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
@@ -118,6 +120,7 @@ function NewTransactionPageContent() {
   const [creatingEntity, setCreatingEntity] = useState(false);
   const hasFetchedRef = useRef(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const entitySelectTriggerRef = useRef<HTMLButtonElement>(null);
   const [billUploadResult, setBillUploadResult] = useState<{
     url: string;
     publicId: string;
@@ -705,7 +708,7 @@ function NewTransactionPageContent() {
           </div>
         </div>
 
-        <form onSubmit={handleSubmit(onSubmit)} className="space-y-6">
+        <form onSubmit={handleSubmit(onSubmit)} onKeyDown={handleEnterToNextFormField} className="space-y-6">
           {/* Counterparty */}
           <div className="bg-white rounded-xl border border-gray-200 shadow-sm p-5">
             <div className="flex items-center justify-between mb-4">
@@ -720,6 +723,9 @@ function NewTransactionPageContent() {
                 onClick={() => setShowCreateModal(true)}
                 variant="outline"
                 size="sm"
+                data-shortcut-action="new"
+                data-app-shortcut={ACTION_SHORTCUTS.primary.display}
+                aria-keyshortcuts={ACTION_SHORTCUTS.primary.aria}
               >
                 <Plus className="w-4 h-4 mr-1" />
                 Create new
@@ -731,9 +737,12 @@ function NewTransactionPageContent() {
             </Label>
             <Select
               value={currentEntityId || ''}
-              onValueChange={(value) => setValue('entityId', value, { shouldValidate: true })}
+              onValueChange={(value) => {
+                setValue('entityId', value, { shouldValidate: true });
+                focusNextFormFieldAfterSelect(entitySelectTriggerRef.current);
+              }}
             >
-              <SelectTrigger id="entity-select" className="w-full mt-1">
+              <SelectTrigger ref={entitySelectTriggerRef} id="entity-select" className="w-full mt-1">
                 <SelectValue placeholder={
                   entities.length === 0
                     ? `No ${entityName.toLowerCase()}s yet — create one`
@@ -1022,7 +1031,7 @@ function NewTransactionPageContent() {
               </DialogDescription>
             </DialogHeader>
             {entityType === 'customer' ? (
-              <form onSubmit={handleSubmitCustomer(handleCreateCustomer)} className="space-y-4">
+              <form onSubmit={handleSubmitCustomer(handleCreateCustomer)} onKeyDown={handleEnterToNextFormField} className="space-y-4">
                 <div>
                   <Label htmlFor="customer-name">Name *</Label>
                   <Input
@@ -1116,7 +1125,7 @@ function NewTransactionPageContent() {
                 </div>
               </form>
             ) : entityType === 'supplier' ? (
-              <form onSubmit={handleSubmitSupplier(handleCreateSupplier)} className="space-y-4">
+              <form onSubmit={handleSubmitSupplier(handleCreateSupplier)} onKeyDown={handleEnterToNextFormField} className="space-y-4">
                 <div>
                   <Label htmlFor="supplier-name">Name *</Label>
                   <Input
@@ -1210,7 +1219,7 @@ function NewTransactionPageContent() {
                 </div>
               </form>
             ) : (
-              <form onSubmit={handleSubmitCustomEntity(handleCreateCustomEntity)} className="space-y-4">
+              <form onSubmit={handleSubmitCustomEntity(handleCreateCustomEntity)} onKeyDown={handleEnterToNextFormField} className="space-y-4">
                 <input type="hidden" {...registerCustomEntity('collectionType')} value={entityType || ''} />
                 <div>
                   <Label htmlFor="entity-name">Name *</Label>

@@ -82,6 +82,7 @@ import {
 } from '@/components/ui/select';
 import type { InventoryStats } from '@/lib/types';
 import { compressImage, formatFileSize, isCompressibleImage } from '@/lib/imageCompression';
+import { ACTION_SHORTCUTS, getAltShiftShortcutKey } from '@/lib/keyboard-shortcuts';
 
 const MAX_FILE_SIZE_BYTES = 5 * 1024 * 1024;
 const COMPRESSION_TARGET_BYTES = 1 * 1024 * 1024;
@@ -996,27 +997,6 @@ export default function InventoryItemsPage() {
   }, [cancelAllPendingUploads, form]);
 
   useEffect(() => {
-    const onWindowKeyDown = (event: KeyboardEvent) => {
-      if (event.repeat) return;
-      if (typeof event.key !== 'string' || !event.key) return;
-      const key = event.key.toLowerCase();
-      if (key !== 'n') return;
-      const ctrlOrCmdN =
-        (event.ctrlKey || event.metaKey) && !event.altKey && !event.shiftKey;
-      const altN = event.altKey && !event.ctrlKey && !event.metaKey && !event.shiftKey;
-      if (!ctrlOrCmdN && !altN) return;
-
-      const target = event.target as HTMLElement;
-      if (target.closest('input, textarea, select, [contenteditable="true"]')) return;
-      if (formOpen || deleteDialogOpen || isOrderMode) return;
-      event.preventDefault();
-      openNewItem();
-    };
-    window.addEventListener('keydown', onWindowKeyDown, true);
-    return () => window.removeEventListener('keydown', onWindowKeyDown, true);
-  }, [deleteDialogOpen, formOpen, isOrderMode, openNewItem]);
-
-  useEffect(() => {
     const handleSearchShortcut = (event: KeyboardEvent) => {
       const key = typeof event.key === 'string' ? event.key.toLowerCase() : '';
       if (!key) return;
@@ -1026,12 +1006,7 @@ export default function InventoryItemsPage() {
         return;
       }
 
-      const isMac = typeof window !== 'undefined' && /Mac|iPod|iPhone|iPad/.test(navigator.platform);
-      const isCmdOrCtrlK = isMac
-        ? event.metaKey && key === 'k'
-        : event.ctrlKey && key === 'k';
-
-      if (key === '/' || isCmdOrCtrlK) {
+      if (key === '/' || getAltShiftShortcutKey(event) === ACTION_SHORTCUTS.focusField.key) {
         event.preventDefault();
         searchInputRef.current?.focus();
         searchInputRef.current?.select();
@@ -1457,7 +1432,13 @@ export default function InventoryItemsPage() {
             </Button>
           ) : (
             <>
-              <Button onClick={openNewItem} className="h-10 flex-1 bg-slate-900 text-white hover:bg-slate-800 sm:flex-initial">
+              <Button
+                onClick={openNewItem}
+                className="h-10 flex-1 bg-slate-900 text-white hover:bg-slate-800 sm:flex-initial"
+                data-shortcut-action="new"
+                data-app-shortcut={ACTION_SHORTCUTS.primary.display}
+                aria-keyshortcuts={ACTION_SHORTCUTS.primary.aria}
+              >
                 <Plus className="h-4 w-4" />
                 Add Item
               </Button>
@@ -1655,7 +1636,13 @@ export default function InventoryItemsPage() {
               <h2 className="mt-4 text-lg font-semibold text-gray-900">No inventory items found</h2>
               <p className="mt-2 text-sm text-gray-500">Add your first stock item or clear the current filters.</p>
               {!isOrderMode && (
-                <Button onClick={openNewItem} className="mt-5 bg-slate-900 text-white hover:bg-slate-800">
+                <Button
+                  onClick={openNewItem}
+                  className="mt-5 bg-slate-900 text-white hover:bg-slate-800"
+                  data-shortcut-action="new"
+                  data-app-shortcut={ACTION_SHORTCUTS.primary.display}
+                  aria-keyshortcuts={ACTION_SHORTCUTS.primary.aria}
+                >
                   <Plus className="h-4 w-4" />
                   Add Item
                 </Button>

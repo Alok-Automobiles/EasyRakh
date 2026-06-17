@@ -26,6 +26,8 @@ import { ASSISTANT_DATA_UPDATED_EVENT } from '@/lib/assistant-events';
 import Image from 'next/image';
 import { compressImage, isCompressibleImage, formatFileSize } from '@/lib/imageCompression';
 import { motion } from 'motion/react'
+import { ACTION_SHORTCUTS } from '@/lib/keyboard-shortcuts';
+import { focusNextFormFieldAfterSelect, handleEnterToNextFormField } from '@/lib/form-keyboard-navigation';
 
 const MAX_BILL_SIZE_BYTES = 5 * 1024 * 1024; // 5MB
 const ACCEPTED_BILL_TYPES = [
@@ -108,6 +110,9 @@ export default function DailyCashRecordPage() {
   const [billUploadedPublicId, setBillUploadedPublicId] = useState<string>('');
   const [billUploading, setBillUploading] = useState(false);
   const billFileInputRef = useRef<HTMLInputElement>(null);
+  const createEntryTypeTriggerRef = useRef<HTMLButtonElement>(null);
+  const addTransactionTypeTriggerRef = useRef<HTMLButtonElement>(null);
+  const editEntryTypeTriggerRef = useRef<HTMLButtonElement>(null);
 
   // Bill view modal state
   const [billViewOpen, setBillViewOpen] = useState(false);
@@ -593,6 +598,9 @@ export default function DailyCashRecordPage() {
                 onClick={handleCreateRecordForToday}
                 variant="default"
                 className="h-10 w-full rounded-lg bg-slate-900 text-white hover:bg-slate-800 sm:h-9 sm:w-auto sm:shrink-0 text-xs sm:text-sm px-2 sm:px-4"
+                data-shortcut-action="new"
+                data-app-shortcut={ACTION_SHORTCUTS.primary.display}
+                aria-keyshortcuts={ACTION_SHORTCUTS.primary.aria}
               >
                 <Plus className="h-3.5 w-3.5 sm:h-4 sm:w-4 sm:mr-2 shrink-0" />
                 <span className="truncate">New for today</span>
@@ -602,7 +610,7 @@ export default function DailyCashRecordPage() {
               <DialogHeader>
                 <DialogTitle>Create New Record</DialogTitle>
               </DialogHeader>
-              <div className="space-y-4 py-4">
+              <div className="space-y-4 py-4" onKeyDown={handleEnterToNextFormField}>
                 <div>
                   <Label htmlFor="record-date">Date *</Label>
                   <div className="mt-2 relative">
@@ -634,8 +642,14 @@ export default function DailyCashRecordPage() {
                 </div>
                 <div>
                   <Label htmlFor="entry-type">Type *</Label>
-                  <Select value={entryType} onValueChange={(value: 'in' | 'out') => setEntryType(value)}>
-                    <SelectTrigger id="entry-type" className="w-full mt-2">
+                  <Select
+                    value={entryType}
+                    onValueChange={(value: 'in' | 'out') => {
+                      setEntryType(value);
+                      focusNextFormFieldAfterSelect(createEntryTypeTriggerRef.current);
+                    }}
+                  >
+                    <SelectTrigger ref={createEntryTypeTriggerRef} id="entry-type" className="w-full mt-2">
                       <SelectValue />
                     </SelectTrigger>
                     <SelectContent>
@@ -711,6 +725,7 @@ export default function DailyCashRecordPage() {
                   onClick={handleCreateRecord}
                   className="w-full bg-blue-600 hover:bg-blue-700 text-white"
                   disabled={billUploading}
+                  data-form-advance
                 >
                   Create Record
                 </Button>
@@ -773,7 +788,7 @@ export default function DailyCashRecordPage() {
               <DialogHeader>
                 <DialogTitle>Download Cash Report</DialogTitle>
               </DialogHeader>
-              <div className="space-y-4 py-4">
+              <div className="space-y-4 py-4" onKeyDown={handleEnterToNextFormField}>
                 <p className="text-sm text-slate-500">
                   Select a date range to download all transactions as a PDF.
                 </p>
@@ -807,6 +822,7 @@ export default function DailyCashRecordPage() {
                   onClick={handleDownloadPdf}
                   disabled={!pdfFrom || !pdfTo || pdfDownloading}
                   className="w-full bg-slate-900 hover:bg-slate-800 text-white"
+                  data-form-advance
                 >
                   <Download className="h-4 w-4 mr-2" />
                   {pdfDownloading ? 'Generating...' : 'Download PDF'}
@@ -958,6 +974,9 @@ export default function DailyCashRecordPage() {
                       }}
                       size="sm"
                       className="w-full gap-1.5 bg-[#fde047] hover:bg-[#facc15] text-black border-2 border-black shadow-[2px_2px_0px_rgba(0,0,0,1)] hover:translate-x-[-1px] hover:translate-y-[-1px] hover:shadow-[3px_3px_0px_rgba(0,0,0,1)] active:translate-x-[1px] active:translate-y-[1px] active:shadow-[1px_1px_0px_rgba(0,0,0,1)] transition-all font-mono font-black uppercase sm:ml-auto sm:w-auto"
+                      data-shortcut-action="new"
+                      data-app-shortcut={ACTION_SHORTCUTS.primary.display}
+                      aria-keyshortcuts={ACTION_SHORTCUTS.primary.aria}
                     >
                       <Plus className="h-4 w-4 stroke-[3px]" />
                       Add
@@ -1144,7 +1163,7 @@ export default function DailyCashRecordPage() {
             <DialogHeader>
               <DialogTitle>Add Transaction</DialogTitle>
             </DialogHeader>
-            <div className="space-y-4 py-4">
+            <div className="space-y-4 py-4" onKeyDown={handleEnterToNextFormField}>
               <div>
                 <Label htmlFor="add-transaction-date">Date *</Label>
                 <div className="mt-2 relative">
@@ -1176,8 +1195,14 @@ export default function DailyCashRecordPage() {
               </div>
               <div>
                 <Label htmlFor="add-transaction-type">Type *</Label>
-                <Select value={entryType} onValueChange={(value: 'in' | 'out') => setEntryType(value)}>
-                  <SelectTrigger id="add-transaction-type" className="w-full mt-2">
+                <Select
+                  value={entryType}
+                  onValueChange={(value: 'in' | 'out') => {
+                    setEntryType(value);
+                    focusNextFormFieldAfterSelect(addTransactionTypeTriggerRef.current);
+                  }}
+                >
+                  <SelectTrigger ref={addTransactionTypeTriggerRef} id="add-transaction-type" className="w-full mt-2">
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
@@ -1253,6 +1278,7 @@ export default function DailyCashRecordPage() {
                 onClick={handleAddTransaction}
                 className="w-full bg-blue-600 hover:bg-blue-700 text-white"
                 disabled={billUploading}
+                data-form-advance
               >
                 Add Transaction
               </Button>
@@ -1269,7 +1295,7 @@ export default function DailyCashRecordPage() {
             <DialogHeader>
               <DialogTitle>Edit Entry</DialogTitle>
             </DialogHeader>
-            <div className="space-y-4 py-4">
+            <div className="space-y-4 py-4" onKeyDown={handleEnterToNextFormField}>
               <div>
                 <Label htmlFor="edit-date">Date *</Label>
                 <div className="mt-2 relative">
@@ -1301,8 +1327,14 @@ export default function DailyCashRecordPage() {
               </div>
               <div>
                 <Label htmlFor="edit-type">Type *</Label>
-                <Select value={entryType} onValueChange={(value: 'in' | 'out') => setEntryType(value)}>
-                  <SelectTrigger id="edit-type" className="w-full mt-2">
+                <Select
+                  value={entryType}
+                  onValueChange={(value: 'in' | 'out') => {
+                    setEntryType(value);
+                    focusNextFormFieldAfterSelect(editEntryTypeTriggerRef.current);
+                  }}
+                >
+                  <SelectTrigger ref={editEntryTypeTriggerRef} id="edit-type" className="w-full mt-2">
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
@@ -1378,6 +1410,7 @@ export default function DailyCashRecordPage() {
                 onClick={handleUpdateEntry}
                 className="w-full"
                 disabled={billUploading}
+                data-form-advance
               >
                 Update Entry
               </Button>

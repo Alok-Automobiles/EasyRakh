@@ -4,6 +4,7 @@ import { useState, useEffect, useRef, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
 import { useQuery } from '@tanstack/react-query';
 import { useDebounce } from '@/lib/hooks/useDebounce';
+import { ACTION_SHORTCUTS, getAltShiftShortcutKey } from '@/lib/keyboard-shortcuts';
 import {
   Search,
   Users,
@@ -162,9 +163,10 @@ export default function GlobalSearch() {
 
   useEffect(() => {
     const handleGlobalKeyDown = (e: KeyboardEvent) => {
-      if ((e.metaKey || e.ctrlKey) && e.key === 'k') {
+      if (getAltShiftShortcutKey(e) === ACTION_SHORTCUTS.focusField.key) {
         e.preventDefault();
         inputRef.current?.focus();
+        inputRef.current?.select();
         setIsOpen(true);
       }
     };
@@ -201,6 +203,8 @@ export default function GlobalSearch() {
         <Search className="w-4 h-4 text-gray-400 shrink-0" />
         <input
           ref={inputRef}
+          data-global-search-input
+          data-enter-next="false"
           type="text"
           value={inputValue}
           onChange={(e) => {
@@ -223,12 +227,13 @@ export default function GlobalSearch() {
               inputRef.current?.focus();
             }}
             className="p-0.5 rounded-md hover:bg-gray-100 text-gray-400 hover:text-gray-600 transition-colors"
+            aria-label="Clear search"
           >
             <X className="w-3.5 h-3.5" />
           </button>
         )}
         <kbd className="hidden sm:inline-flex items-center gap-0.5 rounded border border-gray-200 bg-gray-50 px-1.5 py-0.5 text-[10px] font-medium text-gray-400 shrink-0">
-          <span className="text-xs">⌘</span>K
+          {ACTION_SHORTCUTS.focusField.display}
         </kbd>
       </div>
 

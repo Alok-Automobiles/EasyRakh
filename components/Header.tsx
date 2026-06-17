@@ -13,6 +13,7 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
+import { getNavigationShortcutByHref } from '@/lib/keyboard-shortcuts';
 
 export default function Header() {
   const router = useRouter();
@@ -162,15 +163,20 @@ export default function Header() {
               />
             </Link>
             <nav className="hidden md:flex items-center space-x-4">
-              {navLinks.map((link) => (
-                <Link
-                  key={link.href}
-                  href={link.href}
-                  className="text-gray-600 hover:text-gray-900 px-3 py-2 rounded-md text-sm font-medium whitespace-nowrap"
-                >
-                  {link.label}
-                </Link>
-              ))}
+              {navLinks.map((link) => {
+                const shortcut = getNavigationShortcutByHref(link.href);
+                return (
+                  <Link
+                    key={link.href}
+                    href={link.href}
+                    data-app-shortcut={shortcut?.display}
+                    aria-keyshortcuts={shortcut?.aria}
+                    className="text-gray-600 hover:text-gray-900 px-3 py-2 rounded-md text-sm font-medium whitespace-nowrap"
+                  >
+                    {link.label}
+                  </Link>
+                );
+              })}
               <DropdownMenu>
                 <DropdownMenuTrigger asChild>
                   <button className="text-gray-600 hover:text-gray-900 px-3 py-2 rounded-md text-sm font-medium whitespace-nowrap flex items-center gap-1">
@@ -242,6 +248,8 @@ export default function Header() {
               <Link
                 key={link.href}
                 href={link.href}
+                data-app-shortcut={getNavigationShortcutByHref(link.href)?.display}
+                aria-keyshortcuts={getNavigationShortcutByHref(link.href)?.aria}
                 className="px-3 py-2 rounded-md text-sm font-medium text-gray-700 hover:bg-gray-100"
               >
                 {link.label}

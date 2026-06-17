@@ -28,6 +28,7 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
+import { getNavigationShortcutByHref } from '@/lib/keyboard-shortcuts';
 
 type SidebarProps = {
   collapsed?: boolean;
@@ -200,10 +201,13 @@ export default function Sidebar({ collapsed = false }: SidebarProps) {
         {navLinks.map((link) => {
           const Icon = link.icon;
           const active = isActive(link.href);
+          const shortcut = getNavigationShortcutByHref(link.href);
           return (
             <Link
               key={link.href}
               href={link.href}
+              data-app-shortcut={shortcut?.display}
+              aria-keyshortcuts={shortcut?.aria}
               className={`flex items-center ${effectiveCollapsed ? 'justify-center px-3' : 'space-x-3 px-4'} py-3 rounded-lg text-sm font-medium transition-all duration-200 ${
                 active
                   ? 'bg-blue-50 text-blue-700 border border-blue-200'

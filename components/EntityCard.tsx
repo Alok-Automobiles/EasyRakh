@@ -29,6 +29,13 @@ export default function EntityCard({ entity, entityType, onEdit, onDelete }: Ent
     router.push(`/ledger/${entityType}/${entity.id}`);
   };
 
+  const handleCardKeyDown = (e: React.KeyboardEvent) => {
+    if (e.target !== e.currentTarget) return;
+    if (e.key !== 'Enter' && e.key !== ' ') return;
+    e.preventDefault();
+    handleCardClick();
+  };
+
   const handleEditClick = (e: React.MouseEvent) => {
     e.stopPropagation();
     onEdit(entity.id);
@@ -41,8 +48,12 @@ export default function EntityCard({ entity, entityType, onEdit, onDelete }: Ent
 
   return (
     <Card 
-      className="group relative overflow-hidden cursor-pointer transition-all duration-300 hover:shadow-xl hover:-translate-y-1 bg-gradient-to-br from-card to-card/80 border-border/50"
+      className="group relative overflow-hidden cursor-pointer transition-all duration-300 hover:shadow-xl hover:-translate-y-1 focus-visible:ring-4 focus-visible:ring-black/20 focus-visible:outline-none bg-gradient-to-br from-card to-card/80 border-border/50"
       onClick={handleCardClick}
+      onKeyDown={handleCardKeyDown}
+      role="link"
+      tabIndex={0}
+      aria-label={`Open ledger for ${entity.name}`}
     >
       <CardContent className="p-5">
         {/* Action Buttons - Always visible */}
@@ -51,6 +62,7 @@ export default function EntityCard({ entity, entityType, onEdit, onDelete }: Ent
             onClick={handleEditClick}
             variant="ghost"
             size="icon"
+            aria-label={`Edit ${entity.name}`}
             className="h-8 w-8 rounded-full bg-blue-100 text-blue-600 hover:bg-blue-200 hover:text-blue-700 dark:bg-blue-900/30 dark:text-blue-400 dark:hover:bg-blue-900/50 transition-colors"
           >
             <Pencil className="h-4 w-4" />
@@ -59,6 +71,7 @@ export default function EntityCard({ entity, entityType, onEdit, onDelete }: Ent
             onClick={handleDeleteClick}
             variant="ghost"
             size="icon"
+            aria-label={`Delete ${entity.name}`}
             className="h-8 w-8 rounded-full bg-rose-100 text-rose-600 hover:bg-rose-200 hover:text-rose-700 dark:bg-rose-900/30 dark:text-rose-400 dark:hover:bg-rose-900/50 transition-colors"
           >
             <Trash2 className="h-4 w-4" />

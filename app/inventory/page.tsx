@@ -1,6 +1,5 @@
 'use client';
 
-import { useEffect } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { useQuery } from '@tanstack/react-query';
@@ -19,6 +18,7 @@ import {
 import { Button } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
 import type { InventoryStats } from '@/lib/types';
+import { ACTION_SHORTCUTS } from '@/lib/keyboard-shortcuts';
 
 const currencyFormatter = new Intl.NumberFormat('en-IN', {
   style: 'currency',
@@ -90,26 +90,6 @@ const StatCard = ({
 
 export default function InventoryPage() {
   const router = useRouter();
-
-  useEffect(() => {
-    const onKeyDown = (event: KeyboardEvent) => {
-      if (event.repeat) return;
-      const key = event.key.toLowerCase();
-      if (key !== 'n') return;
-      // Ctrl/Cmd+N — capture phase helps; some browsers still reserve it (use Alt+N below).
-      const ctrlOrCmdN =
-        (event.ctrlKey || event.metaKey) && !event.altKey && !event.shiftKey;
-      const altN = event.altKey && !event.ctrlKey && !event.metaKey && !event.shiftKey;
-      if (!ctrlOrCmdN && !altN) return;
-
-      const target = event.target as HTMLElement;
-      if (target.closest('input, textarea, select, [contenteditable="true"]')) return;
-      event.preventDefault();
-      router.push('/inventory-items?new=1');
-    };
-    window.addEventListener('keydown', onKeyDown, true);
-    return () => window.removeEventListener('keydown', onKeyDown, true);
-  }, [router]);
 
   const { data, isLoading } = useQuery<InventoryResponse>({
     queryKey: ['inventory-overview'],
@@ -198,7 +178,13 @@ export default function InventoryPage() {
               <ArrowRight className="h-4 w-4" />
             </Link>
           </Button>
-          <Button asChild className="bg-slate-900 text-white hover:bg-slate-800">
+          <Button
+            asChild
+            className="bg-slate-900 text-white hover:bg-slate-800"
+            data-shortcut-action="new"
+            data-app-shortcut={ACTION_SHORTCUTS.primary.display}
+            aria-keyshortcuts={ACTION_SHORTCUTS.primary.aria}
+          >
             <Link href="/inventory-items?new=1">
               <Plus className="h-4 w-4" />
               Add Item

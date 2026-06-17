@@ -9,6 +9,7 @@ import { motion } from 'motion/react';
 import { Plus, Star, Trash2, LayoutDashboard, StickyNote } from 'lucide-react';
 import { Note } from '@/lib/types';
 import { Button } from '@/components/ui/button';
+import { ACTION_SHORTCUTS } from '@/lib/keyboard-shortcuts';
 
 const colorPalette = ['#FF6B6B', '#FFB347', '#9B59B6', '#5DADE2', '#52BE80'];
 
@@ -98,18 +99,6 @@ export default function NotesPage() {
       color,
     });
   }, [draftNote]);
-
-  useEffect(() => {
-    const handleKeyDown = (e: KeyboardEvent) => {
-      if ((e.ctrlKey || e.metaKey) && e.key === 'n') {
-        e.preventDefault();
-        handleCreateDraft();
-      }
-    };
-
-    document.addEventListener('keydown', handleKeyDown);
-    return () => document.removeEventListener('keydown', handleKeyDown);
-  }, [handleCreateDraft]);
 
   const handleSaveDraft = async () => {
     if (!draftNote) return;
@@ -332,7 +321,9 @@ export default function NotesPage() {
           <Button
             onClick={handleCreateDraft}
             className="bg-slate-900 hover:bg-slate-800 text-white gap-2"
-            title="Create new note (Ctrl+N)"
+            data-shortcut-action="new"
+            data-app-shortcut={ACTION_SHORTCUTS.primary.display}
+            aria-keyshortcuts={ACTION_SHORTCUTS.primary.aria}
             disabled={!!draftNote}
           >
             <Plus className="w-4 h-4" />
@@ -359,6 +350,9 @@ export default function NotesPage() {
             <Button
               onClick={handleCreateDraft}
               className="bg-slate-900 hover:bg-slate-800 text-white"
+              data-shortcut-action="new"
+              data-app-shortcut={ACTION_SHORTCUTS.primary.display}
+              aria-keyshortcuts={ACTION_SHORTCUTS.primary.aria}
             >
               <Plus className="w-4 h-4 mr-2" />
               Create your first note
@@ -470,6 +464,15 @@ export default function NotesPage() {
                         ) : (
                           <h3
                             onClick={() => handleStartEdit(note, 'title')}
+                            onKeyDown={(e) => {
+                              if (e.key === 'Enter' || e.key === ' ') {
+                                e.preventDefault();
+                                handleStartEdit(note, 'title');
+                              }
+                            }}
+                            role="button"
+                            tabIndex={0}
+                            aria-label={`Edit title for ${note.title || 'note'}`}
                             className="text-base font-semibold text-gray-900 cursor-text hover:text-gray-700 transition-colors wrap-break-word"
                           >
                             {note.title}
@@ -511,6 +514,15 @@ export default function NotesPage() {
                       ) : (
                         <div
                           onClick={() => handleStartEdit(note, 'content')}
+                          onKeyDown={(e) => {
+                            if (e.key === 'Enter' || e.key === ' ') {
+                              e.preventDefault();
+                              handleStartEdit(note, 'content');
+                            }
+                          }}
+                          role="button"
+                          tabIndex={0}
+                          aria-label={`Edit content for ${note.title || 'note'}`}
                           className="text-sm text-gray-600 cursor-text whitespace-pre-wrap wrap-break-word leading-relaxed"
                         >
                           {note.content || (
@@ -531,7 +543,9 @@ export default function NotesPage() {
                       {/* Action Buttons - always visible on mobile, hover on desktop */}
                       <div className="flex items-center gap-1 sm:opacity-0 sm:group-hover:opacity-100 transition-opacity">
                         <button
+                          type="button"
                           onClick={() => handleToggleFavorite(note)}
+                          aria-label={note.isFavorite ? 'Remove from favorites' : 'Add to favorites'}
                           className={`p-1.5 rounded-lg transition-colors ${
                             note.isFavorite
                               ? 'bg-amber-50 text-amber-500'
@@ -544,7 +558,9 @@ export default function NotesPage() {
                           />
                         </button>
                         <button
+                          type="button"
                           onClick={() => handleToggleDashboard(note)}
+                          aria-label={note.showOnDashboard ? 'Unpin from dashboard' : 'Pin to dashboard'}
                           className={`p-1.5 rounded-lg transition-colors ${
                             note.showOnDashboard
                               ? 'bg-blue-50 text-blue-600'
@@ -559,7 +575,9 @@ export default function NotesPage() {
                           <LayoutDashboard className="w-4 h-4" />
                         </button>
                         <button
+                          type="button"
                           onClick={() => handleDeleteNote(note.id)}
+                          aria-label="Delete note"
                           className="p-1.5 rounded-lg hover:bg-red-50 text-gray-400 hover:text-red-600 transition-colors"
                           title="Delete note"
                         >

@@ -30,6 +30,7 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import { Customer } from '@/lib/types';
+import { ACTION_SHORTCUTS } from '@/lib/keyboard-shortcuts';
 
 interface InvoiceItem {
   id: string;
@@ -202,24 +203,6 @@ export default function NewInvoicePage() {
     }, 0);
   }, []);
 
-  useEffect(() => {
-    const onKeyDown = (e: KeyboardEvent) => {
-      const isCmdOrCtrlEnter = (e.ctrlKey || e.metaKey) && e.key === 'Enter';
-      if (!isCmdOrCtrlEnter) return;
-
-      const target = e.target as HTMLElement;
-      if (target.tagName === 'INPUT' || target.tagName === 'TEXTAREA') {
-        return;
-      }
-
-      e.preventDefault();
-      addItem();
-    };
-
-    window.addEventListener('keydown', onKeyDown);
-    return () => window.removeEventListener('keydown', onKeyDown);
-  }, [addItem]);
-
   const removeItem = (id: string) => {
     if (items.length === 1) {
       toast.error('At least one item is required');
@@ -323,23 +306,6 @@ export default function NewInvoicePage() {
     createNewCustomer,
     router,
   ]);
-
-  useEffect(() => {
-    const onKeyDown = (e: KeyboardEvent) => {
-      const isCtrlOrCmd = e.ctrlKey || e.metaKey;
-      if (!isCtrlOrCmd) return;
-
-      if (e.key.toLowerCase() === 's') {
-        e.preventDefault();
-        if (!submitting) {
-          handleSubmit();
-        }
-      }
-    };
-
-    window.addEventListener('keydown', onKeyDown);
-    return () => window.removeEventListener('keydown', onKeyDown);
-  }, [handleSubmit, submitting]);
 
   const handleItemKeyDown = useCallback((itemId: string, field: 'description' | 'amount', e: React.KeyboardEvent<HTMLInputElement>) => {
     if (e.key !== 'Enter' && e.key !== 'Tab') return;
@@ -616,9 +582,17 @@ export default function NewInvoicePage() {
             </div>
 
             <div className="mt-4 flex justify-end">
-              <Button type="button" variant="outline" size="sm" onClick={addItem}>
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                onClick={addItem}
+                data-shortcut-action="add-line"
+                data-app-shortcut={ACTION_SHORTCUTS.addLine.display}
+                aria-keyshortcuts={ACTION_SHORTCUTS.addLine.aria}
+              >
                 <Plus className="w-4 h-4 mr-1" />
-                Add Item (Ctrl+Enter)
+                Add Item
               </Button>
             </div>
 
@@ -772,7 +746,9 @@ export default function NewInvoicePage() {
               onClick={handleSubmit}
               disabled={submitting}
               className="bg-slate-900 hover:bg-slate-800"
-              title="Shortcut: Ctrl+S / Cmd+S"
+              data-shortcut-action="submit"
+              data-app-shortcut={ACTION_SHORTCUTS.submit.display}
+              aria-keyshortcuts={ACTION_SHORTCUTS.submit.aria}
             >
               {submitting ? 'Creating...' : 'Create Invoice'}
             </Button>

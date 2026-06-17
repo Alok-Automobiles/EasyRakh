@@ -142,6 +142,138 @@
   display: none;
 }
 
+.keyboard-shortcut-tooltip {
+  position: fixed;
+  z-index: 2147483647;
+  display: inline-flex;
+  width: max-content;
+  max-width: calc(100vw - 2rem);
+  align-items: center;
+  gap: 0.3rem;
+  transform: translateX(-50%);
+  border: 1px solid #d1d5db;
+  border-radius: 6px;
+  background: #ffffff;
+  color: #111827;
+  box-shadow: 0 6px 18px rgba(15, 23, 42, 0.12);
+  padding: 0.28rem 0.4rem;
+  font-family: var(--font-geist-mono), monospace;
+  font-size: 0.625rem;
+  font-weight: 600;
+  line-height: 1.25;
+  pointer-events: none;
+  text-transform: none;
+  white-space: nowrap;
+  animation: keyboard-tooltip-in 120ms ease-out;
+}
+
+.keyboard-shortcut-tooltip[data-placement='top'] {
+  transform: translate(-50%, -100%);
+}
+
+.keyboard-shortcut-tooltip::before {
+  content: '';
+  position: absolute;
+  left: 50%;
+  height: 0.45rem;
+  width: 0.45rem;
+  background: #ffffff;
+  pointer-events: none;
+}
+
+.keyboard-shortcut-tooltip[data-placement='bottom']::before {
+  top: -0.28rem;
+  transform: translateX(-50%) rotate(45deg);
+  border-left: 1px solid #d1d5db;
+  border-top: 1px solid #d1d5db;
+}
+
+.keyboard-shortcut-tooltip[data-placement='top']::before {
+  bottom: -0.28rem;
+  transform: translateX(-50%) rotate(45deg);
+  border-bottom: 1px solid #d1d5db;
+  border-right: 1px solid #d1d5db;
+}
+
+.keyboard-shortcut-tooltip__label {
+  flex: 0 0 auto;
+  color: #6b7280;
+  font-size: 0.58rem;
+  font-weight: 600;
+}
+
+.keyboard-shortcut-tooltip__keys {
+  display: inline-flex;
+  min-width: 0;
+  flex-wrap: nowrap;
+  align-items: center;
+  gap: 0.14rem;
+  white-space: nowrap;
+}
+
+.keyboard-shortcut-tooltip__key-group {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.14rem;
+  white-space: nowrap;
+}
+
+.keyboard-shortcut-tooltip__plus {
+  color: #6b7280;
+  font-weight: 600;
+}
+
+.keyboard-shortcut-tooltip__key {
+  display: inline-flex;
+  min-width: 1rem;
+  height: 1rem;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid #d1d5db;
+  border-radius: 4px;
+  background: #f9fafb;
+  color: #374151;
+  font-family: var(--font-geist-mono), monospace;
+  font-size: 0.58rem;
+  font-weight: 600;
+  line-height: 1;
+  padding: 0 0.24rem;
+  white-space: nowrap;
+}
+
+.dark .keyboard-shortcut-tooltip {
+  border-color: #374151;
+  background: #111827;
+  color: #f8fafc;
+  box-shadow: 0 6px 18px rgba(0, 0, 0, 0.28);
+}
+
+.dark .keyboard-shortcut-tooltip::before {
+  background: #111827;
+}
+
+.dark .keyboard-shortcut-tooltip__label,
+.dark .keyboard-shortcut-tooltip__plus {
+  color: #9ca3af;
+}
+
+.dark .keyboard-shortcut-tooltip__key {
+  border-color: #4b5563;
+  background: #1f2937;
+  color: #e5e7eb;
+}
+
+@keyframes keyboard-tooltip-in {
+  from {
+    opacity: 0;
+    margin-top: -0.15rem;
+  }
+  to {
+    opacity: 1;
+    margin-top: 0;
+  }
+}
+
 /* Custom Sidebar Scrollbar */
 .sidebar-scrollbar {
   scrollbar-width: thin;

@@ -39,6 +39,8 @@ import { CustomEntity } from '@/lib/types';
 import { motion } from 'motion/react'
 import Link from 'next/link';
 import { compressImage, isCompressibleImage, formatFileSize } from '@/lib/imageCompression';
+import { ACTION_SHORTCUTS } from '@/lib/keyboard-shortcuts';
+import { focusNextFormFieldAfterSelect, handleEnterToNextFormField } from '@/lib/form-keyboard-navigation';
 
 const MAX_BILL_SIZE_BYTES = 5 * 1024 * 1024; // 5MB
 const ACCEPTED_BILL_TYPES = [
@@ -92,6 +94,7 @@ export default function CustomEntitiesPage() {
   const [isSaving, setIsSaving] = useState(false);
   const hasFetchedRef = useRef(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const balanceTypeTriggerRef = useRef<HTMLButtonElement>(null);
   const form = useForm<CustomEntityForm>({
     resolver: zodResolver(customEntitySchema),
     defaultValues: {
@@ -377,6 +380,9 @@ export default function CustomEntitiesPage() {
               setBillUploadResult(null);
               setIsModalOpen(true);
             }}
+            data-shortcut-action="new"
+            data-app-shortcut={ACTION_SHORTCUTS.primary.display}
+            aria-keyshortcuts={ACTION_SHORTCUTS.primary.aria}
           >
             Add {collectionType.name.slice(0, -1) || 'Entity'}
           </Button>
@@ -419,7 +425,7 @@ export default function CustomEntitiesPage() {
               </DialogDescription>
             </DialogHeader>
             <Form {...form}>
-              <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
+              <form onSubmit={form.handleSubmit(onSubmit)} onKeyDown={handleEnterToNextFormField} className="space-y-4">
                 <FormField
                   control={form.control}
                   name="name"
@@ -496,9 +502,15 @@ export default function CustomEntitiesPage() {
                   render={({ field }) => (
                     <FormItem>
                       <FormLabel>Balance Type</FormLabel>
-                      <Select onValueChange={field.onChange} defaultValue={field.value}>
+                      <Select
+                        value={field.value}
+                        onValueChange={(value) => {
+                          field.onChange(value);
+                          focusNextFormFieldAfterSelect(balanceTypeTriggerRef.current);
+                        }}
+                      >
                         <FormControl>
-                          <SelectTrigger>
+                          <SelectTrigger ref={balanceTypeTriggerRef}>
                             <SelectValue placeholder="Select balance type" />
                           </SelectTrigger>
                         </FormControl>

@@ -11,6 +11,7 @@ import { Label } from '@/components/ui/label';
 import { X } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { motion, AnimatePresence } from 'motion/react';
+import { handleEnterToNextFormField } from '@/lib/form-keyboard-navigation';
 
 interface LedgerEntry {
   date: Date;
@@ -356,6 +357,8 @@ export default function PrintLedgerOverlay({
             animate={{ opacity: 1, scale: 1 }}
             exit={{ opacity: 0, scale: 0.95 }}
             transition={{ duration: 0.2 }}
+            data-form-navigation-root
+            onKeyDown={handleEnterToNextFormField}
             className="relative z-10 w-full max-w-5xl max-h-[90vh] mx-4 bg-white rounded-lg shadow-2xl overflow-hidden flex flex-col"
           >
         {/* Header */}
@@ -573,7 +576,9 @@ export default function PrintLedgerOverlay({
           <Button variant="outline" onClick={handleCancel}>
             Cancel
           </Button>
-          <Button onClick={handleSaveAndPrint}>Save & Print</Button>
+          <Button onClick={handleSaveAndPrint} data-form-advance>
+            Save & Print
+          </Button>
         </div>
           </motion.div>
         </div>

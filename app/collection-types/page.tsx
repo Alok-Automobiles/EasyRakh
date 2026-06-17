@@ -29,6 +29,8 @@ import { Card, CardContent } from '@/components/ui/card';
 import { motion } from 'motion/react';
 import Link from 'next/link';
 import { format } from 'date-fns';
+import { ACTION_SHORTCUTS } from '@/lib/keyboard-shortcuts';
+import { handleEnterToNextFormField } from '@/lib/form-keyboard-navigation';
 
 const collectionTypeSchema = z.object({
   name: z.string().min(1, 'Name is required').max(50, 'Name must be 50 characters or less'),
@@ -177,6 +179,9 @@ export default function CollectionTypesPage() {
               setEditingCollectionType(null);
               setIsModalOpen(true);
             }}
+            data-shortcut-action="new"
+            data-app-shortcut={ACTION_SHORTCUTS.primary.display}
+            aria-keyshortcuts={ACTION_SHORTCUTS.primary.aria}
           >
             Create Collection
           </Button>
@@ -248,7 +253,7 @@ export default function CollectionTypesPage() {
               </DialogDescription>
             </DialogHeader>
             <Form {...form}>
-              <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
+              <form onSubmit={form.handleSubmit(onSubmit)} onKeyDown={handleEnterToNextFormField} className="space-y-4">
                 <FormField
                   control={form.control}
                   name="name"

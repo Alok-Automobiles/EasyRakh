@@ -31,6 +31,7 @@ import { motion } from 'motion/react'
 import PrintLedgerOverlay from '@/components/PrintLedgerOverlay';
 import { ASSISTANT_DATA_UPDATED_EVENT } from '@/lib/assistant-events';
 import { compressImage, isCompressibleImage, formatFileSize } from '@/lib/imageCompression';
+import { focusNextFormFieldAfterSelect, handleEnterToNextFormField } from '@/lib/form-keyboard-navigation';
 
 interface LedgerEntry {
   date: Date;
@@ -131,6 +132,7 @@ export default function LedgerPage() {
   } | null>(null);
   const [editLoading, setEditLoading] = useState(false);
   const [editSaving, setEditSaving] = useState(false);
+  const editTypeTriggerRef = useRef<HTMLButtonElement>(null);
   
   // Delete transaction state
   const [deleteModalOpen, setDeleteModalOpen] = useState(false);
@@ -1074,16 +1076,17 @@ export default function LedgerPage() {
             {editLoading ? (
               <div className="py-8 text-center text-muted-foreground">Loading transaction...</div>
             ) : editingTransaction ? (
-              <div className="space-y-4">
+              <div className="space-y-4" onKeyDown={handleEnterToNextFormField}>
                 <div className="space-y-2">
                   <label className="text-sm font-medium text-gray-700">Type</label>
                   <Select
                     value={editingTransaction.type}
-                    onValueChange={(value: 'credit' | 'debit') => 
-                      setEditingTransaction({ ...editingTransaction, type: value })
-                    }
+                    onValueChange={(value: 'credit' | 'debit') => {
+                      setEditingTransaction({ ...editingTransaction, type: value });
+                      focusNextFormFieldAfterSelect(editTypeTriggerRef.current);
+                    }}
                   >
-                    <SelectTrigger>
+                    <SelectTrigger ref={editTypeTriggerRef}>
                       <SelectValue />
                     </SelectTrigger>
                     <SelectContent>
@@ -1147,6 +1150,7 @@ export default function LedgerPage() {
               <Button 
                 onClick={handleEditSave} 
                 disabled={editLoading || editSaving || !editingTransaction?.amount}
+                data-form-advance
               >
                 {editSaving ? 'Saving...' : 'Save Changes'}
               </Button>
@@ -1190,7 +1194,7 @@ export default function LedgerPage() {
             </DialogHeader>
 
             {openingBalanceEditData ? (
-            <div className="space-y-4 py-4">
+            <div className="space-y-4 py-4" onKeyDown={handleEnterToNextFormField}>
               <div className="grid grid-cols-2 gap-4">
                 <div className="space-y-2">
                   <label className="text-sm font-medium text-gray-700">Amount (₹)</label>
@@ -1315,6 +1319,7 @@ export default function LedgerPage() {
               <Button
                 onClick={handleOpeningBalanceSave}
                 disabled={openingBalanceSaving || !openingBalanceEditData?.amount}
+                data-form-advance
               >
                 {openingBalanceSaving ? 'Saving...' : 'Save Changes'}
               </Button>

@@ -39,6 +39,7 @@ import {
   DialogTitle,
 } from '@/components/ui/dialog';
 import { Invoice } from '@/lib/types';
+import { ACTION_SHORTCUTS } from '@/lib/keyboard-shortcuts';
 
 const currencyFormatter = new Intl.NumberFormat('en-IN', {
   style: 'currency',
@@ -91,21 +92,6 @@ export default function InvoicesPage() {
   useEffect(() => {
     setCurrentPage(1);
   }, [searchQuery, statusFilter]);
-
-  useEffect(() => {
-    const onKeyDown = (e: KeyboardEvent) => {
-      const isCtrlOrCmd = e.ctrlKey || e.metaKey;
-      if (!isCtrlOrCmd) return;
-
-      if (e.key.toLowerCase() === 'n') {
-        e.preventDefault();
-        router.push('/invoices/new');
-      }
-    };
-
-    window.addEventListener('keydown', onKeyDown);
-    return () => window.removeEventListener('keydown', onKeyDown);
-  }, [router]);
 
   const { data, isLoading } = useQuery<InvoicesResponse>({
     queryKey: ['invoices', searchQuery, statusFilter, currentPage],
@@ -226,7 +212,9 @@ export default function InvoicesPage() {
           <Button
             asChild
             className="bg-slate-900 hover:bg-slate-800"
-            title="Shortcut: Ctrl+N / Cmd+N"
+            data-shortcut-action="new"
+            data-app-shortcut={ACTION_SHORTCUTS.primary.display}
+            aria-keyshortcuts={ACTION_SHORTCUTS.primary.aria}
           >
             <Link href="/invoices/new">
               <Plus className="w-4 h-4 mr-2" />
@@ -273,7 +261,9 @@ export default function InvoicesPage() {
             <Button
               asChild
               className="bg-slate-900 hover:bg-slate-800"
-              title="Shortcut: Ctrl+N / Cmd+N"
+              data-shortcut-action="new"
+              data-app-shortcut={ACTION_SHORTCUTS.primary.display}
+              aria-keyshortcuts={ACTION_SHORTCUTS.primary.aria}
             >
               <Link href="/invoices/new">
                 <Plus className="w-4 h-4 mr-2" />

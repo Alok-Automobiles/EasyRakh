@@ -50,6 +50,8 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import { Invoice, InvoiceItem } from '@/lib/types';
+import { ACTION_SHORTCUTS } from '@/lib/keyboard-shortcuts';
+import { handleEnterToNextFormField } from '@/lib/form-keyboard-navigation';
 
 interface InvoiceWithId extends Invoice {
   id: string;
@@ -506,22 +508,6 @@ export default function InvoiceDetailPage() {
     setEditItems((prev) => [...prev, { id: Date.now().toString(), description: '', amount: 0 }]);
   }, []);
 
-  useEffect(() => {
-    if (!isEditing) return;
-    if (showFirmInfoModal) return;
-
-    const onKeyDown = (e: KeyboardEvent) => {
-      const isCmdOrCtrlEnter = (e.ctrlKey || e.metaKey) && e.key === 'Enter';
-      if (!isCmdOrCtrlEnter) return;
-
-      e.preventDefault();
-      addEditItem();
-    };
-
-    window.addEventListener('keydown', onKeyDown);
-    return () => window.removeEventListener('keydown', onKeyDown);
-  }, [isEditing, showFirmInfoModal, addEditItem]);
-
   const removeEditItem = (itemId: string) => {
     if (editItems.length === 1) {
       toast.error('At least one item is required');
@@ -610,46 +596,6 @@ export default function InvoiceDetailPage() {
     setIsEditing(false);
   };
 
-  useEffect(() => {
-    const onKeyDown = (e: KeyboardEvent) => {
-      const isCtrlOrCmd = e.ctrlKey || e.metaKey;
-      if (!isCtrlOrCmd) return;
-
-      const key = e.key.toLowerCase();
-
-      if (showFirmInfoModal) return;
-
-      if (key === 'n') {
-        e.preventDefault();
-        router.push('/invoices/new');
-        return;
-      }
-
-      if (key === 's') {
-        e.preventDefault();
-        if (isEditing && !saving) {
-          handleSave();
-        }
-        return;
-      }
-
-      if (key === 'e' && !isEditing) {
-        e.preventDefault();
-        setIsEditing(true);
-        return;
-      }
-
-      if (key === 'd') {
-        e.preventDefault();
-        handlePDFAction('download');
-        return;
-      }
-    };
-
-    window.addEventListener('keydown', onKeyDown);
-    return () => window.removeEventListener('keydown', onKeyDown);
-  }, [router, isEditing, saving, handleSave, handlePDFAction, showFirmInfoModal]);
-
   if (loading) {
     return (
       <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
@@ -722,7 +668,9 @@ export default function InvoiceDetailPage() {
                     onClick={handleSave}
                     disabled={saving}
                     className="bg-slate-900 hover:bg-slate-800"
-                    title="Shortcut: Ctrl+S / Cmd+S"
+                    data-shortcut-action="submit"
+                    data-app-shortcut={ACTION_SHORTCUTS.submit.display}
+                    aria-keyshortcuts={ACTION_SHORTCUTS.submit.aria}
                   >
                     <Save className="w-4 h-4 mr-1" />
                     {saving ? 'Saving...' : 'Save'}
@@ -733,7 +681,9 @@ export default function InvoiceDetailPage() {
                   <Button
                     variant="outline"
                     onClick={() => setIsEditing(true)}
-                    title="Shortcut: Ctrl+E / Cmd+E"
+                    data-shortcut-action="edit"
+                    data-app-shortcut={ACTION_SHORTCUTS.edit.display}
+                    aria-keyshortcuts={ACTION_SHORTCUTS.edit.aria}
                   >
                     <Edit2 className="w-4 h-4 mr-1" />
                     Edit
@@ -754,7 +704,9 @@ export default function InvoiceDetailPage() {
                   <Button
                     onClick={() => handlePDFAction('download')}
                     className="bg-slate-900 hover:bg-slate-800"
-                    title="Shortcut: Ctrl+D / Cmd+D"
+                    data-shortcut-action="download"
+                    data-app-shortcut={ACTION_SHORTCUTS.download.display}
+                    aria-keyshortcuts={ACTION_SHORTCUTS.download.aria}
                   >
                     <Download className="w-4 h-4 mr-1" />
                     Download
@@ -835,9 +787,17 @@ export default function InvoiceDetailPage() {
                 </div>
 
                 <div className="mt-4 flex justify-end">
-                  <Button type="button" variant="outline" size="sm" onClick={addEditItem}>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    onClick={addEditItem}
+                    data-shortcut-action="add-line"
+                    data-app-shortcut={ACTION_SHORTCUTS.addLine.display}
+                    aria-keyshortcuts={ACTION_SHORTCUTS.addLine.aria}
+                  >
                     <Plus className="w-4 h-4 mr-1" />
-                    Add Item (Ctrl+Enter)
+                    Add Item
                   </Button>
                 </div>
               </>
@@ -971,7 +931,7 @@ export default function InvoiceDetailPage() {
               </DialogDescription>
             </DialogHeader>
 
-            <div className="space-y-4 py-4">
+            <div className="space-y-4 py-4" onKeyDown={handleEnterToNextFormField}>
               <div>
                 <Label htmlFor="firmTitle">Firm Name *</Label>
                 <Input
@@ -1055,6 +1015,7 @@ export default function InvoiceDetailPage() {
                   }
                 }}
                 className="bg-slate-900 hover:bg-slate-800"
+                data-form-advance
               >
                 {pendingAction === 'download'
                   ? 'Download Invoice'
