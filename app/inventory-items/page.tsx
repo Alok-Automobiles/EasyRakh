@@ -23,6 +23,7 @@ import {
   AlertTriangle,
   ArrowLeft,
   Boxes,
+  Camera,
   CheckCircle2,
   CheckSquare,
   ChevronLeft,
@@ -39,7 +40,6 @@ import {
   MoreVertical,
   Package,
   Plus,
-  RefreshCw,
   Search,
   Trash2,
   Upload,
@@ -101,6 +101,7 @@ interface PendingUpload {
   tempId: string;
   previewUrl: string;
   fileName: string;
+  sourceFile: File;
   isImage: boolean;
   status: 'compressing' | 'uploading' | 'error';
   error?: string;
@@ -587,7 +588,9 @@ export default function InventoryItemsPage() {
   const queryClient = useQueryClient();
   const searchInputRef = useRef<HTMLInputElement>(null);
   const partInputRef = useRef<HTMLInputElement>(null);
+  const partCameraInputRef = useRef<HTMLInputElement>(null);
   const billInputRef = useRef<HTMLInputElement>(null);
+  const billCameraInputRef = useRef<HTMLInputElement>(null);
   const partUploadTriggerRef = useRef<HTMLButtonElement>(null);
   const billUploadTriggerRef = useRef<HTMLButtonElement>(null);
   const submitItemRef = useRef<HTMLButtonElement>(null);
@@ -604,6 +607,10 @@ export default function InventoryItemsPage() {
   const billingDateInputRef = useRef<HTMLInputElement>(null);
   const descriptionInputRef = useRef<HTMLTextAreaElement>(null);
   const unitSkipAdvanceFocusRef = useRef(false);
+  const canceledUploadIdsRef = useRef<Set<string>>(new Set());
+  const uploadTargetByTempIdRef = useRef<Map<string, string>>(new Map());
+  const pendingUploadIdsAtSubmitRef = useRef<Set<string>>(new Set());
+  const backgroundAttachQueueRef = useRef<Promise<void>>(Promise.resolve());
   const [searchQuery, setSearchQuery] = useState('');
   const [debouncedSearchQuery, setDebouncedSearchQuery] = useState('');
 
@@ -916,12 +923,16 @@ export default function InventoryItemsPage() {
   const cancelAllPendingUploads = useCallback(() => {
     setPendingPartUploads((prev) => {
       prev.forEach((upload) => {
+        canceledUploadIdsRef.current.add(upload.tempId);
+        uploadTargetByTempIdRef.current.delete(upload.tempId);
         if (upload.previewUrl) URL.revokeObjectURL(upload.previewUrl);
       });
       return [];
     });
     setPendingBillUploads((prev) => {
       prev.forEach((upload) => {
+        canceledUploadIdsRef.current.add(upload.tempId);
+        uploadTargetByTempIdRef.current.delete(upload.tempId);
         if (upload.previewUrl) URL.revokeObjectURL(upload.previewUrl);
       });
       return [];
@@ -1061,16 +1072,40 @@ export default function InventoryItemsPage() {
       if (!response.ok) throw new Error(result.error || 'Failed to save item');
       return result;
     },
-    onSuccess: () => {
+    onSuccess: (result, values) => {
+      const savedItemId = result.item?.id as string | undefined;
+      const submittedUploadIds = pendingUploadIdsAtSubmitRef.current;
+      if (savedItemId && submittedUploadIds.size > 0) {
+        submittedUploadIds.forEach((tempId) => {
+          uploadTargetByTempIdRef.current.set(tempId, savedItemId);
+        });
+
+        (['partImages', 'billImages'] as const).forEach((fieldName) => {
+          const serverUrls = new Set((result.item?.[fieldName] || []) as string[]);
+          const latestUrls = Array.from(
+            new Set([
+              ...(((values[fieldName] || []) as string[])),
+              ...(((form.getValues(fieldName) || []) as string[])),
+            ])
+          );
+          latestUrls
+            .filter((url) => !serverUrls.has(url))
+            .forEach((url) => attachImageToSavedItem(savedItemId, fieldName, url));
+        });
+      }
+      pendingUploadIdsAtSubmitRef.current = new Set();
       toast.success(editingItem ? 'Inventory item updated' : 'Inventory item added');
       setFormOpen(false);
       setEditingItem(null);
       form.reset(defaultFormValues);
+      setPendingPartUploads([]);
+      setPendingBillUploads([]);
       queryClient.invalidateQueries({ queryKey: ['inventory-items'] });
       queryClient.invalidateQueries({ queryKey: ['inventory-overview'] });
       queryClient.invalidateQueries({ queryKey: ['dashboard'] });
     },
     onError: (error: Error) => {
+      pendingUploadIdsAtSubmitRef.current = new Set();
       toast.error(error.message || 'Failed to save item');
     },
   });
@@ -1291,6 +1326,33 @@ export default function InventoryItemsPage() {
     setFormOpen(true);
   };
 
+  const attachImageToSavedItem = useCallback(
+    (itemId: string, fieldName: 'partImages' | 'billImages', url: string) => {
+      const run = backgroundAttachQueueRef.current
+        .catch(() => undefined)
+        .then(async () => {
+          const response = await fetch(`/api/inventory/${itemId}`, {
+            method: 'PATCH',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ imageField: fieldName, url }),
+          });
+          const result = await response.json();
+          if (!response.ok) throw new Error(result.error || 'Failed to attach uploaded image');
+        });
+
+      backgroundAttachQueueRef.current = run
+        .then(() => {
+          queryClient.invalidateQueries({ queryKey: ['inventory-items'] });
+          queryClient.invalidateQueries({ queryKey: ['inventory-overview'] });
+          queryClient.invalidateQueries({ queryKey: ['dashboard'] });
+        })
+        .catch((error) => {
+          toast.error(error instanceof Error ? error.message : 'Uploaded image could not be attached');
+        });
+    },
+    [queryClient]
+  );
+
   const uploadSingleFile = useCallback(
     async (file: File, kind: UploadKind) => {
       const tempId = `${Date.now()}-${Math.random().toString(36).slice(2, 10)}`;
@@ -1304,6 +1366,7 @@ export default function InventoryItemsPage() {
           tempId,
           previewUrl,
           fileName: file.name,
+          sourceFile: file,
           isImage,
           status: isCompressibleImage(file) ? 'compressing' : 'uploading',
         },
@@ -1336,24 +1399,42 @@ export default function InventoryItemsPage() {
         if (!response.ok) throw new Error(result.error || 'Upload failed');
 
         const fieldName = kind === 'part' ? 'partImages' : 'billImages';
-        const currentUrls = (form.getValues(fieldName) || []) as string[];
-        form.setValue(fieldName, [...currentUrls, result.url], { shouldDirty: true });
+        const savedItemId = uploadTargetByTempIdRef.current.get(tempId);
+        if (!canceledUploadIdsRef.current.has(tempId)) {
+          if (savedItemId) {
+            attachImageToSavedItem(savedItemId, fieldName, result.url);
+          } else {
+            const currentUrls = (form.getValues(fieldName) || []) as string[];
+            form.setValue(fieldName, [...currentUrls, result.url], { shouldDirty: true });
+          }
+        }
 
         setPending((prev) => prev.filter((upload) => upload.tempId !== tempId));
+        uploadTargetByTempIdRef.current.delete(tempId);
+        canceledUploadIdsRef.current.delete(tempId);
         if (previewUrl) URL.revokeObjectURL(previewUrl);
       } catch (error) {
         const message = error instanceof Error ? error.message : 'Upload failed';
-        setPending((prev) =>
-          prev.map((upload) =>
+        const savedItemId = uploadTargetByTempIdRef.current.get(tempId);
+        uploadTargetByTempIdRef.current.delete(tempId);
+        if (canceledUploadIdsRef.current.has(tempId)) {
+          canceledUploadIdsRef.current.delete(tempId);
+          if (previewUrl) URL.revokeObjectURL(previewUrl);
+          return;
+        }
+        setPending((prev) => {
+          const exists = prev.some((upload) => upload.tempId === tempId);
+          if (!exists && previewUrl) URL.revokeObjectURL(previewUrl);
+          return prev.map((upload) =>
             upload.tempId === tempId
               ? { ...upload, status: 'error', error: message }
               : upload
-          )
-        );
-        toast.error(message);
+          );
+        });
+        toast.error(savedItemId ? `Item saved, but ${file.name} did not attach. ${message}` : message);
       }
     },
-    [form]
+    [attachImageToSavedItem, form]
   );
 
   const handleFileSelect = (files: FileList | null, kind: UploadKind) => {
@@ -1389,11 +1470,15 @@ export default function InventoryItemsPage() {
     }
 
     if (kind === 'part' && partInputRef.current) partInputRef.current.value = '';
+    if (kind === 'part' && partCameraInputRef.current) partCameraInputRef.current.value = '';
     if (kind === 'bill' && billInputRef.current) billInputRef.current.value = '';
+    if (kind === 'bill' && billCameraInputRef.current) billCameraInputRef.current.value = '';
   };
 
   const removePendingUpload = (kind: UploadKind, tempId: string) => {
     const setPending = kind === 'part' ? setPendingPartUploads : setPendingBillUploads;
+    canceledUploadIdsRef.current.add(tempId);
+    uploadTargetByTempIdRef.current.delete(tempId);
     setPending((prev) => {
       const target = prev.find((upload) => upload.tempId === tempId);
       if (target?.previewUrl) URL.revokeObjectURL(target.previewUrl);
@@ -1401,14 +1486,22 @@ export default function InventoryItemsPage() {
     });
   };
 
+  const retryPendingUpload = (kind: UploadKind, tempId: string) => {
+    const pendingUploads = kind === 'part' ? pendingPartUploads : pendingBillUploads;
+    const upload = pendingUploads.find((item) => item.tempId === tempId);
+    if (!upload) return;
+
+    removePendingUpload(kind, tempId);
+    window.setTimeout(() => {
+      void uploadSingleFile(upload.sourceFile, kind);
+    }, 0);
+  };
+
   const removeImage = (fieldName: 'partImages' | 'billImages', url: string) => {
     const nextUrls = ((form.getValues(fieldName) || []) as string[]).filter((item) => item !== url);
     form.setValue(fieldName, nextUrls, { shouldDirty: true });
   };
 
-  const partUploadingCount = pendingPartUploads.filter((u) => u.status !== 'error').length;
-  const billUploadingCount = pendingBillUploads.filter((u) => u.status !== 'error').length;
-  const totalUploadingCount = partUploadingCount + billUploadingCount;
   const hasItemNumberConflict = itemNumberCheck.status === 'duplicate';
 
   const onSubmit = (values: InventoryItemForm) => {
@@ -1416,10 +1509,11 @@ export default function InventoryItemsPage() {
       toast.error('Item number already exists. Use a different one.');
       return;
     }
-    if (totalUploadingCount > 0) {
-      toast.error(`Wait for ${totalUploadingCount} upload${totalUploadingCount > 1 ? 's' : ''} to finish first.`);
-      return;
-    }
+    pendingUploadIdsAtSubmitRef.current = new Set(
+      [...pendingPartUploads, ...pendingBillUploads]
+        .filter((upload) => upload.status !== 'error')
+        .map((upload) => upload.tempId)
+    );
     saveMutation.mutate(values);
   };
 
@@ -2148,9 +2242,7 @@ export default function InventoryItemsPage() {
                     <div>
                       <Label>Part images</Label>
                       <p className="text-xs text-gray-500">
-                        {partUploadingCount > 0
-                          ? `Uploading ${partUploadingCount} in background...`
-                          : 'Photos help identify stock faster.'}
+                        Photos help identify stock faster.
                       </p>
                     </div>
                     <Button
@@ -2162,7 +2254,7 @@ export default function InventoryItemsPage() {
                       onClick={() => setUploadPromptKind('part')}
                     >
                       <ImagePlus className="h-4 w-4" />
-                      {partUploadingCount > 0 ? `Uploading (${partUploadingCount})` : 'Upload'}
+                      Upload
                     </Button>
                   </div>
                   <input
@@ -2170,6 +2262,14 @@ export default function InventoryItemsPage() {
                     type="file"
                     accept="image/jpeg,image/png,image/webp,image/heic,image/heif"
                     multiple
+                    className="hidden"
+                    onChange={(event: ChangeEvent<HTMLInputElement>) => handleFileSelect(event.target.files, 'part')}
+                  />
+                  <input
+                    ref={partCameraInputRef}
+                    type="file"
+                    accept="image/*"
+                    capture="environment"
                     className="hidden"
                     onChange={(event: ChangeEvent<HTMLInputElement>) => handleFileSelect(event.target.files, 'part')}
                   />
@@ -2212,17 +2312,17 @@ export default function InventoryItemsPage() {
                                 <FileText className="h-6 w-6" />
                               </div>
                             )}
-                            {upload.status !== 'error' ? (
-                              <div className="absolute inset-0 flex flex-col items-center justify-center gap-1 bg-black/45 text-white">
-                                <Loader2 className="h-5 w-5 animate-spin" />
-                                <span className="text-[10px] font-semibold uppercase tracking-wide">
-                                  {upload.status === 'compressing' ? 'Compressing' : 'Uploading'}
-                                </span>
-                              </div>
-                            ) : (
+                            {upload.status === 'error' && (
                               <div className="absolute inset-0 flex flex-col items-center justify-center gap-1 bg-red-500/70 px-2 text-center text-white">
                                 <AlertTriangle className="h-5 w-5" />
                                 <span className="line-clamp-2 text-[10px] font-semibold">{upload.error || 'Failed'}</span>
+                                <button
+                                  type="button"
+                                  onClick={() => retryPendingUpload('part', upload.tempId)}
+                                  className="mt-1 rounded bg-white px-2 py-1 text-[10px] font-bold text-red-700 shadow-sm"
+                                >
+                                  Retry
+                                </button>
                               </div>
                             )}
                             <button
@@ -2245,9 +2345,7 @@ export default function InventoryItemsPage() {
                     <div>
                       <Label>Bill images</Label>
                       <p className="text-xs text-gray-500">
-                        {billUploadingCount > 0
-                          ? `Uploading ${billUploadingCount} in background...`
-                          : 'Attach purchase bill images or PDFs.'}
+                        Attach purchase bill images or PDFs.
                       </p>
                     </div>
                     <Button
@@ -2259,7 +2357,7 @@ export default function InventoryItemsPage() {
                       onClick={() => setUploadPromptKind('bill')}
                     >
                       <Upload className="h-4 w-4" />
-                      {billUploadingCount > 0 ? `Uploading (${billUploadingCount})` : 'Upload'}
+                      Upload
                     </Button>
                   </div>
                   <input
@@ -2267,6 +2365,14 @@ export default function InventoryItemsPage() {
                     type="file"
                     accept="image/jpeg,image/png,image/webp,image/heic,image/heif,application/pdf"
                     multiple
+                    className="hidden"
+                    onChange={(event: ChangeEvent<HTMLInputElement>) => handleFileSelect(event.target.files, 'bill')}
+                  />
+                  <input
+                    ref={billCameraInputRef}
+                    type="file"
+                    accept="image/*"
+                    capture="environment"
                     className="hidden"
                     onChange={(event: ChangeEvent<HTMLInputElement>) => handleFileSelect(event.target.files, 'bill')}
                   />
@@ -2315,22 +2421,28 @@ export default function InventoryItemsPage() {
                               ) : (
                                 <FileText className="h-5 w-5" />
                               )}
-                              {upload.status !== 'error' && (
-                                <div className="absolute inset-0 flex items-center justify-center bg-black/40 text-white">
-                                  <Loader2 className="h-4 w-4 animate-spin" />
-                                </div>
-                              )}
                             </div>
                             <div className="min-w-0 flex-1">
                               <p className="truncate text-sm font-medium text-gray-900">{upload.fileName}</p>
                               <p className={`truncate text-xs ${upload.status === 'error' ? 'text-red-600' : 'text-gray-500'}`}>
                                 {upload.status === 'error'
                                   ? upload.error || 'Upload failed'
-                                  : upload.status === 'compressing'
-                                    ? 'Compressing image...'
-                                    : 'Uploading in background...'}
+                                  : upload.isImage
+                                    ? 'Photo selected'
+                                    : 'File selected'}
                               </p>
                             </div>
+                            {upload.status === 'error' && (
+                              <Button
+                                type="button"
+                                variant="outline"
+                                size="sm"
+                                onClick={() => retryPendingUpload('bill', upload.tempId)}
+                                className="h-8 border-red-200 px-2 text-xs text-red-700 hover:bg-red-50 hover:text-red-800"
+                              >
+                                Retry
+                              </Button>
+                            )}
                             <Button
                               type="button"
                               variant="ghost"
@@ -2352,12 +2464,6 @@ export default function InventoryItemsPage() {
               </div>
 
               <DialogFooter className="shrink-0 flex-col gap-2 border-t border-[#E5E5E5] bg-[#FFFFFF] px-6 py-4 sm:flex-row sm:items-center sm:justify-end sm:gap-2">
-                {totalUploadingCount > 0 && (
-                  <p className="mr-auto flex items-center gap-2 text-xs font-medium text-amber-700">
-                    <RefreshCw className="h-3.5 w-3.5 animate-spin" />
-                    {totalUploadingCount} upload{totalUploadingCount > 1 ? 's' : ''} still finishing
-                  </p>
-                )}
                 <Button
                   type="button"
                   variant="outline"
@@ -2377,7 +2483,6 @@ export default function InventoryItemsPage() {
                   ref={submitItemRef}
                   disabled={
                     saveMutation.isPending ||
-                    totalUploadingCount > 0 ||
                     hasItemNumberConflict ||
                     itemNumberCheck.status === 'checking'
                   }
@@ -2385,11 +2490,9 @@ export default function InventoryItemsPage() {
                 >
                   {saveMutation.isPending
                     ? 'Saving...'
-                    : totalUploadingCount > 0
-                      ? 'Uploading...'
-                      : editingItem
-                        ? 'Update Item'
-                        : 'Add Item'}
+                    : editingItem
+                      ? 'Update Item'
+                      : 'Add Item'}
                 </Button>
               </DialogFooter>
             </form>
@@ -2430,14 +2533,39 @@ export default function InventoryItemsPage() {
             </Button>
             <Button
               type="button"
-              className="bg-slate-900 text-white hover:bg-slate-800"
+              variant="outline"
+              className="border-gray-300 sm:hidden"
               onClick={() => {
                 const kind = uploadPromptKind;
+                if (kind === 'part') partCameraInputRef.current?.click();
+                else billCameraInputRef.current?.click();
                 setUploadPromptKind(null);
-                window.requestAnimationFrame(() => {
-                  if (kind === 'part') partInputRef.current?.click();
-                  else billInputRef.current?.click();
-                });
+              }}
+            >
+              <Camera className="h-4 w-4" />
+              Camera
+            </Button>
+            <Button
+              type="button"
+              className="bg-slate-900 text-white hover:bg-slate-800 sm:hidden"
+              onClick={() => {
+                const kind = uploadPromptKind;
+                if (kind === 'part') partInputRef.current?.click();
+                else billInputRef.current?.click();
+                setUploadPromptKind(null);
+              }}
+            >
+              <Upload className="h-4 w-4" />
+              Gallery
+            </Button>
+            <Button
+              type="button"
+              className="hidden bg-slate-900 text-white hover:bg-slate-800 sm:inline-flex"
+              onClick={() => {
+                const kind = uploadPromptKind;
+                if (kind === 'part') partInputRef.current?.click();
+                else billInputRef.current?.click();
+                setUploadPromptKind(null);
               }}
             >
               Choose files
