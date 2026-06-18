@@ -244,12 +244,20 @@ const quantityPatchSchema = z
     delta: z.union([z.literal(1), z.literal(-1)]).optional(),
     quantity: z.number().int().min(0, 'Quantity cannot be negative').optional(),
   })
+  .strict()
   .refine(
     (data) =>
       (data.delta !== undefined && data.quantity === undefined) ||
       (data.quantity !== undefined && data.delta === undefined),
     { message: 'Provide either delta or quantity, not both' }
   );
+
+const imagePatchSchema = z.object({
+  imageField: z.enum(['partImages', 'billImages']),
+  url: z.string().url('Invalid image URL'),
+}).strict();
+
+const inventoryPatchSchema = z.union([quantityPatchSchema, imagePatchSchema]);
 
 export async function PATCH(
   request: NextRequest,
@@ -268,11 +276,37 @@ export async function PATCH(
     }
 
     const body = await request.json();
-    const patch = quantityPatchSchema.parse(body);
+    const patch = inventoryPatchSchema.parse(body);
 
     const db = await getDb();
     const inventoryCollection = db.collection('inventory');
     const updatedAt = new Date();
+
+    if ('imageField' in patch) {
+      const result = await inventoryCollection.findOneAndUpdate(
+        { _id: objectId, userId },
+        {
+          $addToSet: { [patch.imageField]: patch.url },
+          $set: { updatedAt },
+        },
+        { returnDocument: 'after' }
+      );
+
+      if (!result) {
+        return NextResponse.json({ error: 'Inventory item not found' }, { status: 404 });
+      }
+
+      await invalidateInventoryCache(userId, id);
+
+      const item = serializeInventoryItem(
+        result as unknown as InventoryItem & { _id: { toString(): string } }
+      );
+
+      return NextResponse.json({
+        message: 'Image attached successfully',
+        item,
+      });
+    }
 
     if (patch.quantity !== undefined) {
       const result = await inventoryCollection.findOneAndUpdate(
