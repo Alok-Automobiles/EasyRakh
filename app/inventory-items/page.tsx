@@ -2251,6 +2251,7 @@ export default function InventoryItemsPage() {
                       size="sm"
                       className="border-gray-300"
                       ref={partUploadTriggerRef}
+                      disabled={saveMutation.isPending}
                       onClick={() => setUploadPromptKind('part')}
                     >
                       <ImagePlus className="h-4 w-4" />
@@ -2354,6 +2355,7 @@ export default function InventoryItemsPage() {
                       size="sm"
                       className="border-gray-300"
                       ref={billUploadTriggerRef}
+                      disabled={saveMutation.isPending}
                       onClick={() => setUploadPromptKind('bill')}
                     >
                       <Upload className="h-4 w-4" />
@@ -2535,6 +2537,7 @@ export default function InventoryItemsPage() {
               type="button"
               variant="outline"
               className="border-gray-300 sm:hidden"
+              disabled={saveMutation.isPending}
               onClick={() => {
                 const kind = uploadPromptKind;
                 if (kind === 'part') partCameraInputRef.current?.click();
@@ -2548,6 +2551,7 @@ export default function InventoryItemsPage() {
             <Button
               type="button"
               className="bg-slate-900 text-white hover:bg-slate-800 sm:hidden"
+              disabled={saveMutation.isPending}
               onClick={() => {
                 const kind = uploadPromptKind;
                 if (kind === 'part') partInputRef.current?.click();
@@ -2561,6 +2565,7 @@ export default function InventoryItemsPage() {
             <Button
               type="button"
               className="hidden bg-slate-900 text-white hover:bg-slate-800 sm:inline-flex"
+              disabled={saveMutation.isPending}
               onClick={() => {
                 const kind = uploadPromptKind;
                 if (kind === 'part') partInputRef.current?.click();

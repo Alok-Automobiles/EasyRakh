@@ -244,6 +244,7 @@ const quantityPatchSchema = z
     delta: z.union([z.literal(1), z.literal(-1)]).optional(),
     quantity: z.number().int().min(0, 'Quantity cannot be negative').optional(),
   })
+  .strict()
   .refine(
     (data) =>
       (data.delta !== undefined && data.quantity === undefined) ||
@@ -254,7 +255,7 @@ const quantityPatchSchema = z
 const imagePatchSchema = z.object({
   imageField: z.enum(['partImages', 'billImages']),
   url: z.string().url('Invalid image URL'),
-});
+}).strict();
 
 const inventoryPatchSchema = z.union([quantityPatchSchema, imagePatchSchema]);
 
