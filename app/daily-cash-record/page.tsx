@@ -917,37 +917,41 @@ export default function DailyCashRecordPage() {
 
         {/* View Record Dialog */}
         <Dialog open={viewRecordOpen} onOpenChange={setViewRecordOpen}>
-          <DialogContent className="flex max-h-[calc(100dvh-1rem)] w-[calc(100vw-1rem)] max-w-[calc(100vw-1rem)] flex-col overflow-hidden p-0 sm:max-h-[92vh] sm:w-full sm:max-w-[90vw] lg:max-w-5xl">
-            {/* Clean Header */}
-            <DialogHeader className="flex-shrink-0 border-b-4 border-black bg-white px-3.5 pb-3 pt-4 pr-14 sm:px-6 sm:pb-4 sm:pt-5">
-              <div className="flex min-w-0 flex-col gap-3 sm:gap-4">
-                <DialogTitle className="text-2xl font-black text-black font-mono uppercase leading-none tracking-tight sm:text-3xl">
-                  {viewingRecord?.date || format(selectedDate, 'dd-MM-yyyy')}
-                </DialogTitle>
-                
+          <DialogContent className="flex max-h-[calc(100dvh-1rem)] w-[calc(100vw-1rem)] max-w-[calc(100vw-1rem)] flex-col overflow-hidden p-0 sm:max-h-[92vh] sm:w-full sm:max-w-[92vw] lg:max-w-5xl">
+            <DialogHeader className="flex-shrink-0 border-b-4 border-black bg-white px-3.5 pb-3 pr-14 pt-4 sm:px-5 sm:pb-4 sm:pt-5">
+              <div className="flex min-w-0 flex-col gap-3">
+                <div className="min-w-0">
+                  <p className="text-[10px] font-black uppercase tracking-wide text-slate-500 font-mono">
+                    Daily cash entries
+                  </p>
+                  <DialogTitle className="mt-1 truncate text-xl font-black uppercase leading-none tracking-tight text-black font-mono sm:text-2xl">
+                    {viewingRecord?.date || format(selectedDate, 'dd-MM-yyyy')}
+                  </DialogTitle>
+                </div>
+
                 {viewingRecord && (
-                  <div className="mt-1 grid grid-cols-2 gap-2 sm:flex sm:flex-wrap sm:items-center sm:gap-4">
-                    {/* Stats Pills */}
-                    <div className="flex min-w-0 items-center justify-center gap-1.5 bg-[#86efac] border-2 border-black px-2 py-1 rounded-md shadow-[2px_2px_0px_rgba(0,0,0,1)] sm:gap-2 sm:px-3">
-                      <span className="shrink-0 text-[11px] font-black uppercase text-black font-mono sm:text-xs">In:</span>
-                      <span className="truncate text-sm font-extrabold text-black font-mono sm:text-base">{formatCurrency(viewingRecord.totalIn)}</span>
+                  <div className="grid gap-2 sm:grid-cols-[minmax(0,1fr)_auto] sm:items-center">
+                    <div className="grid grid-cols-3 gap-2">
+                      <div className="min-w-0 rounded-md border-2 border-black bg-[#86efac] px-2.5 py-1.5 shadow-[2px_2px_0px_rgba(0,0,0,1)]">
+                        <p className="text-[9px] font-black uppercase tracking-wide text-black font-mono sm:text-[10px]">Money In</p>
+                        <p className="truncate text-sm font-black text-black font-mono sm:text-base">{formatCurrency(viewingRecord.totalIn)}</p>
+                      </div>
+
+                      <div className="min-w-0 rounded-md border-2 border-black bg-[#fca5a5] px-2.5 py-1.5 shadow-[2px_2px_0px_rgba(0,0,0,1)]">
+                        <p className="text-[9px] font-black uppercase tracking-wide text-black font-mono sm:text-[10px]">Money Out</p>
+                        <p className="truncate text-sm font-black text-black font-mono sm:text-base">{formatCurrency(viewingRecord.totalOut)}</p>
+                      </div>
+
+                      <div className={`min-w-0 rounded-md border-2 border-black px-2.5 py-1.5 shadow-[2px_2px_0px_rgba(0,0,0,1)] ${
+                        viewingRecord.totalLeft >= 0 ? 'bg-[#93c5fd]' : 'bg-[#fca5a5]'
+                      }`}>
+                        <p className="text-[9px] font-black uppercase tracking-wide text-black font-mono sm:text-[10px]">Balance</p>
+                        <p className="truncate text-sm font-black text-black font-mono sm:text-base">
+                          {formatCurrency(viewingRecord.totalLeft)}
+                        </p>
+                      </div>
                     </div>
-                    
-                    <div className="flex min-w-0 items-center justify-center gap-1.5 bg-[#fca5a5] border-2 border-black px-2 py-1 rounded-md shadow-[2px_2px_0px_rgba(0,0,0,1)] sm:gap-2 sm:px-3">
-                      <span className="shrink-0 text-[11px] font-black uppercase text-black font-mono sm:text-xs">Out:</span>
-                      <span className="truncate text-sm font-extrabold text-black font-mono sm:text-base">{formatCurrency(viewingRecord.totalOut)}</span>
-                    </div>
-                    
-                    <div className={`flex min-w-0 items-center justify-center gap-1.5 border-2 border-black px-2 py-1 rounded-md shadow-[2px_2px_0px_rgba(0,0,0,1)] sm:gap-2 sm:px-3 ${
-                      viewingRecord.totalLeft >= 0 ? 'bg-[#93c5fd]' : 'bg-[#fca5a5]'
-                    }`}>
-                      <span className="shrink-0 text-[11px] font-black uppercase text-black font-mono sm:text-xs">Balance:</span>
-                      <span className="truncate text-sm font-extrabold text-black font-mono sm:text-base">
-                        {formatCurrency(viewingRecord.totalLeft)}
-                      </span>
-                    </div>
-                    
-                    {/* Add Button */}
+
                     <Button
                       onClick={() => {
                         setRecordDate(parse(viewingRecord.date, 'dd-MM-yyyy', new Date()));
@@ -957,20 +961,18 @@ export default function DailyCashRecordPage() {
                         setAddTransactionOpen(true);
                       }}
                       size="sm"
-                      className="w-full gap-1.5 bg-[#fde047] hover:bg-[#facc15] text-black border-2 border-black shadow-[2px_2px_0px_rgba(0,0,0,1)] hover:translate-x-[-1px] hover:translate-y-[-1px] hover:shadow-[3px_3px_0px_rgba(0,0,0,1)] active:translate-x-[1px] active:translate-y-[1px] active:shadow-[1px_1px_0px_rgba(0,0,0,1)] transition-all font-mono font-black uppercase sm:ml-auto sm:w-auto"
+                      className="h-8 w-fit justify-self-start gap-1.5 rounded-md border-2 border-black bg-[#fde047] px-3 text-xs font-black uppercase text-black shadow-[2px_2px_0px_rgba(0,0,0,1)] transition-all hover:translate-x-[-1px] hover:translate-y-[-1px] hover:bg-[#facc15] hover:shadow-[3px_3px_0px_rgba(0,0,0,1)] active:translate-x-[1px] active:translate-y-[1px] active:shadow-[1px_1px_0px_rgba(0,0,0,1)] font-mono sm:h-9 sm:justify-self-end sm:px-3.5"
                     >
-                      <Plus className="h-4 w-4 stroke-[3px]" />
+                      <Plus className="h-3.5 w-3.5 stroke-[3px]" />
                       Add
                     </Button>
                   </div>
                 )}
               </div>
             </DialogHeader>
-            {/* Content Area */}
-            <div className="flex-1 overflow-auto overscroll-contain bg-[#faf9f6] p-3 sm:p-4 lg:p-6">
+            <div className="flex-1 overflow-auto overscroll-contain bg-[#faf9f6] p-3 sm:p-4 lg:p-5">
               {viewingRecord && viewingRecord.entries && viewingRecord.entries.length > 0 ? (
                 <>
-                  {/* Mobile Card View */}
                   <div className="block space-y-3 lg:hidden">
                     {viewingRecord.entries.map((entry, idx) => {
                       const entryDate = entry.createdAt
@@ -982,11 +984,11 @@ export default function DailyCashRecordPage() {
                           initial={{ opacity: 0, y: 10 }}
                           animate={{ opacity: 1, y: 0 }}
                           transition={{ delay: idx * 0.03 }}
-                          className="rounded-lg bg-white p-3 text-left border-2 border-black shadow-[3px_3px_0px_rgba(0,0,0,1)]"
+                          className="rounded-lg border-2 border-black bg-white p-3 text-left shadow-[3px_3px_0px_rgba(0,0,0,1)]"
                         >
-                          <div className="mb-3 flex min-w-0 items-center justify-between gap-2">
+                          <div className="mb-2.5 flex min-w-0 items-center justify-between gap-2">
                             <div className="flex min-w-0 items-center gap-2">
-                              <span className={`px-2 py-0.5 rounded border-2 border-black text-[10px] font-black uppercase shadow-[1px_1px_0px_rgba(0,0,0,1)] shrink-0 ${
+                              <span className={`shrink-0 rounded border-2 border-black px-2 py-0.5 text-[10px] font-black uppercase shadow-[1px_1px_0px_rgba(0,0,0,1)] ${
                                 entry.type === 'in'
                                   ? 'bg-[#86efac] text-black'
                                   : 'bg-[#fca5a5] text-black'
@@ -1001,25 +1003,29 @@ export default function DailyCashRecordPage() {
                                   size="sm"
                                   variant="outline"
                                   onClick={() => { setBillViewUrl(entry.billUrl!); setBillViewOpen(true); }}
-                                  className="h-8 px-2 text-[10px] font-mono font-bold uppercase rounded border-2 border-black bg-white shadow-[1px_1px_0px_rgba(0,0,0,1)] hover:bg-[#86efac] transition-all sm:text-[11px]"
+                                  aria-label="View bill"
+                                  title="View bill"
+                                  className="h-7 w-7 rounded border-2 border-black bg-white p-0 shadow-[1px_1px_0px_rgba(0,0,0,1)] transition-all hover:bg-[#86efac]"
                                 >
-                                  Bill
+                                  <FileText className="h-3.5 w-3.5 text-black stroke-[2.5px]" />
                                 </Button>
                               )}
                               <Button
                                 size="sm"
                                 variant="outline"
                                 onClick={() => handleEditEntry(entry, viewingRecord)}
-                                className="h-8 px-2 text-[10px] font-mono font-bold uppercase rounded border-2 border-black bg-white shadow-[1px_1px_0px_rgba(0,0,0,1)] hover:bg-[#fde047] transition-all sm:text-[11px]"
+                                aria-label="Edit entry"
+                                title="Edit entry"
+                                className="h-7 w-7 rounded border-2 border-black bg-white p-0 shadow-[1px_1px_0px_rgba(0,0,0,1)] transition-all hover:bg-[#fde047]"
                               >
-                                Edit
+                                <Edit2 className="h-3.5 w-3.5 text-black stroke-[2.5px]" />
                               </Button>
                             </div>
                           </div>
                           
-                          <div className="flex min-w-0 items-center justify-between gap-2 bg-[#faf9f6] border-2 border-black p-2 rounded shadow-[1px_1px_0px_rgba(0,0,0,1)]">
+                          <div className="flex min-w-0 items-center justify-between gap-2 rounded border-2 border-black bg-[#faf9f6] p-2 shadow-[1px_1px_0px_rgba(0,0,0,1)]">
                             <p className="min-w-0 flex-1 truncate text-sm font-extrabold text-black">{entry.description}</p>
-                            <span className={`shrink-0 truncate text-xs font-black font-mono border-2 border-black px-2 py-0.5 rounded shadow-[1px_1px_0px_rgba(0,0,0,1)] sm:text-sm ${
+                            <span className={`shrink-0 truncate rounded border-2 border-black px-2 py-0.5 text-xs font-black shadow-[1px_1px_0px_rgba(0,0,0,1)] font-mono sm:text-sm ${
                               entry.type === 'in' ? 'bg-[#86efac] text-black' : 'bg-[#fca5a5] text-black'
                             }`}>
                               {entry.type === 'out' && '-'}{formatCurrency(entry.amount)}
@@ -1030,65 +1036,69 @@ export default function DailyCashRecordPage() {
                     })}
                   </div>
 
-                  {/* Desktop Table View */}
-                  <div className="hidden lg:block">
-                    <Table>
-                      <TableHeader>
-                        <TableRow>
-                          <TableHead className="px-6 py-4 text-xs font-black uppercase text-black font-mono">Date</TableHead>
-                          <TableHead className="px-6 py-4 text-xs font-black uppercase text-black font-mono">Description</TableHead>
-                          <TableHead className="text-right px-6 py-4 text-xs font-black uppercase text-black font-mono">Money Out</TableHead>
-                          <TableHead className="text-right px-6 py-4 text-xs font-black uppercase text-black font-mono">Money In</TableHead>
-                          <TableHead className="text-center px-4 py-4 text-xs font-black uppercase text-black font-mono">Bill</TableHead>
-                          <TableHead className="w-16 px-6 py-4"></TableHead>
+                  <div className="hidden overflow-hidden rounded-lg border-2 border-black bg-white shadow-[4px_4px_0px_rgba(0,0,0,1)] lg:block">
+                    <Table className="min-w-[860px]">
+                      <TableHeader className="bg-[#fde047] [&_tr]:border-b-2 [&_tr]:border-black">
+                        <TableRow className="hover:bg-[#fde047]">
+                          <TableHead className="h-10 px-4 py-2 text-[11px] font-black uppercase text-black font-mono">Date</TableHead>
+                          <TableHead className="h-10 px-4 py-2 text-[11px] font-black uppercase text-black font-mono">Description</TableHead>
+                          <TableHead className="h-10 px-4 py-2 text-right text-[11px] font-black uppercase text-black font-mono">Money Out</TableHead>
+                          <TableHead className="h-10 px-4 py-2 text-right text-[11px] font-black uppercase text-black font-mono">Money In</TableHead>
+                          <TableHead className="h-10 w-20 px-3 py-2 text-center text-[11px] font-black uppercase text-black font-mono">Bill</TableHead>
+                          <TableHead className="h-10 w-20 px-3 py-2 text-center text-[11px] font-black uppercase text-black font-mono">Edit</TableHead>
                         </TableRow>
                       </TableHeader>
-                      <TableBody>
+                      <TableBody className="[&_tr]:border-b-2 [&_tr]:border-black [&_tr:last-child]:border-b-0">
                         {viewingRecord.entries.map((entry) => {
                           const entryDate = entry.createdAt
                             ? format(new Date(entry.createdAt), 'dd-MM-yyyy')
                             : viewingRecord.date;
                           return (
-                            <TableRow key={entry.id}>
-                              <TableCell className="px-6 py-4 font-mono text-sm text-black">{entryDate}</TableCell>
-                              <TableCell className="px-6 py-4 font-bold text-sm text-black">{entry.description}</TableCell>
-                              <TableCell className="px-6 py-4 text-right">
+                            <TableRow key={entry.id} className="bg-white hover:bg-[#faf9f6]">
+                              <TableCell className="px-4 py-3 text-sm text-black font-mono">{entryDate}</TableCell>
+                              <TableCell className="max-w-[320px] px-4 py-3 text-sm font-bold text-black">
+                                <span className="block truncate" title={entry.description}>{entry.description}</span>
+                              </TableCell>
+                              <TableCell className="px-4 py-3 text-right">
                                 {entry.type === 'out' ? (
-                                  <span className="bg-[#fca5a5] border-2 border-black px-2 py-0.5 rounded shadow-[1px_1px_0px_rgba(0,0,0,1)] text-black font-black font-mono text-xs">{formatCurrency(entry.amount)}</span>
+                                  <span className="rounded border-2 border-black bg-[#fca5a5] px-2 py-0.5 text-xs font-black text-black shadow-[1px_1px_0px_rgba(0,0,0,1)] font-mono">{formatCurrency(entry.amount)}</span>
                                 ) : (
-                                  <span className="text-gray-400 font-mono">—</span>
+                                  <span className="text-sm text-gray-400 font-mono">-</span>
                                 )}
                               </TableCell>
-                              <TableCell className="px-6 py-4 text-right">
+                              <TableCell className="px-4 py-3 text-right">
                                 {entry.type === 'in' ? (
-                                  <span className="bg-[#86efac] border-2 border-black px-2 py-0.5 rounded shadow-[1px_1px_0px_rgba(0,0,0,1)] text-black font-black font-mono text-xs">{formatCurrency(entry.amount)}</span>
+                                  <span className="rounded border-2 border-black bg-[#86efac] px-2 py-0.5 text-xs font-black text-black shadow-[1px_1px_0px_rgba(0,0,0,1)] font-mono">{formatCurrency(entry.amount)}</span>
                                 ) : (
-                                  <span className="text-gray-400 font-mono">—</span>
+                                  <span className="text-sm text-gray-400 font-mono">-</span>
                                 )}
                               </TableCell>
-                              <TableCell className="px-4 py-4 text-center">
+                              <TableCell className="px-3 py-3 text-center">
                                 {entry.billUrl ? (
                                   <Button
                                     size="sm"
                                     variant="outline"
                                     onClick={() => { setBillViewUrl(entry.billUrl!); setBillViewOpen(true); }}
-                                    className="h-8 w-8 p-0 bg-white border-2 border-black hover:bg-[#86efac] shadow-[1px_1px_0px_rgba(0,0,0,1)] hover:translate-x-[-1px] hover:translate-y-[-1px] hover:shadow-[2px_2px_0px_rgba(0,0,0,1)] active:translate-x-[0px] active:translate-y-[0px] active:shadow-[1px_1px_0px_rgba(0,0,0,1)] transition-all"
-                                    title="View Bill"
+                                    className="h-7 w-7 rounded border-2 border-black bg-white p-0 shadow-[1px_1px_0px_rgba(0,0,0,1)] transition-all hover:translate-x-[-1px] hover:translate-y-[-1px] hover:bg-[#86efac] hover:shadow-[2px_2px_0px_rgba(0,0,0,1)] active:translate-x-[0px] active:translate-y-[0px] active:shadow-[1px_1px_0px_rgba(0,0,0,1)]"
+                                    title="View bill"
+                                    aria-label="View bill"
                                   >
-                                    <FileText className="h-4 w-4 text-black stroke-[2.5px]" />
+                                    <FileText className="h-3.5 w-3.5 text-black stroke-[2.5px]" />
                                   </Button>
                                 ) : (
-                                  <span className="text-gray-400 font-mono">—</span>
+                                  <span className="text-sm text-gray-400 font-mono">-</span>
                                 )}
                               </TableCell>
-                              <TableCell className="px-6 py-4 text-center">
+                              <TableCell className="px-3 py-3 text-center">
                                 <Button
                                   size="sm"
                                   variant="outline"
                                   onClick={() => handleEditEntry(entry, viewingRecord)}
-                                  className="h-8 w-8 p-0 bg-white border-2 border-black hover:bg-[#fde047] shadow-[1px_1px_0px_rgba(0,0,0,1)] hover:translate-x-[-1px] hover:translate-y-[-1px] hover:shadow-[2px_2px_0px_rgba(0,0,0,1)] active:translate-x-[0px] active:translate-y-[0px] active:shadow-[1px_1px_0px_rgba(0,0,0,1)] transition-all"
+                                  className="h-7 w-7 rounded border-2 border-black bg-white p-0 shadow-[1px_1px_0px_rgba(0,0,0,1)] transition-all hover:translate-x-[-1px] hover:translate-y-[-1px] hover:bg-[#fde047] hover:shadow-[2px_2px_0px_rgba(0,0,0,1)] active:translate-x-[0px] active:translate-y-[0px] active:shadow-[1px_1px_0px_rgba(0,0,0,1)]"
+                                  title="Edit entry"
+                                  aria-label="Edit entry"
                                 >
-                                  <Edit2 className="h-4 w-4 text-black stroke-[2.5px]" />
+                                  <Edit2 className="h-3.5 w-3.5 text-black stroke-[2.5px]" />
                                 </Button>
                               </TableCell>
                             </TableRow>
@@ -1096,30 +1106,6 @@ export default function DailyCashRecordPage() {
                         })}
                       </TableBody>
                     </Table>
-                  </div>
-
-                  {/* Summary Footer */}
-                  <div className="bottom-0 mt-3 rounded-lg bg-[#faf9f6] px-3 py-3 border-2 border-black shadow-[3px_3px_0px_rgba(0,0,0,1)] sm:sticky sm:mt-4 sm:px-6 sm:py-4 sm:shadow-[4px_4px_0px_rgba(0,0,0,1)]">
-                    <div className="grid grid-cols-2 gap-2 sm:flex sm:flex-wrap sm:items-center sm:justify-between sm:gap-4">
-                      <div className="contents sm:flex sm:flex-wrap sm:gap-4">
-                        <div className="min-w-0 bg-[#fca5a5] border-2 border-black px-2.5 py-1.5 rounded-md shadow-[2px_2px_0px_rgba(0,0,0,1)] sm:px-3">
-                          <p className="text-[10px] font-black uppercase text-black font-mono tracking-wide">Total Out</p>
-                          <p className="truncate text-base font-extrabold text-black font-mono">{formatCurrency(viewingRecord.totalOut)}</p>
-                        </div>
-                        <div className="min-w-0 bg-[#86efac] border-2 border-black px-2.5 py-1.5 rounded-md shadow-[2px_2px_0px_rgba(0,0,0,1)] sm:px-3">
-                          <p className="text-[10px] font-black uppercase text-black font-mono tracking-wide">Total In</p>
-                          <p className="truncate text-base font-extrabold text-black font-mono">{formatCurrency(viewingRecord.totalIn)}</p>
-                        </div>
-                      </div>
-                      <div className={`col-span-2 min-w-0 border-2 border-black px-3 py-2 rounded-md shadow-[3px_3px_0px_rgba(0,0,0,1)] text-left sm:col-span-1 sm:ml-auto sm:px-4 sm:text-right sm:shadow-[4px_4px_0px_rgba(0,0,0,1)] ${
-                        viewingRecord.totalLeft >= 0 ? 'bg-[#93c5fd]' : 'bg-[#fca5a5]'
-                      }`}>
-                        <p className="text-[10px] font-black uppercase text-black font-mono tracking-wide">Balance</p>
-                        <p className="truncate text-xl font-black text-black font-mono">
-                          {formatCurrency(viewingRecord.totalLeft)}
-                        </p>
-                      </div>
-                    </div>
                   </div>
                 </>
               ) : (
