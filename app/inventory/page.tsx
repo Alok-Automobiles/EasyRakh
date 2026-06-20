@@ -59,20 +59,27 @@ const defaultStats: InventoryStats = {
 
 const formatCurrency = (value: number) => currencyFormatter.format(value || 0);
 
+const statCardClassName =
+  'rounded-xl border border-gray-200 bg-white p-4 shadow-sm transition-shadow hover:shadow-md';
+
 const StatCard = ({
   label,
   value,
   subtext,
   icon,
   tone,
+  href,
+  ariaLabel,
 }: {
   label: string;
   value: string;
   subtext: string;
   icon: React.ReactNode;
   tone: string;
-}) => (
-  <div className="rounded-xl border border-gray-200 bg-white p-4 shadow-sm transition-shadow hover:shadow-md">
+  href?: string;
+  ariaLabel?: string;
+}) => {
+  const content = (
     <div className="flex items-start justify-between gap-3">
       <div className="min-w-0">
         <p className="text-[11px] font-semibold uppercase tracking-wide text-gray-500">{label}</p>
@@ -85,8 +92,22 @@ const StatCard = ({
       </div>
       <div className={`rounded-lg p-2.5 ${tone}`}>{icon}</div>
     </div>
-  </div>
-);
+  );
+
+  if (href) {
+    return (
+      <Link
+        href={href}
+        aria-label={ariaLabel || `View ${label.toLowerCase()} inventory items`}
+        className={`${statCardClassName} block cursor-pointer focus:outline-none focus-visible:ring-2 focus-visible:ring-slate-400 focus-visible:ring-offset-2`}
+      >
+        {content}
+      </Link>
+    );
+  }
+
+  return <div className={statCardClassName}>{content}</div>;
+};
 
 export default function InventoryPage() {
   const router = useRouter();
@@ -214,6 +235,8 @@ export default function InventoryPage() {
           subtext={`${stats.totalQuantity.toLocaleString('en-IN')} total units`}
           icon={<Package className="h-5 w-5" />}
           tone="bg-blue-100 text-blue-700"
+          href="/inventory-items"
+          ariaLabel="View all inventory items"
         />
         <StatCard
           label="Stock Value"
@@ -221,6 +244,8 @@ export default function InventoryPage() {
           subtext="Based on buying price"
           icon={<TrendingUp className="h-5 w-5" />}
           tone="bg-emerald-100 text-emerald-700"
+          href="/inventory-items"
+          ariaLabel="View all inventory items with stock value"
         />
         <StatCard
           label="Out Of Stock"
@@ -228,6 +253,8 @@ export default function InventoryPage() {
           subtext="Zero for under 60 days"
           icon={<AlertTriangle className="h-5 w-5" />}
           tone="bg-red-100 text-red-700"
+          href="/inventory-items?status=out-of-stock"
+          ariaLabel="View out of stock inventory items"
         />
         <StatCard
           label="Inactive"
@@ -235,6 +262,8 @@ export default function InventoryPage() {
           subtext="Zero stock for 60+ days"
           icon={<Archive className="h-5 w-5" />}
           tone="bg-gray-100 text-gray-700"
+          href="/inventory-items?status=inactive"
+          ariaLabel="View inactive inventory items"
         />
         <StatCard
           label="Restock Items"
@@ -242,6 +271,8 @@ export default function InventoryPage() {
           subtext={`Quantity 1-${stats.lowStockThreshold}`}
           icon={<ShoppingBag className="h-5 w-5" />}
           tone="bg-amber-100 text-amber-700"
+          href="/inventory-items?status=low-stock"
+          ariaLabel="View restock inventory items"
         />
       </div>
 
