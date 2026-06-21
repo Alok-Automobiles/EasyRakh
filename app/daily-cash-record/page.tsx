@@ -553,7 +553,7 @@ export default function DailyCashRecordPage() {
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-slate-50 px-3 py-3 sm:p-6">
+      <div className="cash-record-page min-h-screen bg-background px-3 py-3 sm:p-6">
         <div className="max-w-7xl mx-auto">
           <Skeleton className="h-8 w-48 sm:h-10 sm:w-64 mb-4 sm:mb-6" />
           <div className="grid grid-cols-2 gap-2 sm:flex sm:gap-3 mb-4">
@@ -571,13 +571,13 @@ export default function DailyCashRecordPage() {
   }
 
   return (
-    <div className="min-h-screen bg-slate-50 px-3 py-3 pb-10 sm:p-6 sm:pb-8">
+    <div className="cash-record-page min-h-screen bg-background px-3 py-3 pb-10 sm:p-6 sm:pb-8">
       <div className="max-w-7xl mx-auto">
         <header className="mb-3 sm:mb-5">
-          <h1 className="text-xl font-bold tracking-tight text-slate-900 sm:text-3xl">
+          <h1 className="app-page-title text-xl sm:text-3xl">
             Daily cash record
           </h1>
-          <p className="mt-1 text-xs text-slate-500 sm:text-sm">
+          <p className="mt-1 text-xs text-muted-foreground sm:text-sm">
             <span className="sm:hidden">Tap a day to view entries and add transactions</span>
             <span className="hidden sm:inline">Select a day to view entries and add transactions</span>
           </p>
@@ -592,7 +592,7 @@ export default function DailyCashRecordPage() {
               <Button
                 onClick={handleCreateRecordForToday}
                 variant="default"
-                className="h-10 w-full rounded-lg bg-slate-900 text-white hover:bg-slate-800 sm:h-9 sm:w-auto sm:shrink-0 text-xs sm:text-sm px-2 sm:px-4"
+                className="cash-record-action-primary h-10 w-full rounded-lg sm:h-9 sm:w-auto sm:shrink-0 text-xs sm:text-sm px-2 sm:px-4"
               >
                 <Plus className="h-3.5 w-3.5 sm:h-4 sm:w-4 sm:mr-2 shrink-0" />
                 <span className="truncate">New for today</span>
@@ -722,7 +722,7 @@ export default function DailyCashRecordPage() {
             <DialogTrigger asChild>
               <Button
                 variant="outline"
-                className="h-10 w-full rounded-lg border-slate-200 bg-white sm:h-9 sm:w-auto sm:shrink-0 text-xs sm:text-sm px-2 sm:px-4"
+                className="cash-record-action-secondary h-10 w-full rounded-lg sm:h-9 sm:w-auto sm:shrink-0 text-xs sm:text-sm px-2 sm:px-4"
               >
                 <CalendarIcon className="h-3.5 w-3.5 sm:h-4 sm:w-4 sm:mr-2 shrink-0" />
                 <span className="truncate">Open by date</span>
@@ -763,7 +763,7 @@ export default function DailyCashRecordPage() {
             <DialogTrigger asChild>
               <Button
                 variant="outline"
-                className="h-10 w-full rounded-lg border-slate-200 bg-white sm:h-9 sm:w-auto sm:shrink-0 text-xs sm:text-sm px-2 sm:px-4 col-span-2 sm:col-span-1"
+                className="cash-record-action-secondary h-10 w-full rounded-lg sm:h-9 sm:w-auto sm:shrink-0 text-xs sm:text-sm px-2 sm:px-4 col-span-2 sm:col-span-1"
               >
                 <Download className="h-3.5 w-3.5 sm:h-4 sm:w-4 sm:mr-2 shrink-0" />
                 <span className="truncate">Download PDF</span>
@@ -806,7 +806,7 @@ export default function DailyCashRecordPage() {
                 <Button
                   onClick={handleDownloadPdf}
                   disabled={!pdfFrom || !pdfTo || pdfDownloading}
-                  className="w-full bg-slate-900 hover:bg-slate-800 text-white"
+                  className="cash-record-action-primary w-full"
                 >
                   <Download className="h-4 w-4 mr-2" />
                   {pdfDownloading ? 'Generating...' : 'Download PDF'}
@@ -834,7 +834,7 @@ export default function DailyCashRecordPage() {
                         type="button"
                         onClick={() => handleViewRecord(record)}
                         disabled={openingRecordId === record.id}
-                        className={`group w-full text-left bg-white transition-all duration-200 max-sm:border-b max-sm:border-slate-200/90 max-sm:rounded-none hover:bg-slate-50/90 active:bg-slate-50 sm:rounded-xl sm:border sm:border-slate-200/90 sm:shadow-sm sm:hover:-translate-y-0.5 sm:hover:border-slate-300 sm:hover:shadow-md ${
+                        className={`cash-record-card group w-full text-left transition-all duration-200 max-sm:border-b max-sm:rounded-none sm:rounded-xl sm:border sm:shadow-sm sm:hover:-translate-y-0.5 sm:hover:shadow-md ${
                           openingRecordId === record.id
                             ? 'cursor-wait opacity-85 pointer-events-none'
                             : 'cursor-pointer'
@@ -845,41 +845,41 @@ export default function DailyCashRecordPage() {
                         <div className="px-3 pt-2.5 pb-2 sm:px-4 sm:pt-4 sm:pb-3 max-sm:px-3.5">
                           <div className="flex items-center justify-between gap-2">
                             <div className="flex min-w-0 items-center gap-2">
-                              <CalendarIcon className="h-4 w-4 shrink-0 text-slate-400 sm:h-5 sm:w-5" />
-                              <span className="truncate text-sm font-semibold tabular-nums text-slate-900 sm:text-base">
+                              <CalendarIcon className="h-4 w-4 shrink-0 text-muted-foreground sm:h-5 sm:w-5" />
+                              <span className="truncate text-sm font-semibold tabular-nums text-foreground sm:text-base">
                                 {record.date}
                               </span>
                             </div>
                             {openingRecordId === record.id ? (
-                              <span className="inline-flex items-center gap-1.5 shrink-0 rounded-md bg-slate-100 px-2 py-0.5 text-[11px] font-medium text-slate-600 sm:text-xs">
+                              <span className="cash-record-pill inline-flex items-center gap-1.5 shrink-0 rounded-md px-2 py-0.5 text-[11px] font-medium sm:text-xs">
                                 <Loader2 className="h-3 w-3 animate-spin" />
                                 Opening...
                               </span>
                             ) : (
-                              <span className="shrink-0 rounded-md bg-slate-100 px-2 py-0.5 text-[11px] font-medium text-slate-600 sm:text-xs">
+                              <span className="cash-record-pill shrink-0 rounded-md px-2 py-0.5 text-[11px] font-medium sm:text-xs">
                                 {record.entryCount} {record.entryCount === 1 ? 'entry' : 'entries'}
                               </span>
                             )}
                           </div>
                         </div>
-                        <div className="mx-3 mb-2.5 overflow-hidden rounded-lg border border-slate-100 max-sm:mx-3.5 sm:mx-4 sm:mb-4">
-                          <div className="flex items-center justify-between gap-2 bg-emerald-50/80 px-2.5 py-2 text-sm sm:px-3">
-                            <span className="font-medium text-emerald-800">In</span>
-                            <span className="font-semibold tabular-nums text-emerald-800">
+                        <div className="cash-record-summary mx-3 mb-2.5 overflow-hidden rounded-lg border max-sm:mx-3.5 sm:mx-4 sm:mb-4">
+                          <div className="cash-record-row-in flex items-center justify-between gap-2 px-2.5 py-2 text-sm sm:px-3">
+                            <span className="font-medium">In</span>
+                            <span className="font-semibold tabular-nums">
                               {formatCurrency(record.totalIn)}
                             </span>
                           </div>
-                          <div className="flex items-center justify-between gap-2 border-t border-slate-100 bg-white px-2.5 py-2 text-sm sm:px-3">
-                            <span className="font-medium text-rose-800">Out</span>
-                            <span className="font-semibold tabular-nums text-rose-800">
+                          <div className="cash-record-row-out flex items-center justify-between gap-2 border-t px-2.5 py-2 text-sm sm:px-3">
+                            <span className="font-medium">Out</span>
+                            <span className="font-semibold tabular-nums">
                               {formatCurrency(record.totalOut)}
                             </span>
                           </div>
                           <div
                             className={`flex items-center justify-between gap-2 border-t-2 px-2.5 py-2.5 text-sm sm:px-3 sm:py-3 ${
                               record.totalLeft >= 0
-                                ? 'border-emerald-200 bg-slate-900 text-white'
-                                : 'border-rose-300 bg-rose-950 text-white'
+                                ? 'cash-record-row-balance border-emerald-200'
+                                : 'cash-record-row-balance-negative border-rose-300'
                             }`}
                           >
                             <span className="text-xs font-semibold uppercase tracking-wide text-white/90 sm:text-sm sm:normal-case sm:tracking-normal">
@@ -917,14 +917,14 @@ export default function DailyCashRecordPage() {
 
         {/* View Record Dialog */}
         <Dialog open={viewRecordOpen} onOpenChange={setViewRecordOpen}>
-          <DialogContent className="flex max-h-[calc(100dvh-1rem)] w-[calc(100vw-1rem)] max-w-[calc(100vw-1rem)] flex-col overflow-hidden p-0 sm:max-h-[92vh] sm:w-full sm:max-w-[92vw] lg:max-w-5xl">
-            <DialogHeader className="flex-shrink-0 border-b-4 border-black bg-white px-3.5 pb-3 pr-14 pt-4 sm:px-5 sm:pb-4 sm:pt-5">
+          <DialogContent className="cash-record-dialog flex max-h-[calc(100dvh-1rem)] w-[calc(100vw-1rem)] max-w-[calc(100vw-1rem)] flex-col overflow-hidden p-0 sm:max-h-[92vh] sm:w-full sm:max-w-[92vw] lg:max-w-5xl">
+            <DialogHeader className="cash-record-dialog-header flex-shrink-0 border-b-4 px-3.5 pb-3 pr-14 pt-4 sm:px-5 sm:pb-4 sm:pt-5">
               <div className="flex min-w-0 flex-col gap-3">
                 <div className="min-w-0">
-                  <p className="text-[10px] font-black uppercase tracking-wide text-slate-500 font-mono">
+                  <p className="cash-record-dialog-eyebrow text-[10px] font-black uppercase tracking-wide font-mono">
                     Daily cash entries
                   </p>
-                  <DialogTitle className="mt-1 truncate text-xl font-black uppercase leading-none tracking-tight text-black font-mono sm:text-2xl">
+                  <DialogTitle className="cash-record-dialog-title mt-1 truncate text-xl font-black uppercase leading-none tracking-tight font-mono sm:text-2xl">
                     {viewingRecord?.date || format(selectedDate, 'dd-MM-yyyy')}
                   </DialogTitle>
                 </div>
@@ -932,21 +932,21 @@ export default function DailyCashRecordPage() {
                 {viewingRecord && (
                   <div className="grid gap-2 sm:grid-cols-[minmax(0,1fr)_auto] sm:items-center">
                     <div className="grid grid-cols-3 gap-2">
-                      <div className="min-w-0 rounded-md border-2 border-black bg-[#86efac] px-2.5 py-1.5 shadow-[2px_2px_0px_rgba(0,0,0,1)]">
-                        <p className="text-[9px] font-black uppercase tracking-wide text-black font-mono sm:text-[10px]">Money In</p>
-                        <p className="truncate text-sm font-black text-black font-mono sm:text-base">{formatCurrency(viewingRecord.totalIn)}</p>
+                      <div className="cash-record-modal-stat cash-record-modal-stat-in min-w-0 rounded-md border-2 px-2.5 py-1.5">
+                        <p className="cash-record-modal-stat-label text-[9px] font-black uppercase tracking-wide font-mono sm:text-[10px]">Money In</p>
+                        <p className="cash-record-modal-stat-value truncate text-sm font-black font-mono sm:text-base">{formatCurrency(viewingRecord.totalIn)}</p>
                       </div>
 
-                      <div className="min-w-0 rounded-md border-2 border-black bg-[#fca5a5] px-2.5 py-1.5 shadow-[2px_2px_0px_rgba(0,0,0,1)]">
-                        <p className="text-[9px] font-black uppercase tracking-wide text-black font-mono sm:text-[10px]">Money Out</p>
-                        <p className="truncate text-sm font-black text-black font-mono sm:text-base">{formatCurrency(viewingRecord.totalOut)}</p>
+                      <div className="cash-record-modal-stat cash-record-modal-stat-out min-w-0 rounded-md border-2 px-2.5 py-1.5">
+                        <p className="cash-record-modal-stat-label text-[9px] font-black uppercase tracking-wide font-mono sm:text-[10px]">Money Out</p>
+                        <p className="cash-record-modal-stat-value truncate text-sm font-black font-mono sm:text-base">{formatCurrency(viewingRecord.totalOut)}</p>
                       </div>
 
-                      <div className={`min-w-0 rounded-md border-2 border-black px-2.5 py-1.5 shadow-[2px_2px_0px_rgba(0,0,0,1)] ${
-                        viewingRecord.totalLeft >= 0 ? 'bg-[#93c5fd]' : 'bg-[#fca5a5]'
+                      <div className={`cash-record-modal-stat min-w-0 rounded-md border-2 px-2.5 py-1.5 ${
+                        viewingRecord.totalLeft >= 0 ? 'cash-record-modal-stat-balance' : 'cash-record-modal-stat-out'
                       }`}>
-                        <p className="text-[9px] font-black uppercase tracking-wide text-black font-mono sm:text-[10px]">Balance</p>
-                        <p className="truncate text-sm font-black text-black font-mono sm:text-base">
+                        <p className="cash-record-modal-stat-label text-[9px] font-black uppercase tracking-wide font-mono sm:text-[10px]">Balance</p>
+                        <p className="cash-record-modal-stat-value truncate text-sm font-black font-mono sm:text-base">
                           {formatCurrency(viewingRecord.totalLeft)}
                         </p>
                       </div>
@@ -961,7 +961,7 @@ export default function DailyCashRecordPage() {
                         setAddTransactionOpen(true);
                       }}
                       size="sm"
-                      className="h-8 w-fit justify-self-start gap-1.5 rounded-md border-2 border-black bg-[#fde047] px-3 text-xs font-black uppercase text-black shadow-[2px_2px_0px_rgba(0,0,0,1)] transition-all hover:translate-x-[-1px] hover:translate-y-[-1px] hover:bg-[#facc15] hover:shadow-[3px_3px_0px_rgba(0,0,0,1)] active:translate-x-[1px] active:translate-y-[1px] active:shadow-[1px_1px_0px_rgba(0,0,0,1)] font-mono sm:h-9 sm:justify-self-end sm:px-3.5"
+                      className="cash-record-action-primary h-8 w-fit justify-self-start gap-1.5 rounded-md px-3 text-xs font-black uppercase font-mono sm:h-9 sm:justify-self-end sm:px-3.5"
                     >
                       <Plus className="h-3.5 w-3.5 stroke-[3px]" />
                       Add
@@ -970,7 +970,7 @@ export default function DailyCashRecordPage() {
                 )}
               </div>
             </DialogHeader>
-            <div className="flex-1 overflow-auto overscroll-contain bg-[#faf9f6] p-3 sm:p-4 lg:p-5">
+            <div className="cash-record-dialog-body flex-1 overflow-auto overscroll-contain p-3 sm:p-4 lg:p-5">
               {viewingRecord && viewingRecord.entries && viewingRecord.entries.length > 0 ? (
                 <>
                   <div className="block space-y-3 lg:hidden">
@@ -984,18 +984,18 @@ export default function DailyCashRecordPage() {
                           initial={{ opacity: 0, y: 10 }}
                           animate={{ opacity: 1, y: 0 }}
                           transition={{ delay: idx * 0.03 }}
-                          className="rounded-lg border-2 border-black bg-white p-3 text-left shadow-[3px_3px_0px_rgba(0,0,0,1)]"
+                          className="cash-record-entry-card rounded-lg border-2 p-3 text-left"
                         >
                           <div className="mb-2.5 flex min-w-0 items-center justify-between gap-2">
                             <div className="flex min-w-0 items-center gap-2">
-                              <span className={`shrink-0 rounded border-2 border-black px-2 py-0.5 text-[10px] font-black uppercase shadow-[1px_1px_0px_rgba(0,0,0,1)] ${
+                              <span className={`shrink-0 rounded border-2 px-2 py-0.5 text-[10px] font-black uppercase shadow-[1px_1px_0px_var(--neo-shadow)] ${
                                 entry.type === 'in'
-                                  ? 'bg-[#86efac] text-black'
-                                  : 'bg-[#fca5a5] text-black'
+                                  ? 'cash-record-entry-type-in'
+                                  : 'cash-record-entry-type-out'
                               }`}>
                                 {entry.type === 'in' ? 'IN' : 'OUT'}
                               </span>
-                              <p className="truncate text-xs font-bold font-mono text-gray-700">{entryDate}</p>
+                              <p className="cash-record-entry-date truncate text-xs font-bold font-mono">{entryDate}</p>
                             </div>
                             <div className="flex shrink-0 items-center gap-1.5">
                               {entry.billUrl && (
@@ -1005,9 +1005,9 @@ export default function DailyCashRecordPage() {
                                   onClick={() => { setBillViewUrl(entry.billUrl!); setBillViewOpen(true); }}
                                   aria-label="View bill"
                                   title="View bill"
-                                  className="h-7 w-7 rounded border-2 border-black bg-white p-0 shadow-[1px_1px_0px_rgba(0,0,0,1)] transition-all hover:bg-[#86efac]"
+                                  className="cash-record-icon-button h-7 w-7 rounded border-2 p-0 transition-all"
                                 >
-                                  <FileText className="h-3.5 w-3.5 text-black stroke-[2.5px]" />
+                                  <FileText className="h-3.5 w-3.5 stroke-[2.5px]" />
                                 </Button>
                               )}
                               <Button
@@ -1016,17 +1016,17 @@ export default function DailyCashRecordPage() {
                                 onClick={() => handleEditEntry(entry, viewingRecord)}
                                 aria-label="Edit entry"
                                 title="Edit entry"
-                                className="h-7 w-7 rounded border-2 border-black bg-white p-0 shadow-[1px_1px_0px_rgba(0,0,0,1)] transition-all hover:bg-[#fde047]"
+                                className="cash-record-icon-button h-7 w-7 rounded border-2 p-0 transition-all"
                               >
-                                <Edit2 className="h-3.5 w-3.5 text-black stroke-[2.5px]" />
+                                <Edit2 className="h-3.5 w-3.5 stroke-[2.5px]" />
                               </Button>
                             </div>
                           </div>
                           
-                          <div className="flex min-w-0 items-center justify-between gap-2 rounded border-2 border-black bg-[#faf9f6] p-2 shadow-[1px_1px_0px_rgba(0,0,0,1)]">
-                            <p className="min-w-0 flex-1 truncate text-sm font-extrabold text-black">{entry.description}</p>
-                            <span className={`shrink-0 truncate rounded border-2 border-black px-2 py-0.5 text-xs font-black shadow-[1px_1px_0px_rgba(0,0,0,1)] font-mono sm:text-sm ${
-                              entry.type === 'in' ? 'bg-[#86efac] text-black' : 'bg-[#fca5a5] text-black'
+                          <div className="cash-record-entry-detail flex min-w-0 items-center justify-between gap-2 rounded border-2 p-2">
+                            <p className="cash-record-entry-description min-w-0 flex-1 truncate text-sm font-extrabold">{entry.description}</p>
+                            <span className={`shrink-0 truncate rounded border-2 px-2 py-0.5 text-xs font-black shadow-[1px_1px_0px_var(--neo-shadow)] font-mono sm:text-sm ${
+                              entry.type === 'in' ? 'cash-record-entry-amount-in' : 'cash-record-entry-amount-out'
                             }`}>
                               {entry.type === 'out' && '-'}{formatCurrency(entry.amount)}
                             </span>
@@ -1036,69 +1036,69 @@ export default function DailyCashRecordPage() {
                     })}
                   </div>
 
-                  <div className="hidden overflow-hidden rounded-lg border-2 border-black bg-white shadow-[4px_4px_0px_rgba(0,0,0,1)] lg:block">
+                  <div className="cash-record-table-wrap hidden overflow-hidden rounded-lg border-2 lg:block">
                     <Table className="min-w-[860px]">
-                      <TableHeader className="bg-[#fde047] [&_tr]:border-b-2 [&_tr]:border-black">
-                        <TableRow className="hover:bg-[#fde047]">
-                          <TableHead className="h-10 px-4 py-2 text-[11px] font-black uppercase text-black font-mono">Date</TableHead>
-                          <TableHead className="h-10 px-4 py-2 text-[11px] font-black uppercase text-black font-mono">Description</TableHead>
-                          <TableHead className="h-10 px-4 py-2 text-right text-[11px] font-black uppercase text-black font-mono">Money Out</TableHead>
-                          <TableHead className="h-10 px-4 py-2 text-right text-[11px] font-black uppercase text-black font-mono">Money In</TableHead>
-                          <TableHead className="h-10 w-20 px-3 py-2 text-center text-[11px] font-black uppercase text-black font-mono">Bill</TableHead>
-                          <TableHead className="h-10 w-20 px-3 py-2 text-center text-[11px] font-black uppercase text-black font-mono">Edit</TableHead>
+                      <TableHeader className="cash-record-table-header [&_tr]:border-b-2">
+                        <TableRow>
+                          <TableHead className="cash-record-table-head-cell h-10 px-4 py-2 text-[11px] font-black uppercase font-mono">Date</TableHead>
+                          <TableHead className="cash-record-table-head-cell h-10 px-4 py-2 text-[11px] font-black uppercase font-mono">Description</TableHead>
+                          <TableHead className="cash-record-table-head-cell h-10 px-4 py-2 text-right text-[11px] font-black uppercase font-mono">Money Out</TableHead>
+                          <TableHead className="cash-record-table-head-cell h-10 px-4 py-2 text-right text-[11px] font-black uppercase font-mono">Money In</TableHead>
+                          <TableHead className="cash-record-table-head-cell h-10 w-20 px-3 py-2 text-center text-[11px] font-black uppercase font-mono">Bill</TableHead>
+                          <TableHead className="cash-record-table-head-cell h-10 w-20 px-3 py-2 text-center text-[11px] font-black uppercase font-mono">Edit</TableHead>
                         </TableRow>
                       </TableHeader>
-                      <TableBody className="[&_tr]:border-b-2 [&_tr]:border-black [&_tr:last-child]:border-b-0">
+                      <TableBody className="[&_tr]:border-b-2 [&_tr:last-child]:border-b-0">
                         {viewingRecord.entries.map((entry) => {
                           const entryDate = entry.createdAt
                             ? format(new Date(entry.createdAt), 'dd-MM-yyyy')
                             : viewingRecord.date;
                           return (
-                            <TableRow key={entry.id} className="bg-white hover:bg-[#faf9f6]">
-                              <TableCell className="px-4 py-3 text-sm text-black font-mono">{entryDate}</TableCell>
-                              <TableCell className="max-w-[320px] px-4 py-3 text-sm font-bold text-black">
+                            <TableRow key={entry.id} className="cash-record-table-row">
+                              <TableCell className="cash-record-table-cell px-4 py-3 text-sm font-mono">{entryDate}</TableCell>
+                              <TableCell className="cash-record-table-cell max-w-[320px] px-4 py-3 text-sm font-bold">
                                 <span className="block truncate" title={entry.description}>{entry.description}</span>
                               </TableCell>
-                              <TableCell className="px-4 py-3 text-right">
+                              <TableCell className="cash-record-table-cell px-4 py-3 text-right">
                                 {entry.type === 'out' ? (
-                                  <span className="rounded border-2 border-black bg-[#fca5a5] px-2 py-0.5 text-xs font-black text-black shadow-[1px_1px_0px_rgba(0,0,0,1)] font-mono">{formatCurrency(entry.amount)}</span>
+                                  <span className="cash-record-entry-amount-out rounded border-2 px-2 py-0.5 text-xs font-black shadow-[1px_1px_0px_var(--neo-shadow)] font-mono">{formatCurrency(entry.amount)}</span>
                                 ) : (
-                                  <span className="text-sm text-gray-400 font-mono">-</span>
+                                  <span className="cash-record-entry-muted text-sm font-mono">-</span>
                                 )}
                               </TableCell>
-                              <TableCell className="px-4 py-3 text-right">
+                              <TableCell className="cash-record-table-cell px-4 py-3 text-right">
                                 {entry.type === 'in' ? (
-                                  <span className="rounded border-2 border-black bg-[#86efac] px-2 py-0.5 text-xs font-black text-black shadow-[1px_1px_0px_rgba(0,0,0,1)] font-mono">{formatCurrency(entry.amount)}</span>
+                                  <span className="cash-record-entry-amount-in rounded border-2 px-2 py-0.5 text-xs font-black shadow-[1px_1px_0px_var(--neo-shadow)] font-mono">{formatCurrency(entry.amount)}</span>
                                 ) : (
-                                  <span className="text-sm text-gray-400 font-mono">-</span>
+                                  <span className="cash-record-entry-muted text-sm font-mono">-</span>
                                 )}
                               </TableCell>
-                              <TableCell className="px-3 py-3 text-center">
+                              <TableCell className="cash-record-table-cell px-3 py-3 text-center">
                                 {entry.billUrl ? (
                                   <Button
                                     size="sm"
                                     variant="outline"
                                     onClick={() => { setBillViewUrl(entry.billUrl!); setBillViewOpen(true); }}
-                                    className="h-7 w-7 rounded border-2 border-black bg-white p-0 shadow-[1px_1px_0px_rgba(0,0,0,1)] transition-all hover:translate-x-[-1px] hover:translate-y-[-1px] hover:bg-[#86efac] hover:shadow-[2px_2px_0px_rgba(0,0,0,1)] active:translate-x-[0px] active:translate-y-[0px] active:shadow-[1px_1px_0px_rgba(0,0,0,1)]"
+                                    className="cash-record-icon-button h-7 w-7 rounded border-2 p-0 transition-all hover:translate-x-[-1px] hover:translate-y-[-1px] active:translate-x-[0px] active:translate-y-[0px]"
                                     title="View bill"
                                     aria-label="View bill"
                                   >
-                                    <FileText className="h-3.5 w-3.5 text-black stroke-[2.5px]" />
+                                    <FileText className="h-3.5 w-3.5 stroke-[2.5px]" />
                                   </Button>
                                 ) : (
-                                  <span className="text-sm text-gray-400 font-mono">-</span>
+                                  <span className="cash-record-entry-muted text-sm font-mono">-</span>
                                 )}
                               </TableCell>
-                              <TableCell className="px-3 py-3 text-center">
+                              <TableCell className="cash-record-table-cell px-3 py-3 text-center">
                                 <Button
                                   size="sm"
                                   variant="outline"
                                   onClick={() => handleEditEntry(entry, viewingRecord)}
-                                  className="h-7 w-7 rounded border-2 border-black bg-white p-0 shadow-[1px_1px_0px_rgba(0,0,0,1)] transition-all hover:translate-x-[-1px] hover:translate-y-[-1px] hover:bg-[#fde047] hover:shadow-[2px_2px_0px_rgba(0,0,0,1)] active:translate-x-[0px] active:translate-y-[0px] active:shadow-[1px_1px_0px_rgba(0,0,0,1)]"
+                                  className="cash-record-icon-button h-7 w-7 rounded border-2 p-0 transition-all hover:translate-x-[-1px] hover:translate-y-[-1px] active:translate-x-[0px] active:translate-y-[0px]"
                                   title="Edit entry"
                                   aria-label="Edit entry"
                                 >
-                                  <Edit2 className="h-3.5 w-3.5 text-black stroke-[2.5px]" />
+                                  <Edit2 className="h-3.5 w-3.5 stroke-[2.5px]" />
                                 </Button>
                               </TableCell>
                             </TableRow>
@@ -1109,12 +1109,12 @@ export default function DailyCashRecordPage() {
                   </div>
                 </>
               ) : (
-                <div className="flex flex-col items-center justify-center py-16 text-center border-4 border-dashed border-black rounded-lg bg-white p-6 shadow-[4px_4px_0px_rgba(0,0,0,1)]">
-                  <div className="w-16 h-16 rounded-lg bg-[#fde047] border-2 border-black shadow-[2px_2px_0px_rgba(0,0,0,1)] flex items-center justify-center mb-4">
-                    <CalendarIcon className="h-8 w-8 text-black stroke-[2.5px]" />
+                <div className="cash-record-empty-state flex flex-col items-center justify-center py-16 text-center border-4 border-dashed rounded-lg p-6">
+                  <div className="cash-record-pill w-16 h-16 rounded-lg border-2 flex items-center justify-center mb-4">
+                    <CalendarIcon className="h-8 w-8 stroke-[2.5px]" />
                   </div>
-                  <p className="text-lg font-black font-mono uppercase text-black mb-1">No entries yet</p>
-                  <p className="text-sm font-medium text-gray-700">Add your first transaction for this date</p>
+                  <p className="text-lg font-black font-mono uppercase text-foreground mb-1">No entries yet</p>
+                  <p className="cash-record-entry-date text-sm font-medium">Add your first transaction for this date</p>
                 </div>
               )}
             </div>

@@ -23,7 +23,7 @@ export default function PrivacyPage() {
               alt="EasyRakh"
               width={72}
               height={72}
-              className="mb-6 rounded-full bg-white/90 p-1 shadow-md"
+              className="theme-logo-surface mb-6 rounded-full p-1 shadow-md"
             />
             <h1 className="text-3xl font-bold tracking-tight text-gray-900 sm:text-4xl md:text-5xl">
               Privacy policy
@@ -113,12 +113,12 @@ export default function PrivacyPage() {
                 For privacy-related questions, reach us at{' '}
                 <a
                   href="mailto:support@easyrakh.com"
-                  className="font-medium text-(--brand-green) underline underline-offset-2 hover:text-[#059669]"
+                  className="font-medium text-(--brand-green) underline underline-offset-2 hover:text-[#0d9488]"
                 >
                   support@easyrakh.com
                 </a>
                 , or visit the{' '}
-                <Link href="/#contact" className="font-medium text-(--brand-green) underline underline-offset-2 hover:text-[#059669]">
+                <Link href="/#contact" className="font-medium text-(--brand-green) underline underline-offset-2 hover:text-[#0d9488]">
                   contact section
                 </Link>{' '}
                 on the home page.

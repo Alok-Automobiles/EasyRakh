@@ -79,6 +79,7 @@ export default function LoginPage() {
                 alt="EasyRakh logo"
                 width={60}
                 height={60}
+                className="theme-logo-surface rounded-xl p-1"
                 
               />
             </div>
@@ -156,4 +157,3 @@ export default function LoginPage() {
     </motion.div>
   );
 }
-

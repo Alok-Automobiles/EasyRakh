@@ -1,5 +1,6 @@
 import type { Metadata, Viewport } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
+import Script from "next/script";
 import "./globals.css";
 import "react-day-picker/dist/style.css";
 import AppShell from "@/components/AppShell";
@@ -9,6 +10,21 @@ import { Analytics } from "@vercel/analytics/next";
 import { Providers } from "./providers";
 import ServiceWorkerRegistration from "@/components/ServiceWorkerRegistration";
 import InstallPrompt from "@/components/InstallPrompt";
+
+const themeScript = `
+(function() {
+  try {
+    var storageKey = 'easyrakh-theme';
+    var storedTheme = window.localStorage.getItem(storageKey);
+    var prefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
+    var shouldUseDarkTheme = storedTheme === 'dark' || (!storedTheme && prefersDark);
+    var root = document.documentElement;
+    root.classList.toggle('dark', shouldUseDarkTheme);
+    root.dataset.theme = shouldUseDarkTheme ? 'dark' : 'light';
+    root.style.colorScheme = shouldUseDarkTheme ? 'dark' : 'light';
+  } catch (error) {}
+})();
+`;
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -51,10 +67,15 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="en" className="overflow-x-hidden">
+    <html lang="en" className="overflow-x-hidden" suppressHydrationWarning>
       <body
         className={`${geistSans.variable} ${geistMono.variable} antialiased overflow-x-hidden neo-brutalist`}
       >
+        <Script
+          id="theme-script"
+          strategy="beforeInteractive"
+          dangerouslySetInnerHTML={{ __html: themeScript }}
+        />
         <Providers>
           <AppShell>
             {children}

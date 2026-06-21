@@ -128,10 +128,10 @@ export default function InstallPrompt() {
           alignItems: 'center',
           gap: 12,
           padding: '10px 14px',
-          background: '#fff',
+          background: 'var(--card)',
           borderRadius: 12,
-          boxShadow: '0 4px 24px rgba(0,0,0,0.10), 0 1px 4px rgba(0,0,0,0.06)',
-          border: '1px solid rgba(0,0,0,0.06)',
+          boxShadow: '0 18px 40px rgba(0,0,0,0.22), 0 1px 4px rgba(0,0,0,0.10)',
+          border: '1px solid var(--border)',
         }}
       >
         {/* App icon */}
@@ -145,10 +145,10 @@ export default function InstallPrompt() {
 
         {/* Text */}
         <div style={{ flex: 1, minWidth: 0 }}>
-          <div style={{ fontSize: 13, fontWeight: 700, color: '#111', lineHeight: 1.2 }}>
+          <div style={{ fontSize: 13, fontWeight: 700, color: 'var(--foreground)', lineHeight: 1.2 }}>
             Install EasyRakh
           </div>
-          <div style={{ fontSize: 11, color: '#888', lineHeight: 1.2, marginTop: 1 }}>
+          <div style={{ fontSize: 11, color: 'var(--muted-foreground)', lineHeight: 1.2, marginTop: 1 }}>
             Quick access &amp; works offline
           </div>
         </div>
@@ -164,8 +164,8 @@ export default function InstallPrompt() {
             padding: '6px 14px',
             fontSize: 12,
             fontWeight: 700,
-            color: '#fff',
-            background: '#10b981',
+            color: 'var(--primary-foreground)',
+            background: 'var(--primary)',
             border: 'none',
             borderRadius: 8,
             cursor: isInstalling ? 'not-allowed' : 'pointer',
@@ -173,8 +173,8 @@ export default function InstallPrompt() {
             flexShrink: 0,
             transition: 'background 0.15s',
           }}
-          onMouseEnter={(e) => { if (!isInstalling) e.currentTarget.style.background = '#059669'; }}
-          onMouseLeave={(e) => { e.currentTarget.style.background = '#10b981'; }}
+          onMouseEnter={(e) => { if (!isInstalling) e.currentTarget.style.background = '#0d9488'; }}
+          onMouseLeave={(e) => { e.currentTarget.style.background = 'var(--primary)'; }}
         >
           {isInstalling ? (
             <div
@@ -208,10 +208,11 @@ export default function InstallPrompt() {
             cursor: 'pointer',
             flexShrink: 0,
             padding: 0,
+            color: 'var(--muted-foreground)',
           }}
           aria-label="Dismiss install prompt"
         >
-          <X size={14} color="#aaa" />
+          <X size={14} />
         </button>
       </div>
     </div>

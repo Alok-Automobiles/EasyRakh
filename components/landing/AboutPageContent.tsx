@@ -113,7 +113,7 @@ export default function AboutPageContent() {
                 <Button
                   asChild
                   size="lg"
-                  className="h-12 rounded-full bg-(--brand-green) px-8 text-base text-white shadow-lg shadow-emerald-200/50 transition-transform hover:scale-[1.02] hover:bg-[#059669]"
+                  className="h-12 rounded-full bg-(--brand-green) px-8 text-base text-primary-foreground shadow-lg shadow-emerald-200/50 transition-transform hover:scale-[1.02] hover:bg-[#0d9488]"
                 >
                   <Link href="/register">
                     Create free account
@@ -141,9 +141,9 @@ export default function AboutPageContent() {
                       alt="EasyRakh logo"
                       width={64}
                       height={64}
-                      className="rounded-2xl bg-white p-1 shadow-md ring-1 ring-gray-100"
+                      className="theme-logo-surface rounded-2xl p-1 shadow-md ring-1 ring-gray-100"
                     />
-                    <span className="absolute -bottom-1 -right-1 flex h-5 w-5 items-center justify-center rounded-full bg-(--brand-green) text-[10px] font-bold text-white shadow">
+                    <span className="absolute -bottom-1 -right-1 flex h-5 w-5 items-center justify-center rounded-full bg-(--brand-green) text-[10px] font-bold text-primary-foreground shadow">
                       ✓
                     </span>
                   </div>
@@ -456,7 +456,7 @@ export default function AboutPageContent() {
               <div className="mt-10 flex flex-wrap gap-3">
                 <Button
                   asChild
-                  className="rounded-full bg-(--brand-green) px-6 text-white hover:bg-[#059669]"
+                  className="rounded-full bg-(--brand-green) px-6 text-primary-foreground hover:bg-[#0d9488]"
                 >
                   <Link href="/register">Sign up free</Link>
                 </Button>
@@ -487,11 +487,11 @@ export default function AboutPageContent() {
         <div className="mx-auto max-w-3xl text-center">
           <p className="text-sm text-gray-500">
             No payment to get started. See the full story on the{' '}
-            <Link href="/" className="font-medium text-(--brand-green) underline underline-offset-2 hover:text-[#059669]">
+            <Link href="/" className="font-medium text-(--brand-green) underline underline-offset-2 hover:text-[#0d9488]">
               home page
             </Link>{' '}
             or{' '}
-            <Link href="/#contact" className="font-medium text-(--brand-green) underline underline-offset-2 hover:text-[#059669]">
+            <Link href="/#contact" className="font-medium text-(--brand-green) underline underline-offset-2 hover:text-[#0d9488]">
               talk to us
             </Link>
             .

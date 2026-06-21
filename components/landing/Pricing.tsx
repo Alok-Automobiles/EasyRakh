@@ -56,7 +56,7 @@ export default function Pricing() {
                                 </p>
                             </div>
 
-                            <Button asChild className="w-full rounded-full py-6 text-lg bg-(--brand-green) hover:bg-[#059669] shadow-lg hover:shadow-xl transition-all">
+                            <Button asChild className="w-full rounded-full py-6 text-lg bg-(--brand-green) hover:bg-[#0d9488] shadow-lg hover:shadow-xl transition-all">
                                 <Link href="/register">Get Started for Free</Link>
                             </Button>
                         </div>

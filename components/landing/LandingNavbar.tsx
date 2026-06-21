@@ -5,6 +5,7 @@ import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { useEffect, useMemo, useState } from 'react';
 import { Menu, X } from 'lucide-react';
+import ThemeToggle from '@/components/ThemeToggle';
 
 export default function LandingNavbar() {
   const pathname = usePathname();
@@ -44,7 +45,7 @@ export default function LandingNavbar() {
               alt="EasyRakh logo"
               width={42}
               height={42}
-              className="rounded-full bg-white/90 p-1"
+              className="theme-logo-surface rounded-full p-1"
             />
           </Link>
 
@@ -63,20 +64,24 @@ export default function LandingNavbar() {
 
             <Link
               href="/register"
-              className="rounded-full bg-(--brand-green) px-4 py-2 text-xs font-semibold uppercase tracking-wide text-white transition-colors hover:bg-[#059669]"
+              className="rounded-full bg-(--brand-green) px-4 py-2 text-xs font-semibold uppercase tracking-wide text-primary-foreground transition-colors hover:bg-[#0d9488]"
             >
               Signup now
             </Link>
+            <ThemeToggle surface="nav" />
           </div>
 
-          <button
-            type="button"
-            className="md:hidden inline-flex items-center justify-center rounded-full bg-white/10 p-2 text-white hover:bg-white/20 transition-colors"
-            onClick={() => setIsMenuOpen((prev) => !prev)}
-            aria-label="Toggle navigation menu"
-          >
-            {isMenuOpen ? <X className="h-5 w-5" /> : <Menu className="h-5 w-5" />}
-          </button>
+          <div className="flex items-center gap-2 md:hidden">
+            <ThemeToggle surface="nav" />
+            <button
+              type="button"
+              className="inline-flex items-center justify-center rounded-full bg-white/10 p-2 text-white hover:bg-white/20 transition-colors"
+              onClick={() => setIsMenuOpen((prev) => !prev)}
+              aria-label="Toggle navigation menu"
+            >
+              {isMenuOpen ? <X className="h-5 w-5" /> : <Menu className="h-5 w-5" />}
+            </button>
+          </div>
         </nav>
       </div>
 
@@ -98,7 +103,7 @@ export default function LandingNavbar() {
             ))}
             <Link
               href="/register"
-              className="inline-flex items-center justify-center rounded-full bg-(--brand-green) px-4 py-2 text-xs font-semibold uppercase tracking-wide text-white transition-colors hover:bg-[#059669]"
+              className="inline-flex items-center justify-center rounded-full bg-(--brand-green) px-4 py-2 text-xs font-semibold uppercase tracking-wide text-primary-foreground transition-colors hover:bg-[#0d9488]"
               onClick={() => setIsMenuOpen(false)}
             >
               Signup now
@@ -109,4 +114,3 @@ export default function LandingNavbar() {
     </header>
   );
 }
-

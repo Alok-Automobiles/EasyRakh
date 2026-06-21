@@ -158,7 +158,7 @@ export default function Header() {
                 alt="EasyRakh logo"
                 width={40}
                 height={40}
-                className="rounded-full bg-white p-1 shadow-sm"
+                className="theme-logo-surface rounded-full p-1 shadow-sm"
               />
             </Link>
             <nav className="hidden md:flex items-center space-x-4">

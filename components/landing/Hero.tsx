@@ -127,7 +127,7 @@ export default function Hero() {
                 <Button
                   asChild
                   size="lg"
-                  className="text-base rounded-full px-8 py-6 bg-(--brand-green) hover:bg-[#059669] text-white shadow-lg shadow-emerald-200/60 transition-all hover:scale-105"
+                  className="text-base rounded-full px-8 py-6 bg-(--brand-green) hover:bg-[#0d9488] text-primary-foreground shadow-lg shadow-emerald-200/60 transition-all hover:scale-105"
                 >
                   <Link href="/register">Get Started</Link>
                 </Button>

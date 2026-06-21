@@ -36,7 +36,7 @@ export default function Contact() {
             </div>
             <Link
               href={`mailto:${email}`}
-              className="inline-flex items-center gap-2 rounded-full bg-(--brand-green) text-white px-4 py-2 text-sm font-semibold shadow-md hover:bg-[#059669] transition-colors"
+              className="inline-flex items-center gap-2 rounded-full bg-(--brand-green) text-primary-foreground px-4 py-2 text-sm font-semibold shadow-md hover:bg-[#0d9488] transition-colors"
             >
               <Mail className="w-4 h-4" />
               {email}
@@ -83,4 +83,3 @@ export default function Contact() {
     </section>
   );
 }
-

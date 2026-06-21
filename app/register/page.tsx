@@ -92,7 +92,7 @@ export default function RegisterPage() {
       transition={{ duration: 1.3 }}
       exit={{ opacity: 0 }}
     >
-      <div className="min-h-screen flex items-center justify-center bg-gray-50 py-4 px-3 sm:py-6 sm:px-4 lg:px-6">
+      <div className="min-h-screen flex items-center justify-center bg-background text-foreground py-4 px-3 sm:py-6 sm:px-4 lg:px-6">
         <Card className="w-full max-w-5xl">
           <CardHeader className="pb-3 sm:pb-4">
             <div className="flex justify-center mb-3 sm:mb-4">
@@ -101,6 +101,7 @@ export default function RegisterPage() {
                 alt="EasyRakh logo"
                 width={60}
                 height={60}
+                className="theme-logo-surface rounded-xl p-1"
         
               />
             </div>
@@ -122,17 +123,17 @@ export default function RegisterPage() {
               <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-3 sm:space-y-4">
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4 sm:gap-6">
                   {/* Personal Information Section - Required Fields */}
-                  <div className="space-y-3 sm:space-y-4 p-4 sm:p-5 bg-blue-50/50 border-2 border-blue-200 rounded-lg">
-                    <div className="flex items-center gap-2 pb-2 border-b-2 border-blue-300">
-                      <h3 className="text-sm font-bold text-blue-700">Required Information</h3>
-                      <span className="text-xs font-semibold text-blue-600 bg-blue-200 px-2 py-0.5 rounded">* Required</span>
+                  <div className="auth-form-section auth-form-section-required space-y-3 sm:space-y-4 p-4 sm:p-5 border-2 rounded-lg">
+                    <div className="auth-form-section-header flex items-center gap-2 pb-2 border-b-2">
+                      <h3 className="auth-form-section-title-accent text-sm font-bold">Required Information</h3>
+                      <span className="auth-form-badge auth-form-badge-required text-xs font-semibold px-2 py-0.5 rounded">* Required</span>
                     </div>
                     <FormField
                       control={form.control}
                       name="name"
                       render={({ field }) => (
                         <FormItem>
-                          <FormLabel className="text-xs sm:text-sm font-semibold">
+                          <FormLabel className="auth-form-label text-xs sm:text-sm font-semibold">
                             Full Name <span className="text-red-500">*</span>
                           </FormLabel>
                           <FormControl>
@@ -140,7 +141,7 @@ export default function RegisterPage() {
                               type="text"
                               autoComplete="name"
                               placeholder="Full Name"
-                              className="h-9 sm:h-10 text-sm border-blue-300 focus:border-blue-500"
+                              className="auth-form-input h-9 sm:h-10 text-sm"
                               {...field}
                             />
                           </FormControl>
@@ -153,7 +154,7 @@ export default function RegisterPage() {
                       name="email"
                       render={({ field }) => (
                         <FormItem>
-                          <FormLabel className="text-xs sm:text-sm font-semibold">
+                          <FormLabel className="auth-form-label text-xs sm:text-sm font-semibold">
                             Email address <span className="text-red-500">*</span>
                           </FormLabel>
                           <FormControl>
@@ -161,7 +162,7 @@ export default function RegisterPage() {
                               type="email"
                               autoComplete="email"
                               placeholder="Email address"
-                              className="h-9 sm:h-10 text-sm border-blue-300 focus:border-blue-500"
+                              className="auth-form-input h-9 sm:h-10 text-sm"
                               {...field}
                             />
                           </FormControl>
@@ -174,7 +175,7 @@ export default function RegisterPage() {
                       name="password"
                       render={({ field }) => (
                         <FormItem>
-                          <FormLabel className="text-xs sm:text-sm font-semibold">
+                          <FormLabel className="auth-form-label text-xs sm:text-sm font-semibold">
                             Password <span className="text-red-500">*</span>
                           </FormLabel>
                           <FormControl>
@@ -182,7 +183,7 @@ export default function RegisterPage() {
                               type="password"
                               autoComplete="new-password"
                               placeholder="Password"
-                              className="h-9 sm:h-10 text-sm border-blue-300 focus:border-blue-500"
+                              className="auth-form-input h-9 sm:h-10 text-sm"
                               {...field}
                             />
                           </FormControl>
@@ -193,24 +194,24 @@ export default function RegisterPage() {
                   </div>
 
                   {/* Firm Information Section - Optional Fields */}
-                  <div className="space-y-3 sm:space-y-4 p-4 sm:p-5 bg-gray-50/50 border-2 border-dashed border-gray-300 rounded-lg">
-                    <div className="flex items-center gap-2 pb-2 border-b-2 border-dashed border-gray-400">
-                      <h3 className="text-sm font-semibold text-gray-600">Firm Information</h3>
-                      <span className="text-xs font-medium text-gray-500 bg-gray-200 px-2 py-0.5 rounded">Optional</span>
+                  <div className="auth-form-section auth-form-section-optional space-y-3 sm:space-y-4 p-4 sm:p-5 border-2 rounded-lg">
+                    <div className="auth-form-section-header flex items-center gap-2 pb-2 border-b-2 border-dashed">
+                      <h3 className="auth-form-section-title text-sm font-semibold">Firm Information</h3>
+                      <span className="auth-form-badge text-xs font-medium px-2 py-0.5 rounded">Optional</span>
                     </div>
                     <FormField
                       control={form.control}
                       name="firmTitle"
                       render={({ field }) => (
                         <FormItem>
-                          <FormLabel className="text-xs sm:text-sm text-gray-600">
+                          <FormLabel className="auth-form-label-muted text-xs sm:text-sm">
                             Firm Title
                           </FormLabel>
                           <FormControl>
                             <Input
                               type="text"
                               placeholder="Your Firm Name"
-                              className="h-9 sm:h-10 text-sm border-gray-300 focus:border-gray-400 bg-white/80"
+                              className="auth-form-input h-9 sm:h-10 text-sm"
                               {...field}
                             />
                           </FormControl>
@@ -224,14 +225,14 @@ export default function RegisterPage() {
                         name="gstNumber"
                         render={({ field }) => (
                           <FormItem>
-                            <FormLabel className="text-xs sm:text-sm text-gray-600">
+                            <FormLabel className="auth-form-label-muted text-xs sm:text-sm">
                               GST Number
                             </FormLabel>
                             <FormControl>
                               <Input
                                 type="text"
                                 placeholder="GST Number"
-                                className="h-9 sm:h-10 text-sm border-gray-300 focus:border-gray-400 bg-white/80"
+                                className="auth-form-input h-9 sm:h-10 text-sm"
                                 {...field}
                               />
                             </FormControl>
@@ -244,14 +245,14 @@ export default function RegisterPage() {
                         name="firmPhone"
                         render={({ field }) => (
                           <FormItem>
-                            <FormLabel className="text-xs sm:text-sm text-gray-600">
+                            <FormLabel className="auth-form-label-muted text-xs sm:text-sm">
                               Phone Number
                             </FormLabel>
                             <FormControl>
                               <Input
                                 type="tel"
                                 placeholder="Phone Number"
-                                className="h-9 sm:h-10 text-sm border-gray-300 focus:border-gray-400 bg-white/80"
+                                className="auth-form-input h-9 sm:h-10 text-sm"
                                 {...field}
                               />
                             </FormControl>
@@ -265,14 +266,14 @@ export default function RegisterPage() {
                       name="firmEmail"
                       render={({ field }) => (
                         <FormItem>
-                          <FormLabel className="text-xs sm:text-sm text-gray-600">
+                          <FormLabel className="auth-form-label-muted text-xs sm:text-sm">
                             Firm Email
                           </FormLabel>
                           <FormControl>
                             <Input
                               type="email"
                               placeholder="Firm Email Address"
-                              className="h-9 sm:h-10 text-sm border-gray-300 focus:border-gray-400 bg-white/80"
+                              className="auth-form-input h-9 sm:h-10 text-sm"
                               {...field}
                             />
                           </FormControl>
@@ -285,14 +286,14 @@ export default function RegisterPage() {
                       name="firmAddress"
                       render={({ field }) => (
                         <FormItem>
-                          <FormLabel className="text-xs sm:text-sm text-gray-600">
+                          <FormLabel className="auth-form-label-muted text-xs sm:text-sm">
                             Address
                           </FormLabel>
                           <FormControl>
                             <Textarea
                               placeholder="Firm Address"
                               rows={2}
-                              className="text-sm resize-none border-gray-300 focus:border-gray-400 bg-white/80"
+                              className="auth-form-input text-sm resize-none"
                               {...field}
                             />
                           </FormControl>
@@ -319,4 +320,3 @@ export default function RegisterPage() {
     </motion.div>
   );
 }
-
