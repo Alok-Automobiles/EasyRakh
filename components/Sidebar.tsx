@@ -28,6 +28,7 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
+import ThemeToggle from '@/components/ThemeToggle';
 
 type SidebarProps = {
   collapsed?: boolean;
@@ -176,24 +177,40 @@ export default function Sidebar({ collapsed = false }: SidebarProps) {
     
     return (
     <>
-      <div className="border-b border-gray-200 p-3 lg:p-4 flex items-center justify-center">
-        <Link
-          href="/"
-          className={`flex ${effectiveCollapsed ? 'items-center justify-center gap-2 w-full' : 'flex-col items-center justify-center gap-2 w-full text-center'}`}
-        >
-          <Image
-            src="/logo.png"
-            alt="EasyRakh logo"
-            width={effectiveCollapsed ? 36 : 80}
-            height={effectiveCollapsed ? 36 : 40}
+      <div
+        className={`border-b border-gray-200 px-3 py-2.5 lg:px-3 lg:py-3 ${
+          effectiveCollapsed
+            ? 'flex flex-col items-center justify-center gap-2'
+            : 'space-y-1.5'
+        }`}
+      >
+        <div className="relative flex w-full items-center justify-center">
+          <Link
+            href="/"
+            className="flex min-w-0 items-center justify-center"
+            aria-label="Go to home"
+          >
+            <Image
+              src="/logo.png"
+              alt="EasyRakh logo"
+              width={effectiveCollapsed ? 32 : 86}
+              height={effectiveCollapsed ? 32 : 54}
+              className="theme-logo-surface shrink-0 rounded-md p-1"
+            />
+          </Link>
+          <ThemeToggle
+            className={`sidebar-theme-toggle h-8 w-8 rounded-lg ${
+              effectiveCollapsed ? '' : 'absolute right-0 top-1/2 -translate-y-1/2'
+            }`}
           />
-          {!effectiveCollapsed && (
-            <div className="flex flex-col">
-              <span className="text-xs text-gray-500">Ek ek rupaye ka hisaab,</span>
-              <span className="text-xs text-gray-500">ek screen par.</span>
-            </div>
-          )}
-        </Link>
+        </div>
+        {!effectiveCollapsed && (
+          <Link href="/" className="block min-w-0 text-center">
+            <span className="block truncate text-[11px] leading-4 text-gray-500">
+              Ek ek rupaye ka hisaab, ek screen par.
+            </span>
+          </Link>
+        )}
       </div>
 
       <nav className="flex-1 overflow-y-auto overscroll-contain px-2 py-3 lg:px-3 lg:py-6 space-y-1 sidebar-scrollbar min-h-0">
@@ -368,10 +385,11 @@ export default function Sidebar({ collapsed = false }: SidebarProps) {
             alt="EasyRakh logo"
             width={34}
             height={34}
-            className="shrink-0"
+            className="theme-logo-surface shrink-0 rounded-lg p-1"
           />
           <span className="truncate text-sm font-black text-gray-950">EasyRakh</span>
         </Link>
+        <ThemeToggle className="ml-auto h-9 w-9" />
       </div>
 
       {isMobileOpen && (
@@ -408,4 +426,3 @@ export default function Sidebar({ collapsed = false }: SidebarProps) {
     </>
   );
 }
-

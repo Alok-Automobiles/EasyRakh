@@ -398,7 +398,7 @@ export default function Features() {
           <Button
             asChild
             size="lg"
-            className="text-lg px-12 py-6 rounded-full bg-(--brand-green) hover:bg-[#059669] shadow-xl hover:shadow-2xl transition-all hover:-translate-y-1"
+            className="text-lg px-12 py-6 rounded-full bg-(--brand-green) hover:bg-[#0d9488] shadow-xl hover:shadow-2xl transition-all hover:-translate-y-1"
           >
             <Link href="/register">
               Start managing now

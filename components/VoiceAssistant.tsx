@@ -1050,6 +1050,7 @@ export default function VoiceAssistant() {
 
       <motion.button
         onClick={() => setIsOpen(true)}
+        aria-label="Open AI assistant"
         className={`fixed bottom-6 right-6 z-50 flex h-16 w-16 items-center justify-center rounded-full shadow-2xl transition-all duration-300 ${
           isOpen ? 'scale-0 opacity-0' : 'scale-100 opacity-100'
         }`}
@@ -1086,45 +1087,37 @@ export default function VoiceAssistant() {
             animate={{ opacity: 1, scale: 1, y: 0 }}
             exit={{ opacity: 0, scale: 0.9, y: 20 }}
             transition={{ type: 'spring', damping: 25, stiffness: 300 }}
-            className="fixed bottom-6 right-6 z-50 w-[380px] max-w-[calc(100vw-3rem)] overflow-hidden rounded-3xl shadow-2xl"
-            style={{
-              background: 'rgba(255,255,255,0.98)',
-              backdropFilter: 'blur(16px)',
-              border: '1px solid rgba(0,0,0,0.05)',
-            }}
+            className="voice-assistant-panel fixed bottom-6 right-6 z-50 w-[380px] max-w-[calc(100vw-3rem)] overflow-hidden rounded-3xl shadow-2xl"
           >
-            <div
-              className="relative px-5 py-4"
-              style={{
-                background: '#0f172a',
-              }}
-            >
+            <div className="voice-assistant-header relative px-5 py-4">
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-3">
-                  <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-white/20 backdrop-blur-sm">
-                    <Sparkles className="h-5 w-5 text-white" />
+                  <div className="voice-assistant-header-icon flex h-10 w-10 items-center justify-center rounded-xl">
+                    <Sparkles className="h-5 w-5" />
                   </div>
                   <div>
-                    <h3 className="text-lg font-bold text-white">AI Assistant</h3>
-                    <p className="text-xs text-slate-200">Hindi & English / Text + Voice</p>
+                    <h3 className="voice-assistant-title text-lg font-bold">AI Assistant</h3>
+                    <p className="voice-assistant-subtitle text-xs">Hindi & English / Text + Voice</p>
                   </div>
                 </div>
                 <div className="flex items-center gap-2">
                   <button
                     onClick={toggleMute}
-                    className="rounded-lg bg-white/10 p-2 transition-colors hover:bg-white/20"
+                    className="voice-assistant-header-button rounded-lg p-2 transition-colors"
+                    aria-label={isMuted ? 'Unmute assistant' : 'Mute assistant'}
                   >
                     {isMuted ? (
-                      <VolumeX className="h-5 w-5 text-white" />
+                      <VolumeX className="h-5 w-5" />
                     ) : (
-                      <Volume2 className="h-5 w-5 text-white" />
+                      <Volume2 className="h-5 w-5" />
                     )}
                   </button>
                   <button
                     onClick={() => setIsOpen(false)}
-                    className="rounded-lg bg-white/10 p-2 transition-colors hover:bg-white/20"
+                    className="voice-assistant-header-button rounded-lg p-2 transition-colors"
+                    aria-label="Close assistant"
                   >
-                    <X className="h-5 w-5 text-white" />
+                    <X className="h-5 w-5" />
                   </button>
                 </div>
               </div>
@@ -1144,24 +1137,24 @@ export default function VoiceAssistant() {
               )}
             </div>
 
-            <div className="h-[320px] overflow-y-auto space-y-3 p-4">
+            <div className="voice-assistant-body h-[320px] overflow-y-auto space-y-3 p-4">
               {messages.length === 0 ? (
                 <div className="flex h-full flex-col items-center justify-center px-6 text-center">
-                  <div className="mb-4 flex h-16 w-16 items-center justify-center rounded-2xl border border-slate-200 bg-slate-100">
-                    <Mic className="h-8 w-8 text-slate-700" />
+                  <div className="voice-assistant-empty-icon mb-4 flex h-16 w-16 items-center justify-center rounded-2xl">
+                    <Mic className="h-8 w-8" />
                   </div>
-                  <h4 className="mb-2 font-semibold text-gray-900">Ask me anything!</h4>
-                  <p className="text-sm leading-relaxed text-gray-500">
+                  <h4 className="voice-assistant-empty-title mb-2 font-semibold">Ask me anything!</h4>
+                  <p className="voice-assistant-empty-copy text-sm leading-relaxed">
                     Try typing or asking in Hindi or English:
                   </p>
                   <div className="mt-3 space-y-2 text-xs">
-                    <p className="rounded-full border border-slate-200 bg-slate-100 px-3 py-1.5 text-slate-700">
+                    <p className="voice-assistant-suggestion rounded-full px-3 py-1.5">
                       &ldquo;Rajat ka khata batao&rdquo;
                     </p>
-                    <p className="rounded-full border border-slate-200 bg-slate-100 px-3 py-1.5 text-slate-700">
+                    <p className="voice-assistant-suggestion rounded-full px-3 py-1.5">
                       &ldquo;Show Rajat&apos;s ledger&rdquo;
                     </p>
-                    <p className="rounded-full border border-slate-200 bg-slate-100 px-3 py-1.5 text-slate-700">
+                    <p className="voice-assistant-suggestion rounded-full px-3 py-1.5">
                       &ldquo;Aaj ki sale me 200 add karo&rdquo;
                     </p>
                   </div>
@@ -1178,14 +1171,14 @@ export default function VoiceAssistant() {
                       <div
                         className={`max-w-[85%] rounded-2xl px-4 py-3 ${
                           message.type === 'user'
-                            ? 'rounded-br-md bg-slate-900 text-white'
-                            : 'rounded-bl-md border border-gray-100 bg-white text-gray-800 shadow-md'
+                            ? 'voice-assistant-message-user rounded-br-md'
+                            : 'voice-assistant-message-bot rounded-bl-md shadow-md'
                         }`}
                       >
                         <p className="whitespace-pre-wrap text-sm leading-relaxed">{message.text}</p>
                         <p
                           className={`mt-1.5 text-[10px] ${
-                            message.type === 'user' ? 'text-slate-300' : 'text-gray-400'
+                            message.type === 'user' ? 'voice-assistant-message-time-user' : 'voice-assistant-message-time-bot'
                           }`}
                         >
                           {message.timestamp.toLocaleTimeString('en-IN', {
@@ -1198,7 +1191,7 @@ export default function VoiceAssistant() {
                   ))}
 
                   {pendingAction && (
-                    <div className="rounded-2xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900">
+                    <div className="voice-assistant-pending rounded-2xl px-4 py-3 text-sm">
                       <p className="font-medium">
                         {getLocalizedText(
                           pendingAction.language,
@@ -1207,7 +1200,7 @@ export default function VoiceAssistant() {
                         )}
                       </p>
                       <p className="mt-1">{pendingAction.summary}</p>
-                      <p className="mt-2 text-xs text-amber-700">
+                      <p className="voice-assistant-pending-help mt-2 text-xs">
                         {getLocalizedText(
                           pendingAction.language,
                           'pending_help',
@@ -1230,8 +1223,8 @@ export default function VoiceAssistant() {
                   exit={{ opacity: 0, height: 0 }}
                   className="px-4 pb-2"
                 >
-                  <div className="rounded-xl border border-slate-200 bg-slate-100 px-4 py-2">
-                    <p className="text-sm text-slate-800">
+                  <div className="voice-assistant-transcript rounded-xl px-4 py-2">
+                    <p className="text-sm">
                       <span className="font-medium">
                         {getLocalizedText(currentUiLanguage, 'listening_prefix', currentUiScript)}
                       </span>{' '}
@@ -1242,12 +1235,12 @@ export default function VoiceAssistant() {
               )}
             </AnimatePresence>
 
-            <div className="border-t border-gray-100 p-4">
+            <div className="voice-assistant-footer border-t p-4">
               <div className="mb-3 flex items-center justify-between gap-3">
-                <span className="text-xs font-medium text-slate-500">
+                <span className="voice-assistant-footer-label text-xs font-medium">
                   {getLocalizedText(currentUiLanguage, 'type_or_speak', currentUiScript)}
                 </span>
-                <div className="inline-flex rounded-full bg-slate-100 p-1">
+                <div className="voice-assistant-language-tabs inline-flex rounded-full p-1">
                   {(['auto', 'en', 'hi'] as const).map((mode) => (
                     <button
                       key={mode}
@@ -1255,8 +1248,8 @@ export default function VoiceAssistant() {
                       onClick={() => setLanguagePreference(mode)}
                       className={`rounded-full px-3 py-1 text-xs font-medium transition-colors ${
                         languagePreference === mode
-                          ? 'bg-slate-900 text-white'
-                          : 'text-slate-600 hover:bg-slate-200'
+                          ? 'voice-assistant-language-tab-active'
+                          : 'voice-assistant-language-tab'
                       }`}
                     >
                       {mode === 'auto' ? 'Auto' : mode === 'en' ? 'English' : 'Hindi'}
@@ -1271,23 +1264,23 @@ export default function VoiceAssistant() {
                   onChange={(event) => setInputValue(event.target.value)}
                   disabled={busy}
                   placeholder={getLocalizedText(currentUiLanguage, 'type_placeholder', currentUiScript)}
-                  className="h-11 rounded-xl border-slate-200 bg-slate-50 text-sm"
+                  className="voice-assistant-input h-11 rounded-xl text-sm"
                 />
                 <Button
                   type="submit"
                   disabled={busy || !inputValue.trim()}
-                  className="h-11 rounded-xl bg-slate-900 px-4 text-white hover:bg-slate-800"
+                  className="voice-assistant-send-button h-11 rounded-xl px-4"
                 >
                   <SendHorizontal className="mr-2 h-4 w-4" />
                   {getLocalizedText(currentUiLanguage, 'send', currentUiScript)}
                 </Button>
               </form>
 
-              <div className="flex items-center justify-between gap-3">
+              <div className="grid grid-cols-[1fr_auto_1fr] items-center gap-3">
                 <button
                   onClick={clearConversation}
                   disabled={(messages.length === 0 && !pendingAction) || busy}
-                  className="rounded-xl px-4 py-2 text-sm text-gray-500 transition-colors hover:bg-gray-100 hover:text-gray-700 disabled:cursor-not-allowed disabled:opacity-40"
+                  className="voice-assistant-clear justify-self-start rounded-xl px-4 py-2 text-sm transition-colors disabled:cursor-not-allowed disabled:opacity-40"
                 >
                   {getLocalizedText(currentUiLanguage, 'clear', currentUiScript)}
                 </button>
@@ -1296,7 +1289,7 @@ export default function VoiceAssistant() {
                   onClick={isListening ? stopListening : startListening}
                   disabled={busy}
                   className={`relative flex h-16 w-16 items-center justify-center rounded-full shadow-lg transition-all disabled:cursor-not-allowed disabled:opacity-50 ${
-                    isListening ? 'bg-rose-600' : 'bg-slate-900'
+                    isListening ? 'voice-assistant-mic-listening' : 'voice-assistant-mic-idle'
                   }`}
                   whileHover={{ scale: 1.05 }}
                   whileTap={{ scale: 0.95 }}
@@ -1325,27 +1318,27 @@ export default function VoiceAssistant() {
                   )}
                 </motion.button>
 
-                <div className="flex items-center gap-2">
+                <div className="flex items-center justify-end gap-2">
                   {isSpeaking && (
                     <motion.div
-                      className="flex items-center gap-1 rounded-full bg-slate-100 px-3 py-1.5"
+                      className="voice-assistant-status-pill flex items-center gap-1 rounded-full px-3 py-1.5"
                       initial={{ opacity: 0 }}
                       animate={{ opacity: 1 }}
                     >
-                      <Volume2 className="h-4 w-4 text-slate-700" />
-                      <span className="text-xs font-medium text-slate-800">
+                      <Volume2 className="h-4 w-4" />
+                      <span className="text-xs font-medium">
                         {getLocalizedText(currentUiLanguage, 'speaking', currentUiScript)}
                       </span>
                     </motion.div>
                   )}
                   {busy && (
                     <motion.div
-                      className="flex items-center gap-1 rounded-full bg-slate-100 px-3 py-1.5"
+                      className="voice-assistant-status-pill flex items-center gap-1 rounded-full px-3 py-1.5"
                       initial={{ opacity: 0 }}
                       animate={{ opacity: 1 }}
                     >
-                      <Loader2 className="h-4 w-4 animate-spin text-slate-700" />
-                      <span className="text-xs font-medium text-slate-800">
+                      <Loader2 className="h-4 w-4 animate-spin" />
+                      <span className="text-xs font-medium">
                         {billUploading
                           ? getLocalizedText(currentUiLanguage, 'uploading', currentUiScript)
                           : getLocalizedText(currentUiLanguage, 'thinking', currentUiScript)}
@@ -1355,7 +1348,7 @@ export default function VoiceAssistant() {
                 </div>
               </div>
 
-              <p className="mt-3 text-center text-xs text-gray-400">{footerStatus}</p>
+              <p className="voice-assistant-footer-status mt-3 text-center text-xs">{footerStatus}</p>
             </div>
           </motion.div>
         )}

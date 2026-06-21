@@ -46,81 +46,174 @@
   --radius: 0.625rem;
 
   /* Brand Colors */
-  --brand-bg: oklch(0.96 0 0);
-  /* #f2f2f2 */
-  --brand-green: oklch(0.68 0.18 150);
-  /* #10b981 */
-  --brand-green-light: oklch(0.97 0.03 150);
-  /* #ecfdf5 */
-  --brand-red-light: oklch(0.97 0.02 15);
-  /* #fff1f2 */
-  --brand-text: oklch(0.129 0.042 264.695);
+  --brand-bg: #faf9f6;
+  --brand-green: #10b981;
+  --brand-green-light: #ecfdf5;
+  --brand-red-light: #fff1f2;
+  --brand-text: #0f172a;
 
   --background: var(--brand-bg);
   --foreground: var(--brand-text);
-  --card: oklch(1 0 0);
+  --card: #ffffff;
   --card-foreground: var(--brand-text);
-  --popover: oklch(1 0 0);
+  --popover: #ffffff;
   --popover-foreground: var(--brand-text);
   --primary: var(--brand-green);
-  --primary-foreground: oklch(0.984 0.003 247.858);
+  --primary-foreground: #ffffff;
   --secondary: var(--brand-green-light);
-  --secondary-foreground: oklch(0.45 0.15 150);
-  --muted: oklch(0.96 0.01 260);
-  --muted-foreground: oklch(0.55 0.04 260);
+  --secondary-foreground: #047857;
+  --muted: #f1f5f9;
+  --muted-foreground: #475569;
   --accent: var(--brand-green-light);
-  --accent-foreground: oklch(0.45 0.15 150);
-  --destructive: var(--brand-red-light);
-  --border: oklch(0.92 0.01 260);
-  --input: oklch(0.92 0.01 260);
+  --accent-foreground: #047857;
+  --destructive: #ef4444;
+  --destructive-foreground: #ffffff;
+  --border: #d8ded8;
+  --input: #cfd8cf;
   --ring: var(--brand-green);
   --chart-1: oklch(0.646 0.222 41.116);
   --chart-2: oklch(0.6 0.118 184.704);
   --chart-3: oklch(0.398 0.07 227.392);
   --chart-4: oklch(0.828 0.189 84.429);
   --chart-5: oklch(0.769 0.188 70.08);
-  --sidebar: oklch(0.984 0.003 247.858);
-  --sidebar-foreground: oklch(0.129 0.042 264.695);
-  --sidebar-primary: oklch(0.208 0.042 265.755);
-  --sidebar-primary-foreground: oklch(0.984 0.003 247.858);
-  --sidebar-accent: oklch(0.968 0.007 247.896);
-  --sidebar-accent-foreground: oklch(0.208 0.042 265.755);
-  --sidebar-border: oklch(0.929 0.013 255.508);
-  --sidebar-ring: oklch(0.704 0.04 256.788);
+  --sidebar: #ffffff;
+  --sidebar-foreground: #0f172a;
+  --sidebar-primary: #0f172a;
+  --sidebar-primary-foreground: #ffffff;
+  --sidebar-accent: #ecfdf5;
+  --sidebar-accent-foreground: #047857;
+  --sidebar-border: #d8ded8;
+  --sidebar-ring: #10b981;
+
+  --neo-background: #faf9f6;
+  --neo-foreground: #050505;
+  --neo-card: #ffffff;
+  --neo-card-90: rgb(255 255 255 / 0.9);
+  --neo-card-muted: #f3f0e8;
+  --neo-card-hover: #fffaf0;
+  --neo-popover: #ffffff;
+  --neo-border: #000000;
+  --neo-shadow: #000000;
+  --neo-input-bg: #ffffff;
+  --neo-primary: #10b981;
+  --neo-primary-foreground: #ffffff;
+  --neo-secondary: #fde047;
+  --neo-secondary-foreground: #050505;
+  --neo-accent: #f472b6;
+  --neo-accent-foreground: #050505;
+  --neo-destructive: #ef4444;
+  --neo-destructive-foreground: #ffffff;
+  --neo-muted: #e5e5e5;
+  --neo-muted-foreground: #404040;
+  --neo-subtle-foreground: #6b7280;
+  --neo-link: #047857;
+  --neo-table-head: #fde047;
+  --neo-focus: #10b981;
+  --neo-green-bg: #86efac;
+  --neo-green-text: #047857;
+  --neo-green-on-bg: #052e16;
+  --neo-red-bg: #fca5a5;
+  --neo-red-text: #b91c1c;
+  --neo-red-on-bg: #450a0a;
+  --neo-blue-bg: #93c5fd;
+  --neo-blue-text: #1d4ed8;
+  --neo-blue-on-bg: #172554;
+  --neo-purple-bg: #d8b4fe;
+  --neo-purple-text: #7e22ce;
+  --neo-purple-on-bg: #3b0764;
+  --neo-yellow-bg: #fef08a;
+  --neo-yellow-text: #a16207;
+  --neo-yellow-on-bg: #422006;
+  --neo-rose-bg: #fecdd3;
+  --neo-rose-text: #be123c;
+  --neo-rose-on-bg: #4c0519;
+  --neo-raised-shadow: 4px 4px 0px 0px var(--neo-shadow);
+  --neo-raised-shadow-lg: 7px 7px 0px 0px var(--neo-shadow);
+  --neo-raised-shadow-sm: 2px 2px 0px 0px var(--neo-shadow);
 }
 
 .dark {
-  --background: oklch(0.129 0.042 264.695);
-  --foreground: oklch(0.984 0.003 247.858);
-  --card: oklch(0.208 0.042 265.755);
-  --card-foreground: oklch(0.984 0.003 247.858);
-  --popover: oklch(0.208 0.042 265.755);
-  --popover-foreground: oklch(0.984 0.003 247.858);
-  --primary: oklch(0.929 0.013 255.508);
-  --primary-foreground: oklch(0.208 0.042 265.755);
-  --secondary: oklch(0.279 0.041 260.031);
-  --secondary-foreground: oklch(0.984 0.003 247.858);
-  --muted: oklch(0.279 0.041 260.031);
-  --muted-foreground: oklch(0.704 0.04 256.788);
-  --accent: oklch(0.279 0.041 260.031);
-  --accent-foreground: oklch(0.984 0.003 247.858);
-  --destructive: oklch(0.704 0.191 22.216);
-  --border: oklch(1 0 0 / 10%);
-  --input: oklch(1 0 0 / 15%);
-  --ring: oklch(0.551 0.027 264.364);
-  --chart-1: oklch(0.488 0.243 264.376);
-  --chart-2: oklch(0.696 0.17 162.48);
-  --chart-3: oklch(0.769 0.188 70.08);
-  --chart-4: oklch(0.627 0.265 303.9);
-  --chart-5: oklch(0.645 0.246 16.439);
-  --sidebar: oklch(0.208 0.042 265.755);
-  --sidebar-foreground: oklch(0.984 0.003 247.858);
-  --sidebar-primary: oklch(0.488 0.243 264.376);
-  --sidebar-primary-foreground: oklch(0.984 0.003 247.858);
-  --sidebar-accent: oklch(0.279 0.041 260.031);
-  --sidebar-accent-foreground: oklch(0.984 0.003 247.858);
-  --sidebar-border: oklch(1 0 0 / 10%);
-  --sidebar-ring: oklch(0.551 0.027 264.364);
+  --brand-bg: #0f1218;
+  --brand-green: #2dd4bf;
+  --brand-green-light: #15251f;
+  --brand-red-light: #30181d;
+  --brand-text: #f6f8fb;
+
+  --background: #0f1218;
+  --foreground: #f6f8fb;
+  --card: #171c24;
+  --card-foreground: #f6f8fb;
+  --popover: #181e27;
+  --popover-foreground: #f6f8fb;
+  --primary: #2dd4bf;
+  --primary-foreground: #061512;
+  --secondary: #1f2937;
+  --secondary-foreground: #e5e7eb;
+  --muted: #202833;
+  --muted-foreground: #c4ccd6;
+  --accent: #223126;
+  --accent-foreground: #d7fbe8;
+  --destructive: #f87171;
+  --destructive-foreground: #1f0608;
+  --border: #374151;
+  --input: #4b5563;
+  --ring: #2dd4bf;
+  --chart-1: #60a5fa;
+  --chart-2: #34d399;
+  --chart-3: #fbbf24;
+  --chart-4: #a78bfa;
+  --chart-5: #fb7185;
+  --sidebar: #121720;
+  --sidebar-foreground: #f6f8fb;
+  --sidebar-primary: #2dd4bf;
+  --sidebar-primary-foreground: #061512;
+  --sidebar-accent: #202833;
+  --sidebar-accent-foreground: #e5e7eb;
+  --sidebar-border: #374151;
+  --sidebar-ring: #2dd4bf;
+
+  --neo-background: #0f1218;
+  --neo-foreground: #f6f8fb;
+  --neo-card: #171c24;
+  --neo-card-90: rgb(23 28 36 / 0.94);
+  --neo-card-muted: #202833;
+  --neo-card-hover: #262f3b;
+  --neo-popover: #181e27;
+  --neo-border: #4b5563;
+  --neo-shadow: #05070b;
+  --neo-input-bg: #111821;
+  --neo-primary: #2dd4bf;
+  --neo-primary-foreground: #061512;
+  --neo-secondary: #e5e7eb;
+  --neo-secondary-foreground: #111827;
+  --neo-accent: #38bdf8;
+  --neo-accent-foreground: #06111d;
+  --neo-destructive: #f87171;
+  --neo-destructive-foreground: #1f0608;
+  --neo-muted: #202833;
+  --neo-muted-foreground: #c4ccd6;
+  --neo-subtle-foreground: #9aa5b1;
+  --neo-link: #6ee7b7;
+  --neo-table-head: #e5e7eb;
+  --neo-focus: #2dd4bf;
+  --neo-green-bg: #173326;
+  --neo-green-text: #86efac;
+  --neo-green-on-bg: #dffbea;
+  --neo-red-bg: #3a171c;
+  --neo-red-text: #fca5a5;
+  --neo-red-on-bg: #ffe4e6;
+  --neo-blue-bg: #13283f;
+  --neo-blue-text: #93c5fd;
+  --neo-blue-on-bg: #dbeafe;
+  --neo-purple-bg: #261c3d;
+  --neo-purple-text: #c4b5fd;
+  --neo-purple-on-bg: #ede9fe;
+  --neo-yellow-bg: #332b11;
+  --neo-yellow-text: #fde68a;
+  --neo-yellow-on-bg: #fef3c7;
+  --neo-rose-bg: #3a1826;
+  --neo-rose-text: #fda4af;
+  --neo-rose-on-bg: #ffe4e6;
 }
 
 @layer base {
@@ -418,26 +511,26 @@
    ========================================== */
 .neo-brutalist {
   /* Design Tokens / CSS Variable Overrides */
-  --background: #faf9f6; /* Premium retro sand color */
-  --foreground: #000000;
-  --card: #ffffff;
-  --card-foreground: #000000;
-  --popover: #ffffff;
-  --popover-foreground: #000000;
-  --primary: #10b981; /* Emerald green */
-  --primary-foreground: #000000;
-  --secondary: #fde047; /* Neon yellow */
-  --secondary-foreground: #000000;
-  --muted: #e5e5e5;
-  --muted-foreground: #404040;
-  --accent: #f472b6; /* Hot pink */
-  --accent-foreground: #000000;
-  --destructive: #ef4444; /* Crimson red */
-  --destructive-foreground: #ffffff;
-  --border: #000000;
-  --input: #000000;
-  --ring: #000000;
-  --radius: 4px; /* Sharp retro corners */
+  --background: var(--neo-background);
+  --foreground: var(--neo-foreground);
+  --card: var(--neo-card);
+  --card-foreground: var(--neo-foreground);
+  --popover: var(--neo-popover);
+  --popover-foreground: var(--neo-foreground);
+  --primary: var(--neo-primary);
+  --primary-foreground: var(--neo-primary-foreground);
+  --secondary: var(--neo-secondary);
+  --secondary-foreground: var(--neo-secondary-foreground);
+  --muted: var(--neo-muted);
+  --muted-foreground: var(--neo-muted-foreground);
+  --accent: var(--neo-accent);
+  --accent-foreground: var(--neo-accent-foreground);
+  --destructive: var(--neo-destructive);
+  --destructive-foreground: var(--neo-destructive-foreground);
+  --border: var(--neo-border);
+  --input: var(--neo-border);
+  --ring: var(--neo-focus);
+  --radius: 4px;
 
   /* Override standard background colors of layout */
   background-color: var(--background) !important;
@@ -453,26 +546,38 @@
 .neo-brutalist .brutalist-font {
   font-family: var(--font-geist-mono), monospace !important;
   font-weight: 800 !important;
-  letter-spacing: -0.02em;
-  color: #000000 !important;
+  letter-spacing: 0;
+  color: var(--neo-foreground) !important;
+}
+
+.neo-brutalist .app-page-title {
+  font-family: var(--font-geist-sans), sans-serif !important;
+  font-weight: 800 !important;
+  letter-spacing: 0 !important;
+  line-height: 1.08 !important;
+  color: var(--neo-foreground) !important;
 }
 
 /* Enforce thick borders on standard elements */
 .neo-brutalist hr {
-  border-top: 3px solid #000000 !important;
+  border-top: 3px solid var(--neo-border) !important;
   opacity: 1 !important;
 }
 
-/* Generic utility border overrides to enforce black outlines */
+/* Generic utility border overrides to enforce theme-aware outlines */
 .neo-brutalist .border,
 .neo-brutalist .border-t,
 .neo-brutalist .border-b,
 .neo-brutalist .border-l,
 .neo-brutalist .border-r,
+.neo-brutalist .border-black,
 .neo-brutalist .border-gray-100,
 .neo-brutalist .border-gray-200,
-.neo-brutalist .border-gray-300 {
-  border-color: #000000 !important;
+.neo-brutalist .border-gray-300,
+.neo-brutalist .border-slate-100,
+.neo-brutalist .border-slate-200,
+.neo-brutalist .border-slate-300 {
+  border-color: var(--neo-border) !important;
   border-width: 2px !important;
 }
 
@@ -503,11 +608,11 @@
 .neo-brutalist .glass,
 .neo-brutalist .glass-strong,
 .neo-brutalist .glass-subtle {
-  background-color: #ffffff !important;
-  border: 3px solid #000000 !important;
+  background-color: var(--neo-card) !important;
+  border: 3px solid var(--neo-border) !important;
   border-radius: 6px !important;
-  box-shadow: 4px 4px 0px 0px #000000 !important;
-  color: #000000 !important;
+  box-shadow: var(--neo-raised-shadow) !important;
+  color: var(--neo-foreground) !important;
   opacity: 1 !important;
   backdrop-filter: none !important;
   -webkit-backdrop-filter: none !important;
@@ -519,7 +624,7 @@
 .neo-brutalist .note-card:hover,
 .neo-brutalist .hover-pop:hover {
   transform: translate(-3px, -3px) !important;
-  box-shadow: 7px 7px 0px 0px #000000 !important;
+  box-shadow: var(--neo-raised-shadow-lg) !important;
 }
 
 /* Button Overrides */
@@ -527,23 +632,23 @@
 .neo-brutalist button.bg-blue-600,
 .neo-brutalist button.bg-red-600,
 .neo-brutalist button.bg-emerald-600 {
-  border: 2px solid #000000 !important;
+  border: 2px solid var(--neo-border) !important;
   border-radius: 4px !important;
-  box-shadow: 2px 2px 0px 0px #000000 !important;
+  box-shadow: var(--neo-raised-shadow-sm) !important;
   font-weight: 700 !important;
   text-transform: uppercase;
   font-family: var(--font-geist-mono), monospace !important;
-  letter-spacing: 0.02em;
+  letter-spacing: 0;
   transition: all 0.1s cubic-bezier(0.16, 1, 0.3, 1) !important;
-  color: #000000 !important;
+  color: var(--neo-foreground) !important;
 }
 
 /* Button variant background mappings */
 .neo-brutalist [data-slot=button][data-variant=default],
 .neo-brutalist button.bg-emerald-600,
 .neo-brutalist button.bg-emerald-500 {
-  background-color: #10b981 !important; /* Emerald green active */
-  color: #ffffff !important;
+  background-color: var(--neo-primary) !important;
+  color: var(--neo-primary-foreground) !important;
 }
 .neo-brutalist [data-slot=button][data-variant=default].bg-slate-900,
 .neo-brutalist [data-slot=button][data-variant=default].bg-slate-800,
@@ -552,17 +657,42 @@
   background-color: #0f172a !important;
   color: #ffffff !important;
 }
+
+.dark .neo-brutalist [data-slot=button][data-variant=default].bg-slate-900,
+.dark .neo-brutalist [data-slot=button][data-variant=default].bg-slate-800,
+.dark .neo-brutalist [data-slot=button][data-variant=default].bg-gray-900,
+.dark .neo-brutalist [data-slot=button][data-variant=default].bg-gray-800,
+.dark .neo-brutalist button.bg-slate-900,
+.dark .neo-brutalist button.bg-slate-800,
+.dark .neo-brutalist button.bg-gray-900,
+.dark .neo-brutalist button.bg-gray-800 {
+  background-color: var(--neo-primary) !important;
+  color: var(--neo-primary-foreground) !important;
+}
+
+.dark .neo-brutalist [class*="bg-(--brand-green)"] {
+  color: var(--neo-primary-foreground) !important;
+}
 .neo-brutalist [data-slot=button][data-variant=secondary] {
-  background-color: #fde047 !important; /* Yellow */
+  background-color: var(--neo-secondary) !important;
+  color: var(--neo-secondary-foreground) !important;
 }
 .neo-brutalist [data-slot=button][data-variant=destructive],
 .neo-brutalist button.bg-red-600 {
-  background-color: #ef4444 !important; /* Crimson red */
-  color: #ffffff !important;
+  background-color: var(--neo-destructive) !important;
+  color: var(--neo-destructive-foreground) !important;
 }
 .neo-brutalist [data-slot=button][data-variant=outline],
 .neo-brutalist [data-slot=button][data-variant=ghost] {
-  background-color: #ffffff !important;
+  background-color: var(--neo-card) !important;
+  color: var(--neo-foreground) !important;
+}
+
+.neo-brutalist [data-slot=button][data-variant=outline]:hover,
+.neo-brutalist [data-slot=button][data-variant=ghost]:hover {
+  background-color: var(--neo-card-hover) !important;
+  border-color: var(--neo-border) !important;
+  color: var(--neo-foreground) !important;
 }
 
 .neo-brutalist [data-slot=button]:hover,
@@ -570,7 +700,7 @@
 .neo-brutalist button.bg-red-600:hover,
 .neo-brutalist button.bg-emerald-600:hover {
   transform: translate(-2px, -2px) !important;
-  box-shadow: 4px 4px 0px 0px #000000 !important;
+  box-shadow: var(--neo-raised-shadow) !important;
 }
 
 .neo-brutalist [data-slot=button]:active,
@@ -578,7 +708,7 @@
 .neo-brutalist button.bg-red-600:active,
 .neo-brutalist button.bg-emerald-600:active {
   transform: translate(1px, 1px) !important;
-  box-shadow: 1px 1px 0px 0px #000000 !important;
+  box-shadow: 1px 1px 0px 0px var(--neo-shadow) !important;
 }
 
 /* Form Inputs, Selects and Textareas */
@@ -588,14 +718,21 @@
 .neo-brutalist select,
 .neo-brutalist textarea,
 .neo-brutalist [data-slot=textarea] {
-  border: 2px solid #000000 !important;
+  border: 2px solid var(--neo-border) !important;
   border-radius: 4px !important;
-  box-shadow: 2px 2px 0px 0px #000000 !important;
-  background-color: #ffffff !important;
-  color: #000000 !important;
+  box-shadow: var(--neo-raised-shadow-sm) !important;
+  background-color: var(--neo-input-bg) !important;
+  color: var(--neo-foreground) !important;
   font-weight: 500 !important;
   opacity: 1 !important;
   transition: all 0.1s ease !important;
+}
+
+.neo-brutalist [data-slot=input]::placeholder,
+.neo-brutalist textarea::placeholder,
+.neo-brutalist [data-slot=textarea]::placeholder {
+  color: var(--neo-subtle-foreground) !important;
+  opacity: 1 !important;
 }
 
 .neo-brutalist [data-slot=input]:focus,
@@ -605,122 +742,161 @@
 .neo-brutalist textarea:focus,
 .neo-brutalist [data-slot=textarea]:focus {
   transform: translate(-1px, -1px) !important;
-  box-shadow: 3px 3px 0px 0px #000000 !important;
+  box-shadow: 3px 3px 0px 0px var(--neo-shadow) !important;
   outline: none !important;
-  border-color: #000000 !important;
+  border-color: var(--neo-focus) !important;
 }
 
 /* Badges Overrides */
 .neo-brutalist [data-slot=badge],
 .neo-brutalist .cash-in-badge,
 .neo-brutalist .cash-out-badge {
-  border: 2px solid #000000 !important;
+  border: 2px solid var(--neo-border) !important;
   border-radius: 4px !important;
   font-weight: 800 !important;
   text-transform: uppercase;
   font-family: var(--font-geist-mono), monospace !important;
-  box-shadow: 1px 1px 0px 0px #000000 !important;
+  box-shadow: 1px 1px 0px 0px var(--neo-shadow) !important;
   opacity: 1 !important;
-  color: #000000 !important;
+  color: var(--neo-foreground) !important;
 }
 
-/* Retro color maps for light mode alerts, backgrounds, and badges */
+/* Retro color maps for alerts, backgrounds, and badges */
 .neo-brutalist .bg-green-50, 
 .neo-brutalist .bg-emerald-50,
+.neo-brutalist .bg-emerald-50\/80,
+.neo-brutalist .bg-green-50\/80,
+.neo-brutalist .bg-emerald-100,
 .neo-brutalist .bg-green-100,
 .neo-brutalist .bg-green-200 {
-  background-color: #86efac !important; /* Rich pastel green */
-  color: #000000 !important;
+  background-color: var(--neo-green-bg) !important;
+  color: var(--neo-green-on-bg) !important;
 }
 .neo-brutalist .text-green-600,
 .neo-brutalist .text-green-700,
-.neo-brutalist .text-emerald-600 {
-  color: #047857 !important;
+.neo-brutalist .text-emerald-600,
+.neo-brutalist .text-emerald-700 {
+  color: var(--neo-green-text) !important;
   font-weight: 800 !important;
 }
 
 .neo-brutalist .bg-red-50,
 .neo-brutalist .bg-red-100,
-.neo-brutalist .bg-red-200 {
-  background-color: #fca5a5 !important; /* Rich pastel red */
-  color: #000000 !important;
+.neo-brutalist .bg-red-200,
+.neo-brutalist .bg-rose-50,
+.neo-brutalist .bg-rose-50\/80,
+.neo-brutalist .bg-rose-100,
+.neo-brutalist .bg-rose-200 {
+  background-color: var(--neo-red-bg) !important;
+  color: var(--neo-red-on-bg) !important;
 }
 .neo-brutalist .text-red-600,
-.neo-brutalist .text-red-700 {
-  color: #b91c1c !important;
+.neo-brutalist .text-red-700,
+.neo-brutalist .text-rose-600,
+.neo-brutalist .text-rose-700 {
+  color: var(--neo-red-text) !important;
   font-weight: 800 !important;
 }
 
 .neo-brutalist .bg-blue-50,
 .neo-brutalist .bg-blue-100,
 .neo-brutalist .bg-blue-200 {
-  background-color: #93c5fd !important; /* Rich pastel blue */
-  color: #000000 !important;
+  background-color: var(--neo-blue-bg) !important;
+  color: var(--neo-blue-on-bg) !important;
 }
 .neo-brutalist .text-blue-600,
 .neo-brutalist .text-blue-700 {
-  color: #1d4ed8 !important;
+  color: var(--neo-blue-text) !important;
   font-weight: 800 !important;
 }
 
 .neo-brutalist .bg-purple-50,
 .neo-brutalist .bg-purple-100 {
-  background-color: #d8b4fe !important; /* Rich pastel purple */
-  color: #000000 !important;
+  background-color: var(--neo-purple-bg) !important;
+  color: var(--neo-purple-on-bg) !important;
+}
+
+.neo-brutalist .text-purple-600,
+.neo-brutalist .text-purple-700 {
+  color: var(--neo-purple-text) !important;
+  font-weight: 800 !important;
 }
 
 .neo-brutalist .bg-amber-50,
+.neo-brutalist .bg-amber-100,
 .neo-brutalist .bg-yellow-50,
 .neo-brutalist .bg-yellow-100 {
-  background-color: #fef08a !important; /* Rich pastel yellow */
-  color: #000000 !important;
+  background-color: var(--neo-yellow-bg) !important;
+  color: var(--neo-yellow-on-bg) !important;
+}
+
+.neo-brutalist .text-amber-600,
+.neo-brutalist .text-amber-700,
+.neo-brutalist .text-yellow-600,
+.neo-brutalist .text-yellow-700 {
+  color: var(--neo-yellow-text) !important;
+  font-weight: 800 !important;
 }
 
 .neo-brutalist .bg-gray-50,
-.neo-brutalist .bg-slate-50 {
-  background-color: #faf9f6 !important;
+.neo-brutalist .bg-slate-50,
+.neo-brutalist .bg-gray-100,
+.neo-brutalist .bg-slate-100 {
+  background-color: var(--neo-card-muted) !important;
 }
 
 /* Dialogue/Modal Overrides */
 .neo-brutalist [data-slot=dialog-content],
 .neo-brutalist [role=dialog] {
-  background-color: #ffffff !important;
-  border: 4px solid #000000 !important;
+  background-color: var(--neo-popover) !important;
+  border: 4px solid var(--neo-border) !important;
   border-radius: 8px !important;
-  box-shadow: 8px 8px 0px 0px #000000 !important;
-  color: #000000 !important;
+  box-shadow: 8px 8px 0px 0px var(--neo-shadow) !important;
+  color: var(--neo-foreground) !important;
+}
+
+.neo-brutalist [data-slot=dialog-close] {
+  background-color: var(--neo-card) !important;
+  border: 2px solid var(--neo-border) !important;
+  box-shadow: var(--neo-raised-shadow-sm) !important;
+  color: var(--neo-foreground) !important;
+}
+
+.neo-brutalist [data-slot=dialog-close] svg {
+  color: currentColor !important;
 }
 
 /* Select Dropdown Content & Popovers */
 .neo-brutalist [data-slot=popover-content],
 .neo-brutalist [data-slot=select-content],
 .neo-brutalist [data-slot=dropdown-menu-content] {
-  background-color: #ffffff !important;
-  border: 2px solid #000000 !important;
+  background-color: var(--neo-popover) !important;
+  border: 2px solid var(--neo-border) !important;
   border-radius: 4px !important;
-  box-shadow: 4px 4px 0px 0px #000000 !important;
+  box-shadow: var(--neo-raised-shadow) !important;
+  color: var(--neo-foreground) !important;
 }
 
 .neo-brutalist [data-slot=dropdown-menu-item],
 .neo-brutalist [data-slot=select-item] {
-  color: #000000 !important;
+  color: var(--neo-foreground) !important;
   font-weight: 500 !important;
 }
 
 .neo-brutalist [data-slot=dropdown-menu-item]:focus,
 .neo-brutalist [data-slot=dropdown-menu-item][data-highlighted],
 .neo-brutalist [data-slot=select-item]:focus {
-  background-color: #fde047 !important; /* Yellow hover highlights */
-  color: #000000 !important;
+  background-color: var(--neo-secondary) !important;
+  color: var(--neo-secondary-foreground) !important;
   outline: none !important;
 }
 
 /* Beautiful Retro-Grid Tables */
 .neo-brutalist [data-slot=table-container] {
-  border: 3px solid #000000 !important;
+  border: 3px solid var(--neo-border) !important;
   border-radius: 6px !important;
-  box-shadow: 4px 4px 0px 0px #000000 !important;
-  background-color: #ffffff !important;
+  box-shadow: var(--neo-raised-shadow) !important;
+  background-color: var(--neo-card) !important;
   overflow: hidden !important;
 }
 
@@ -730,13 +906,13 @@
 }
 
 .neo-brutalist [data-slot=table-head] {
-  background-color: #fde047 !important; /* Neon yellow headers! */
-  color: #000000 !important;
+  background-color: var(--neo-table-head) !important;
+  color: var(--neo-secondary-foreground) !important;
   font-family: var(--font-geist-mono), monospace !important;
   font-weight: 800 !important;
   text-transform: uppercase;
-  border-bottom: 3px solid #000000 !important;
-  border-right: 2px solid #000000 !important;
+  border-bottom: 3px solid var(--neo-border) !important;
+  border-right: 2px solid var(--neo-border) !important;
   height: 2.75rem !important;
   padding: 0.5rem 0.75rem !important;
 }
@@ -746,8 +922,8 @@
 }
 
 .neo-brutalist [data-slot=table-row] {
-  border-bottom: 2px solid #000000 !important;
-  background-color: #ffffff !important;
+  border-bottom: 2px solid var(--neo-border) !important;
+  background-color: var(--neo-card) !important;
   transition: background-color 0.1s ease !important;
 }
 
@@ -756,12 +932,12 @@
 }
 
 .neo-brutalist [data-slot=table-row]:hover {
-  background-color: #faf9f6 !important;
+  background-color: var(--neo-card-hover) !important;
 }
 
 .neo-brutalist [data-slot=table-cell] {
-  border-right: 2px solid #000000 !important;
-  color: #000000 !important;
+  border-right: 2px solid var(--neo-border) !important;
+  color: var(--neo-foreground) !important;
   padding: 0.75rem !important;
   font-weight: 500 !important;
 }
@@ -772,8 +948,8 @@
 
 /* Premium Neo-Brutalist Sidebar Overrides */
 .neo-brutalist aside {
-  background-color: #faf9f6 !important; /* Retro background for sidebar */
-  border-right: 3px solid #000000 !important;
+  background-color: var(--neo-background) !important;
+  border-right: 3px solid var(--neo-border) !important;
 }
 
 .neo-brutalist aside nav a {
@@ -781,27 +957,28 @@
   border-radius: 6px !important;
   margin: 4px 12px !important;
   transition: all 0.15s cubic-bezier(0.16, 1, 0.3, 1) !important;
-  color: #000000 !important;
+  color: var(--neo-foreground) !important;
   font-weight: 600 !important;
 }
 
 .neo-brutalist aside nav a.bg-blue-50 {
-  background-color: #fde047 !important; /* Premium yellow active block */
-  border-color: #000000 !important;
-  box-shadow: 3px 3px 0px 0px #000000 !important;
+  background-color: var(--neo-secondary) !important;
+  border-color: var(--neo-border) !important;
+  box-shadow: 3px 3px 0px 0px var(--neo-shadow) !important;
   font-weight: 800 !important;
   transform: translate(-1px, -1px) !important;
+  color: var(--neo-secondary-foreground) !important;
 }
 
 .neo-brutalist aside nav a.bg-blue-50 svg {
-  color: #000000 !important;
+  color: currentColor !important;
   stroke-width: 2.5px !important;
 }
 
 .neo-brutalist aside nav a:not(.bg-blue-50):hover {
-  background-color: #ffffff !important;
-  border-color: #000000 !important;
-  box-shadow: 2px 2px 0px 0px #000000 !important;
+  background-color: var(--neo-card) !important;
+  border-color: var(--neo-border) !important;
+  box-shadow: var(--neo-raised-shadow-sm) !important;
   transform: translate(-2px, -2px) !important;
 }
 
@@ -809,38 +986,980 @@
   border: 2px solid transparent !important;
   border-radius: 6px !important;
   margin: 4px 12px !important;
-  color: #000000 !important;
+  color: var(--neo-foreground) !important;
   font-weight: 600 !important;
   transition: all 0.15s cubic-bezier(0.16, 1, 0.3, 1) !important;
 }
 
 .neo-brutalist aside nav button:hover {
-  background-color: #ffffff !important;
-  border-color: #000000 !important;
-  box-shadow: 2px 2px 0px 0px #000000 !important;
+  background-color: var(--neo-card) !important;
+  border-color: var(--neo-border) !important;
+  box-shadow: var(--neo-raised-shadow-sm) !important;
   transform: translate(-2px, -2px) !important;
 }
 
 .neo-brutalist aside .sticky,
 .neo-brutalist aside .lg\:static {
-  background-color: #ffffff !important;
-  border-top: 3px solid #000000 !important;
+  background-color: var(--neo-card) !important;
+  border-top: 3px solid var(--neo-border) !important;
 }
 
 .neo-brutalist aside button[class*="cursor-pointer"] {
-  background-color: #ffffff !important;
-  border: 2px solid #000000 !important;
+  background-color: var(--neo-card) !important;
+  border: 2px solid var(--neo-border) !important;
   border-radius: 6px !important;
-  box-shadow: 3px 3px 0px 0px #000000 !important;
+  box-shadow: 3px 3px 0px 0px var(--neo-shadow) !important;
   padding: 8px !important;
   margin: 0px !important;
-  color: #000000 !important;
+  color: var(--neo-foreground) !important;
   transition: all 0.15s cubic-bezier(0.16, 1, 0.3, 1) !important;
 }
 
 .neo-brutalist aside button[class*="cursor-pointer"]:hover {
   transform: translate(-2px, -2px) !important;
-  box-shadow: 5px 5px 0px 0px #000000 !important;
+  box-shadow: 5px 5px 0px 0px var(--neo-shadow) !important;
 }
 
+/* Dark utility mappings for legacy Tailwind classes used throughout pages */
+.dark .neo-brutalist .bg-white,
+.dark .neo-brutalist .bg-white\/10,
+.dark .neo-brutalist .bg-white\/20,
+.dark .neo-brutalist .bg-white\/30,
+.dark .neo-brutalist .bg-white\/40,
+.dark .neo-brutalist .bg-white\/50,
+.dark .neo-brutalist .bg-white\/60,
+.dark .neo-brutalist .bg-white\/70,
+.dark .neo-brutalist .bg-white\/75,
+.dark .neo-brutalist .bg-white\/80,
+.dark .neo-brutalist .bg-white\/85,
+.dark .neo-brutalist .bg-white\/90,
+.dark .neo-brutalist .bg-white\/95 {
+  background-color: var(--neo-card-90) !important;
+}
 
+.dark .neo-brutalist .bg-gray-50,
+.dark .neo-brutalist .bg-gray-50\/30,
+.dark .neo-brutalist .bg-gray-50\/50,
+.dark .neo-brutalist .bg-gray-50\/80,
+.dark .neo-brutalist .bg-gray-100,
+.dark .neo-brutalist .bg-gray-200,
+.dark .neo-brutalist .bg-slate-50,
+.dark .neo-brutalist .bg-slate-50\/30,
+.dark .neo-brutalist .bg-slate-50\/50,
+.dark .neo-brutalist .bg-slate-50\/80,
+.dark .neo-brutalist .bg-slate-100,
+.dark .neo-brutalist .bg-neutral-50 {
+  background-color: var(--neo-card-muted) !important;
+}
+
+.dark .neo-brutalist .hover\:bg-gray-50:hover,
+.dark .neo-brutalist .hover\:bg-gray-100:hover,
+.dark .neo-brutalist .hover\:bg-gray-200:hover,
+.dark .neo-brutalist .hover\:bg-slate-100:hover,
+.dark .neo-brutalist .hover\:bg-slate-200:hover,
+.dark .neo-brutalist .hover\:bg-white:hover {
+  background-color: var(--neo-card-hover) !important;
+}
+
+.dark .neo-brutalist [data-slot=button].hover\:bg-slate-800:hover,
+.dark .neo-brutalist [data-slot=button].hover\:bg-slate-900:hover,
+.dark .neo-brutalist [data-slot=button].hover\:bg-gray-800:hover,
+.dark .neo-brutalist [data-slot=button].hover\:bg-gray-900:hover {
+  background-color: var(--neo-primary) !important;
+  color: var(--neo-primary-foreground) !important;
+}
+
+.dark .neo-brutalist .text-gray-950,
+.dark .neo-brutalist .text-gray-900,
+.dark .neo-brutalist .text-gray-800,
+.dark .neo-brutalist .text-black,
+.dark .neo-brutalist .text-slate-950,
+.dark .neo-brutalist .text-slate-900,
+.dark .neo-brutalist .text-slate-800,
+.dark .neo-brutalist .text-neutral-900,
+.dark .neo-brutalist .text-neutral-800 {
+  color: var(--neo-foreground) !important;
+}
+
+.dark .neo-brutalist .text-gray-700,
+.dark .neo-brutalist .text-gray-600,
+.dark .neo-brutalist .text-slate-700,
+.dark .neo-brutalist .text-slate-600,
+.dark .neo-brutalist .text-neutral-700,
+.dark .neo-brutalist .text-neutral-600 {
+  color: var(--neo-muted-foreground) !important;
+}
+
+.dark .neo-brutalist .text-gray-500,
+.dark .neo-brutalist .text-gray-400,
+.dark .neo-brutalist .text-gray-300,
+.dark .neo-brutalist .text-slate-500,
+.dark .neo-brutalist .text-slate-400,
+.dark .neo-brutalist .text-slate-300,
+.dark .neo-brutalist .text-neutral-500,
+.dark .neo-brutalist .text-neutral-400,
+.dark .neo-brutalist .text-neutral-300 {
+  color: var(--neo-subtle-foreground) !important;
+}
+
+.dark .neo-brutalist .text-emerald-800,
+.dark .neo-brutalist .text-emerald-900,
+.dark .neo-brutalist .text-green-800,
+.dark .neo-brutalist .text-green-900 {
+  color: var(--neo-green-text) !important;
+}
+
+.dark .neo-brutalist .text-sky-600,
+.dark .neo-brutalist .text-sky-700,
+.dark .neo-brutalist .text-sky-800,
+.dark .neo-brutalist .text-blue-800,
+.dark .neo-brutalist .text-blue-900 {
+  color: var(--neo-blue-text) !important;
+}
+
+.dark .neo-brutalist .text-violet-600,
+.dark .neo-brutalist .text-violet-700,
+.dark .neo-brutalist .text-violet-800,
+.dark .neo-brutalist .text-purple-800,
+.dark .neo-brutalist .text-purple-900 {
+  color: var(--neo-purple-text) !important;
+}
+
+.dark .neo-brutalist .text-rose-800,
+.dark .neo-brutalist .text-rose-900,
+.dark .neo-brutalist .text-red-800,
+.dark .neo-brutalist .text-red-900 {
+  color: var(--neo-red-text) !important;
+}
+
+.dark .neo-brutalist .divide-gray-100 > :not(:last-child),
+.dark .neo-brutalist .divide-gray-200 > :not(:last-child),
+.dark .neo-brutalist .divide-slate-200\/60 > :not(:last-child) {
+  border-color: var(--neo-border) !important;
+}
+
+.neo-brutalist .auth-form-section {
+  background-color: var(--neo-card) !important;
+  border-color: var(--neo-border) !important;
+  color: var(--neo-foreground) !important;
+}
+
+.neo-brutalist .auth-form-section-required {
+  border-style: solid !important;
+}
+
+.neo-brutalist .auth-form-section-optional {
+  background-color: var(--neo-card-muted) !important;
+  border-style: dashed !important;
+}
+
+.dark .neo-brutalist .auth-form-section-optional {
+  background-color: #151b24 !important;
+}
+
+.neo-brutalist .auth-form-section-header {
+  border-color: var(--neo-border) !important;
+}
+
+.neo-brutalist .auth-form-section-title {
+  color: var(--neo-foreground) !important;
+}
+
+.neo-brutalist .auth-form-section-title-accent {
+  color: var(--neo-link) !important;
+}
+
+.dark .neo-brutalist .auth-form-section-title-accent {
+  color: #93c5fd !important;
+}
+
+.neo-brutalist .auth-form-badge {
+  background-color: var(--neo-muted) !important;
+  border: 2px solid var(--neo-border) !important;
+  color: var(--neo-muted-foreground) !important;
+}
+
+.neo-brutalist .auth-form-badge-required {
+  background-color: #dbeafe !important;
+  color: #1e3a8a !important;
+}
+
+.dark .neo-brutalist .auth-form-badge-required {
+  background-color: #13283f !important;
+  color: #bfdbfe !important;
+}
+
+.neo-brutalist .auth-form-label {
+  color: var(--neo-foreground) !important;
+}
+
+.neo-brutalist .auth-form-label-muted {
+  color: var(--neo-muted-foreground) !important;
+}
+
+.neo-brutalist .auth-form-input {
+  background-color: var(--neo-input-bg) !important;
+  border-color: var(--neo-border) !important;
+  color: var(--neo-foreground) !important;
+}
+
+.neo-brutalist .auth-form-input::placeholder {
+  color: var(--neo-subtle-foreground) !important;
+}
+
+.neo-brutalist .auth-form-input:focus,
+.neo-brutalist .auth-form-input:focus-visible {
+  border-color: var(--neo-focus) !important;
+}
+
+.neo-brutalist .cash-record-dialog {
+  background-color: var(--neo-card) !important;
+  border-color: var(--neo-border) !important;
+  color: var(--neo-foreground) !important;
+}
+
+.neo-brutalist .cash-record-dialog-header {
+  background-color: var(--neo-card) !important;
+  border-color: var(--neo-border) !important;
+  color: var(--neo-foreground) !important;
+}
+
+.dark .neo-brutalist .cash-record-dialog-header {
+  background-color: #141a23 !important;
+}
+
+.neo-brutalist .cash-record-dialog-body {
+  background-color: var(--neo-background) !important;
+  color: var(--neo-foreground) !important;
+}
+
+.neo-brutalist .cash-record-dialog-eyebrow {
+  color: var(--neo-subtle-foreground) !important;
+}
+
+.neo-brutalist .cash-record-dialog-title {
+  color: var(--neo-foreground) !important;
+}
+
+.neo-brutalist .cash-record-modal-stat {
+  border-color: var(--neo-border) !important;
+  box-shadow: var(--neo-raised-shadow-sm) !important;
+}
+
+.neo-brutalist .cash-record-modal-stat-in {
+  background-color: #dcfce7 !important;
+  color: #14532d !important;
+}
+
+.dark .neo-brutalist .cash-record-modal-stat-in {
+  background-color: #132a22 !important;
+  color: #bbf7d0 !important;
+}
+
+.neo-brutalist .cash-record-modal-stat-out {
+  background-color: #fff1f2 !important;
+  color: #9f1239 !important;
+}
+
+.dark .neo-brutalist .cash-record-modal-stat-out {
+  background-color: #32151d !important;
+  color: #fecdd3 !important;
+}
+
+.neo-brutalist .cash-record-modal-stat-balance {
+  background-color: #dbeafe !important;
+  color: #1e3a8a !important;
+}
+
+.dark .neo-brutalist .cash-record-modal-stat-balance {
+  background-color: #243043 !important;
+  color: #f8fafc !important;
+}
+
+.neo-brutalist .cash-record-modal-stat-label,
+.neo-brutalist .cash-record-modal-stat-value {
+  color: currentColor !important;
+}
+
+.neo-brutalist .cash-record-table-wrap {
+  background-color: var(--neo-card) !important;
+  border-color: var(--neo-border) !important;
+  box-shadow: var(--neo-raised-shadow) !important;
+}
+
+.neo-brutalist .cash-record-table-header,
+.neo-brutalist .cash-record-table-header [data-slot=table-row],
+.neo-brutalist .cash-record-table-header [data-slot=table-row]:hover {
+  background-color: var(--neo-secondary) !important;
+  color: var(--neo-secondary-foreground) !important;
+}
+
+.dark .neo-brutalist .cash-record-table-header,
+.dark .neo-brutalist .cash-record-table-header [data-slot=table-row],
+.dark .neo-brutalist .cash-record-table-header [data-slot=table-row]:hover {
+  background-color: #202833 !important;
+  color: #f6f8fb !important;
+}
+
+.neo-brutalist .cash-record-table-head-cell {
+  background-color: var(--neo-secondary) !important;
+  border-color: var(--neo-border) !important;
+  color: var(--neo-secondary-foreground) !important;
+}
+
+.dark .neo-brutalist .cash-record-table-head-cell {
+  background-color: #202833 !important;
+  color: #f6f8fb !important;
+}
+
+.neo-brutalist .cash-record-table-row {
+  background-color: var(--neo-card) !important;
+  border-color: var(--neo-border) !important;
+}
+
+.neo-brutalist .cash-record-table-row:hover {
+  background-color: var(--neo-card-hover) !important;
+}
+
+.neo-brutalist .cash-record-table-cell {
+  border-color: var(--neo-border) !important;
+  color: var(--neo-foreground) !important;
+}
+
+.neo-brutalist .cash-record-entry-card,
+.neo-brutalist .cash-record-entry-detail,
+.neo-brutalist .cash-record-empty-state {
+  background-color: var(--neo-card) !important;
+  border-color: var(--neo-border) !important;
+  color: var(--neo-foreground) !important;
+  box-shadow: var(--neo-raised-shadow-sm) !important;
+}
+
+.neo-brutalist .cash-record-entry-date,
+.neo-brutalist .cash-record-entry-muted {
+  color: var(--neo-muted-foreground) !important;
+}
+
+.neo-brutalist .cash-record-entry-description {
+  color: var(--neo-foreground) !important;
+}
+
+.neo-brutalist .cash-record-entry-type-in,
+.neo-brutalist .cash-record-entry-amount-in {
+  background-color: #dcfce7 !important;
+  border-color: var(--neo-border) !important;
+  color: #14532d !important;
+  box-shadow: 1px 1px 0px 0px var(--neo-shadow) !important;
+}
+
+.dark .neo-brutalist .cash-record-entry-type-in,
+.dark .neo-brutalist .cash-record-entry-amount-in {
+  background-color: #132a22 !important;
+  color: #bbf7d0 !important;
+}
+
+.neo-brutalist .cash-record-entry-type-out,
+.neo-brutalist .cash-record-entry-amount-out {
+  background-color: #fff1f2 !important;
+  border-color: var(--neo-border) !important;
+  color: #9f1239 !important;
+  box-shadow: 1px 1px 0px 0px var(--neo-shadow) !important;
+}
+
+.dark .neo-brutalist .cash-record-entry-type-out,
+.dark .neo-brutalist .cash-record-entry-amount-out {
+  background-color: #32151d !important;
+  color: #fecdd3 !important;
+}
+
+.neo-brutalist .cash-record-icon-button {
+  background-color: var(--neo-card) !important;
+  border-color: var(--neo-border) !important;
+  color: var(--neo-foreground) !important;
+  box-shadow: 1px 1px 0px 0px var(--neo-shadow) !important;
+}
+
+.neo-brutalist .cash-record-icon-button:hover {
+  background-color: var(--neo-card-hover) !important;
+  color: var(--neo-foreground) !important;
+}
+
+.neo-brutalist .theme-logo-surface {
+  background-color: #ffffff !important;
+}
+
+.neo-brutalist aside .sidebar-theme-toggle {
+  height: 2rem !important;
+  width: 2rem !important;
+  padding: 0 !important;
+  border-radius: 6px !important;
+}
+
+.neo-brutalist aside .sidebar-theme-toggle svg {
+  height: 0.875rem !important;
+  width: 0.875rem !important;
+}
+
+.neo-brutalist .voice-assistant-panel {
+  background-color: rgb(255 255 255 / 0.98) !important;
+  border: 2px solid rgb(15 23 42 / 0.12) !important;
+  color: #0f172a !important;
+  backdrop-filter: blur(16px);
+}
+
+.dark .neo-brutalist .voice-assistant-panel {
+  background-color: #151b24 !important;
+  border-color: #566274 !important;
+  color: #f6f8fb !important;
+}
+
+.neo-brutalist .voice-assistant-header {
+  background-color: #0f172a !important;
+  color: #ffffff !important;
+}
+
+.dark .neo-brutalist .voice-assistant-header {
+  background-color: #0b1220 !important;
+}
+
+.neo-brutalist .voice-assistant-header-icon,
+.neo-brutalist .voice-assistant-header-button {
+  background-color: rgb(255 255 255 / 0.12) !important;
+  color: #ffffff !important;
+  border: 1px solid rgb(255 255 255 / 0.08) !important;
+}
+
+.neo-brutalist .voice-assistant-header-button:hover {
+  background-color: rgb(255 255 255 / 0.2) !important;
+}
+
+.neo-brutalist .voice-assistant-title {
+  color: #ffffff !important;
+}
+
+.neo-brutalist .voice-assistant-subtitle {
+  color: #dbe4ef !important;
+}
+
+.neo-brutalist .voice-assistant-body,
+.neo-brutalist .voice-assistant-footer {
+  background-color: #ffffff !important;
+}
+
+.dark .neo-brutalist .voice-assistant-body,
+.dark .neo-brutalist .voice-assistant-footer {
+  background-color: #151b24 !important;
+}
+
+.neo-brutalist .voice-assistant-empty-icon {
+  background-color: #f1f5f9 !important;
+  border: 1px solid #d6dee8 !important;
+  color: #334155 !important;
+}
+
+.dark .neo-brutalist .voice-assistant-empty-icon {
+  background-color: #202833 !important;
+  border-color: #4b5563 !important;
+  color: #d9e2ee !important;
+}
+
+.neo-brutalist .voice-assistant-empty-title {
+  color: #0f172a !important;
+}
+
+.dark .neo-brutalist .voice-assistant-empty-title {
+  color: #f6f8fb !important;
+}
+
+.neo-brutalist .voice-assistant-empty-copy,
+.neo-brutalist .voice-assistant-footer-label,
+.neo-brutalist .voice-assistant-footer-status {
+  color: #64748b !important;
+}
+
+.dark .neo-brutalist .voice-assistant-empty-copy,
+.dark .neo-brutalist .voice-assistant-footer-label,
+.dark .neo-brutalist .voice-assistant-footer-status {
+  color: #aab5c3 !important;
+}
+
+.neo-brutalist .voice-assistant-suggestion {
+  background-color: #f1f5f9 !important;
+  border: 1px solid #cbd5e1 !important;
+  color: #334155 !important;
+}
+
+.dark .neo-brutalist .voice-assistant-suggestion {
+  background-color: #202833 !important;
+  border-color: #4b5563 !important;
+  color: #d7dee8 !important;
+}
+
+.neo-brutalist .voice-assistant-message-user {
+  background-color: #0f172a !important;
+  color: #ffffff !important;
+}
+
+.dark .neo-brutalist .voice-assistant-message-user {
+  background-color: #2dd4bf !important;
+  color: #061512 !important;
+}
+
+.neo-brutalist .voice-assistant-message-bot {
+  background-color: #ffffff !important;
+  border: 1px solid #e2e8f0 !important;
+  color: #243244 !important;
+}
+
+.dark .neo-brutalist .voice-assistant-message-bot {
+  background-color: #202833 !important;
+  border-color: #4b5563 !important;
+  color: #eef2f7 !important;
+}
+
+.neo-brutalist .voice-assistant-message-time-user {
+  color: rgb(226 232 240 / 0.9) !important;
+}
+
+.dark .neo-brutalist .voice-assistant-message-time-user {
+  color: rgb(6 21 18 / 0.66) !important;
+}
+
+.neo-brutalist .voice-assistant-message-time-bot {
+  color: #94a3b8 !important;
+}
+
+.dark .neo-brutalist .voice-assistant-message-time-bot {
+  color: #aab5c3 !important;
+}
+
+.neo-brutalist .voice-assistant-pending {
+  background-color: #fffbeb !important;
+  border: 1px solid #fde68a !important;
+  color: #78350f !important;
+}
+
+.dark .neo-brutalist .voice-assistant-pending {
+  background-color: #332b11 !important;
+  border-color: #806d1f !important;
+  color: #fde68a !important;
+}
+
+.neo-brutalist .voice-assistant-pending-help {
+  color: #a16207 !important;
+}
+
+.dark .neo-brutalist .voice-assistant-pending-help {
+  color: #facc15 !important;
+}
+
+.neo-brutalist .voice-assistant-transcript {
+  background-color: #f1f5f9 !important;
+  border: 1px solid #cbd5e1 !important;
+  color: #334155 !important;
+}
+
+.dark .neo-brutalist .voice-assistant-transcript {
+  background-color: #202833 !important;
+  border-color: #4b5563 !important;
+  color: #eef2f7 !important;
+}
+
+.neo-brutalist .voice-assistant-footer {
+  border-color: #e2e8f0 !important;
+}
+
+.dark .neo-brutalist .voice-assistant-footer {
+  border-color: #4b5563 !important;
+}
+
+.neo-brutalist .voice-assistant-language-tabs {
+  background-color: #f1f5f9 !important;
+}
+
+.dark .neo-brutalist .voice-assistant-language-tabs {
+  background-color: #202833 !important;
+}
+
+.neo-brutalist .voice-assistant-language-tab {
+  color: #475569 !important;
+}
+
+.neo-brutalist .voice-assistant-language-tab:hover {
+  background-color: #e2e8f0 !important;
+}
+
+.dark .neo-brutalist .voice-assistant-language-tab {
+  color: #c4ccd6 !important;
+}
+
+.dark .neo-brutalist .voice-assistant-language-tab:hover {
+  background-color: #2a3442 !important;
+}
+
+.neo-brutalist .voice-assistant-language-tab-active {
+  background-color: #0f172a !important;
+  color: #ffffff !important;
+}
+
+.dark .neo-brutalist .voice-assistant-language-tab-active {
+  background-color: #2dd4bf !important;
+  color: #061512 !important;
+}
+
+.neo-brutalist .voice-assistant-input {
+  background-color: #f8fafc !important;
+  border: 1px solid #cbd5e1 !important;
+  color: #0f172a !important;
+  box-shadow: none !important;
+}
+
+.neo-brutalist .voice-assistant-input::placeholder {
+  color: #64748b !important;
+}
+
+.dark .neo-brutalist .voice-assistant-input {
+  background-color: #101722 !important;
+  border-color: #566274 !important;
+  color: #f6f8fb !important;
+}
+
+.dark .neo-brutalist .voice-assistant-input::placeholder {
+  color: #9aa5b1 !important;
+}
+
+.neo-brutalist .voice-assistant-input:focus {
+  border-color: #10b981 !important;
+  box-shadow: 0 0 0 3px rgb(16 185 129 / 0.18) !important;
+}
+
+.dark .neo-brutalist .voice-assistant-input:focus {
+  border-color: #2dd4bf !important;
+  box-shadow: 0 0 0 3px rgb(45 212 191 / 0.18) !important;
+}
+
+.neo-brutalist .voice-assistant-send-button {
+  background-color: #0f172a !important;
+  color: #ffffff !important;
+  border: 1px solid #0f172a !important;
+  box-shadow: none !important;
+}
+
+.neo-brutalist .voice-assistant-send-button:hover {
+  background-color: #1e293b !important;
+}
+
+.dark .neo-brutalist .voice-assistant-send-button {
+  background-color: #2dd4bf !important;
+  border-color: #2dd4bf !important;
+  color: #061512 !important;
+}
+
+.dark .neo-brutalist .voice-assistant-send-button:hover {
+  background-color: #5eead4 !important;
+}
+
+.neo-brutalist .voice-assistant-clear {
+  color: #64748b !important;
+}
+
+.neo-brutalist .voice-assistant-clear:hover {
+  background-color: #f1f5f9 !important;
+  color: #334155 !important;
+}
+
+.dark .neo-brutalist .voice-assistant-clear {
+  color: #aab5c3 !important;
+}
+
+.dark .neo-brutalist .voice-assistant-clear:hover {
+  background-color: #202833 !important;
+  color: #f6f8fb !important;
+}
+
+.neo-brutalist .voice-assistant-mic-idle {
+  background-color: #0f172a !important;
+  color: #ffffff !important;
+}
+
+.dark .neo-brutalist .voice-assistant-mic-idle {
+  background-color: #2dd4bf !important;
+  color: #ffffff !important;
+  box-shadow: 0 16px 36px rgb(45 212 191 / 0.28) !important;
+}
+
+.neo-brutalist .voice-assistant-mic-listening {
+  background-color: #e11d48 !important;
+  color: #ffffff !important;
+}
+
+.neo-brutalist .voice-assistant-status-pill {
+  background-color: #f1f5f9 !important;
+  color: #334155 !important;
+}
+
+.dark .neo-brutalist .voice-assistant-status-pill {
+  background-color: #202833 !important;
+  color: #eef2f7 !important;
+}
+
+.neo-brutalist .cash-record-page {
+  background-color: var(--neo-background) !important;
+  color: var(--neo-foreground) !important;
+}
+
+.neo-brutalist .cash-record-action-primary {
+  background-color: var(--neo-primary) !important;
+  color: var(--neo-primary-foreground) !important;
+}
+
+.neo-brutalist .cash-record-action-primary:hover {
+  background-color: #0d9488 !important;
+  color: var(--neo-primary-foreground) !important;
+}
+
+.dark .neo-brutalist .cash-record-action-primary:hover {
+  background-color: #5eead4 !important;
+  color: var(--neo-primary-foreground) !important;
+}
+
+.neo-brutalist .cash-record-action-secondary {
+  background-color: var(--neo-card) !important;
+  border-color: var(--neo-border) !important;
+  color: var(--neo-foreground) !important;
+}
+
+.neo-brutalist .cash-record-action-secondary:hover {
+  background-color: var(--neo-card-hover) !important;
+  color: var(--neo-foreground) !important;
+}
+
+.neo-brutalist .cash-record-card {
+  background-color: var(--neo-card) !important;
+  border-color: var(--neo-border) !important;
+  color: var(--neo-foreground) !important;
+}
+
+.neo-brutalist .cash-record-card:hover {
+  background-color: var(--neo-card-hover) !important;
+  border-color: var(--neo-border) !important;
+}
+
+.neo-brutalist .cash-record-pill {
+  background-color: var(--neo-muted) !important;
+  color: var(--neo-muted-foreground) !important;
+}
+
+.neo-brutalist .cash-record-summary {
+  background-color: var(--neo-card) !important;
+  border-color: var(--neo-border) !important;
+}
+
+.neo-brutalist .cash-record-row-in {
+  background-color: #dcfce7 !important;
+  color: #14532d !important;
+}
+
+.dark .neo-brutalist .cash-record-row-in {
+  background-color: #132a22 !important;
+  color: #bbf7d0 !important;
+}
+
+.neo-brutalist .cash-record-row-out {
+  background-color: #fff1f2 !important;
+  color: #9f1239 !important;
+}
+
+.dark .neo-brutalist .cash-record-row-out {
+  background-color: #32151d !important;
+  color: #fecdd3 !important;
+}
+
+.neo-brutalist .cash-record-row-balance {
+  background-color: #111827 !important;
+  color: #ffffff !important;
+}
+
+.dark .neo-brutalist .cash-record-row-balance {
+  background-color: #243043 !important;
+  color: #f8fafc !important;
+}
+
+.neo-brutalist .cash-record-row-balance-negative {
+  background-color: #881337 !important;
+  color: #ffffff !important;
+}
+
+.dark .neo-brutalist .cash-record-row-balance-negative {
+  background-color: #3a1826 !important;
+  color: #ffe4e6 !important;
+}
+
+.neo-brutalist .cash-record-dialog {
+  background-color: var(--neo-card) !important;
+  border-color: var(--neo-border) !important;
+  color: var(--neo-foreground) !important;
+}
+
+.neo-brutalist .cash-record-dialog-header {
+  background-color: var(--neo-card) !important;
+  border-color: var(--neo-border) !important;
+  color: var(--neo-foreground) !important;
+}
+
+.dark .neo-brutalist .cash-record-dialog-header {
+  background-color: #141a23 !important;
+}
+
+.neo-brutalist .cash-record-dialog-body {
+  background-color: var(--neo-background) !important;
+  color: var(--neo-foreground) !important;
+}
+
+.neo-brutalist .cash-record-dialog-eyebrow {
+  color: var(--neo-subtle-foreground) !important;
+}
+
+.neo-brutalist .cash-record-dialog-title {
+  color: var(--neo-foreground) !important;
+}
+
+.neo-brutalist .cash-record-modal-stat {
+  border-color: var(--neo-border) !important;
+  box-shadow: var(--neo-raised-shadow-sm) !important;
+}
+
+.neo-brutalist .cash-record-modal-stat-in {
+  background-color: #dcfce7 !important;
+  color: #14532d !important;
+}
+
+.dark .neo-brutalist .cash-record-modal-stat-in {
+  background-color: #132a22 !important;
+  color: #bbf7d0 !important;
+}
+
+.neo-brutalist .cash-record-modal-stat-out {
+  background-color: #fff1f2 !important;
+  color: #9f1239 !important;
+}
+
+.dark .neo-brutalist .cash-record-modal-stat-out {
+  background-color: #32151d !important;
+  color: #fecdd3 !important;
+}
+
+.neo-brutalist .cash-record-modal-stat-balance {
+  background-color: #dbeafe !important;
+  color: #1e3a8a !important;
+}
+
+.dark .neo-brutalist .cash-record-modal-stat-balance {
+  background-color: #243043 !important;
+  color: #f8fafc !important;
+}
+
+.neo-brutalist .cash-record-modal-stat-label,
+.neo-brutalist .cash-record-modal-stat-value {
+  color: currentColor !important;
+}
+
+.neo-brutalist .cash-record-table-wrap {
+  background-color: var(--neo-card) !important;
+  border-color: var(--neo-border) !important;
+  box-shadow: var(--neo-raised-shadow) !important;
+}
+
+.neo-brutalist .cash-record-table-header,
+.neo-brutalist .cash-record-table-header [data-slot=table-row],
+.neo-brutalist .cash-record-table-header [data-slot=table-row]:hover {
+  background-color: var(--neo-secondary) !important;
+  color: var(--neo-secondary-foreground) !important;
+}
+
+.dark .neo-brutalist .cash-record-table-header,
+.dark .neo-brutalist .cash-record-table-header [data-slot=table-row],
+.dark .neo-brutalist .cash-record-table-header [data-slot=table-row]:hover {
+  background-color: #202833 !important;
+  color: #f6f8fb !important;
+}
+
+.neo-brutalist .cash-record-table-head-cell {
+  border-color: var(--neo-border) !important;
+  color: currentColor !important;
+}
+
+.neo-brutalist .cash-record-table-row {
+  background-color: var(--neo-card) !important;
+  border-color: var(--neo-border) !important;
+}
+
+.neo-brutalist .cash-record-table-row:hover {
+  background-color: var(--neo-card-hover) !important;
+}
+
+.neo-brutalist .cash-record-table-cell {
+  border-color: var(--neo-border) !important;
+  color: var(--neo-foreground) !important;
+}
+
+.neo-brutalist .cash-record-entry-card,
+.neo-brutalist .cash-record-entry-detail,
+.neo-brutalist .cash-record-empty-state {
+  background-color: var(--neo-card) !important;
+  border-color: var(--neo-border) !important;
+  color: var(--neo-foreground) !important;
+  box-shadow: var(--neo-raised-shadow-sm) !important;
+}
+
+.neo-brutalist .cash-record-entry-date,
+.neo-brutalist .cash-record-entry-muted {
+  color: var(--neo-muted-foreground) !important;
+}
+
+.neo-brutalist .cash-record-entry-description {
+  color: var(--neo-foreground) !important;
+}
+
+.neo-brutalist .cash-record-entry-type-in,
+.neo-brutalist .cash-record-entry-amount-in {
+  background-color: #dcfce7 !important;
+  border-color: var(--neo-border) !important;
+  color: #14532d !important;
+}
+
+.dark .neo-brutalist .cash-record-entry-type-in,
+.dark .neo-brutalist .cash-record-entry-amount-in {
+  background-color: #132a22 !important;
+  color: #bbf7d0 !important;
+}
+
+.neo-brutalist .cash-record-entry-type-out,
+.neo-brutalist .cash-record-entry-amount-out {
+  background-color: #fff1f2 !important;
+  border-color: var(--neo-border) !important;
+  color: #9f1239 !important;
+}
+
+.dark .neo-brutalist .cash-record-entry-type-out,
+.dark .neo-brutalist .cash-record-entry-amount-out {
+  background-color: #32151d !important;
+  color: #fecdd3 !important;
+}
+
+.neo-brutalist .cash-record-icon-button {
+  background-color: var(--neo-card) !important;
+  border-color: var(--neo-border) !important;
+  color: var(--neo-foreground) !important;
+  box-shadow: 1px 1px 0px 0px var(--neo-shadow) !important;
+}
+
+.neo-brutalist .cash-record-icon-button:hover {
+  background-color: var(--neo-card-hover) !important;
+  color: var(--neo-foreground) !important;
+}
+
+::view-transition-old(root), ::view-transition-new(root) {
+    animation: none;
+    mix-blend-mode: normal;
+}
