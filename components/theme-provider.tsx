@@ -29,13 +29,13 @@ function getSystemTheme(): ResolvedTheme {
 }
 
 function getStoredTheme(): ThemePreference {
-  if (typeof window === 'undefined') return 'system';
+  if (typeof window === 'undefined') return 'light';
 
   try {
     const storedTheme = window.localStorage.getItem(THEME_STORAGE_KEY);
-    return storedTheme === 'light' || storedTheme === 'dark' ? storedTheme : 'system';
+    return storedTheme === 'light' || storedTheme === 'dark' ? storedTheme : 'light';
   } catch {
-    return 'system';
+    return 'light';
   }
 }
 

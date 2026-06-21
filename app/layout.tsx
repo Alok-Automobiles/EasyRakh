@@ -16,8 +16,7 @@ const themeScript = `
   try {
     var storageKey = 'easyrakh-theme';
     var storedTheme = window.localStorage.getItem(storageKey);
-    var prefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
-    var shouldUseDarkTheme = storedTheme === 'dark' || (!storedTheme && prefersDark);
+    var shouldUseDarkTheme = storedTheme === 'dark';
     var root = document.documentElement;
     root.classList.toggle('dark', shouldUseDarkTheme);
     root.dataset.theme = shouldUseDarkTheme ? 'dark' : 'light';
