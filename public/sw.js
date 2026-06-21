@@ -1,99 +1,186 @@
-const CACHE_NAME = 'easyrakh-v1';
+const CACHE_VERSION = '2026-06-21-network-first';
+const CACHE_PREFIX = 'easyrakh';
+const ASSET_CACHE_NAME = `${CACHE_PREFIX}-assets-${CACHE_VERSION}`;
+const CACHE_ALLOWLIST = [ASSET_CACHE_NAME];
 
-// Assets to cache on install for offline shell
 const PRECACHE_ASSETS = [
-  '/',
+  '/favicon.ico',
   '/icon-192x192.png',
   '/icon-512x512.png',
-  '/favicon.ico',
   '/manifest.json',
 ];
 
-// Install event - precache essential assets
+const OFFLINE_HTML = `<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>EasyRakh offline</title>
+    <style>
+      body {
+        margin: 0;
+        min-height: 100vh;
+        display: grid;
+        place-items: center;
+        background: #faf9f6;
+        color: #111827;
+        font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      }
+      main {
+        width: min(28rem, calc(100vw - 2rem));
+        border: 4px solid #000;
+        border-radius: 12px;
+        background: #fff;
+        padding: 1.5rem;
+        box-shadow: 8px 8px 0 #000;
+      }
+      h1 {
+        margin: 0 0 0.5rem;
+        font-size: 1.25rem;
+      }
+      p {
+        margin: 0;
+        color: #4b5563;
+        line-height: 1.5;
+      }
+    </style>
+  </head>
+  <body>
+    <main>
+      <h1>You are offline</h1>
+      <p>Reconnect to the internet and refresh EasyRakh to load the latest records.</p>
+    </main>
+  </body>
+</html>`;
+
 self.addEventListener('install', (event) => {
   event.waitUntil(
-    caches.open(CACHE_NAME).then((cache) => {
-      return cache.addAll(PRECACHE_ASSETS);
-    })
+    caches
+      .open(ASSET_CACHE_NAME)
+      .then((cache) => cache.addAll(PRECACHE_ASSETS))
   );
-  // Activate immediately
   self.skipWaiting();
 });
 
-// Activate event - clean up old caches
 self.addEventListener('activate', (event) => {
+  let removedOldCache = false;
+
   event.waitUntil(
-    caches.keys().then((cacheNames) => {
-      return Promise.all(
-        cacheNames
-          .filter((name) => name !== CACHE_NAME)
-          .map((name) => caches.delete(name))
-      );
-    })
+    caches
+      .keys()
+      .then((cacheNames) =>
+        Promise.all(
+          cacheNames
+            .filter((name) => name.startsWith(`${CACHE_PREFIX}-`) && !CACHE_ALLOWLIST.includes(name))
+            .map((name) =>
+              caches.delete(name).then((deleted) => {
+                removedOldCache = removedOldCache || deleted;
+              })
+            )
+        )
+      )
+      .then(() => self.clients.claim())
+      .then(() => {
+        if (!removedOldCache) return undefined;
+        return self.clients
+          .matchAll({ type: 'window', includeUncontrolled: true })
+          .then((clients) =>
+            Promise.all(
+              clients.map((client) => {
+                if ('navigate' in client) {
+                  return client.navigate(client.url).catch(() => undefined);
+                }
+                return undefined;
+              })
+            )
+          );
+      })
   );
-  // Take control of all pages immediately
-  self.clients.claim();
 });
 
-// Fetch event - network-first strategy for API, cache-first for static assets
+self.addEventListener('message', (event) => {
+  if (event.data?.type === 'SKIP_WAITING') {
+    self.skipWaiting();
+  }
+
+  if (event.data?.type === 'CLEAR_APP_CACHES') {
+    event.waitUntil(
+      caches
+        .keys()
+        .then((cacheNames) =>
+          Promise.all(
+            cacheNames
+              .filter(
+                (name) =>
+                  (name.startsWith(`${CACHE_PREFIX}-`) || name === 'easyrakh-v1') &&
+                  !CACHE_ALLOWLIST.includes(name)
+              )
+              .map((name) => caches.delete(name))
+          )
+        )
+    );
+  }
+});
+
 self.addEventListener('fetch', (event) => {
   const { request } = event;
   const url = new URL(request.url);
 
-  // Skip non-GET requests
   if (request.method !== 'GET') return;
-
-  // Skip cross-origin requests
   if (url.origin !== self.location.origin) return;
 
-  // API requests: network-first
-  if (url.pathname.startsWith('/api/')) {
-    event.respondWith(
-      fetch(request)
-        .then((response) => {
-          // Clone and cache successful responses
-          if (response.ok) {
-            const responseClone = response.clone();
-            caches.open(CACHE_NAME).then((cache) => {
-              cache.put(request, responseClone);
-            });
-          }
-          return response;
-        })
-        .catch(() => {
-          // Fallback to cache for offline, or return a 503 if nothing cached
-          return caches.match(request).then((cached) => {
-            return cached || new Response(JSON.stringify({ error: 'Offline' }), {
-              status: 503,
-              headers: { 'Content-Type': 'application/json' },
-            });
-          });
-        })
-    );
+  if (request.mode === 'navigate') {
+    event.respondWith(fetchNavigation(request));
     return;
   }
 
-  // Static assets & pages: stale-while-revalidate
-  event.respondWith(
-    caches.match(request).then((cachedResponse) => {
-      const fetchPromise = fetch(request)
-        .then((networkResponse) => {
-          if (networkResponse.ok) {
-            const responseClone = networkResponse.clone();
-            caches.open(CACHE_NAME).then((cache) => {
-              cache.put(request, responseClone);
-            });
-          }
-          return networkResponse;
-        })
-        .catch(() => {
-          return cachedResponse || new Response('Offline', {
-            status: 503,
-            headers: { 'Content-Type': 'text/plain' },
-          });
-        });
+  if (url.pathname.startsWith('/api/')) {
+    event.respondWith(fetch(request).catch(() => offlineJsonResponse()));
+    return;
+  }
 
-      return cachedResponse || fetchPromise;
-    })
-  );
+  if (isCacheableAsset(url)) {
+    event.respondWith(networkFirstAsset(event, request));
+  }
 });
+
+async function fetchNavigation(request) {
+  try {
+    return await fetch(request);
+  } catch {
+    return new Response(OFFLINE_HTML, {
+      status: 503,
+      headers: { 'Content-Type': 'text/html; charset=utf-8' },
+    });
+  }
+}
+
+async function networkFirstAsset(event, request) {
+  const cache = await caches.open(ASSET_CACHE_NAME);
+
+  try {
+    const response = await fetch(request);
+    if (response.ok) {
+      event.waitUntil(cache.put(request, response.clone()).catch(() => undefined));
+    }
+    return response;
+  } catch {
+    const cached = await cache.match(request);
+    return cached || new Response('Offline', { status: 503 });
+  }
+}
+
+function offlineJsonResponse() {
+  return new Response(JSON.stringify({ error: 'Offline' }), {
+    status: 503,
+    headers: { 'Content-Type': 'application/json' },
+  });
+}
+
+function isCacheableAsset(url) {
+  return (
+    url.pathname.startsWith('/_next/static/') ||
+    /\.(?:css|js|png|jpe?g|webp|gif|svg|ico|woff2?|ttf)$/i.test(url.pathname) ||
+    PRECACHE_ASSETS.includes(url.pathname)
+  );
+}
