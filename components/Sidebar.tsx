@@ -184,7 +184,7 @@ export default function Sidebar({ collapsed = false }: SidebarProps) {
             : 'space-y-1.5'
         }`}
       >
-        <div className={`relative flex w-full items-center ${effectiveCollapsed ? 'justify-center' : 'justify-center'}`}>
+        <div className="relative flex w-full items-center justify-center">
           <Link
             href="/"
             className="flex min-w-0 items-center justify-center"

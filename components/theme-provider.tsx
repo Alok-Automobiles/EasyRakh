@@ -19,7 +19,7 @@ type ThemeContextValue = {
   toggleTheme: () => void;
 };
 
-const THEME_STORAGE_KEY = 'easyrakh-theme';
+export const THEME_STORAGE_KEY = 'easyrakh-theme';
 
 const ThemeContext = createContext<ThemeContextValue | undefined>(undefined);
 

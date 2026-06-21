@@ -4,6 +4,7 @@ import { useCallback, useEffect, useRef, useState } from "react"
 import { Moon, Sun } from "lucide-react"
 import { flushSync } from "react-dom"
 
+import { THEME_STORAGE_KEY } from "@/components/theme-provider"
 import { cn } from "@/lib/utils"
 
 export type TransitionVariant =
@@ -197,8 +198,11 @@ export const AnimatedThemeToggler = ({
       if (isControlled) {
         onThemeChange?.(newTheme ? "dark" : "light")
       } else {
+        const nextTheme = newTheme ? "dark" : "light"
         setInternalIsDark(newTheme)
-        localStorage.setItem("theme", newTheme ? "dark" : "light")
+        document.documentElement.dataset.theme = nextTheme
+        document.documentElement.style.colorScheme = nextTheme
+        localStorage.setItem(THEME_STORAGE_KEY, nextTheme)
       }
     }
 
