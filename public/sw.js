@@ -58,7 +58,6 @@ self.addEventListener('install', (event) => {
     caches
       .open(ASSET_CACHE_NAME)
       .then((cache) => cache.addAll(PRECACHE_ASSETS))
-      .catch(() => undefined)
   );
   self.skipWaiting();
 });
@@ -141,7 +140,7 @@ self.addEventListener('fetch', (event) => {
   }
 
   if (isCacheableAsset(url)) {
-    event.respondWith(networkFirstAsset(request));
+    event.respondWith(networkFirstAsset(event, request));
   }
 });
 
@@ -156,13 +155,13 @@ async function fetchNavigation(request) {
   }
 }
 
-async function networkFirstAsset(request) {
+async function networkFirstAsset(event, request) {
   const cache = await caches.open(ASSET_CACHE_NAME);
 
   try {
     const response = await fetch(request);
     if (response.ok) {
-      cache.put(request, response.clone()).catch(() => undefined);
+      event.waitUntil(cache.put(request, response.clone()).catch(() => undefined));
     }
     return response;
   } catch {
