@@ -18,7 +18,7 @@ import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import toast from 'react-hot-toast';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { motion } from 'motion/react';
+import { AnimatePresence, motion } from 'motion/react';
 import {
   AlertTriangle,
   ArrowLeft,
@@ -30,6 +30,7 @@ import {
   ChevronRight,
   ClipboardList,
   Edit3,
+  Eye,
   FileDown,
   FileText,
   Filter,
@@ -448,141 +449,293 @@ function InventoryItemCard({
   const stockValue = (item.buyingPrice || 0) * (item.quantity || 0);
   const images = item.partImages || [];
   const quantityControlsDisabled = isAdjusting || isOrderMode;
+  const [detailsOpen, setDetailsOpen] = useState(false);
+  const description = item.description?.trim();
+  const detailsLayoutId = `inventory-item-details-${item.id}`;
+  const detailsTransition = { type: 'spring' as const, stiffness: 360, damping: 34 };
+
+  useEffect(() => {
+    if (isOrderMode) setDetailsOpen(false);
+  }, [isOrderMode]);
+
+  useEffect(() => {
+    if (!detailsOpen) return;
+    const originalOverflow = document.body.style.overflow;
+    document.body.style.overflow = 'hidden';
+
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') setDetailsOpen(false);
+    };
+
+    window.addEventListener('keydown', onKeyDown);
+    return () => {
+      document.body.style.overflow = originalOverflow;
+      window.removeEventListener('keydown', onKeyDown);
+    };
+  }, [detailsOpen]);
 
   return (
-    <div
-      className={`group max-w-full overflow-hidden rounded-xl border bg-white p-2.5 shadow-sm transition-all hover:-translate-y-0.5 hover:border-gray-300 hover:shadow-md sm:p-3 ${
-        isOrderMode && isSelected ? 'border-slate-900 ring-2 ring-slate-900/10' : 'border-gray-200'
-      }`}
-    >
-      <div className="flex min-w-0 items-center justify-between gap-2">
-        <div className="flex min-w-0 items-center gap-1.5">
-          <Badge variant="outline" className={`gap-1.5 border ${status.className}`}>
-            <span className={`h-1.5 w-1.5 rounded-full ${status.dotClassName}`} />
-            {status.label}
-          </Badge>
-          {item.location && (
-            <span className="inline-flex min-w-0 max-w-[5.5rem] items-center gap-1 rounded bg-slate-100 px-1.5 py-0.5 text-[10px] font-medium text-slate-600 sm:max-w-[8rem]" title={`Location: ${item.location}`}>
-              <MapPin className="h-2.5 w-2.5 text-slate-400" />
-              <span className="truncate">{item.location}</span>
-            </span>
+    <>
+      <motion.div
+        layoutId={detailsLayoutId}
+        transition={detailsTransition}
+        className={`group max-w-full overflow-hidden rounded-xl border bg-white p-2.5 shadow-sm transition-shadow hover:border-gray-300 hover:shadow-md sm:p-3 ${
+          isOrderMode && isSelected ? 'border-slate-900 ring-2 ring-slate-900/10' : 'border-gray-200'
+        }`}
+        whileHover={detailsOpen ? undefined : { y: -2 }}
+      >
+        <div className="flex min-w-0 items-center justify-between gap-2">
+          <div className="flex min-w-0 items-center gap-1.5">
+            <Badge variant="outline" className={`gap-1.5 border ${status.className}`}>
+              <span className={`h-1.5 w-1.5 rounded-full ${status.dotClassName}`} />
+              {status.label}
+            </Badge>
+            {item.location && (
+              <span className="inline-flex min-w-0 max-w-[5.5rem] items-center gap-1 rounded bg-slate-100 px-1.5 py-0.5 text-[10px] font-medium text-slate-600 sm:max-w-[8rem]" title={`Location: ${item.location}`}>
+                <MapPin className="h-2.5 w-2.5 text-slate-400" />
+                <span className="truncate">{item.location}</span>
+              </span>
+            )}
+          </div>
+          {isOrderMode ? (
+            <label className="inline-flex min-h-11 min-w-11 cursor-pointer items-center gap-2 rounded-md border border-gray-300 bg-white px-3 text-xs font-semibold text-gray-800 shadow-sm transition-colors hover:bg-gray-50">
+              <input
+                type="checkbox"
+                checked={isSelected}
+                onChange={() => onToggleOrderSelection(item)}
+                className="h-4 w-4 cursor-pointer accent-slate-900"
+                aria-label={`Select ${item.itemName} for supplier order`}
+              />
+              <span>Select</span>
+            </label>
+          ) : (
+            <div className="flex items-center gap-1">
+              <Button
+                type="button"
+                variant="ghost"
+                size="icon-sm"
+                className="h-8 w-8 text-gray-500 hover:text-gray-900"
+                onClick={() => setDetailsOpen(true)}
+                aria-label={`View details for ${item.itemName}`}
+                aria-haspopup="dialog"
+              >
+                <Eye className="h-4 w-4" />
+              </Button>
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <Button variant="ghost" size="icon-sm" className="h-8 w-8 text-gray-500 hover:text-gray-900">
+                    <MoreVertical className="h-4 w-4" />
+                  </Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="end" className="w-36">
+                  <DropdownMenuItem onClick={() => onEdit(item)}>
+                    <Edit3 className="mr-2 h-4 w-4" />
+                    Edit
+                  </DropdownMenuItem>
+                  <DropdownMenuItem
+                    onClick={() => onDelete(item)}
+                    className="text-red-600 focus:bg-red-50 focus:text-red-700"
+                  >
+                    <Trash2 className="mr-2 h-4 w-4" />
+                    Delete
+                  </DropdownMenuItem>
+                </DropdownMenuContent>
+              </DropdownMenu>
+            </div>
           )}
         </div>
-        {isOrderMode ? (
-          <label className="inline-flex min-h-11 min-w-11 cursor-pointer items-center gap-2 rounded-md border border-gray-300 bg-white px-3 text-xs font-semibold text-gray-800 shadow-sm transition-colors hover:bg-gray-50">
-            <input
-              type="checkbox"
-              checked={isSelected}
-              onChange={() => onToggleOrderSelection(item)}
-              className="h-4 w-4 cursor-pointer accent-slate-900"
-              aria-label={`Select ${item.itemName} for supplier order`}
-            />
-            <span>Select</span>
-          </label>
-        ) : (
-          <DropdownMenu>
-            <DropdownMenuTrigger asChild>
-              <Button variant="ghost" size="icon-sm" className="h-8 w-8 text-gray-500 hover:text-gray-900">
-                <MoreVertical className="h-4 w-4" />
-              </Button>
-            </DropdownMenuTrigger>
-            <DropdownMenuContent align="end" className="w-36">
-              <DropdownMenuItem onClick={() => onEdit(item)}>
-                <Edit3 className="mr-2 h-4 w-4" />
-                Edit
-              </DropdownMenuItem>
-              <DropdownMenuItem
-                onClick={() => onDelete(item)}
-                className="text-red-600 focus:bg-red-50 focus:text-red-700"
-              >
-                <Trash2 className="mr-2 h-4 w-4" />
-                Delete
-              </DropdownMenuItem>
-            </DropdownMenuContent>
-          </DropdownMenu>
-        )}
-      </div>
 
-      <div className="mt-3 flex gap-3 sm:block">
-        <div className="h-28 w-28 shrink-0 overflow-hidden rounded-lg bg-gray-50 sm:h-auto sm:w-full sm:aspect-[4/3]">
-          <ItemImageCarousel images={images} itemName={item.itemName} />
-        </div>
-
-      <div className="min-w-0 flex-1 space-y-2 sm:mt-4 sm:space-y-3">
-        <div>
-          <h3 className="line-clamp-2 text-sm font-semibold leading-snug text-gray-950 sm:truncate" title={item.itemName}>
-            {item.itemName}
-          </h3>
-          <p className="mt-1 truncate text-xs text-gray-500" title={item.itemNumber || 'No item number'}>
-            {item.itemNumber ? item.itemNumber : <span className="italic text-gray-400">No item number</span>}
-            {item.brand ? ` • ${item.brand}` : ''}
-          </p>
-        </div>
-
-        <div className="grid min-w-0 grid-cols-2 gap-1.5">
-          <div className="flex min-w-0 flex-col justify-between rounded-lg border border-gray-100 bg-gray-50/80 p-2">
-            <span className="text-[10px] font-medium text-gray-400">Quantity</span>
-            <div className={`mt-1.5 flex items-center justify-between ${quantityControlsDisabled ? 'pointer-events-none opacity-60' : ''}`}>
-              <button
-                type="button"
-                disabled={quantityControlsDisabled || item.quantity <= 0}
-                aria-label={`Decrease quantity for ${item.itemName}`}
-                onClick={() => onAdjustQuantity(item, -1)}
-                className="flex h-5 w-5 cursor-pointer items-center justify-center rounded border border-gray-200 bg-white text-gray-600 shadow-sm transition-colors hover:bg-gray-50 disabled:cursor-not-allowed disabled:opacity-40"
-              >
-                <Minus className="h-2.5 w-2.5" />
-              </button>
-              <span className="mx-1 flex min-w-0 items-baseline gap-0.5 text-xs font-bold tabular-nums text-gray-900">
-                {item.quantity}
-                <span className="text-[9px] font-medium text-gray-400">{item.unitOfMeasure}</span>
-              </span>
-              <button
-                type="button"
-                disabled={quantityControlsDisabled}
-                aria-label={`Increase quantity for ${item.itemName}`}
-                onClick={() => onAdjustQuantity(item, 1)}
-                className="flex h-5 w-5 cursor-pointer items-center justify-center rounded border border-gray-200 bg-white text-gray-600 shadow-sm transition-colors hover:bg-gray-50 disabled:cursor-not-allowed disabled:opacity-40"
-              >
-                <Plus className="h-2.5 w-2.5" />
-              </button>
-            </div>
+        <div className="mt-3 flex gap-3 sm:block">
+          <div className="h-28 w-28 shrink-0 overflow-hidden rounded-lg bg-gray-50 sm:h-auto sm:w-full sm:aspect-[4/3]">
+            <ItemImageCarousel images={images} itemName={item.itemName} />
           </div>
 
-          <div className="flex min-w-0 flex-col justify-between rounded-lg border border-gray-100 bg-gray-50/80 p-2">
-            <span className="text-[10px] font-medium text-gray-400">Stock value</span>
-            <div className="mt-1.5 flex h-5 min-w-0 items-center">
-              <span className="truncate text-xs font-bold tabular-nums text-gray-900" title={formatCurrency(stockValue)}>
-                {formatCurrency(stockValue)}
-              </span>
+          <div className="min-w-0 flex-1 space-y-2 sm:mt-4 sm:space-y-3">
+            <div>
+              <h3 className="line-clamp-2 text-sm font-semibold leading-snug text-gray-950 sm:truncate" title={item.itemName}>
+                {item.itemName}
+              </h3>
+              <p className="mt-1 truncate text-xs text-gray-500" title={item.itemNumber || 'No item number'}>
+                {item.itemNumber ? item.itemNumber : <span className="italic text-gray-400">No item number</span>}
+                {item.brand ? ` • ${item.brand}` : ''}
+              </p>
+            </div>
+
+            <div className="grid min-w-0 grid-cols-2 gap-1.5">
+              <div className="flex min-w-0 flex-col justify-between rounded-lg border border-gray-100 bg-gray-50/80 p-2">
+                <span className="text-[10px] font-medium text-gray-400">Quantity</span>
+                <div className={`mt-1.5 flex items-center justify-between ${quantityControlsDisabled ? 'pointer-events-none opacity-60' : ''}`}>
+                  <button
+                    type="button"
+                    disabled={quantityControlsDisabled || item.quantity <= 0}
+                    aria-label={`Decrease quantity for ${item.itemName}`}
+                    onClick={() => onAdjustQuantity(item, -1)}
+                    className="flex h-5 w-5 cursor-pointer items-center justify-center rounded border border-gray-200 bg-white text-gray-600 shadow-sm transition-colors hover:bg-gray-50 disabled:cursor-not-allowed disabled:opacity-40"
+                  >
+                    <Minus className="h-2.5 w-2.5" />
+                  </button>
+                  <span className="mx-1 flex min-w-0 items-baseline gap-0.5 text-xs font-bold tabular-nums text-gray-900">
+                    {item.quantity}
+                    <span className="text-[9px] font-medium text-gray-400">{item.unitOfMeasure}</span>
+                  </span>
+                  <button
+                    type="button"
+                    disabled={quantityControlsDisabled}
+                    aria-label={`Increase quantity for ${item.itemName}`}
+                    onClick={() => onAdjustQuantity(item, 1)}
+                    className="flex h-5 w-5 cursor-pointer items-center justify-center rounded border border-gray-200 bg-white text-gray-600 shadow-sm transition-colors hover:bg-gray-50 disabled:cursor-not-allowed disabled:opacity-40"
+                  >
+                    <Plus className="h-2.5 w-2.5" />
+                  </button>
+                </div>
+              </div>
+
+              <div className="flex min-w-0 flex-col justify-between rounded-lg border border-gray-100 bg-gray-50/80 p-2">
+                <span className="text-[10px] font-medium text-gray-400">Stock value</span>
+                <div className="mt-1.5 flex h-5 min-w-0 items-center">
+                  <span className="truncate text-xs font-bold tabular-nums text-gray-900" title={formatCurrency(stockValue)}>
+                    {formatCurrency(stockValue)}
+                  </span>
+                </div>
+              </div>
+            </div>
+
+            <div className="min-w-0 space-y-1 border-t border-gray-100 pt-2.5">
+              <div className="flex min-w-0 items-center justify-between gap-2 text-xs">
+                <span className="truncate text-gray-500">
+                  Cost{' '}
+                  <span className="font-semibold tabular-nums text-gray-800">
+                    {item.buyingPrice != null ? formatCurrency(item.buyingPrice) : '—'}
+                  </span>
+                </span>
+                <span className="truncate text-right text-gray-500">
+                  MRP{' '}
+                  <span className="font-semibold tabular-nums text-gray-800">
+                    {item.mrp != null ? formatCurrency(item.mrp) : '—'}
+                  </span>
+                </span>
+              </div>
+              <p className="truncate text-[10px] text-gray-400" title={item.updatedAt ? formatItemUpdatedAt(item.updatedAt) : undefined}>
+                Updated {formatItemUpdatedAt(item.updatedAt)}
+              </p>
             </div>
           </div>
         </div>
+      </motion.div>
 
-        <div className="min-w-0 space-y-1 border-t border-gray-100 pt-2.5">
-          <div className="flex min-w-0 items-center justify-between gap-2 text-xs">
-            <span className="truncate text-gray-500">
-              Cost{' '}
-              <span className="font-semibold tabular-nums text-gray-800">
-                {item.buyingPrice != null ? formatCurrency(item.buyingPrice) : '—'}
-              </span>
-            </span>
-            <span className="truncate text-right text-gray-500">
-              MRP{' '}
-              <span className="font-semibold tabular-nums text-gray-800">
-                {item.mrp != null ? formatCurrency(item.mrp) : '—'}
-              </span>
-            </span>
-          </div>
-          <p className="truncate text-[10px] text-gray-400" title={item.updatedAt ? formatItemUpdatedAt(item.updatedAt) : undefined}>
-            Updated {formatItemUpdatedAt(item.updatedAt)}
-          </p>
-        </div>
-      </div>
-      </div>
-    </div>
+      <AnimatePresence>
+        {detailsOpen ? (
+          <motion.div
+            className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/45 p-2 backdrop-blur-sm sm:p-4"
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            transition={{ duration: 0.18 }}
+            onClick={() => setDetailsOpen(false)}
+          >
+            <motion.div
+              layoutId={detailsLayoutId}
+              transition={detailsTransition}
+              role="dialog"
+              aria-modal="true"
+              aria-labelledby={`inventory-item-title-${item.id}`}
+              className="flex max-h-[min(44rem,calc(100dvh-1.5rem))] w-[min(64rem,calc(100vw-1rem))] min-h-0 overflow-hidden overscroll-contain rounded-2xl border border-gray-200 bg-white text-left shadow-2xl"
+              onClick={(event) => event.stopPropagation()}
+            >
+              <div className="flex min-h-0 w-full flex-col">
+                <div className="flex shrink-0 items-start justify-between gap-3 border-b border-gray-200 px-4 py-4 sm:px-5">
+                  <div className="min-w-0">
+                    <motion.div layout="position" className="flex flex-wrap items-center gap-2">
+                      <Badge variant="outline" className={`gap-1.5 border ${status.className}`}>
+                        <span className={`h-1.5 w-1.5 rounded-full ${status.dotClassName}`} />
+                        {status.label}
+                      </Badge>
+                      {item.location && (
+                        <span className="inline-flex max-w-full items-center gap-1 rounded bg-slate-100 px-2 py-1 text-xs font-medium text-slate-600" title={`Location: ${item.location}`}>
+                          <MapPin className="h-3 w-3 text-slate-400" />
+                          <span className="truncate">{item.location}</span>
+                        </span>
+                      )}
+                    </motion.div>
+                    <motion.h2
+                      layout="position"
+                      id={`inventory-item-title-${item.id}`}
+                      className="mt-2 truncate text-lg font-bold leading-tight text-gray-950 sm:text-2xl"
+                    >
+                      {item.itemName}
+                    </motion.h2>
+                    <motion.p layout="position" className="mt-1 text-sm text-gray-500">
+                      {item.itemNumber || 'No item number'}
+                      {item.brand ? ` • ${item.brand}` : ''}
+                    </motion.p>
+                  </div>
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="icon-sm"
+                    className="h-9 w-9 shrink-0 rounded-full text-gray-500 hover:bg-gray-100 hover:text-gray-900"
+                    onClick={() => setDetailsOpen(false)}
+                    aria-label="Close item details"
+                  >
+                    <X className="h-4 w-4" />
+                  </Button>
+                </div>
+
+                <div className="grid min-h-0 flex-1 overflow-y-auto overscroll-contain [-webkit-overflow-scrolling:touch] md:grid-cols-[minmax(0,1.05fr)_minmax(0,0.95fr)] md:overflow-hidden">
+                  <div className="border-b border-gray-200 bg-gray-50 p-4 md:border-b-0 md:border-r md:p-5">
+                    <motion.div layout="position" className="group h-56 overflow-hidden rounded-xl border border-gray-200 bg-white sm:h-72 md:h-full md:min-h-[24rem]">
+                      <ItemImageCarousel images={images} itemName={item.itemName} />
+                    </motion.div>
+                  </div>
+
+                  <div className="min-h-0 space-y-4 overscroll-contain p-4 [-webkit-overflow-scrolling:touch] sm:p-5 md:overflow-y-auto">
+                    <motion.div layout="position" className="grid grid-cols-2 gap-3">
+                      <div className="rounded-xl border border-gray-200 bg-gray-50 p-3">
+                        <p className="text-[10px] font-semibold uppercase tracking-wide text-gray-400">Quantity</p>
+                        <p className="mt-1 text-lg font-bold text-gray-950">
+                          {item.quantity} <span className="text-xs font-medium text-gray-500">{item.unitOfMeasure}</span>
+                        </p>
+                      </div>
+                      <div className="rounded-xl border border-gray-200 bg-gray-50 p-3">
+                        <p className="text-[10px] font-semibold uppercase tracking-wide text-gray-400">Stock value</p>
+                        <p className="mt-1 truncate text-lg font-bold text-gray-950 tabular-nums" title={formatCurrency(stockValue)}>
+                          {formatCurrency(stockValue)}
+                        </p>
+                      </div>
+                      <div className="rounded-xl border border-gray-200 bg-gray-50 p-3">
+                        <p className="text-[10px] font-semibold uppercase tracking-wide text-gray-400">Cost</p>
+                        <p className="mt-1 truncate text-sm font-semibold text-gray-900 tabular-nums" title={item.buyingPrice != null ? formatCurrency(item.buyingPrice) : undefined}>
+                          {item.buyingPrice != null ? formatCurrency(item.buyingPrice) : '—'}
+                        </p>
+                      </div>
+                      <div className="rounded-xl border border-gray-200 bg-gray-50 p-3">
+                        <p className="text-[10px] font-semibold uppercase tracking-wide text-gray-400">MRP</p>
+                        <p className="mt-1 truncate text-sm font-semibold text-gray-900 tabular-nums" title={item.mrp != null ? formatCurrency(item.mrp) : undefined}>
+                          {item.mrp != null ? formatCurrency(item.mrp) : '—'}
+                        </p>
+                      </div>
+                    </motion.div>
+
+                    <motion.div layout="position" className="rounded-xl border border-gray-200 bg-white p-4">
+                      <p className="text-[10px] font-semibold uppercase tracking-wide text-gray-400">Description</p>
+                      <p
+                        className={`mt-3 whitespace-pre-wrap break-words text-sm leading-6 ${
+                          description ? 'text-gray-700' : 'italic text-gray-400'
+                        }`}
+                      >
+                        {description || 'No description added yet.'}
+                      </p>
+                    </motion.div>
+                  </div>
+                </div>
+              </div>
+            </motion.div>
+          </motion.div>
+        ) : null}
+      </AnimatePresence>
+    </>
   );
 }
-
 export default function InventoryItemsPage() {
   const router = useRouter();
   const queryClient = useQueryClient();

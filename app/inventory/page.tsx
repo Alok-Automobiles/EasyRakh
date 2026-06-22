@@ -70,6 +70,7 @@ const StatCard = ({
   tone,
   href,
   ariaLabel,
+  valueSizeClassName = 'text-2xl',
 }: {
   label: string;
   value: string;
@@ -78,19 +79,20 @@ const StatCard = ({
   tone: string;
   href?: string;
   ariaLabel?: string;
+  valueSizeClassName?: string;
 }) => {
   const content = (
-    <div className="flex items-start justify-between gap-3">
-      <div className="min-w-0">
+    <div className="min-w-0">
+      <div className="flex items-start justify-between gap-3">
         <p className="text-[11px] font-semibold uppercase tracking-wide text-gray-500">{label}</p>
-        <p className="mt-2 truncate text-2xl font-bold text-gray-950" title={value}>
-          {value}
-        </p>
-        <p className="mt-1 truncate text-xs text-gray-500" title={subtext}>
-          {subtext}
-        </p>
+        <div className={`shrink-0 rounded-lg p-2.5 ${tone}`}>{icon}</div>
       </div>
-      <div className={`rounded-lg p-2.5 ${tone}`}>{icon}</div>
+      <p className={`mt-2 truncate font-bold leading-tight text-gray-950 tabular-nums ${valueSizeClassName}`} title={value}>
+        {value}
+      </p>
+      <p className="mt-1 truncate text-xs text-gray-500" title={subtext}>
+        {subtext}
+      </p>
     </div>
   );
 
@@ -246,6 +248,7 @@ export default function InventoryPage() {
           tone="bg-emerald-100 text-emerald-700"
           href="/inventory-items"
           ariaLabel="View all inventory items with stock value"
+          valueSizeClassName="text-xl"
         />
         <StatCard
           label="Out Of Stock"
