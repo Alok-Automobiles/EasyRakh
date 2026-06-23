@@ -25,7 +25,10 @@ const supplierOrderSchema = z.object({
     .array(
       z.object({
         id: z.string().min(1),
-        quantity: z.coerce.number().positive(),
+        quantity: z.preprocess(
+          (value) => (value === '' || value === null ? undefined : value),
+          z.coerce.number().positive().optional()
+        ),
       })
     )
     .min(1, 'Select at least one inventory item')
@@ -341,7 +344,7 @@ export async function POST(request: NextRequest) {
         itemName: item.itemName || '-',
         itemNumber: item.itemNumber || item.uniqueCode || '-',
         brand: item.brand || '-',
-        quantity: quantityById.get(id) || 0,
+        quantity: quantityById.get(id),
       };
     });
 
@@ -404,7 +407,7 @@ export async function POST(request: NextRequest) {
       item.itemName,
       item.itemNumber,
       item.brand,
-      item.quantity.toString(),
+      item.quantity == null ? '' : item.quantity.toString(),
     ]);
 
     autoTable(doc, {
