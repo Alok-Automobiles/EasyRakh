@@ -1023,12 +1023,13 @@ export default function InventoryItemsPage() {
   const handleDownloadOrderPdf = useCallback(async () => {
     const invalidItem = selectedOrderItemsList.find((item) => {
       const rawQuantity = orderQuantities[item.id]?.trim() || '';
+      if (rawQuantity === '') return false;
       const quantity = Number(rawQuantity);
-      return rawQuantity === '' || !Number.isFinite(quantity) || quantity <= 0;
+      return !Number.isFinite(quantity) || quantity <= 0;
     });
 
     if (invalidItem) {
-      toast.error(`Enter a quantity greater than zero for ${invalidItem.itemName}.`);
+      toast.error(`Leave quantity blank or enter a quantity greater than zero for ${invalidItem.itemName}.`);
       return;
     }
 
@@ -1039,10 +1040,13 @@ export default function InventoryItemsPage() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           mode: 'order',
-          items: selectedOrderItemsList.map((item) => ({
-            id: item.id,
-            quantity: Number(orderQuantities[item.id]),
-          })),
+          items: selectedOrderItemsList.map((item) => {
+            const rawQuantity = orderQuantities[item.id]?.trim() || '';
+            return {
+              id: item.id,
+              ...(rawQuantity ? { quantity: Number(rawQuantity) } : {}),
+            };
+          }),
         }),
       });
 
@@ -1862,6 +1866,7 @@ export default function InventoryItemsPage() {
                             value={orderQuantities[item.id] || ''}
                             onChange={(event) => updateOrderQuantity(item.id, event.target.value)}
                             className="h-9 w-32"
+                            placeholder="Optional"
                             aria-label={`Quantity to order for ${item.itemName}`}
                           />
                         </td>
