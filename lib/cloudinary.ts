@@ -35,8 +35,7 @@ export async function uploadBuffer(
   });
 }
 
-export async function deleteAsset(publicId: string) {
-  await cloudinary.uploader.destroy(publicId, { resource_type: 'image' });
+export async function deleteAsset(publicId: string, resourceType: 'image' | 'raw' | 'video' = 'image') {
+  await cloudinary.uploader.destroy(publicId, { resource_type: resourceType });
 }
-
 

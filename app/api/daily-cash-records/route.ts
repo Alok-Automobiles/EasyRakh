@@ -65,6 +65,23 @@ function normalizeDate(date: Date): Date {
   return new Date(Date.UTC(year, month, day, 0, 0, 0, 0));
 }
 
+async function invalidateDailyCashCaches(userId: string, dateKey: string) {
+  const results = await Promise.allSettled([
+    redis.del(
+      `daily-cash:date:${userId}:${dateKey}`,
+      `dashboard:stats:${userId}`
+    ),
+    deleteByPattern(`daily-cash:list:${userId}:page:*`),
+    deleteByPattern(`dashboard:stats:${userId}:*`),
+  ]);
+
+  results.forEach((result) => {
+    if (result.status === 'rejected') {
+      console.warn('Redis cache invalidation failed:', result.reason);
+    }
+  });
+}
+
 export async function GET(request: NextRequest) {
   try {
     const userId = getUserIdFromRequest(request);
@@ -322,15 +339,7 @@ export async function POST(request: NextRequest) {
       };
     }
 
-    redis.del(
-      `daily-cash:date:${userId}:${dateKey}`,
-      `dashboard:stats:${userId}`,
-    ).catch((err) => {
-      console.warn('Redis cache invalidation failed:', err);
-    });
-    deleteByPattern(`daily-cash:list:${userId}:page:*`).catch((err) => {
-      console.warn('Redis pattern cache invalidation failed:', err);
-    });
+    await invalidateDailyCashCaches(userId, dateKey);
 
     return NextResponse.json(
       {
@@ -354,4 +363,3 @@ export async function POST(request: NextRequest) {
     );
   }
 }
-
