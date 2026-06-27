@@ -203,6 +203,8 @@ export async function GET(request: NextRequest) {
 
     let cursorY = headerHeight + 8;
 
+    const isOutOfStockReport = status === 'out-of-stock';
+
     if (items.length === 0) {
       doc.setTextColor(...grayText);
       doc.setFontSize(12);
@@ -214,12 +216,14 @@ export async function GET(request: NextRequest) {
         item.brand || '-',
         item.itemName,
         item.location || '-',
-        (item.quantity ?? 0).toString(),
+        isOutOfStockReport
+          ? item.itemNumber || item.uniqueCode || '-'
+          : (item.quantity ?? 0).toString(),
       ]);
 
       autoTable(doc, {
         startY: cursorY,
-        head: [['#', 'Brand', 'Item Name', 'Location', 'Quantity']],
+        head: [['#', 'Brand', 'Item Name', 'Location', isOutOfStockReport ? 'Item Number' : 'Quantity']],
         body: tableData,
         margin: { left: margin, right: margin },
         styles: {
@@ -258,7 +262,9 @@ export async function GET(request: NextRequest) {
       doc.setFontSize(9);
       doc.setFont('helvetica', 'bold');
       doc.text(`Total Items: ${items.length}`, margin + 6, cursorY + 6.5);
-      doc.text(`Total Quantity: ${totalQty}`, pageWidth - margin - 6, cursorY + 6.5, { align: 'right' });
+      if (!isOutOfStockReport) {
+        doc.text(`Total Quantity: ${totalQty}`, pageWidth - margin - 6, cursorY + 6.5, { align: 'right' });
+      }
     }
 
     // Footer
