@@ -14,6 +14,8 @@ import { Pagination } from '@/components/ui/pagination';
 import {
   Dialog,
   DialogContent,
+  DialogDescription,
+  DialogFooter,
   DialogHeader,
   DialogTitle,
   DialogTrigger,
@@ -21,7 +23,7 @@ import {
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Table, TableHeader, TableBody, TableHead, TableRow, TableCell } from '@/components/ui/table';
 import { Skeleton } from '@/components/ui/skeleton';
-import { Edit2, CalendarIcon, Plus, Upload, FileText, X, Download, Loader2 } from 'lucide-react';
+import { Edit2, CalendarIcon, Plus, Upload, FileText, X, Download, Loader2, Trash2 } from 'lucide-react';
 import { ASSISTANT_DATA_UPDATED_EVENT } from '@/lib/assistant-events';
 import Image from 'next/image';
 import { compressImage, isCompressibleImage, formatFileSize } from '@/lib/imageCompression';
@@ -79,14 +81,18 @@ export default function DailyCashRecordPage() {
   const [editEntryOpen, setEditEntryOpen] = useState(false);
   const [viewRecordOpen, setViewRecordOpen] = useState(false);
   const [editingEntry, setEditingEntry] = useState<CashEntry | null>(null);
+  const [deletingEntry, setDeletingEntry] = useState<CashEntry | null>(null);
   const [viewingRecord, setViewingRecord] = useState<DailyRecord | null>(null);
   const [openingRecordId, setOpeningRecordId] = useState<string | null>(null);
+  const [deleteEntryOpen, setDeleteEntryOpen] = useState(false);
+  const [deleteEntryPending, setDeleteEntryPending] = useState(false);
   const [currentPage, setCurrentPage] = useState(1);
   const [pagination, setPagination] = useState<PaginationInfo | null>(null);
   const [recordsCache, setRecordsCache] = useState<Map<string, DailyRecord>>(new Map());
   const [addTransactionOpen, setAddTransactionOpen] = useState(false);
   const hasFetchedRef = useRef(false);
   const prevPageRef = useRef<number | null>(null);
+  const suppressNextSummaryLoadingRef = useRef(false);
 
   const [amount, setAmount] = useState('');
   const [description, setDescription] = useState('');
@@ -173,9 +179,13 @@ export default function DailyCashRecordPage() {
     }
   };
 
-  const fetchData = useCallback(async (page: number = 1) => {
+  const fetchData = useCallback(async (
+    page: number = 1,
+    options: { showLoading?: boolean } = {}
+  ) => {
+    const showLoading = options.showLoading ?? true;
     try {
-      setLoading(true);
+      if (showLoading) setLoading(true);
       const response = await fetch(`/api/daily-cash-records?page=${page}`);
       if (response.status === 401) {
         router.push('/login');
@@ -184,11 +194,11 @@ export default function DailyCashRecordPage() {
       const data = await response.json();
       setSummaryRecords(data.records || []);
       setPagination(data.pagination || null);
-      setLoading(false);
     } catch (error) {
       console.error('Error fetching summary:', error);
       toast.error('Failed to load records');
-      setLoading(false);
+    } finally {
+      if (showLoading) setLoading(false);
     }
   }, [router]);
 
@@ -199,7 +209,9 @@ export default function DailyCashRecordPage() {
       fetchData(1);
     } else if (prevPageRef.current !== currentPage) {
       prevPageRef.current = currentPage;
-      fetchData(currentPage);
+      const showLoading = !suppressNextSummaryLoadingRef.current;
+      suppressNextSummaryLoadingRef.current = false;
+      fetchData(currentPage, { showLoading });
     }
   }, [currentPage, fetchData]);
 
@@ -237,6 +249,47 @@ export default function DailyCashRecordPage() {
     }
   }, [recordsCache, router]);
 
+  const recordToSummary = (record: DailyRecord): SummaryRecord => ({
+    id: record.id,
+    date: record.date,
+    totalIn: record.totalIn,
+    totalOut: record.totalOut,
+    totalLeft: record.totalLeft,
+    entryCount: record.entries.length,
+  });
+
+  const syncSummaryRecord = (
+    record: DailyRecord,
+    options: { insertIfMissing?: boolean } = {}
+  ) => {
+    setSummaryRecords((prev) => {
+      const existingIndex = prev.findIndex((summary) => summary.id === record.id);
+      if (existingIndex === -1 && !options.insertIfMissing) {
+        return prev;
+      }
+
+      const summary = recordToSummary(record);
+      const next = existingIndex === -1
+        ? [summary, ...prev]
+        : prev.map((item) => (item.id === record.id ? summary : item));
+
+      const sorted = [...next].sort((a, b) => (
+        parse(b.date, 'dd-MM-yyyy', new Date()).getTime()
+        - parse(a.date, 'dd-MM-yyyy', new Date()).getTime()
+      ));
+
+      if (existingIndex === -1 && pagination?.recordsPerPage) {
+        return sorted.slice(0, pagination.recordsPerPage);
+      }
+
+      return sorted;
+    });
+  };
+
+  const removeSummaryRecord = (recordId: string) => {
+    setSummaryRecords((prev) => prev.filter((summary) => summary.id !== recordId));
+  };
+
   useEffect(() => {
     const handleAssistantUpdate = (event: Event) => {
       const detail = (event as CustomEvent).detail as
@@ -247,7 +300,7 @@ export default function DailyCashRecordPage() {
         return;
       }
 
-      fetchData(currentPage);
+      fetchData(currentPage, { showLoading: false });
 
       const affectedDate = parse(detail.date, 'yyyy-MM-dd', new Date());
       if (!isValid(affectedDate)) {
@@ -325,12 +378,19 @@ export default function DailyCashRecordPage() {
             newCache.set(dateString, data.record);
             return newCache;
           });
+          if (currentPage === 1) {
+            syncSummaryRecord(data.record, { insertIfMissing: true });
+          }
         }
 
         queryClient.invalidateQueries({ queryKey: ['dashboard'] });
 
-        setCurrentPage(1);
-        fetchData(1);
+        if (currentPage !== 1) {
+          suppressNextSummaryLoadingRef.current = true;
+          setCurrentPage(1);
+        } else {
+          fetchData(1, { showLoading: false });
+        }
       } else {
         toast.error(data.error || 'Failed to add entry');
       }
@@ -367,6 +427,11 @@ export default function DailyCashRecordPage() {
     setBillUploadedPublicId(entry.billPublicId || '');
     setBillPreviewUrl(entry.billUrl || '');
     setEditEntryOpen(true);
+  };
+
+  const handleRequestDeleteEntry = (entry: CashEntry) => {
+    setDeletingEntry(entry);
+    setDeleteEntryOpen(true);
   };
 
   const handleAddTransaction = async () => {
@@ -419,11 +484,12 @@ export default function DailyCashRecordPage() {
             return newCache;
           });
           setViewingRecord(data.record);
+          syncSummaryRecord(data.record);
         }
 
         queryClient.invalidateQueries({ queryKey: ['dashboard'] });
 
-        fetchData(currentPage);
+        fetchData(currentPage, { showLoading: false });
       } else {
         toast.error(data.error || 'Failed to add transaction');
       }
@@ -469,6 +535,7 @@ export default function DailyCashRecordPage() {
 
       const data = await response.json();
       if (response.ok) {
+        const updatedRecord = data.record as DailyRecord | undefined;
         toast.success('Entry updated successfully');
         setAmount('');
         setDescription('');
@@ -476,27 +543,97 @@ export default function DailyCashRecordPage() {
         setEditingEntry(null);
         setEditEntryOpen(false);
 
-        setRecordsCache((prev) => {
-          const newCache = new Map(prev);
-          newCache.delete(dateString);
-          return newCache;
-        });
+        if (updatedRecord) {
+          setRecordsCache((prev) => {
+            const newCache = new Map(prev);
+            newCache.set(updatedRecord.date, updatedRecord);
+            return newCache;
+          });
+          setViewingRecord(updatedRecord);
+          syncSummaryRecord(updatedRecord);
+        } else {
+          setRecordsCache((prev) => {
+            const newCache = new Map(prev);
+            newCache.delete(dateString);
+            return newCache;
+          });
+        }
 
         queryClient.invalidateQueries({ queryKey: ['dashboard'] });
-
-        if (viewingRecord) {
-          const updatedRecord = await fetchRecordForDate(recordDate, false);
-          if (updatedRecord) {
-            setViewingRecord(updatedRecord);
-          }
-        }
-        fetchData();
+        fetchData(currentPage, { showLoading: false });
       } else {
         toast.error(data.error || 'Failed to update entry');
       }
     } catch (error) {
       console.error('Error updating entry:', error);
       toast.error('Failed to update entry');
+    }
+  };
+
+  const handleDeleteEntry = async () => {
+    if (!deletingEntry || !viewingRecord) return;
+
+    const deletedRecordDate = viewingRecord.date;
+
+    try {
+      setDeleteEntryPending(true);
+      const response = await fetch(`/api/daily-cash-records/${deletingEntry.id}`, {
+        method: 'DELETE',
+      });
+
+      if (response.status === 401) {
+        router.push('/login');
+        return;
+      }
+
+      const data = await response.json();
+      if (response.ok) {
+        const updatedRecord = data.record as DailyRecord | null;
+
+        toast.success('Entry deleted successfully');
+        setDeleteEntryOpen(false);
+        setDeletingEntry(null);
+
+        setRecordsCache((prev) => {
+          const newCache = new Map(prev);
+          newCache.delete(deletedRecordDate);
+          if (updatedRecord) {
+            newCache.set(updatedRecord.date, updatedRecord);
+          }
+          return newCache;
+        });
+
+        if (updatedRecord) {
+          setViewingRecord(updatedRecord);
+          syncSummaryRecord(updatedRecord);
+        } else {
+          setViewingRecord(null);
+          setViewRecordOpen(false);
+          if (data.deletedRecordId) {
+            removeSummaryRecord(data.deletedRecordId);
+          }
+        }
+
+        queryClient.invalidateQueries({ queryKey: ['dashboard'] });
+
+        const nextPage = !updatedRecord && summaryRecords.length === 1 && currentPage > 1
+          ? currentPage - 1
+          : currentPage;
+
+        if (nextPage !== currentPage) {
+          suppressNextSummaryLoadingRef.current = true;
+          setCurrentPage(nextPage);
+        } else {
+          fetchData(currentPage, { showLoading: false });
+        }
+      } else {
+        toast.error(data.error || 'Failed to delete entry');
+      }
+    } catch (error) {
+      console.error('Error deleting entry:', error);
+      toast.error('Failed to delete entry');
+    } finally {
+      setDeleteEntryPending(false);
     }
   };
 
@@ -1020,6 +1157,16 @@ export default function DailyCashRecordPage() {
                               >
                                 <Edit2 className="h-3.5 w-3.5 stroke-[2.5px]" />
                               </Button>
+                              <Button
+                                size="sm"
+                                variant="outline"
+                                onClick={() => handleRequestDeleteEntry(entry)}
+                                aria-label="Delete entry"
+                                title="Delete entry"
+                                className="cash-record-icon-button h-7 w-7 rounded border-2 p-0 text-red-600 transition-all"
+                              >
+                                <Trash2 className="h-3.5 w-3.5 stroke-[2.5px]" />
+                              </Button>
                             </div>
                           </div>
                           
@@ -1037,7 +1184,7 @@ export default function DailyCashRecordPage() {
                   </div>
 
                   <div className="cash-record-table-wrap hidden overflow-hidden rounded-lg border-2 lg:block">
-                    <Table className="min-w-[860px]">
+                    <Table className="min-w-[920px]">
                       <TableHeader className="cash-record-table-header [&_tr]:border-b-2">
                         <TableRow>
                           <TableHead className="cash-record-table-head-cell h-10 px-4 py-2 text-[11px] font-black uppercase font-mono">Date</TableHead>
@@ -1046,6 +1193,7 @@ export default function DailyCashRecordPage() {
                           <TableHead className="cash-record-table-head-cell h-10 px-4 py-2 text-right text-[11px] font-black uppercase font-mono">Money In</TableHead>
                           <TableHead className="cash-record-table-head-cell h-10 w-20 px-3 py-2 text-center text-[11px] font-black uppercase font-mono">Bill</TableHead>
                           <TableHead className="cash-record-table-head-cell h-10 w-20 px-3 py-2 text-center text-[11px] font-black uppercase font-mono">Edit</TableHead>
+                          <TableHead className="cash-record-table-head-cell h-10 w-20 px-3 py-2 text-center text-[11px] font-black uppercase font-mono">Delete</TableHead>
                         </TableRow>
                       </TableHeader>
                       <TableBody className="[&_tr]:border-b-2 [&_tr:last-child]:border-b-0">
@@ -1101,6 +1249,18 @@ export default function DailyCashRecordPage() {
                                   <Edit2 className="h-3.5 w-3.5 stroke-[2.5px]" />
                                 </Button>
                               </TableCell>
+                              <TableCell className="cash-record-table-cell px-3 py-3 text-center">
+                                <Button
+                                  size="sm"
+                                  variant="outline"
+                                  onClick={() => handleRequestDeleteEntry(entry)}
+                                  className="cash-record-icon-button h-7 w-7 rounded border-2 p-0 text-red-600 transition-all hover:translate-x-[-1px] hover:translate-y-[-1px] active:translate-x-[0px] active:translate-y-[0px]"
+                                  title="Delete entry"
+                                  aria-label="Delete entry"
+                                >
+                                  <Trash2 className="h-3.5 w-3.5 stroke-[2.5px]" />
+                                </Button>
+                              </TableCell>
                             </TableRow>
                           );
                         })}
@@ -1118,6 +1278,65 @@ export default function DailyCashRecordPage() {
                 </div>
               )}
             </div>
+          </DialogContent>
+        </Dialog>
+
+        {/* Delete Entry Dialog */}
+        <Dialog open={deleteEntryOpen} onOpenChange={(open) => {
+          if (deleteEntryPending) return;
+          setDeleteEntryOpen(open);
+          if (!open) setDeletingEntry(null);
+        }}>
+          <DialogContent className="max-w-[90vw] sm:max-w-md">
+            <DialogHeader>
+              <DialogTitle>Delete Entry</DialogTitle>
+              <DialogDescription>
+                This cash entry will be permanently deleted and the day&apos;s totals will be recalculated.
+              </DialogDescription>
+            </DialogHeader>
+            {deletingEntry && (
+              <div className="rounded-lg border-2 border-black bg-slate-50 p-3">
+                <div className="flex items-start justify-between gap-3">
+                  <div className="min-w-0">
+                    <p className="truncate text-sm font-bold text-slate-900" title={deletingEntry.description}>
+                      {deletingEntry.description}
+                    </p>
+                    <p className="mt-1 text-xs font-medium uppercase text-slate-500">
+                      {deletingEntry.type === 'in' ? 'Money In' : 'Money Out'}
+                    </p>
+                  </div>
+                  <span className={`shrink-0 rounded border-2 px-2 py-0.5 text-sm font-black font-mono ${
+                    deletingEntry.type === 'in'
+                      ? 'cash-record-entry-amount-in'
+                      : 'cash-record-entry-amount-out'
+                  }`}>
+                    {deletingEntry.type === 'out' && '-'}{formatCurrency(deletingEntry.amount)}
+                  </span>
+                </div>
+              </div>
+            )}
+            <DialogFooter>
+              <Button
+                type="button"
+                variant="outline"
+                onClick={() => {
+                  setDeleteEntryOpen(false);
+                  setDeletingEntry(null);
+                }}
+                disabled={deleteEntryPending}
+              >
+                Cancel
+              </Button>
+              <Button
+                type="button"
+                variant="destructive"
+                onClick={handleDeleteEntry}
+                disabled={deleteEntryPending}
+              >
+                {deleteEntryPending && <Loader2 className="h-4 w-4 animate-spin" />}
+                Delete Entry
+              </Button>
+            </DialogFooter>
           </DialogContent>
         </Dialog>
 

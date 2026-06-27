@@ -3,6 +3,7 @@ import { getDb } from '@/lib/mongodb';
 import { getUserIdFromRequest } from '@/lib/auth';
 import { z } from 'zod';
 import { format } from 'date-fns';
+import { ObjectId } from 'mongodb';
 import redis, { deleteByPattern } from '@/lib/redis';
 
 const BILL_URL_MAX_LENGTH = 2048;
@@ -62,6 +63,58 @@ function normalizeDate(date: Date): Date {
   const month = date.getUTCMonth();
   const day = date.getUTCDate();
   return new Date(Date.UTC(year, month, day, 0, 0, 0, 0));
+}
+
+function calculateTotals(entries: any[]) {
+  const totalIn = entries
+    .filter((entry: any) => entry.type === 'in')
+    .reduce((sum: number, entry: any) => sum + entry.amount, 0);
+  const totalOut = entries
+    .filter((entry: any) => entry.type === 'out')
+    .reduce((sum: number, entry: any) => sum + entry.amount, 0);
+
+  return {
+    totalIn,
+    totalOut,
+    totalLeft: totalIn - totalOut,
+  };
+}
+
+function serializeRecord(record: any) {
+  return {
+    id: record._id.toString(),
+    date: format(record.date, 'dd-MM-yyyy'),
+    entries: record.entries.map((entry: any) => ({
+      id: entry._id.toString(),
+      amount: entry.amount,
+      type: entry.type,
+      description: entry.description,
+      billUrl: entry.billUrl || '',
+      billPublicId: entry.billPublicId || '',
+      createdAt: entry.createdAt,
+      updatedAt: entry.updatedAt,
+    })),
+    totalIn: record.totalIn,
+    totalOut: record.totalOut,
+    totalLeft: record.totalLeft,
+  };
+}
+
+async function invalidateDailyCashCaches(userId: string, dateKey: string) {
+  const results = await Promise.allSettled([
+    redis.del(
+      `daily-cash:date:${userId}:${dateKey}`,
+      `dashboard:stats:${userId}`
+    ),
+    deleteByPattern(`daily-cash:list:${userId}:page:*`),
+    deleteByPattern(`dashboard:stats:${userId}:*`),
+  ]);
+
+  results.forEach((result) => {
+    if (result.status === 'rejected') {
+      console.warn('Redis cache invalidation failed:', result.reason);
+    }
+  });
 }
 
 export async function PUT(
@@ -133,13 +186,7 @@ export async function PUT(
       updatedAt: new Date(),
     };
 
-    const totalIn = updatedEntries
-      .filter((e: any) => e.type === 'in')
-      .reduce((sum: number, e: any) => sum + e.amount, 0);
-    const totalOut = updatedEntries
-      .filter((e: any) => e.type === 'out')
-      .reduce((sum: number, e: any) => sum + e.amount, 0);
-    const totalLeft = totalIn - totalOut;
+    const { totalIn, totalOut, totalLeft } = calculateTotals(updatedEntries);
 
     await dailyCashRecordsCollection.updateOne(
       { _id: record._id },
@@ -167,35 +214,11 @@ export async function PUT(
 
     const dateKey = format(updatedRecord.date, 'dd-MM-yyyy');
 
-    redis.del(
-      `daily-cash:date:${userId}:${dateKey}`,
-      `dashboard:stats:${userId}`
-    ).catch((err) => {
-      console.warn('Redis cache invalidation failed:', err);
-    });
-    deleteByPattern(`daily-cash:list:${userId}:page:*`).catch((err) => {
-      console.warn('Redis pattern cache invalidation failed:', err);
-    });
+    await invalidateDailyCashCaches(userId, dateKey);
 
     return NextResponse.json({
       message: 'Entry updated successfully',
-      record: {
-        id: updatedRecord._id.toString(),
-        date: dateKey,
-        entries: updatedRecord.entries.map((entry: any) => ({
-          id: entry._id.toString(),
-          amount: entry.amount,
-          type: entry.type,
-          description: entry.description,
-          billUrl: entry.billUrl || '',
-          billPublicId: entry.billPublicId || '',
-          createdAt: entry.createdAt,
-          updatedAt: entry.updatedAt,
-        })),
-        totalIn: updatedRecord.totalIn,
-        totalOut: updatedRecord.totalOut,
-        totalLeft: updatedRecord.totalLeft,
-      },
+      record: serializeRecord(updatedRecord),
     });
   } catch (error) {
     if (error instanceof z.ZodError) {
@@ -213,3 +236,132 @@ export async function PUT(
   }
 }
 
+export async function DELETE(
+  request: NextRequest,
+  { params }: { params: Promise<{ id: string }> }
+) {
+  try {
+    const userId = getUserIdFromRequest(request);
+
+    if (!userId) {
+      return NextResponse.json(
+        { error: 'Unauthorized' },
+        { status: 401 }
+      );
+    }
+
+    const { id: entryId } = await params;
+
+    if (!ObjectId.isValid(entryId)) {
+      return NextResponse.json(
+        { error: 'Invalid entry ID' },
+        { status: 400 }
+      );
+    }
+
+    const entryObjectId = new ObjectId(entryId);
+    const db = await getDb();
+    const dailyCashRecordsCollection = db.collection('dailyCashRecords');
+
+    const record = await dailyCashRecordsCollection.findOne({
+      userId,
+      'entries._id': entryObjectId,
+    });
+
+    if (!record) {
+      return NextResponse.json(
+        { error: 'Entry not found' },
+        { status: 404 }
+      );
+    }
+
+    const entryToDelete = record.entries.find(
+      (entry: any) => entry._id.toString() === entryId
+    );
+
+    if (!entryToDelete) {
+      return NextResponse.json(
+        { error: 'Entry not found' },
+        { status: 404 }
+      );
+    }
+
+    const updatedEntries = record.entries.filter(
+      (entry: any) => entry._id.toString() !== entryId
+    );
+    const dateKey = format(record.date, 'dd-MM-yyyy');
+
+    if (entryToDelete.billPublicId) {
+      try {
+        const { deleteAsset } = await import('@/lib/cloudinary');
+        const resourceType = entryToDelete.billUrl?.toLowerCase().includes('.pdf') ? 'raw' : 'image';
+        await deleteAsset(entryToDelete.billPublicId, resourceType);
+      } catch (error) {
+        console.warn('Failed to delete bill asset during daily cash entry delete:', error);
+      }
+    }
+
+    if (updatedEntries.length === 0) {
+      const result = await dailyCashRecordsCollection.deleteOne({
+        _id: record._id,
+        userId,
+      });
+
+      if (result.deletedCount === 0) {
+        return NextResponse.json(
+          { error: 'Entry not found' },
+          { status: 404 }
+        );
+      }
+
+      await invalidateDailyCashCaches(userId, dateKey);
+
+      return NextResponse.json({
+        message: 'Entry deleted successfully',
+        record: null,
+        deletedRecordId: record._id.toString(),
+        date: dateKey,
+      });
+    }
+
+    const { totalIn, totalOut, totalLeft } = calculateTotals(updatedEntries);
+
+    await dailyCashRecordsCollection.updateOne(
+      { _id: record._id, userId },
+      {
+        $set: {
+          entries: updatedEntries,
+          totalIn,
+          totalOut,
+          totalLeft,
+          updatedAt: new Date(),
+        },
+      }
+    );
+
+    const updatedRecord = await dailyCashRecordsCollection.findOne({
+      _id: record._id,
+      userId,
+    });
+
+    if (!updatedRecord) {
+      return NextResponse.json(
+        { error: 'Failed to retrieve updated record' },
+        { status: 500 }
+      );
+    }
+
+    await invalidateDailyCashCaches(userId, dateKey);
+
+    return NextResponse.json({
+      message: 'Entry deleted successfully',
+      record: serializeRecord(updatedRecord),
+    });
+  } catch (error) {
+    console.error('Delete daily cash record entry error:', error);
+    return NextResponse.json(
+      { error: 'Internal server error' },
+      { status: 500 }
+    );
+  }
+}
