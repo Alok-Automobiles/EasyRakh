@@ -16,6 +16,9 @@ jobs:
       REDIS_HOST: 127.0.0.1
       REDIS_PORT: 6379
       GEMINI_API_KEY: test-gemini-key
+      CLOUDINARY_CLOUD_NAME: test-cloud
+      CLOUDINARY_API_KEY: test-api-key
+      CLOUDINARY_API_SECRET: test-api-secret
     steps:
       - uses: actions/checkout@v4
       - uses: pnpm/action-setup@v4
@@ -38,6 +41,9 @@ jobs:
       REDIS_HOST: 127.0.0.1
       REDIS_PORT: 6379
       GEMINI_API_KEY: test-gemini-key
+      CLOUDINARY_CLOUD_NAME: test-cloud
+      CLOUDINARY_API_KEY: test-api-key
+      CLOUDINARY_API_SECRET: test-api-secret
     steps:
       - uses: actions/checkout@v4
       - uses: pnpm/action-setup@v4
@@ -60,6 +66,9 @@ jobs:
       REDIS_HOST: 127.0.0.1
       REDIS_PORT: 6379
       GEMINI_API_KEY: test-gemini-key
+      CLOUDINARY_CLOUD_NAME: test-cloud
+      CLOUDINARY_API_KEY: test-api-key
+      CLOUDINARY_API_SECRET: test-api-secret
     steps:
       - uses: actions/checkout@v4
       - uses: pnpm/action-setup@v4
