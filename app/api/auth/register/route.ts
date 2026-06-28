@@ -7,13 +7,16 @@ import { checkRateLimit, rateLimitConfigs } from '@/lib/rateLimit';
 
 const registerSchema = z.object({
   name: z.string().min(1, 'Name is required'),
-  email: z.string().email('Invalid email address'),
+  email: z.string().trim().email('Invalid email address'),
   password: z.string().min(6, 'Password must be at least 6 characters'),
-  firmTitle: z.string().default(''),
-  gstNumber: z.string().default(''),
-  firmPhone: z.string().default(''),
-  firmEmail: z.union([z.string().email('Invalid firm email address'), z.literal('')]).default(''),
-  firmAddress: z.string().default(''),
+  firmTitle: z.string().trim().default(''),
+  gstNumber: z.string().trim().default(''),
+  firmPhone: z.string().trim().default(''),
+  firmEmail: z.preprocess(
+    (value) => (typeof value === 'string' ? value.trim() : value),
+    z.union([z.string().email('Invalid firm email address'), z.literal('')]).default('')
+  ),
+  firmAddress: z.string().trim().default(''),
 });
 
 export async function POST(request: NextRequest) {
@@ -103,4 +106,3 @@ export async function POST(request: NextRequest) {
     );
   }
 }
-
