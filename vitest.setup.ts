@@ -2,6 +2,7 @@ import '@testing-library/jest-dom/vitest';
 import { cleanup } from '@testing-library/react';
 import { afterEach, vi } from 'vitest';
 
+process.env.TZ = 'UTC';
 process.env.JWT_SECRET ??= 'test-jwt-secret';
 process.env.MONGODB_URI ??= 'mongodb://127.0.0.1:27017/easyrakh_test';
 process.env.REDIS_HOST ??= '127.0.0.1';
