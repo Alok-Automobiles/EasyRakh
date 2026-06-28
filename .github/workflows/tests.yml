@@ -1,0 +1,84 @@
+name: Tests
+
+on:
+  pull_request:
+  push:
+    branches:
+      - main
+
+jobs:
+  unit:
+    name: Unit and component tests
+    runs-on: ubuntu-latest
+    env:
+      JWT_SECRET: test-jwt-secret
+      MONGODB_URI: mongodb://127.0.0.1:27017/easyrakh_test
+      REDIS_HOST: 127.0.0.1
+      REDIS_PORT: 6379
+      GEMINI_API_KEY: test-gemini-key
+      CLOUDINARY_CLOUD_NAME: test-cloud
+      CLOUDINARY_API_KEY: test-api-key
+      CLOUDINARY_API_SECRET: test-api-secret
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 11.8.0
+          run_install: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 25
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm test:unit
+
+  build:
+    name: Production build
+    runs-on: ubuntu-latest
+    env:
+      JWT_SECRET: test-jwt-secret
+      MONGODB_URI: mongodb://127.0.0.1:27017/easyrakh_test
+      REDIS_HOST: 127.0.0.1
+      REDIS_PORT: 6379
+      GEMINI_API_KEY: test-gemini-key
+      CLOUDINARY_CLOUD_NAME: test-cloud
+      CLOUDINARY_API_KEY: test-api-key
+      CLOUDINARY_API_SECRET: test-api-secret
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 11.8.0
+          run_install: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 25
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm build
+
+  e2e:
+    name: Playwright smoke tests
+    runs-on: ubuntu-latest
+    env:
+      JWT_SECRET: test-jwt-secret
+      MONGODB_URI: mongodb://127.0.0.1:27017/easyrakh_test
+      REDIS_HOST: 127.0.0.1
+      REDIS_PORT: 6379
+      GEMINI_API_KEY: test-gemini-key
+      CLOUDINARY_CLOUD_NAME: test-cloud
+      CLOUDINARY_API_KEY: test-api-key
+      CLOUDINARY_API_SECRET: test-api-secret
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 11.8.0
+          run_install: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 25
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm exec playwright install --with-deps chromium
+      - run: pnpm test:e2e
