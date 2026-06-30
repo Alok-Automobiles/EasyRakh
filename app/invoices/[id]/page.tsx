@@ -24,8 +24,6 @@ import {
   BookOpen,
   Save,
   X,
-  Plus,
-  Trash2,
   Building2,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
@@ -50,6 +48,9 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import { Invoice, InvoiceItem } from '@/lib/types';
+import InvoiceItemsEditor from '@/components/InvoiceItemsEditor';
+import type { EditableInvoiceItem } from '@/components/InvoiceItemsEditor';
+import { getInvoiceItemDisplayRows, getInvoicePdfTableRows } from '@/lib/invoice-format';
 
 interface InvoiceWithId extends Invoice {
   id: string;
@@ -87,6 +88,17 @@ const statusConfig = {
   },
 };
 
+function toEditableInvoiceItem(item: InvoiceItem, index: number): EditableInvoiceItem {
+  return {
+    id: `${index}`,
+    inventoryItemId: item.inventoryItemId,
+    itemNumber: item.itemNumber || '',
+    itemName: item.itemName,
+    quantity: item.quantity,
+    amount: item.amount,
+  };
+}
+
 export default function InvoiceDetailPage() {
   const router = useRouter();
   const params = useParams();
@@ -114,7 +126,7 @@ export default function InvoiceDetailPage() {
     firmAddress: '',
   });
 
-  const [editItems, setEditItems] = useState<(InvoiceItem & { id: string })[]>([]);
+  const [editItems, setEditItems] = useState<EditableInvoiceItem[]>([]);
   const [editPaidAmount, setEditPaidAmount] = useState(0);
   const [editStatus, setEditStatus] = useState<'paid' | 'unpaid' | 'partial'>('unpaid');
   const [editNotes, setEditNotes] = useState('');
@@ -146,10 +158,9 @@ export default function InvoiceDetailPage() {
         setInvoice(invoiceData.invoice);
 
         setEditItems(
-          invoiceData.invoice.items.map((item: InvoiceItem, idx: number) => ({
-            ...item,
-            id: idx.toString(),
-          }))
+          invoiceData.invoice.items.map((item: InvoiceItem, idx: number) =>
+            toEditableInvoiceItem(item, idx)
+          )
         );
         setEditPaidAmount(invoiceData.invoice.paidAmount);
         setEditStatus(invoiceData.invoice.status);
@@ -297,15 +308,11 @@ export default function InvoiceDetailPage() {
 
       yPos = Math.max(yPos, invoiceMetaY + 15) + 10;
 
-      const tableRows = invoice.items.map((item, idx) => [
-        (idx + 1).toString(),
-        item.description,
-        `Rs ${item.amount.toLocaleString('en-IN')}`,
-      ]);
+      const tableRows = getInvoicePdfTableRows(invoice.items);
 
       autoTable(doc, {
         startY: yPos,
-        head: [['Item', 'Description', 'Amount']],
+        head: [['S.No', 'Part Number', 'Item Name', 'Quantity', 'Amount']],
         body: tableRows,
         headStyles: {
           fillColor: black,
@@ -325,9 +332,11 @@ export default function InvoiceDetailPage() {
           fillColor: [255, 255, 255],
         },
         columnStyles: {
-          0: { cellWidth: 20, halign: 'center' },
-          1: { cellWidth: 'auto' },
-          2: { cellWidth: 50, halign: 'right' },
+          0: { cellWidth: 14, halign: 'center' },
+          1: { cellWidth: 36 },
+          2: { cellWidth: 'auto' },
+          3: { cellWidth: 24, halign: 'right' },
+          4: { cellWidth: 36, halign: 'right' },
         },
         margin: { left: margin, right: margin },
         theme: 'plain',
@@ -502,42 +511,6 @@ export default function InvoiceDetailPage() {
     }
   }, [shouldShare, invoice, firmInfo, generatePDF, isFirmInfoComplete]);
 
-  const addEditItem = useCallback(() => {
-    setEditItems((prev) => [...prev, { id: Date.now().toString(), description: '', amount: 0 }]);
-  }, []);
-
-  useEffect(() => {
-    if (!isEditing) return;
-    if (showFirmInfoModal) return;
-
-    const onKeyDown = (e: KeyboardEvent) => {
-      const isCmdOrCtrlEnter = (e.ctrlKey || e.metaKey) && e.key === 'Enter';
-      if (!isCmdOrCtrlEnter) return;
-
-      e.preventDefault();
-      addEditItem();
-    };
-
-    window.addEventListener('keydown', onKeyDown);
-    return () => window.removeEventListener('keydown', onKeyDown);
-  }, [isEditing, showFirmInfoModal, addEditItem]);
-
-  const removeEditItem = (itemId: string) => {
-    if (editItems.length === 1) {
-      toast.error('At least one item is required');
-      return;
-    }
-    setEditItems(editItems.filter((item) => item.id !== itemId));
-  };
-
-  const updateEditItem = (itemId: string, field: 'description' | 'amount', value: string | number) => {
-    setEditItems(
-      editItems.map((item) =>
-        item.id === itemId ? { ...item, [field]: value } : item
-      )
-    );
-  };
-
   const editTotalAmount = editItems.reduce((sum, item) => sum + (item.amount || 0), 0);
 
   useEffect(() => {
@@ -553,9 +526,16 @@ export default function InvoiceDetailPage() {
   }, [editPaidAmount, editTotalAmount, isEditing]);
 
   const handleSave = async () => {
-    const validItems = editItems.filter((item) => item.description.trim() && item.amount > 0);
+    const validItems = editItems.filter(
+      (item) =>
+        item.itemName.trim() &&
+        Number.isFinite(item.quantity) &&
+        item.quantity > 0 &&
+        Number.isFinite(item.amount) &&
+        item.amount > 0
+    );
     if (validItems.length === 0) {
-      toast.error('At least one item with description and amount is required');
+      toast.error('At least one item with item name, quantity, and amount is required');
       return;
     }
 
@@ -564,7 +544,10 @@ export default function InvoiceDetailPage() {
     try {
       const payload = {
         items: validItems.map((item) => ({
-          description: item.description.trim(),
+          inventoryItemId: item.inventoryItemId,
+          itemNumber: item.itemNumber.trim(),
+          itemName: item.itemName.trim(),
+          quantity: item.quantity,
           amount: item.amount,
         })),
         paidAmount: editPaidAmount,
@@ -598,10 +581,7 @@ export default function InvoiceDetailPage() {
   const cancelEdit = () => {
     if (invoice) {
       setEditItems(
-        invoice.items.map((item, idx) => ({
-          ...item,
-          id: idx.toString(),
-        }))
+        invoice.items.map((item, idx) => toEditableInvoiceItem(item, idx))
       );
       setEditPaidAmount(invoice.paidAmount);
       setEditStatus(invoice.status);
@@ -625,7 +605,8 @@ export default function InvoiceDetailPage() {
         return;
       }
 
-      if (key === 's') {
+      const isSaveShortcut = isCtrlOrCmd && e.shiftKey && e.key === 'Enter';
+      if (isSaveShortcut) {
         e.preventDefault();
         if (isEditing && !saving) {
           handleSave();
@@ -652,7 +633,7 @@ export default function InvoiceDetailPage() {
 
   if (loading) {
     return (
-      <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+      <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         <Skeleton className="h-8 w-32 mb-6" />
         <Skeleton className="h-12 w-64 mb-8" />
         <div className="space-y-6">
@@ -676,7 +657,7 @@ export default function InvoiceDetailPage() {
       animate={{ opacity: 1 }}
       transition={{ duration: 0.5 }}
     >
-      <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+      <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         {/* Header */}
         <div className="mb-6">
           <Link
@@ -722,7 +703,7 @@ export default function InvoiceDetailPage() {
                     onClick={handleSave}
                     disabled={saving}
                     className="bg-slate-900 hover:bg-slate-800"
-                    title="Shortcut: Ctrl+S / Cmd+S"
+                    title="Shortcut: Ctrl+Shift+Enter / Cmd+Shift+Enter"
                   >
                     <Save className="w-4 h-4 mr-1" />
                     {saving ? 'Saving...' : 'Save'}
@@ -799,56 +780,35 @@ export default function InvoiceDetailPage() {
             </div>
 
             {isEditing ? (
-              <>
-                <div className="space-y-3 max-h-[calc(100vh-320px)] overflow-y-auto pr-2">
-                  {editItems.map((item, index) => (
-                    <div key={item.id} className="flex items-start gap-3 p-3 bg-gray-50 rounded-lg">
-                      <div className="flex-1">
-                        <Label className="text-xs text-gray-500">Description</Label>
-                        <Input
-                          value={item.description}
-                          onChange={(e) => updateEditItem(item.id, 'description', e.target.value)}
-                          placeholder={`Item ${index + 1}`}
-                          className="mt-1"
-                        />
-                      </div>
-                      <div className="w-32">
-                        <Label className="text-xs text-gray-500">Amount (₹)</Label>
-                        <Input
-                          type="number"
-                          value={item.amount || ''}
-                          onChange={(e) => updateEditItem(item.id, 'amount', parseFloat(e.target.value) || 0)}
-                          className="mt-1"
-                        />
-                      </div>
-                      <Button
-                        type="button"
-                        variant="ghost"
-                        size="icon"
-                        className="mt-6 text-red-500 hover:text-red-700"
-                        onClick={() => removeEditItem(item.id)}
-                      >
-                        <Trash2 className="w-4 h-4" />
-                      </Button>
-                    </div>
-                  ))}
-                </div>
-
-                <div className="mt-4 flex justify-end">
-                  <Button type="button" variant="outline" size="sm" onClick={addEditItem}>
-                    <Plus className="w-4 h-4 mr-1" />
-                    Add Item (Ctrl+Enter)
-                  </Button>
-                </div>
-              </>
+              <div>
+                <InvoiceItemsEditor items={editItems} onChange={setEditItems} />
+              </div>
             ) : (
-              <div className="space-y-2">
-                {invoice.items.map((item, index) => (
-                  <div key={index} className="flex justify-between py-2 border-b border-gray-100 last:border-0">
-                    <span className="text-gray-700">{item.description}</span>
-                    <span className="font-medium">{currencyFormatter.format(item.amount)}</span>
-                  </div>
-                ))}
+              <div className="overflow-x-auto">
+                <table className="min-w-[760px] w-full text-sm">
+                  <thead>
+                    <tr className="border-b border-gray-200 text-left text-xs font-semibold uppercase tracking-wide text-gray-500">
+                      <th className="w-16 py-2 pr-3">S.No</th>
+                      <th className="w-40 px-3 py-2">Part Number</th>
+                      <th className="px-3 py-2">Item Name</th>
+                      <th className="w-28 px-3 py-2 text-right">Quantity</th>
+                      <th className="w-36 py-2 pl-3 text-right">Amount</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {getInvoiceItemDisplayRows(invoice.items).map((item) => (
+                      <tr key={item.serialNumber} className="border-b border-gray-100 last:border-0">
+                        <td className="py-3 pr-3 font-medium text-gray-600">{item.serialNumber}</td>
+                        <td className="px-3 py-3 text-gray-700">{item.itemNumber}</td>
+                        <td className="px-3 py-3 font-medium text-gray-900">{item.itemName}</td>
+                        <td className="px-3 py-3 text-right text-gray-700">{item.quantity}</td>
+                        <td className="py-3 pl-3 text-right font-semibold text-gray-900">
+                          {currencyFormatter.format(item.amount)}
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
               </div>
             )}
 
