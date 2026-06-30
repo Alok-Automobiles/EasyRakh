@@ -8,7 +8,6 @@ import { motion } from 'motion/react';
 import {
   ArrowLeft,
   Plus,
-  Trash2,
   User,
   FileText,
   CheckCircle2,
@@ -29,13 +28,11 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
+import InvoiceItemsEditor, {
+  createEmptyInvoiceItem,
+} from '@/components/InvoiceItemsEditor';
+import type { EditableInvoiceItem } from '@/components/InvoiceItemsEditor';
 import { Customer } from '@/lib/types';
-
-interface InvoiceItem {
-  id: string;
-  description: string;
-  amount: number;
-}
 
 interface CustomerWithId extends Customer {
   id: string;
@@ -46,6 +43,30 @@ const currencyFormatter = new Intl.NumberFormat('en-IN', {
   currency: 'INR',
   maximumFractionDigits: 0,
 });
+
+function hasNumericEntry(value: number, inputValue?: string) {
+  return inputValue !== undefined ? inputValue.trim() !== '' : value !== 0;
+}
+
+function isBlankInvoiceItem(item: EditableInvoiceItem) {
+  return (
+    !item.inventoryItemId &&
+    !item.itemNumber.trim() &&
+    !item.itemName.trim() &&
+    !hasNumericEntry(item.quantity, item.quantityInput) &&
+    !hasNumericEntry(item.amount, item.amountInput)
+  );
+}
+
+function isValidInvoiceItem(item: EditableInvoiceItem) {
+  return (
+    item.itemName.trim().length > 0 &&
+    Number.isFinite(item.quantity) &&
+    item.quantity > 0 &&
+    Number.isFinite(item.amount) &&
+    item.amount > 0
+  );
+}
 
 export default function NewInvoicePage() {
   const router = useRouter();
@@ -64,8 +85,8 @@ export default function NewInvoicePage() {
   const [customerAddress, setCustomerAddress] = useState('');
   const [createNewCustomer, setCreateNewCustomer] = useState(false);
 
-  const [items, setItems] = useState<InvoiceItem[]>([
-    { id: '1', description: '', amount: 0 },
+  const [items, setItems] = useState<EditableInvoiceItem[]>([
+    createEmptyInvoiceItem('1'),
   ]);
 
   const [status, setStatus] = useState<'paid' | 'unpaid' | 'partial'>('unpaid');
@@ -74,7 +95,6 @@ export default function NewInvoicePage() {
   const [notes, setNotes] = useState('');
   const [addToLedger, setAddToLedger] = useState(false);
 
-  const inputRefs = useRef<Record<string, { description: HTMLInputElement | null; amount: HTMLInputElement | null }>>({});
   const customerDropdownRef = useRef<HTMLDivElement | null>(null);
 
   const totalAmount = items.reduce((sum, item) => sum + (item.amount || 0), 0);
@@ -188,54 +208,6 @@ export default function NewInvoicePage() {
     };
   }, [showCustomerDropdown]);
 
-  const addItem = useCallback(() => {
-    const newId = Date.now().toString();
-    setItems((prevItems) => [
-      ...prevItems,
-      { id: newId, description: '', amount: 0 },
-    ]);
-    setTimeout(() => {
-      const newDescriptionInput = inputRefs.current[newId]?.description;
-      if (newDescriptionInput) {
-        newDescriptionInput.focus();
-      }
-    }, 0);
-  }, []);
-
-  useEffect(() => {
-    const onKeyDown = (e: KeyboardEvent) => {
-      const isCmdOrCtrlEnter = (e.ctrlKey || e.metaKey) && e.key === 'Enter';
-      if (!isCmdOrCtrlEnter) return;
-
-      const target = e.target as HTMLElement;
-      if (target.tagName === 'INPUT' || target.tagName === 'TEXTAREA') {
-        return;
-      }
-
-      e.preventDefault();
-      addItem();
-    };
-
-    window.addEventListener('keydown', onKeyDown);
-    return () => window.removeEventListener('keydown', onKeyDown);
-  }, [addItem]);
-
-  const removeItem = (id: string) => {
-    if (items.length === 1) {
-      toast.error('At least one item is required');
-      return;
-    }
-    setItems(items.filter((item) => item.id !== id));
-  };
-
-  const updateItem = (id: string, field: 'description' | 'amount', value: string | number) => {
-    setItems(
-      items.map((item) =>
-        item.id === id ? { ...item, [field]: value } : item
-      )
-    );
-  };
-
   useEffect(() => {
     if (paidAmount >= totalAmount && totalAmount > 0) {
       setStatus('paid');
@@ -261,9 +233,15 @@ export default function NewInvoicePage() {
       return;
     }
 
-    const validItems = items.filter((item) => item.description.trim() && item.amount > 0);
-    if (validItems.length === 0) {
-      toast.error('At least one item with description and amount is required');
+    const enteredItems = items.filter((item) => !isBlankInvoiceItem(item));
+    if (enteredItems.length === 0) {
+      toast.error('At least one item with item name, quantity, and amount is required');
+      return;
+    }
+    const invalidItem = enteredItems.find((item) => !isValidInvoiceItem(item));
+    if (invalidItem) {
+      const rowNumber = items.findIndex((item) => item.id === invalidItem.id) + 1;
+      toast.error(`Complete item row ${rowNumber} with item name, quantity, and amount`);
       return;
     }
 
@@ -280,8 +258,11 @@ export default function NewInvoicePage() {
         customerName: customerName.trim(),
         customerPhone: customerPhone.trim(),
         customerAddress: customerAddress.trim(),
-        items: validItems.map((item) => ({
-          description: item.description.trim(),
+        items: enteredItems.map((item) => ({
+          inventoryItemId: item.inventoryItemId,
+          itemNumber: item.itemNumber.trim(),
+          itemName: item.itemName.trim(),
+          quantity: item.quantity,
           amount: item.amount,
         })),
         paidAmount,
@@ -326,10 +307,8 @@ export default function NewInvoicePage() {
 
   useEffect(() => {
     const onKeyDown = (e: KeyboardEvent) => {
-      const isCtrlOrCmd = e.ctrlKey || e.metaKey;
-      if (!isCtrlOrCmd) return;
-
-      if (e.key.toLowerCase() === 's') {
+      const isSaveShortcut = (e.ctrlKey || e.metaKey) && e.shiftKey && e.key === 'Enter';
+      if (isSaveShortcut) {
         e.preventDefault();
         if (!submitting) {
           handleSubmit();
@@ -341,44 +320,9 @@ export default function NewInvoicePage() {
     return () => window.removeEventListener('keydown', onKeyDown);
   }, [handleSubmit, submitting]);
 
-  const handleItemKeyDown = useCallback((itemId: string, field: 'description' | 'amount', e: React.KeyboardEvent<HTMLInputElement>) => {
-    if (e.key !== 'Enter' && e.key !== 'Tab') return;
-
-    if (e.key === 'Tab' && e.shiftKey) return;
-
-    const currentIndex = items.findIndex((item) => item.id === itemId);
-    if (currentIndex === -1) return;
-
-    if (field === 'description') {
-      e.preventDefault();
-      const amountInput = inputRefs.current[itemId]?.amount;
-      if (amountInput) {
-        amountInput.focus();
-        amountInput.select();
-      }
-    } else if (field === 'amount') {
-      const isLastItem = currentIndex === items.length - 1;
-      
-      if (isLastItem && e.key === 'Enter') {
-        e.preventDefault();
-        handleSubmit();
-      } else if (isLastItem && e.key === 'Tab') {
-        return;
-      } else if (!isLastItem) {
-        e.preventDefault();
-        const nextItem = items[currentIndex + 1];
-        const nextDescriptionInput = inputRefs.current[nextItem.id]?.description;
-        if (nextDescriptionInput) {
-          nextDescriptionInput.focus();
-          nextDescriptionInput.select();
-        }
-      }
-    }
-  }, [items, handleSubmit]);
-
   if (loading) {
     return (
-      <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+      <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         <Skeleton className="h-8 w-32 mb-6" />
         <Skeleton className="h-12 w-64 mb-8" />
         <div className="space-y-6">
@@ -396,7 +340,7 @@ export default function NewInvoicePage() {
       animate={{ opacity: 1 }}
       transition={{ duration: 0.5 }}
     >
-      <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+      <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         {/* Header */}
         <div className="mb-6">
           <Link
@@ -563,63 +507,8 @@ export default function NewInvoicePage() {
               <h2 className="text-lg font-semibold text-gray-900">Invoice Items</h2>
             </div>
 
-            <div className="space-y-3 max-h-[calc(100vh-320px)] overflow-y-auto pr-2">
-              {items.map((item, index) => (
-                <div
-                  key={item.id}
-                  className="flex items-start gap-3 p-3 bg-gray-50 rounded-lg"
-                >
-                  <div className="flex-1">
-                    <Label className="text-xs text-gray-500">Description</Label>
-                    <Input
-                      ref={(el) => {
-                        if (!inputRefs.current[item.id]) {
-                          inputRefs.current[item.id] = { description: null, amount: null };
-                        }
-                        inputRefs.current[item.id].description = el;
-                      }}
-                      value={item.description}
-                      onChange={(e) => updateItem(item.id, 'description', e.target.value)}
-                      onKeyDown={(e) => handleItemKeyDown(item.id, 'description', e)}
-                      placeholder={`Item ${index + 1} description`}
-                      className="mt-1"
-                    />
-                  </div>
-                  <div className="w-32">
-                    <Label className="text-xs text-gray-500">Amount (₹)</Label>
-                    <Input
-                      ref={(el) => {
-                        if (!inputRefs.current[item.id]) {
-                          inputRefs.current[item.id] = { description: null, amount: null };
-                        }
-                        inputRefs.current[item.id].amount = el;
-                      }}
-                      type="number"
-                      value={item.amount || ''}
-                      onChange={(e) => updateItem(item.id, 'amount', parseFloat(e.target.value) || 0)}
-                      onKeyDown={(e) => handleItemKeyDown(item.id, 'amount', e)}
-                      placeholder="0"
-                      className="mt-1"
-                    />
-                  </div>
-                  <Button
-                    type="button"
-                    variant="ghost"
-                    size="icon"
-                    className="mt-6 text-red-500 hover:text-red-700 hover:bg-red-50"
-                    onClick={() => removeItem(item.id)}
-                  >
-                    <Trash2 className="w-4 h-4" />
-                  </Button>
-                </div>
-              ))}
-            </div>
-
-            <div className="mt-4 flex justify-end">
-              <Button type="button" variant="outline" size="sm" onClick={addItem}>
-                <Plus className="w-4 h-4 mr-1" />
-                Add Item (Ctrl+Enter)
-              </Button>
+            <div>
+              <InvoiceItemsEditor items={items} onChange={setItems} />
             </div>
 
             {/* Total */}
@@ -772,7 +661,7 @@ export default function NewInvoicePage() {
               onClick={handleSubmit}
               disabled={submitting}
               className="bg-slate-900 hover:bg-slate-800"
-              title="Shortcut: Ctrl+S / Cmd+S"
+              title="Shortcut: Ctrl+Shift+Enter / Cmd+Shift+Enter"
             >
               {submitting ? 'Creating...' : 'Create Invoice'}
             </Button>

@@ -118,7 +118,10 @@ export interface Note {
 }
 
 export interface InvoiceItem {
-  description: string;
+  inventoryItemId?: string;
+  itemNumber?: string;
+  itemName: string;
+  quantity: number;
   amount: number;
 }
 
@@ -174,4 +177,3 @@ export interface InventoryStats {
   locations: string[];
   brands: string[];
 }
-
