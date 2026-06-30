@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
-import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import InvoiceItemsEditor, {
   createEmptyInvoiceItem,
 } from '@/components/InvoiceItemsEditor';
@@ -46,6 +46,10 @@ describe('InvoiceItemsEditor', () => {
         json: async () => ({ items: suggestions }),
       })
     );
+  });
+
+  afterEach(() => {
+    vi.unstubAllGlobals();
   });
 
   it('renders the invoice item columns', () => {

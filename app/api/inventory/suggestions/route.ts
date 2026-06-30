@@ -27,7 +27,7 @@ export async function GET(request: NextRequest) {
 
     const db = await getDb();
     const inventoryCollection = db.collection<InventoryItem>('inventory');
-    const regex = { $regex: escapeRegex(itemNumber), $options: 'i' };
+    const regex = { $regex: `^${escapeRegex(itemNumber)}`, $options: 'i' };
 
     const items = await inventoryCollection
       .find(

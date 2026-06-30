@@ -3,7 +3,7 @@ import clientPromise, { getDb } from '@/lib/mongodb';
 import { getUserIdFromRequest } from '@/lib/auth';
 import { z } from 'zod';
 import { ObjectId } from 'mongodb';
-import redis from '@/lib/redis';
+import redis, { deleteByPattern } from '@/lib/redis';
 import { invalidateInventoryCache } from '@/lib/cache';
 import {
   applyInventoryAdjustments,
@@ -57,15 +57,12 @@ async function invalidateInvoiceCaches(
   changedInventoryIds: Set<string>
 ) {
   try {
-    const keys = await redis.keys(`invoices:${userId}:*`);
-    if (keys.length > 0) {
-      await redis.del(...keys);
-    }
+    await deleteByPattern(`invoices:${userId}:*`);
+    await deleteByPattern(`dashboard:stats:${userId}*`);
     if (customerId) {
       await redis.del(
         `customers:${userId}`,
-        `ledger:customer:${customerId}:${userId}`,
-        `dashboard:stats:${userId}`
+        `ledger:customer:${customerId}:${userId}`
       );
     }
     if (changedInventoryIds.size > 0) {

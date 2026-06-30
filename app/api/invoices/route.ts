@@ -2,8 +2,8 @@ import { NextRequest, NextResponse } from 'next/server';
 import clientPromise, { getDb } from '@/lib/mongodb';
 import { getUserIdFromRequest } from '@/lib/auth';
 import { z } from 'zod';
-import { ClientSession, Db, ObjectId } from 'mongodb';
-import redis from '@/lib/redis';
+import { ClientSession, Db, MongoServerError, ObjectId } from 'mongodb';
+import redis, { deleteByPattern } from '@/lib/redis';
 import { invalidateInventoryCache } from '@/lib/cache';
 import {
   applyInventoryAdjustments,
@@ -33,6 +33,40 @@ const createInvoiceSchema = z.object({
   addToLedger: z.boolean().default(false),
   createCustomerIfNew: z.boolean().default(false),
 });
+
+type CreatedInvoiceResponse = {
+  id: string;
+  userId: string;
+  invoiceNumber: string;
+  customerId?: string;
+  customerName: string;
+  customerPhone: string;
+  customerAddress: string;
+  items: InvoiceItem[];
+  totalAmount: number;
+  paidAmount: number;
+  status: 'paid' | 'unpaid' | 'partial';
+  notes: string;
+  addedToLedger: boolean;
+  transactionId?: string;
+  createdAt: Date;
+  updatedAt: Date;
+};
+
+const INVOICE_NUMBER_RETRY_ATTEMPTS = 3;
+
+function isDuplicateInvoiceNumberError(error: unknown) {
+  if (error instanceof MongoServerError) {
+    return error.code === 11000;
+  }
+
+  return (
+    typeof error === 'object' &&
+    error !== null &&
+    'code' in error &&
+    (error as { code?: unknown }).code === 11000
+  );
+}
 
 /**
  * Generate next invoice number in format: INV-YYYY-MM-XXXX
@@ -79,15 +113,12 @@ async function invalidateInvoiceCaches(
   changedInventoryIds: Set<string>
 ) {
   try {
-    const keys = await redis.keys(`invoices:${userId}:*`);
-    if (keys.length > 0) {
-      await redis.del(...keys);
-    }
+    await deleteByPattern(`invoices:${userId}:*`);
+    await deleteByPattern(`dashboard:stats:${userId}*`);
     if (customerId) {
       await redis.del(
         `customers:${userId}`,
-        `ledger:customer:${customerId}:${userId}`,
-        `dashboard:stats:${userId}`
+        `ledger:customer:${customerId}:${userId}`
       );
     }
     if (changedInventoryIds.size > 0) {
@@ -222,157 +253,154 @@ export async function POST(request: NextRequest) {
     const customersCollection = db.collection('customers');
     const transactionsCollection = db.collection('transactions');
     const client = await clientPromise;
-    const session = client.startSession();
     const changedInventoryIds = new Set<string>();
     let savedCustomerId: string | undefined;
-    let createdInvoice:
-      | {
-          id: string;
-          userId: string;
-          invoiceNumber: string;
-          customerId?: string;
-          customerName: string;
-          customerPhone: string;
-          customerAddress: string;
-          items: InvoiceItem[];
-          totalAmount: number;
-          paidAmount: number;
-          status: 'paid' | 'unpaid' | 'partial';
-          notes: string;
-          addedToLedger: boolean;
-          transactionId?: string;
-          createdAt: Date;
-          updatedAt: Date;
-        }
-      | undefined;
+    let createdInvoice: CreatedInvoiceResponse | undefined;
 
-    try {
-      await session.withTransaction(async () => {
-        const normalizedItems = await normalizeInvoiceItemsForSave(
-          db,
-          userId,
-          validatedData.items,
-          session
-        );
-        const totalAmount = normalizedItems.reduce((sum, item) => sum + item.amount, 0);
+    for (let attempt = 1; attempt <= INVOICE_NUMBER_RETRY_ATTEMPTS; attempt += 1) {
+      const session = client.startSession();
+      changedInventoryIds.clear();
+      savedCustomerId = undefined;
+      createdInvoice = undefined;
 
-        let status = validatedData.status;
-        if (validatedData.paidAmount >= totalAmount) {
-          status = 'paid';
-        } else if (validatedData.paidAmount > 0) {
-          status = 'partial';
-        } else {
-          status = 'unpaid';
-        }
+      try {
+        await session.withTransaction(async () => {
+          const normalizedItems = await normalizeInvoiceItemsForSave(
+            db,
+            userId,
+            validatedData.items,
+            session
+          );
+          const totalAmount = normalizedItems.reduce((sum, item) => sum + item.amount, 0);
 
-        let customerId = validatedData.customerId;
-
-        if (customerId) {
-          if (!ObjectId.isValid(customerId)) {
-            throw new InvoiceStockError('INVALID_CUSTOMER', 'Invalid customer id', 400);
+          let status = validatedData.status;
+          if (validatedData.paidAmount >= totalAmount) {
+            status = 'paid';
+          } else if (validatedData.paidAmount > 0) {
+            status = 'partial';
+          } else {
+            status = 'unpaid';
           }
 
-          const customer = await customersCollection.findOne(
-            {
-              _id: new ObjectId(customerId),
-              userId,
-            },
-            { session }
-          );
-          if (!customer) {
-            throw new InvoiceStockError('CUSTOMER_NOT_FOUND', 'Customer not found', 404);
+          let customerId = validatedData.customerId;
+
+          if (customerId) {
+            if (!ObjectId.isValid(customerId)) {
+              throw new InvoiceStockError('INVALID_CUSTOMER', 'Invalid customer id', 400);
+            }
+
+            const customer = await customersCollection.findOne(
+              {
+                _id: new ObjectId(customerId),
+                userId,
+              },
+              { session }
+            );
+            if (!customer) {
+              throw new InvoiceStockError('CUSTOMER_NOT_FOUND', 'Customer not found', 404);
+            }
+          } else if (validatedData.createCustomerIfNew) {
+            const newCustomer = await customersCollection.insertOne(
+              {
+                userId,
+                name: validatedData.customerName,
+                phone: validatedData.customerPhone || '',
+                email: '',
+                address: validatedData.customerAddress || '',
+                openingBalance: 0,
+                balanceType: 'debit',
+                createdAt: new Date(),
+              },
+              { session }
+            );
+            customerId = newCustomer.insertedId.toString();
           }
-        } else if (validatedData.createCustomerIfNew) {
-          const newCustomer = await customersCollection.insertOne(
-            {
-              userId,
-              name: validatedData.customerName,
-              phone: validatedData.customerPhone || '',
-              email: '',
-              address: validatedData.customerAddress || '',
-              openingBalance: 0,
-              balanceType: 'debit',
-              createdAt: new Date(),
-            },
-            { session }
+
+          savedCustomerId = customerId;
+          const invoiceNumber = await generateInvoiceNumber(db, userId, session);
+          const now = new Date();
+          const invoiceDoc = {
+            userId,
+            invoiceNumber,
+            customerId: customerId || undefined,
+            customerName: validatedData.customerName,
+            customerPhone: validatedData.customerPhone || '',
+            customerAddress: validatedData.customerAddress || '',
+            items: normalizedItems,
+            totalAmount,
+            paidAmount: validatedData.paidAmount,
+            status,
+            notes: validatedData.notes || '',
+            addedToLedger: false,
+            transactionId: undefined as string | undefined,
+            createdAt: now,
+            updatedAt: now,
+          };
+
+          const adjustedIds = await applyInventoryAdjustments(
+            db,
+            userId,
+            getInventoryDiffAdjustments([], normalizedItems),
+            session
           );
-          customerId = newCustomer.insertedId.toString();
-        }
+          adjustedIds.forEach((itemId) => changedInventoryIds.add(itemId));
 
-        savedCustomerId = customerId;
-        const invoiceNumber = await generateInvoiceNumber(db, userId, session);
-        const now = new Date();
-        const invoiceDoc = {
-          userId,
-          invoiceNumber,
-          customerId: customerId || undefined,
-          customerName: validatedData.customerName,
-          customerPhone: validatedData.customerPhone || '',
-          customerAddress: validatedData.customerAddress || '',
-          items: normalizedItems,
-          totalAmount,
-          paidAmount: validatedData.paidAmount,
-          status,
-          notes: validatedData.notes || '',
-          addedToLedger: false,
-          transactionId: undefined as string | undefined,
-          createdAt: now,
-          updatedAt: now,
-        };
-
-        const adjustedIds = await applyInventoryAdjustments(
-          db,
-          userId,
-          getInventoryDiffAdjustments([], normalizedItems),
-          session
-        );
-        adjustedIds.forEach((itemId) => changedInventoryIds.add(itemId));
-
-        if (validatedData.addToLedger && customerId) {
-          const debitTx = await transactionsCollection.insertOne(
-            {
-              userId,
-              entityType: 'customer',
-              entityId: customerId,
-              customerId,
-              type: 'debit',
-              amount: totalAmount,
-              description: `Invoice ${invoiceNumber} - Amount due`,
-              date: now,
-              createdAt: now,
-            },
-            { session }
-          );
-          invoiceDoc.transactionId = debitTx.insertedId.toString();
-
-          if (validatedData.paidAmount > 0) {
-            await transactionsCollection.insertOne(
+          if (validatedData.addToLedger && customerId) {
+            const debitTx = await transactionsCollection.insertOne(
               {
                 userId,
                 entityType: 'customer',
                 entityId: customerId,
                 customerId,
-                type: 'credit',
-                amount: validatedData.paidAmount,
-                description: `Invoice ${invoiceNumber} - Payment received`,
+                type: 'debit',
+                amount: totalAmount,
+                description: `Invoice ${invoiceNumber} - Amount due`,
                 date: now,
                 createdAt: now,
               },
               { session }
             );
+            invoiceDoc.transactionId = debitTx.insertedId.toString();
+
+            if (validatedData.paidAmount > 0) {
+              await transactionsCollection.insertOne(
+                {
+                  userId,
+                  entityType: 'customer',
+                  entityId: customerId,
+                  customerId,
+                  type: 'credit',
+                  amount: validatedData.paidAmount,
+                  description: `Invoice ${invoiceNumber} - Payment received`,
+                  date: now,
+                  createdAt: now,
+                },
+                { session }
+              );
+            }
+
+            invoiceDoc.addedToLedger = true;
           }
 
-          invoiceDoc.addedToLedger = true;
-        }
+          const result = await invoicesCollection.insertOne(invoiceDoc, { session });
+          createdInvoice = {
+            id: result.insertedId.toString(),
+            ...invoiceDoc,
+          };
+        });
 
-        const result = await invoicesCollection.insertOne(invoiceDoc, { session });
-        createdInvoice = {
-          id: result.insertedId.toString(),
-          ...invoiceDoc,
-        };
-      });
-    } finally {
-      await session.endSession();
+        break;
+      } catch (error) {
+        if (
+          attempt < INVOICE_NUMBER_RETRY_ATTEMPTS &&
+          isDuplicateInvoiceNumberError(error)
+        ) {
+          continue;
+        }
+        throw error;
+      } finally {
+        await session.endSession();
+      }
     }
 
     if (!createdInvoice) {
@@ -396,6 +424,15 @@ export async function POST(request: NextRequest) {
       return NextResponse.json(
         { error: error.message, code: error.code, details: error.details },
         { status: error.status }
+      );
+    }
+    if (isDuplicateInvoiceNumberError(error)) {
+      return NextResponse.json(
+        {
+          error: 'Could not allocate a unique invoice number. Please try again.',
+          code: 'INVOICE_NUMBER_CONFLICT',
+        },
+        { status: 409 }
       );
     }
 

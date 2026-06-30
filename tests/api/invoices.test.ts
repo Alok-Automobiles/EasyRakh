@@ -6,7 +6,7 @@ const mocks = vi.hoisted(() => ({
   getUserIdFromRequest: vi.fn(),
   redisGet: vi.fn(),
   redisSetex: vi.fn(),
-  redisKeys: vi.fn(),
+  deleteByPattern: vi.fn(),
   redisDel: vi.fn(),
   invalidateInventoryCache: vi.fn(),
   session: {
@@ -31,9 +31,9 @@ vi.mock('@/lib/redis', () => ({
   default: {
     get: mocks.redisGet,
     setex: mocks.redisSetex,
-    keys: mocks.redisKeys,
     del: mocks.redisDel,
   },
+  deleteByPattern: mocks.deleteByPattern,
 }));
 
 vi.mock('@/lib/cache', () => ({
@@ -61,6 +61,12 @@ function storedInventory(quantity = 8) {
     itemName: 'BRAKE PAD',
     quantity,
   };
+}
+
+function inventoryFindChain(items: unknown[] = []) {
+  const toArray = vi.fn().mockResolvedValue(items);
+  const find = vi.fn(() => ({ toArray }));
+  return { find, toArray };
 }
 
 function linkedItem(quantity = 2, amount = 900) {
@@ -99,7 +105,7 @@ describe('/api/invoices stock sync', () => {
     mocks.getUserIdFromRequest.mockReset();
     mocks.redisGet.mockReset();
     mocks.redisSetex.mockReset();
-    mocks.redisKeys.mockReset();
+    mocks.deleteByPattern.mockReset();
     mocks.redisDel.mockReset();
     mocks.invalidateInventoryCache.mockReset();
     mocks.session.withTransaction.mockReset();
@@ -107,7 +113,7 @@ describe('/api/invoices stock sync', () => {
     mocks.client.startSession.mockReset();
 
     mocks.getUserIdFromRequest.mockReturnValue(ids.user);
-    mocks.redisKeys.mockResolvedValue([]);
+    mocks.deleteByPattern.mockResolvedValue(0);
     mocks.redisDel.mockResolvedValue(1);
     mocks.invalidateInventoryCache.mockResolvedValue(undefined);
     mocks.client.startSession.mockReturnValue(mocks.session);
@@ -120,8 +126,10 @@ describe('/api/invoices stock sync', () => {
   it('deducts linked inventory when creating an invoice', async () => {
     const invoiceFind = invoiceFindChain();
     const insertOne = vi.fn().mockResolvedValue({ insertedId: objectIdLike('507f1f77bcf86cd799439099') });
+    const inventoryLookup = inventoryFindChain([storedInventory(8)]);
     const inventory = {
-      findOne: vi.fn().mockResolvedValue(storedInventory(8)),
+      find: inventoryLookup.find,
+      findOne: vi.fn(),
       findOneAndUpdate: vi.fn().mockResolvedValue(storedInventory(6)),
     };
     mocks.getDb.mockResolvedValue(
@@ -170,7 +178,9 @@ describe('/api/invoices stock sync', () => {
   it('creates manual invoice rows without touching inventory quantity', async () => {
     const invoiceFind = invoiceFindChain();
     const insertOne = vi.fn().mockResolvedValue({ insertedId: objectIdLike('507f1f77bcf86cd799439099') });
+    const inventoryLookup = inventoryFindChain();
     const inventory = {
+      find: inventoryLookup.find,
       findOne: vi.fn(),
       findOneAndUpdate: vi.fn(),
     };
@@ -206,8 +216,10 @@ describe('/api/invoices stock sync', () => {
   it('aggregates duplicate inventory rows before deducting stock', async () => {
     const invoiceFind = invoiceFindChain();
     const insertOne = vi.fn().mockResolvedValue({ insertedId: objectIdLike('507f1f77bcf86cd799439099') });
+    const inventoryLookup = inventoryFindChain([storedInventory(10)]);
     const inventory = {
-      findOne: vi.fn().mockResolvedValue(storedInventory(10)),
+      find: inventoryLookup.find,
+      findOne: vi.fn(),
       findOneAndUpdate: vi.fn().mockResolvedValue(storedInventory(5)),
     };
     mocks.getDb.mockResolvedValue(
@@ -233,14 +245,45 @@ describe('/api/invoices stock sync', () => {
     );
   });
 
+  it('retries invoice creation when a concurrent invoice number wins the unique index', async () => {
+    const invoiceFind = invoiceFindChain();
+    const insertOne = vi
+      .fn()
+      .mockRejectedValueOnce({ code: 11000 })
+      .mockResolvedValueOnce({ insertedId: objectIdLike('507f1f77bcf86cd799439099') });
+    const inventoryLookup = inventoryFindChain([storedInventory(10)]);
+    const inventory = {
+      find: inventoryLookup.find,
+      findOne: vi.fn(),
+      findOneAndUpdate: vi.fn().mockResolvedValue(storedInventory(8)),
+    };
+    mocks.getDb.mockResolvedValue(
+      dbWithCollections({
+        invoices: { find: invoiceFind.find, insertOne },
+        customers: {},
+        transactions: {},
+        inventory,
+      })
+    );
+
+    const { POST } = await import('@/app/api/invoices/route');
+    const response = await POST(jsonRequest('http://localhost/api/invoices', createBody([linkedItem()])));
+
+    expect(response.status).toBe(201);
+    expect(mocks.client.startSession).toHaveBeenCalledTimes(2);
+    expect(mocks.session.withTransaction).toHaveBeenCalledTimes(2);
+    expect(mocks.session.endSession).toHaveBeenCalledTimes(2);
+    expect(insertOne).toHaveBeenCalledTimes(2);
+    expect(mocks.invalidateInventoryCache).toHaveBeenCalledTimes(1);
+  });
+
   it('blocks invoice creation and skips invoice insert when stock is insufficient', async () => {
     const invoiceFind = invoiceFindChain();
     const insertOne = vi.fn();
+    const inventoryLookup = inventoryFindChain([storedInventory(1)]);
     const inventory = {
-      findOne: vi
-        .fn()
-        .mockResolvedValueOnce(storedInventory(1))
-        .mockResolvedValueOnce(storedInventory(1)),
+      find: inventoryLookup.find,
+      findOne: vi.fn().mockResolvedValue(storedInventory(1)),
       findOneAndUpdate: vi.fn().mockResolvedValue(null),
     };
     mocks.getDb.mockResolvedValue(
@@ -270,8 +313,10 @@ describe('/api/invoices stock sync', () => {
   it('rejects missing linked inventory before inserting an invoice', async () => {
     const invoiceFind = invoiceFindChain();
     const insertOne = vi.fn();
+    const inventoryLookup = inventoryFindChain();
     const inventory = {
-      findOne: vi.fn().mockResolvedValue(null),
+      find: inventoryLookup.find,
+      findOne: vi.fn(),
       findOneAndUpdate: vi.fn(),
     };
     mocks.getDb.mockResolvedValue(
@@ -297,11 +342,10 @@ describe('/api/invoices stock sync', () => {
     const invoiceFind = invoiceFindChain();
     const invoiceInsert = vi.fn();
     const customerInsert = vi.fn().mockResolvedValue({ insertedId: objectIdLike(ids.customer) });
+    const inventoryLookup = inventoryFindChain([storedInventory(1)]);
     const inventory = {
-      findOne: vi
-        .fn()
-        .mockResolvedValueOnce(storedInventory(1))
-        .mockResolvedValueOnce(storedInventory(1)),
+      find: inventoryLookup.find,
+      findOne: vi.fn().mockResolvedValue(storedInventory(1)),
       findOneAndUpdate: vi.fn().mockResolvedValue(null),
     };
     mocks.getDb.mockResolvedValue(
@@ -352,8 +396,10 @@ describe('/api/invoices stock sync', () => {
       findOne: vi.fn().mockResolvedValueOnce(previousInvoice).mockResolvedValueOnce(updatedInvoice),
       updateOne: vi.fn().mockResolvedValue({ matchedCount: 1 }),
     };
+    const inventoryLookup = inventoryFindChain([storedInventory(8)]);
     const inventory = {
-      findOne: vi.fn().mockResolvedValue(storedInventory(8)),
+      find: inventoryLookup.find,
+      findOne: vi.fn(),
       findOneAndUpdate: vi.fn().mockResolvedValue(storedInventory(6)),
     };
     mocks.getDb.mockResolvedValue(
@@ -400,11 +446,10 @@ describe('/api/invoices stock sync', () => {
       findOne: vi.fn().mockResolvedValue(previousInvoice),
       updateOne: vi.fn(),
     };
+    const inventoryLookup = inventoryFindChain([storedInventory(2)]);
     const inventory = {
-      findOne: vi
-        .fn()
-        .mockResolvedValueOnce(storedInventory(2))
-        .mockResolvedValueOnce(storedInventory(2)),
+      find: inventoryLookup.find,
+      findOne: vi.fn().mockResolvedValue(storedInventory(2)),
       findOneAndUpdate: vi.fn().mockResolvedValue(null),
     };
     mocks.getDb.mockResolvedValue(
@@ -448,6 +493,7 @@ describe('/api/invoices stock sync', () => {
       deleteMany: vi.fn().mockResolvedValue({ deletedCount: 2 }),
     };
     const inventory = {
+      find: inventoryFindChain().find,
       findOne: vi.fn(),
       findOneAndUpdate: vi.fn().mockResolvedValue(storedInventory(10)),
     };

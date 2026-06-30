@@ -14,7 +14,9 @@ export interface EditableInvoiceItem {
   itemNumber: string;
   itemName: string;
   quantity: number;
+  quantityInput?: string;
   amount: number;
+  amountInput?: string;
 }
 
 interface InventorySuggestion {
@@ -42,8 +44,21 @@ export function createEmptyInvoiceItem(id = `${Date.now()}`): EditableInvoiceIte
     itemNumber: '',
     itemName: '',
     quantity: 0,
+    quantityInput: '',
     amount: 0,
+    amountInput: '',
   };
+}
+
+function parseNumberInput(value: string) {
+  if (value.trim() === '') return 0;
+  const parsed = Number(value);
+  return Number.isFinite(parsed) ? parsed : 0;
+}
+
+function getNumberInputValue(value: number, inputValue?: string) {
+  if (inputValue !== undefined) return inputValue;
+  return value ? String(value) : '';
 }
 
 export default function InvoiceItemsEditor({
@@ -388,13 +403,11 @@ export default function InvoiceItemsEditor({
                       inputMode="decimal"
                       min="0"
                       step="0.01"
-                      value={item.quantity || ''}
+                      value={getNumberInputValue(item.quantity, item.quantityInput)}
                       onChange={(event) =>
                         updateItem(item.id, {
-                          quantity:
-                            event.target.value === ''
-                              ? 0
-                              : parseFloat(event.target.value) || 0,
+                          quantityInput: event.target.value,
+                          quantity: parseNumberInput(event.target.value),
                         })
                       }
                       onKeyDown={(event) => handleKeyDown(item.id, 'quantity', event)}
@@ -410,13 +423,11 @@ export default function InvoiceItemsEditor({
                       inputMode="decimal"
                       min="0"
                       step="0.01"
-                      value={item.amount || ''}
+                      value={getNumberInputValue(item.amount, item.amountInput)}
                       onChange={(event) =>
                         updateItem(item.id, {
-                          amount:
-                            event.target.value === ''
-                              ? 0
-                              : parseFloat(event.target.value) || 0,
+                          amountInput: event.target.value,
+                          amount: parseNumberInput(event.target.value),
                         })
                       }
                       onKeyDown={(event) => handleKeyDown(item.id, 'amount', event)}

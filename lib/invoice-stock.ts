@@ -94,13 +94,74 @@ export function getInventoryRestoreAdjustments(items: InvoiceItem[]): InventoryA
   }));
 }
 
+async function getInventoryLookups(
+  db: Db,
+  userId: string,
+  items: InvoiceItemInput[],
+  session?: ClientSession
+) {
+  const inventoryCollection = db.collection<InventorySnapshot>('inventory');
+  const ids = new Set<string>();
+  const itemNumbers = new Set<string>();
+
+  for (const item of items) {
+    if (item.inventoryItemId) {
+      assertValidInventoryId(item.inventoryItemId);
+      ids.add(item.inventoryItemId);
+      continue;
+    }
+
+    const itemNumber = normalizeItemNumber(item.itemNumber);
+    if (itemNumber) {
+      itemNumbers.add(itemNumber.toLowerCase());
+    }
+  }
+
+  const projection = { _id: 1, itemName: 1, itemNumber: 1, quantity: 1 };
+  const [itemsById, itemsByNumber] = await Promise.all([
+    ids.size > 0
+      ? inventoryCollection
+          .find(
+            {
+              _id: { $in: Array.from(ids, (id) => new ObjectId(id)) },
+              userId,
+            },
+            { projection, session }
+          )
+          .toArray()
+      : Promise.resolve([]),
+    itemNumbers.size > 0
+      ? inventoryCollection
+          .find(
+            {
+              userId,
+              $or: Array.from(itemNumbers, (itemNumber) => ({
+                itemNumber: { $regex: `^${escapeRegex(itemNumber)}$`, $options: 'i' },
+              })),
+            },
+            { projection, session }
+          )
+          .toArray()
+      : Promise.resolve([]),
+  ]);
+
+  return {
+    byId: new Map(itemsById.map((item) => [item._id.toString(), item])),
+    byNumber: new Map(
+      itemsByNumber
+        .filter((item) => item.itemNumber)
+        .map((item) => [item.itemNumber!.toLowerCase(), item])
+    ),
+  };
+}
+
 export async function normalizeInvoiceItemsForSave(
   db: Db,
   userId: string,
   items: InvoiceItemInput[],
   session?: ClientSession
 ): Promise<InvoiceItem[]> {
-  const inventoryCollection = db.collection<InventorySnapshot>('inventory');
+  const inventoryLookups = await getInventoryLookups(db, userId, items, session);
   const normalizedItems: InvoiceItem[] = [];
 
   for (const item of items) {
@@ -108,14 +169,7 @@ export async function normalizeInvoiceItemsForSave(
     const itemName = normalizeItemName(item.itemName);
 
     if (item.inventoryItemId) {
-      assertValidInventoryId(item.inventoryItemId);
-      const inventoryItem = await inventoryCollection.findOne(
-        { _id: new ObjectId(item.inventoryItemId), userId },
-        {
-          projection: { _id: 1, itemName: 1, itemNumber: 1, quantity: 1 },
-          session,
-        }
-      );
+      const inventoryItem = inventoryLookups.byId.get(item.inventoryItemId);
 
       if (!inventoryItem) {
         throw new InvoiceStockError(
@@ -145,16 +199,7 @@ export async function normalizeInvoiceItemsForSave(
     }
 
     if (itemNumber) {
-      const inventoryItem = await inventoryCollection.findOne(
-        {
-          userId,
-          itemNumber: { $regex: `^${escapeRegex(itemNumber)}$`, $options: 'i' },
-        },
-        {
-          projection: { _id: 1, itemName: 1, itemNumber: 1, quantity: 1 },
-          session,
-        }
-      );
+      const inventoryItem = inventoryLookups.byNumber.get(itemNumber.toLowerCase());
 
       if (inventoryItem) {
         normalizedItems.push({

@@ -44,6 +44,30 @@ const currencyFormatter = new Intl.NumberFormat('en-IN', {
   maximumFractionDigits: 0,
 });
 
+function hasNumericEntry(value: number, inputValue?: string) {
+  return inputValue !== undefined ? inputValue.trim() !== '' : value !== 0;
+}
+
+function isBlankInvoiceItem(item: EditableInvoiceItem) {
+  return (
+    !item.inventoryItemId &&
+    !item.itemNumber.trim() &&
+    !item.itemName.trim() &&
+    !hasNumericEntry(item.quantity, item.quantityInput) &&
+    !hasNumericEntry(item.amount, item.amountInput)
+  );
+}
+
+function isValidInvoiceItem(item: EditableInvoiceItem) {
+  return (
+    item.itemName.trim().length > 0 &&
+    Number.isFinite(item.quantity) &&
+    item.quantity > 0 &&
+    Number.isFinite(item.amount) &&
+    item.amount > 0
+  );
+}
+
 export default function NewInvoicePage() {
   const router = useRouter();
   const [loading, setLoading] = useState(true);
@@ -209,16 +233,15 @@ export default function NewInvoicePage() {
       return;
     }
 
-    const validItems = items.filter(
-      (item) =>
-        item.itemName.trim() &&
-        Number.isFinite(item.quantity) &&
-        item.quantity > 0 &&
-        Number.isFinite(item.amount) &&
-        item.amount > 0
-    );
-    if (validItems.length === 0) {
+    const enteredItems = items.filter((item) => !isBlankInvoiceItem(item));
+    if (enteredItems.length === 0) {
       toast.error('At least one item with item name, quantity, and amount is required');
+      return;
+    }
+    const invalidItem = enteredItems.find((item) => !isValidInvoiceItem(item));
+    if (invalidItem) {
+      const rowNumber = items.findIndex((item) => item.id === invalidItem.id) + 1;
+      toast.error(`Complete item row ${rowNumber} with item name, quantity, and amount`);
       return;
     }
 
@@ -235,7 +258,7 @@ export default function NewInvoicePage() {
         customerName: customerName.trim(),
         customerPhone: customerPhone.trim(),
         customerAddress: customerAddress.trim(),
-        items: validItems.map((item) => ({
+        items: enteredItems.map((item) => ({
           inventoryItemId: item.inventoryItemId,
           itemNumber: item.itemNumber.trim(),
           itemName: item.itemName.trim(),
