@@ -291,14 +291,20 @@ export async function DELETE(
     );
     const dateKey = format(record.date, 'dd-MM-yyyy');
 
-    if (entryToDelete.billPublicId) {
-      try {
-        const { deleteAsset } = await import('@/lib/cloudinary');
-        const resourceType = entryToDelete.billUrl?.toLowerCase().includes('.pdf') ? 'raw' : 'image';
-        await deleteAsset(entryToDelete.billPublicId, resourceType);
-      } catch (error) {
-        console.warn('Failed to delete bill asset during daily cash entry delete:', error);
-      }
+    try {
+      const { cloudinaryAssetsFromFields, deleteCloudinaryAssets } = await import('@/lib/cloudinary-cleanup');
+      await deleteCloudinaryAssets(
+        cloudinaryAssetsFromFields({
+          publicIds: [entryToDelete.billPublicId],
+          urls: [entryToDelete.billUrl],
+        })
+      );
+    } catch (error) {
+      console.error('Failed to delete bill asset during daily cash entry delete:', error);
+      return NextResponse.json(
+        { error: 'Failed to delete associated uploaded files' },
+        { status: 502 }
+      );
     }
 
     if (updatedEntries.length === 0) {

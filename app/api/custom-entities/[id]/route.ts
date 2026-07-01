@@ -4,6 +4,10 @@ import { getUserIdFromRequest } from '@/lib/auth';
 import { z } from 'zod';
 import { ObjectId } from 'mongodb';
 import redis from '@/lib/redis';
+import {
+  cloudinaryAssetsFromFields,
+  deleteCloudinaryAssets,
+} from '@/lib/cloudinary-cleanup';
 
 const customEntitySchema = z.object({
   collectionType: z.string().min(1, 'Collection type is required'),
@@ -216,11 +220,38 @@ export async function DELETE(
       );
     }
 
-    await transactionsCollection.deleteMany({
+    const transactionDeleteFilter = {
       entityId: id,
       entityType: entity.collectionType,
       userId,
-    });
+    };
+    const transactionsToDelete = await transactionsCollection
+      .find(transactionDeleteFilter, { projection: { billPublicId: 1, billUrl: 1 } })
+      .toArray();
+    const assetRefs = [
+      ...cloudinaryAssetsFromFields({
+        publicIds: [entity.openingBalanceBillPublicId],
+        urls: [entity.openingBalanceBillUrl],
+      }),
+      ...transactionsToDelete.flatMap((transaction) =>
+        cloudinaryAssetsFromFields({
+          publicIds: [transaction.billPublicId],
+          urls: [transaction.billUrl],
+        })
+      ),
+    ];
+
+    try {
+      await deleteCloudinaryAssets(assetRefs);
+    } catch (error) {
+      console.error('Failed to delete custom entity assets:', error);
+      return NextResponse.json(
+        { error: 'Failed to delete associated uploaded files' },
+        { status: 502 }
+      );
+    }
+
+    await transactionsCollection.deleteMany(transactionDeleteFilter);
 
     const result = await customEntitiesCollection.deleteOne({
       _id: new ObjectId(id),
@@ -253,4 +284,3 @@ export async function DELETE(
     );
   }
 }
-

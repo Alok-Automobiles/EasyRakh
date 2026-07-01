@@ -5,7 +5,8 @@ const mocks = vi.hoisted(() => ({
   getDb: vi.fn(),
   getUserIdFromRequest: vi.fn(),
   redisDel: vi.fn(),
-  deleteAsset: vi.fn(),
+  cloudinaryAssetsFromFields: vi.fn(),
+  deleteCloudinaryAssets: vi.fn(),
 }));
 
 vi.mock('@/lib/auth', () => ({
@@ -22,8 +23,9 @@ vi.mock('@/lib/redis', () => ({
   },
 }));
 
-vi.mock('@/lib/cloudinary', () => ({
-  deleteAsset: mocks.deleteAsset,
+vi.mock('@/lib/cloudinary-cleanup', () => ({
+  cloudinaryAssetsFromFields: mocks.cloudinaryAssetsFromFields,
+  deleteCloudinaryAssets: mocks.deleteCloudinaryAssets,
 }));
 
 describe('/api/transactions/[id]', () => {
@@ -31,10 +33,14 @@ describe('/api/transactions/[id]', () => {
     mocks.getDb.mockReset();
     mocks.getUserIdFromRequest.mockReset();
     mocks.redisDel.mockReset();
-    mocks.deleteAsset.mockReset();
+    mocks.cloudinaryAssetsFromFields.mockReset();
+    mocks.deleteCloudinaryAssets.mockReset();
     mocks.getUserIdFromRequest.mockReturnValue(ids.user);
     mocks.redisDel.mockResolvedValue(1);
-    mocks.deleteAsset.mockResolvedValue(undefined);
+    mocks.cloudinaryAssetsFromFields.mockImplementation(({ publicIds }) =>
+      (publicIds || []).filter(Boolean).map((publicId: string) => ({ publicId }))
+    );
+    mocks.deleteCloudinaryAssets.mockResolvedValue(undefined);
   });
 
   it('removes replaced bill assets and invalidates old and new entity ledgers when moving transactions', async () => {
@@ -75,7 +81,11 @@ describe('/api/transactions/[id]', () => {
     );
 
     expect(response.status).toBe(200);
-    expect(mocks.deleteAsset).toHaveBeenCalledWith('bills/old');
+    expect(mocks.cloudinaryAssetsFromFields).toHaveBeenCalledWith({
+      publicIds: ['bills/old'],
+      urls: ['https://res.cloudinary.com/demo/image/upload/old.jpg'],
+    });
+    expect(mocks.deleteCloudinaryAssets).toHaveBeenCalledWith([{ publicId: 'bills/old' }]);
     expect(updateOne).toHaveBeenCalledWith(
       { _id: expect.any(Object), userId: ids.user },
       expect.objectContaining({
@@ -121,7 +131,11 @@ describe('/api/transactions/[id]', () => {
     );
 
     expect(response.status).toBe(200);
-    expect(mocks.deleteAsset).toHaveBeenCalledWith('bills/to-delete');
+    expect(mocks.cloudinaryAssetsFromFields).toHaveBeenCalledWith({
+      publicIds: ['bills/to-delete'],
+      urls: [undefined],
+    });
+    expect(mocks.deleteCloudinaryAssets).toHaveBeenCalledWith([{ publicId: 'bills/to-delete' }]);
     expect(deleteOne).toHaveBeenCalledWith({ _id: expect.any(Object), userId: ids.user });
     expect(mocks.redisDel).toHaveBeenCalledWith(
       `dashboard:stats:${ids.user}`,

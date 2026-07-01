@@ -154,6 +154,7 @@ export interface InventoryItem {
   location: string;
   unitOfMeasure: string;
   partImages?: string[];
+  partImagePublicIds?: string[];
   brand?: string;
   description?: string;
   buyingPrice?: number;
@@ -161,6 +162,7 @@ export interface InventoryItem {
   supplier?: string;
   billingDate?: Date;
   billImages?: string[];
+  billImagePublicIds?: string[];
   lastQuantityUpdatedAt?: Date;
   createdAt: Date;
   updatedAt: Date;

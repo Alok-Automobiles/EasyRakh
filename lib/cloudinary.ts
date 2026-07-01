@@ -1,5 +1,7 @@
 import { v2 as cloudinary, UploadApiOptions, UploadApiResponse } from 'cloudinary';
 
+export type CloudinaryResourceType = 'image' | 'raw' | 'video';
+
 const cloudName = process.env.CLOUDINARY_CLOUD_NAME ?? process.env.CLOUD_NAME;
 const apiKey = process.env.CLOUDINARY_API_KEY ?? process.env.API_KEY;
 const apiSecret = process.env.CLOUDINARY_API_SECRET ?? process.env.API_SECRET;
@@ -35,7 +37,6 @@ export async function uploadBuffer(
   });
 }
 
-export async function deleteAsset(publicId: string, resourceType: 'image' | 'raw' | 'video' = 'image') {
+export async function deleteAsset(publicId: string, resourceType: CloudinaryResourceType = 'image') {
   await cloudinary.uploader.destroy(publicId, { resource_type: resourceType });
 }
-

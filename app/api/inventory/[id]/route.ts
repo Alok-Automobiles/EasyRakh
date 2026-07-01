@@ -11,6 +11,10 @@ import {
 } from '@/lib/cache';
 import { z } from 'zod';
 import { uppercaseInventoryPayload } from '@/lib/inventory-text';
+import {
+  cloudinaryAssetsFromFields,
+  deleteCloudinaryAssets,
+} from '@/lib/cloudinary-cleanup';
 
 const optionalDateSchema = z.preprocess(
   (value) => {
@@ -30,6 +34,7 @@ const inventoryItemSchema = z.object({
   location: z.string().trim().min(1, 'Location is required'),
   unitOfMeasure: z.string().trim().min(1, 'Unit of measure is required'),
   partImages: z.array(z.string().url('Invalid part image URL')).optional(),
+  partImagePublicIds: z.array(z.string().trim().min(1)).optional(),
   brand: z.string().trim().optional(),
   description: z.string().trim().optional(),
   buyingPrice: z.number().min(0, 'Buying price cannot be negative').optional().nullable(),
@@ -37,6 +42,7 @@ const inventoryItemSchema = z.object({
   supplier: z.string().trim().optional(),
   billingDate: optionalDateSchema,
   billImages: z.array(z.string().url('Invalid bill image URL')).optional(),
+  billImagePublicIds: z.array(z.string().trim().min(1)).optional(),
 });
 
 function serializeInventoryItem(item: InventoryItem & { _id: { toString(): string } }) {
@@ -49,6 +55,7 @@ function serializeInventoryItem(item: InventoryItem & { _id: { toString(): strin
     location: item.location || '',
     unitOfMeasure: item.unitOfMeasure || '',
     partImages: item.partImages || [],
+    partImagePublicIds: item.partImagePublicIds || [],
     brand: item.brand || '',
     description: item.description || '',
     buyingPrice: item.buyingPrice ?? undefined,
@@ -56,6 +63,7 @@ function serializeInventoryItem(item: InventoryItem & { _id: { toString(): strin
     supplier: item.supplier || '',
     billingDate: item.billingDate,
     billImages: item.billImages || [],
+    billImagePublicIds: item.billImagePublicIds || [],
     lastQuantityUpdatedAt: item.lastQuantityUpdatedAt,
     createdAt: item.createdAt,
     updatedAt: item.updatedAt,
@@ -71,6 +79,7 @@ function normalizeItemInput(data: z.infer<typeof inventoryItemSchema>) {
     location: data.location,
     unitOfMeasure: data.unitOfMeasure,
     partImages: data.partImages || [],
+    partImagePublicIds: data.partImagePublicIds || [],
     brand: data.brand || '',
     description: data.description || '',
     buyingPrice: data.buyingPrice ?? undefined,
@@ -78,6 +87,7 @@ function normalizeItemInput(data: z.infer<typeof inventoryItemSchema>) {
     supplier: data.supplier || '',
     billingDate: data.billingDate,
     billImages: data.billImages || [],
+    billImagePublicIds: data.billImagePublicIds || [],
   });
 }
 
@@ -255,6 +265,7 @@ const quantityPatchSchema = z
 const imagePatchSchema = z.object({
   imageField: z.enum(['partImages', 'billImages']),
   url: z.string().url('Invalid image URL'),
+  publicId: z.string().trim().min(1).optional(),
 }).strict();
 
 const inventoryPatchSchema = z.union([quantityPatchSchema, imagePatchSchema]);
@@ -283,10 +294,17 @@ export async function PATCH(
     const updatedAt = new Date();
 
     if ('imageField' in patch) {
+      const publicIdField =
+        patch.imageField === 'partImages' ? 'partImagePublicIds' : 'billImagePublicIds';
+      const addToSet: Record<string, string> = { [patch.imageField]: patch.url };
+      if (patch.publicId) {
+        addToSet[publicIdField] = patch.publicId;
+      }
+
       const result = await inventoryCollection.findOneAndUpdate(
         { _id: objectId, userId },
         {
-          $addToSet: { [patch.imageField]: patch.url },
+          $addToSet: addToSet,
           $set: { updatedAt },
         },
         { returnDocument: 'after' }
@@ -401,6 +419,35 @@ export async function DELETE(
 
     const db = await getDb();
     const inventoryCollection = db.collection('inventory');
+    const item = await inventoryCollection.findOne({ _id: objectId, userId });
+
+    if (!item) {
+      return NextResponse.json({ error: 'Inventory item not found' }, { status: 404 });
+    }
+
+    const assetRefs = [
+      ...cloudinaryAssetsFromFields({
+        publicIds: item.partImagePublicIds || [],
+        urls: item.partImages || [],
+        defaultResourceType: 'image',
+      }),
+      ...cloudinaryAssetsFromFields({
+        publicIds: item.billImagePublicIds || [],
+        urls: item.billImages || [],
+        defaultResourceType: 'image',
+      }),
+    ];
+
+    try {
+      await deleteCloudinaryAssets(assetRefs);
+    } catch (error) {
+      console.error('Failed to delete inventory item assets:', error);
+      return NextResponse.json(
+        { error: 'Failed to delete associated uploaded files' },
+        { status: 502 }
+      );
+    }
+
     const result = await inventoryCollection.deleteOne({ _id: objectId, userId });
 
     if (result.deletedCount === 0) {

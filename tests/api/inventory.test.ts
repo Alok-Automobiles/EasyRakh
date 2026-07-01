@@ -51,6 +51,7 @@ const validInventoryBody = {
   location: 'front shelf',
   unitOfMeasure: 'pcs',
   partImages: ['https://res.cloudinary.com/demo/image/upload/part.jpg'],
+  partImagePublicIds: ['inventory/part'],
   brand: 'bosch',
   description: 'front wheel set',
   buyingPrice: 450,
@@ -58,6 +59,7 @@ const validInventoryBody = {
   supplier: 'metro supplies',
   billingDate: '2026-06-20',
   billImages: ['https://res.cloudinary.com/demo/image/upload/bill.jpg'],
+  billImagePublicIds: ['inventory/bill'],
 };
 
 describe('/api/inventory', () => {
@@ -180,6 +182,8 @@ describe('/api/inventory', () => {
         brand: 'BOSCH',
         description: 'FRONT WHEEL SET',
         supplier: 'METRO SUPPLIES',
+        partImagePublicIds: ['inventory/part'],
+        billImagePublicIds: ['inventory/bill'],
         quantity: 8,
         lastQuantityUpdatedAt: expect.any(Date),
         createdAt: expect.any(Date),
