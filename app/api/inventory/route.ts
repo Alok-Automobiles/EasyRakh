@@ -55,6 +55,7 @@ const inventoryItemSchema = z.object({
   location: z.string().trim().min(1, 'Location is required'),
   unitOfMeasure: z.string().trim().min(1, 'Unit of measure is required'),
   partImages: z.array(z.string().url('Invalid part image URL')).optional(),
+  partImagePublicIds: z.array(z.string().trim().min(1)).optional(),
   brand: z.string().trim().optional(),
   description: z.string().trim().optional(),
   buyingPrice: z.number().min(0, 'Buying price cannot be negative').optional().nullable(),
@@ -62,6 +63,7 @@ const inventoryItemSchema = z.object({
   supplier: z.string().trim().optional(),
   billingDate: optionalDateSchema,
   billImages: z.array(z.string().url('Invalid bill image URL')).optional(),
+  billImagePublicIds: z.array(z.string().trim().min(1)).optional(),
 });
 
 function escapeRegex(value: string) {
@@ -78,6 +80,7 @@ function serializeInventoryItem(item: InventoryItem & { _id: { toString(): strin
     location: item.location || '',
     unitOfMeasure: item.unitOfMeasure || '',
     partImages: item.partImages || [],
+    partImagePublicIds: item.partImagePublicIds || [],
     brand: item.brand || '',
     description: item.description || '',
     buyingPrice: item.buyingPrice ?? undefined,
@@ -85,6 +88,7 @@ function serializeInventoryItem(item: InventoryItem & { _id: { toString(): strin
     supplier: item.supplier || '',
     billingDate: item.billingDate,
     billImages: item.billImages || [],
+    billImagePublicIds: item.billImagePublicIds || [],
     lastQuantityUpdatedAt: item.lastQuantityUpdatedAt,
     createdAt: item.createdAt,
     updatedAt: item.updatedAt,
@@ -100,6 +104,7 @@ function normalizeItemInput(data: z.infer<typeof inventoryItemSchema>) {
     location: data.location,
     unitOfMeasure: data.unitOfMeasure,
     partImages: data.partImages || [],
+    partImagePublicIds: data.partImagePublicIds || [],
     brand: data.brand || '',
     description: data.description || '',
     buyingPrice: data.buyingPrice ?? undefined,
@@ -107,6 +112,7 @@ function normalizeItemInput(data: z.infer<typeof inventoryItemSchema>) {
     supplier: data.supplier || '',
     billingDate: data.billingDate,
     billImages: data.billImages || [],
+    billImagePublicIds: data.billImagePublicIds || [],
   });
 }
 

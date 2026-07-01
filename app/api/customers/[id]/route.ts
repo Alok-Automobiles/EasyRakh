@@ -4,6 +4,10 @@ import { getUserIdFromRequest } from '@/lib/auth';
 import { z } from 'zod';
 import { ObjectId } from 'mongodb';
 import redis from '@/lib/redis';
+import {
+  cloudinaryAssetsFromFields,
+  deleteCloudinaryAssets,
+} from '@/lib/cloudinary-cleanup';
 
 const customerSchema = z.object({
   name: z.string().min(1, 'Name is required'),
@@ -164,13 +168,51 @@ export async function DELETE(
     const db = await getDb();
     const customersCollection = db.collection('customers');
     const transactionsCollection = db.collection('transactions');
+    const customer = await customersCollection.findOne({
+      _id: new ObjectId(id),
+      userId,
+    });
 
-    await transactionsCollection.deleteMany({
+    if (!customer) {
+      return NextResponse.json(
+        { error: 'Customer not found' },
+        { status: 404 }
+      );
+    }
+
+    const transactionDeleteFilter = {
       $or: [
         { customerId: id, userId },
         { entityId: id, entityType: 'customer', userId }
       ]
-    });
+    };
+    const transactionsToDelete = await transactionsCollection
+      .find(transactionDeleteFilter, { projection: { billPublicId: 1, billUrl: 1 } })
+      .toArray();
+    const assetRefs = [
+      ...cloudinaryAssetsFromFields({
+        publicIds: [customer.openingBalanceBillPublicId],
+        urls: [customer.openingBalanceBillUrl],
+      }),
+      ...transactionsToDelete.flatMap((transaction) =>
+        cloudinaryAssetsFromFields({
+          publicIds: [transaction.billPublicId],
+          urls: [transaction.billUrl],
+        })
+      ),
+    ];
+
+    try {
+      await deleteCloudinaryAssets(assetRefs);
+    } catch (error) {
+      console.error('Failed to delete customer assets:', error);
+      return NextResponse.json(
+        { error: 'Failed to delete associated uploaded files' },
+        { status: 502 }
+      );
+    }
+
+    await transactionsCollection.deleteMany(transactionDeleteFilter);
 
     const result = await customersCollection.deleteOne({
       _id: new ObjectId(id),
@@ -199,4 +241,3 @@ export async function DELETE(
     );
   }
 }
-

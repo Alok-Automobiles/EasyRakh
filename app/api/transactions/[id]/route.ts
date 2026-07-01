@@ -4,7 +4,10 @@ import { getUserIdFromRequest } from '@/lib/auth';
 import { z } from 'zod';
 import { ObjectId } from 'mongodb';
 import redis from '@/lib/redis';
-import { deleteAsset } from '@/lib/cloudinary';
+import {
+  cloudinaryAssetsFromFields,
+  deleteCloudinaryAssets,
+} from '@/lib/cloudinary-cleanup';
 
 const transactionSchema = z
   .object({
@@ -169,9 +172,18 @@ export async function PUT(
 
     if ((removingBill || replacingBill) && existingPublicId) {
       try {
-        await deleteAsset(existingPublicId);
+        await deleteCloudinaryAssets(
+          cloudinaryAssetsFromFields({
+            publicIds: [existingPublicId],
+            urls: [existingTransaction.billUrl],
+          })
+        );
       } catch (error) {
-        console.warn('Failed to delete existing bill asset:', error);
+        console.error('Failed to delete existing bill asset:', error);
+        return NextResponse.json(
+          { error: 'Failed to delete associated uploaded files' },
+          { status: 502 }
+        );
       }
     }
 
@@ -302,12 +314,19 @@ export async function DELETE(
       );
     }
 
-    if (transaction.billPublicId) {
-      try {
-        await deleteAsset(transaction.billPublicId);
-      } catch (error) {
-        console.warn('Failed to delete bill asset during transaction delete:', error);
-      }
+    try {
+      await deleteCloudinaryAssets(
+        cloudinaryAssetsFromFields({
+          publicIds: [transaction.billPublicId],
+          urls: [transaction.billUrl],
+        })
+      );
+    } catch (error) {
+      console.error('Failed to delete bill asset during transaction delete:', error);
+      return NextResponse.json(
+        { error: 'Failed to delete associated uploaded files' },
+        { status: 502 }
+      );
     }
 
     const result = await transactionsCollection.deleteOne({
@@ -352,4 +371,3 @@ export async function DELETE(
     );
   }
 }
-

@@ -122,6 +122,7 @@ const inventoryItemSchema = z.object({
   location: z.string().min(1, 'Location is required'),
   unitOfMeasure: z.string().min(1, 'Unit is required'),
   partImages: z.array(z.string()).default([]),
+  partImagePublicIds: z.array(z.string()).default([]),
   brand: z.string().optional(),
   description: z.string().optional(),
   buyingPrice: z.number().min(0, 'Buying price cannot be negative').optional(),
@@ -133,6 +134,7 @@ const inventoryItemSchema = z.object({
     .refine((s) => !s?.trim() || /^\d{2}\/\d{2}\/\d{4}$/.test(s.trim()), 'Use DD/MM/YYYY')
     .refine((s) => !s?.trim() || parseDdMmYyyyToIsoDate(s.trim()) !== undefined, 'Invalid billing date'),
   billImages: z.array(z.string()).default([]),
+  billImagePublicIds: z.array(z.string()).default([]),
 });
 
 type InventoryItemForm = z.input<typeof inventoryItemSchema>;
@@ -149,6 +151,7 @@ interface InventoryItem {
   location: string;
   unitOfMeasure: string;
   partImages: string[];
+  partImagePublicIds: string[];
   brand?: string;
   description?: string;
   buyingPrice?: number;
@@ -156,6 +159,7 @@ interface InventoryItem {
   supplier?: string;
   billingDate?: string;
   billImages: string[];
+  billImagePublicIds: string[];
   lastQuantityUpdatedAt?: string;
   createdAt: string;
   updatedAt: string;
@@ -192,6 +196,7 @@ const defaultFormValues: InventoryItemForm = {
   location: '',
   unitOfMeasure: 'pcs',
   partImages: [],
+  partImagePublicIds: [],
   brand: '',
   description: '',
   buyingPrice: undefined,
@@ -199,6 +204,7 @@ const defaultFormValues: InventoryItemForm = {
   supplier: '',
   billingDate: '',
   billImages: [],
+  billImagePublicIds: [],
 };
 
 const statusTabs: Array<{ value: StatusFilter; label: string }> = [
@@ -323,8 +329,28 @@ function normalizeSubmission(values: InventoryItemForm) {
     supplier: values.supplier?.trim() || '',
     billingDate: parseDdMmYyyyToIsoDate(values.billingDate?.trim() || '') || undefined,
     partImages: values.partImages || [],
+    partImagePublicIds: values.partImagePublicIds || [],
     billImages: values.billImages || [],
+    billImagePublicIds: values.billImagePublicIds || [],
   };
+}
+
+function getImagePublicIdField(fieldName: 'partImages' | 'billImages') {
+  return fieldName === 'partImages' ? 'partImagePublicIds' : 'billImagePublicIds';
+}
+
+function mapImagePublicIds(
+  urls?: string[],
+  publicIds?: string[],
+  existing = new Map<string, string>()
+) {
+  (urls || []).forEach((url, index) => {
+    const publicId = publicIds?.[index];
+    if (url && publicId) {
+      existing.set(url, publicId);
+    }
+  });
+  return existing;
 }
 
 function ItemImageCarousel({ images, itemName }: { images: string[]; itemName: string }) {
@@ -1238,7 +1264,17 @@ export default function InventoryItemsPage() {
         });
 
         (['partImages', 'billImages'] as const).forEach((fieldName) => {
+          const publicIdField = getImagePublicIdField(fieldName);
           const serverUrls = new Set((result.item?.[fieldName] || []) as string[]);
+          const publicIdByUrl = mapImagePublicIds(
+            (values[fieldName] || []) as string[],
+            (values[publicIdField] || []) as string[]
+          );
+          mapImagePublicIds(
+            (form.getValues(fieldName) || []) as string[],
+            (form.getValues(publicIdField) || []) as string[],
+            publicIdByUrl
+          );
           const latestUrls = Array.from(
             new Set([
               ...(((values[fieldName] || []) as string[])),
@@ -1247,7 +1283,7 @@ export default function InventoryItemsPage() {
           );
           latestUrls
             .filter((url) => !serverUrls.has(url))
-            .forEach((url) => attachImageToSavedItem(savedItemId, fieldName, url));
+            .forEach((url) => attachImageToSavedItem(savedItemId, fieldName, url, publicIdByUrl.get(url)));
         });
       }
       pendingUploadIdsAtSubmitRef.current = new Set();
@@ -1472,6 +1508,7 @@ export default function InventoryItemsPage() {
       location: item.location,
       unitOfMeasure: normalizeUnitForForm(item.unitOfMeasure || ''),
       partImages: item.partImages || [],
+      partImagePublicIds: item.partImagePublicIds || [],
       brand: item.brand || '',
       description: item.description || '',
       buyingPrice: item.buyingPrice,
@@ -1479,19 +1516,20 @@ export default function InventoryItemsPage() {
       supplier: item.supplier || '',
       billingDate: isoOrStoredDateToDdMmYyyy(item.billingDate),
       billImages: item.billImages || [],
+      billImagePublicIds: item.billImagePublicIds || [],
     });
     setFormOpen(true);
   };
 
   const attachImageToSavedItem = useCallback(
-    (itemId: string, fieldName: 'partImages' | 'billImages', url: string) => {
+    (itemId: string, fieldName: 'partImages' | 'billImages', url: string, publicId?: string) => {
       const run = backgroundAttachQueueRef.current
         .catch(() => undefined)
         .then(async () => {
           const response = await fetch(`/api/inventory/${itemId}`, {
             method: 'PATCH',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ imageField: fieldName, url }),
+            body: JSON.stringify({ imageField: fieldName, url, publicId }),
           });
           const result = await response.json();
           if (!response.ok) throw new Error(result.error || 'Failed to attach uploaded image');
@@ -1556,13 +1594,16 @@ export default function InventoryItemsPage() {
         if (!response.ok) throw new Error(result.error || 'Upload failed');
 
         const fieldName = kind === 'part' ? 'partImages' : 'billImages';
+        const publicIdField = getImagePublicIdField(fieldName);
         const savedItemId = uploadTargetByTempIdRef.current.get(tempId);
         if (!canceledUploadIdsRef.current.has(tempId)) {
           if (savedItemId) {
-            attachImageToSavedItem(savedItemId, fieldName, result.url);
+            attachImageToSavedItem(savedItemId, fieldName, result.url, result.publicId);
           } else {
             const currentUrls = (form.getValues(fieldName) || []) as string[];
+            const currentPublicIds = (form.getValues(publicIdField) || []) as string[];
             form.setValue(fieldName, [...currentUrls, result.url], { shouldDirty: true });
+            form.setValue(publicIdField, [...currentPublicIds, result.publicId], { shouldDirty: true });
           }
         }
 
@@ -1655,8 +1696,15 @@ export default function InventoryItemsPage() {
   };
 
   const removeImage = (fieldName: 'partImages' | 'billImages', url: string) => {
-    const nextUrls = ((form.getValues(fieldName) || []) as string[]).filter((item) => item !== url);
+    const currentUrls = (form.getValues(fieldName) || []) as string[];
+    const removeIndex = currentUrls.findIndex((item) => item === url);
+    const nextUrls = currentUrls.filter((_, index) => index !== removeIndex);
+    const publicIdField = getImagePublicIdField(fieldName);
+    const nextPublicIds = ((form.getValues(publicIdField) || []) as string[]).filter(
+      (_, index) => index !== removeIndex
+    );
     form.setValue(fieldName, nextUrls, { shouldDirty: true });
+    form.setValue(publicIdField, nextPublicIds, { shouldDirty: true });
   };
 
   const hasItemNumberConflict = itemNumberCheck.status === 'duplicate';
