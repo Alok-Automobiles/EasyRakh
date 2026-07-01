@@ -106,7 +106,7 @@ export default function Header() {
 
   const handleLogout = async () => {
     await fetch('/api/auth/logout', { method: 'POST' });
-    router.push('/login');
+    router.push('/');
     router.refresh();
   };
 
@@ -152,7 +152,7 @@ export default function Header() {
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="flex justify-between items-center h-16">
           <div className="flex items-center space-x-8">
-            <Link href="/" className="flex items-center">
+            <Link href="/?view=landing" className="flex items-center">
               <Image
                 src="/logo.png"
                 alt="EasyRakh logo"

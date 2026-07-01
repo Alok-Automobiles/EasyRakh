@@ -4,6 +4,7 @@ import type { NextRequest } from 'next/server';
 export function middleware(request: NextRequest) {
   const token = request.cookies.get('token')?.value;
   const { pathname } = request.nextUrl;
+  const shouldShowLanding = request.nextUrl.searchParams.get('view') === 'landing';
 
   if (pathname === '/forgot-password' || pathname.startsWith('/forgot-password/')) {
     return NextResponse.next();
@@ -17,6 +18,10 @@ export function middleware(request: NextRequest) {
 
   if (!token && !isPublicRoute) {
     return NextResponse.redirect(new URL('/login', request.url));
+  }
+
+  if (token && pathname === '/' && !shouldShowLanding) {
+    return NextResponse.redirect(new URL('/dashboard', request.url));
   }
 
   if (token && (pathname === '/login' || pathname === '/register')) {
@@ -42,4 +47,3 @@ export const config = {
     '/((?!api|_next/static|_next/image|favicon\\.ico$|sitemap\\.xml$|robots\\.txt$|manifest\\.json$|sw\\.js$|forgot-password|.*\\.(?:svg|png|jpg|jpeg|gif|webp)$).*)',
   ],
 };
-

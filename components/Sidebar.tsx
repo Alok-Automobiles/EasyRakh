@@ -150,7 +150,7 @@ export default function Sidebar({ collapsed = false }: SidebarProps) {
 
   const handleLogout = useCallback(async () => {
     await fetch('/api/auth/logout', { method: 'POST' });
-    router.push('/login');
+    router.push('/');
     router.refresh();
   }, [router]);
 
@@ -186,7 +186,7 @@ export default function Sidebar({ collapsed = false }: SidebarProps) {
       >
         <div className="relative flex w-full items-center justify-center">
           <Link
-            href="/"
+            href="/?view=landing"
             className="flex min-w-0 items-center justify-center"
             aria-label="Go to home"
           >
@@ -205,7 +205,7 @@ export default function Sidebar({ collapsed = false }: SidebarProps) {
           />
         </div>
         {!effectiveCollapsed && (
-          <Link href="/" className="block min-w-0 text-center">
+          <Link href="/?view=landing" className="block min-w-0 text-center">
             <span className="block truncate text-[11px] leading-4 text-gray-500">
               Ek ek rupaye ka hisaab, ek screen par.
             </span>
