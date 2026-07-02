@@ -8,6 +8,9 @@ export interface User {
   firmPhone?: string;
   firmEmail?: string;
   firmAddress?: string;
+  lastLoginAt?: Date;
+  lastActiveAt?: Date;
+  loginCount?: number;
   createdAt: Date;
 }
 

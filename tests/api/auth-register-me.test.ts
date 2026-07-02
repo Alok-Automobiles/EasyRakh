@@ -39,6 +39,7 @@ describe('auth register and profile routes', () => {
     mocks.getUserIdFromRequest.mockReset();
     mocks.getDb.mockReset();
     mocks.checkRateLimit.mockReset();
+    process.env.ADMIN_EMAILS = '';
     mocks.checkRateLimit.mockResolvedValue(null);
     mocks.hash.mockResolvedValue('hashed-password');
     mocks.generateToken.mockReturnValue('signed-token');
@@ -164,5 +165,73 @@ describe('auth register and profile routes', () => {
       firmTitle: 'Updated Firm',
     });
     expect(body.user).not.toHaveProperty('password');
+  });
+
+  it('returns admin status and refreshes stale activity timestamps', async () => {
+    process.env.ADMIN_EMAILS = 'owner@example.com';
+    mocks.getUserIdFromRequest.mockReturnValue(ids.user);
+    const updateOne = vi.fn().mockResolvedValue({ matchedCount: 1 });
+    const findOne = vi.fn().mockResolvedValue({
+      _id: objectIdLike(ids.user),
+      name: 'Shop Owner',
+      email: 'owner@example.com',
+      firmTitle: '',
+      gstNumber: '',
+      firmPhone: '',
+      firmEmail: '',
+      firmAddress: '',
+      lastActiveAt: new Date(Date.now() - 20 * 60 * 1000),
+    });
+    mocks.getDb.mockResolvedValue({
+      collection: vi.fn(() => ({ findOne, updateOne })),
+    });
+
+    const { GET } = await import('@/app/api/auth/me/route');
+    const response = await GET(jsonRequest('http://localhost/api/auth/me'));
+
+    expect(response.status).toBe(200);
+    expect(updateOne).toHaveBeenCalledWith(
+      { _id: expect.any(Object) },
+      { $set: { lastActiveAt: expect.any(Date) } }
+    );
+    await expect(response.json()).resolves.toMatchObject({
+      user: {
+        id: ids.user,
+        email: 'owner@example.com',
+        isAdmin: true,
+      },
+    });
+  });
+
+  it('does not refresh activity timestamps inside the throttle window', async () => {
+    mocks.getUserIdFromRequest.mockReturnValue(ids.user);
+    const updateOne = vi.fn().mockResolvedValue({ matchedCount: 1 });
+    const findOne = vi.fn().mockResolvedValue({
+      _id: objectIdLike(ids.user),
+      name: 'Shop Owner',
+      email: 'owner@example.com',
+      firmTitle: '',
+      gstNumber: '',
+      firmPhone: '',
+      firmEmail: '',
+      firmAddress: '',
+      lastActiveAt: new Date(Date.now() - 5 * 60 * 1000),
+    });
+    mocks.getDb.mockResolvedValue({
+      collection: vi.fn(() => ({ findOne, updateOne })),
+    });
+
+    const { GET } = await import('@/app/api/auth/me/route');
+    const response = await GET(jsonRequest('http://localhost/api/auth/me'));
+
+    expect(response.status).toBe(200);
+    expect(updateOne).not.toHaveBeenCalled();
+    await expect(response.json()).resolves.toMatchObject({
+      user: {
+        id: ids.user,
+        email: 'owner@example.com',
+        isAdmin: false,
+      },
+    });
   });
 });

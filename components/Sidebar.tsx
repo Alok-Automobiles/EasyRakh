@@ -20,7 +20,8 @@ import {
   User,
   FileText,
   Settings,
-  Boxes
+  Boxes,
+  Activity
 } from 'lucide-react';
 import {
   DropdownMenu,
@@ -38,7 +39,7 @@ type SidebarProps = {
 export default function Sidebar({ collapsed = false }: SidebarProps) {
   const router = useRouter();
   const pathname = usePathname();
-  const [user, setUser] = useState<{ name: string; email: string } | null>(null);
+  const [user, setUser] = useState<{ name: string; email: string; isAdmin?: boolean } | null>(null);
   const [loading, setLoading] = useState(true);
   const lastPathnameRef = useRef<string>('');
   const [isMobileOpen, setIsMobileOpen] = useState(false);
@@ -154,16 +155,28 @@ export default function Sidebar({ collapsed = false }: SidebarProps) {
     router.refresh();
   }, [router]);
 
-  const navLinks = useMemo(() => [
-    { href: '/dashboard', label: 'Dashboard', icon: LayoutDashboard },
-    { href: '/customers', label: 'Customers', icon: Users },
-    { href: '/suppliers', label: 'Suppliers', icon: Building2 },
-    { href: '/transactions/new', label: 'New Transaction', icon: PlusCircle },
-    { href: '/invoices', label: 'Invoices', icon: FileText },
-    { href: '/inventory', label: 'Inventory', icon: Boxes },
-    { href: '/daily-cash-record', label: 'Cash Record', icon: Wallet },
-    { href: '/notes', label: 'Notes', icon: StickyNote },
-  ], []);
+  const navLinks = useMemo(() => {
+    const links = [
+      { href: '/dashboard', label: 'Dashboard', icon: LayoutDashboard },
+      { href: '/customers', label: 'Customers', icon: Users },
+      { href: '/suppliers', label: 'Suppliers', icon: Building2 },
+      { href: '/transactions/new', label: 'New Transaction', icon: PlusCircle },
+      { href: '/invoices', label: 'Invoices', icon: FileText },
+      { href: '/inventory', label: 'Inventory', icon: Boxes },
+      { href: '/daily-cash-record', label: 'Cash Record', icon: Wallet },
+      { href: '/notes', label: 'Notes', icon: StickyNote },
+    ];
+
+    if (user?.isAdmin) {
+      links.push({
+        href: '/admin/usage',
+        label: 'User Activity Dashboard',
+        icon: Activity,
+      });
+    }
+
+    return links;
+  }, [user?.isAdmin]);
 
   const isActive = useCallback((href: string) => {
     if (href === '/dashboard') {
@@ -228,7 +241,7 @@ export default function Sidebar({ collapsed = false }: SidebarProps) {
               }`}
             >
               <Icon className={`h-5 w-5 ${active ? 'text-blue-600' : 'text-gray-500'}`} />
-              {!effectiveCollapsed && <span>{link.label}</span>}
+              {!effectiveCollapsed && <span className="truncate">{link.label}</span>}
               {effectiveCollapsed && <span className="sr-only">{link.label}</span>}
             </Link>
           );

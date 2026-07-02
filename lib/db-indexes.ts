@@ -36,6 +36,8 @@ export async function initializeIndexes(db: Db): Promise<void> {
 
       users.createIndex({ email: 1 }, { unique: true }),
       users.createIndex({ userId: 1 }),
+      users.createIndex({ lastActiveAt: -1 }),
+      users.createIndex({ lastLoginAt: -1 }),
 
       collectionTypes.createIndex({ userId: 1, slug: 1 }, { unique: true }),
       collectionTypes.createIndex({ userId: 1, createdAt: -1 }),
