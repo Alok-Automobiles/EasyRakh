@@ -58,11 +58,48 @@ const dateFormatter = new Intl.DateTimeFormat('en-IN', {
   timeStyle: 'short',
 });
 
+const tableDateFormatter = new Intl.DateTimeFormat('en-IN', {
+  day: 'numeric',
+  month: 'short',
+  year: '2-digit',
+});
+
+const tableTimeFormatter = new Intl.DateTimeFormat('en-IN', {
+  hour: 'numeric',
+  minute: '2-digit',
+});
+
 function formatDate(value: string | null) {
   if (!value) return 'Never';
   const date = new Date(value);
   if (!Number.isFinite(date.getTime())) return 'Never';
   return dateFormatter.format(date);
+}
+
+function getTableDateParts(value: string | null) {
+  if (!value) return null;
+  const date = new Date(value);
+  if (!Number.isFinite(date.getTime())) return null;
+
+  return {
+    date: tableDateFormatter.format(date),
+    time: tableTimeFormatter.format(date),
+  };
+}
+
+function ActivityDate({ value }: { value: string | null }) {
+  const parts = getTableDateParts(value);
+
+  if (!parts) {
+    return <span className="text-gray-500">Never</span>;
+  }
+
+  return (
+    <span className="block leading-tight">
+      <span className="block whitespace-nowrap">{parts.date}</span>
+      <span className="block whitespace-nowrap text-xs text-gray-500">{parts.time}</span>
+    </span>
+  );
 }
 
 function getActivityAgeMs(value: string | null) {
@@ -380,16 +417,16 @@ export default function AdminUsageClient() {
           </div>
         </CardHeader>
         <CardContent className="px-0">
-          <Table className="min-w-[1080px] table-fixed">
+          <Table className="min-w-[860px] table-fixed text-sm">
             <TableHeader>
               <TableRow className="bg-gray-50">
-                <TableHead className="w-[190px] px-4">User</TableHead>
-                <TableHead className="w-[240px]">Email</TableHead>
-                <TableHead className="w-[165px]">Created</TableHead>
-                <TableHead className="w-[165px]">Last Login</TableHead>
-                <TableHead className="w-[165px]">Last Active</TableHead>
-                <TableHead className="w-[90px] text-right">Logins</TableHead>
-                <TableHead className="w-[150px] px-4">Status</TableHead>
+                <TableHead className="w-[17%] px-4">User</TableHead>
+                <TableHead className="w-[23%]">Email</TableHead>
+                <TableHead className="w-[12%]">Created</TableHead>
+                <TableHead className="w-[12%]">Last Login</TableHead>
+                <TableHead className="w-[12%]">Last Active</TableHead>
+                <TableHead className="w-[8%] text-right">Logins</TableHead>
+                <TableHead className="w-[16%] px-4">Status</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
@@ -414,13 +451,19 @@ export default function AdminUsageClient() {
                           {user.email || '-'}
                         </div>
                       </TableCell>
-                      <TableCell>{formatDate(user.createdAt)}</TableCell>
-                      <TableCell>{formatDate(user.lastLoginAt)}</TableCell>
-                      <TableCell>{formatDate(user.lastActiveAt)}</TableCell>
+                      <TableCell className="whitespace-normal">
+                        <ActivityDate value={user.createdAt} />
+                      </TableCell>
+                      <TableCell className="whitespace-normal">
+                        <ActivityDate value={user.lastLoginAt} />
+                      </TableCell>
+                      <TableCell className="whitespace-normal">
+                        <ActivityDate value={user.lastActiveAt} />
+                      </TableCell>
                       <TableCell className="text-right tabular-nums">
                         {user.loginCount.toLocaleString('en-IN')}
                       </TableCell>
-                      <TableCell className="px-4">
+                      <TableCell className="px-4 whitespace-nowrap">
                         <Badge variant="outline" className={status.className}>
                           {status.label}
                         </Badge>
