@@ -380,16 +380,16 @@ export default function AdminUsageClient() {
           </div>
         </CardHeader>
         <CardContent className="px-0">
-          <Table>
+          <Table className="min-w-[1080px] table-fixed">
             <TableHeader>
               <TableRow className="bg-gray-50">
-                <TableHead className="px-4">User</TableHead>
-                <TableHead>Email</TableHead>
-                <TableHead>Created</TableHead>
-                <TableHead>Last Login</TableHead>
-                <TableHead>Last Active</TableHead>
-                <TableHead className="text-right">Logins</TableHead>
-                <TableHead className="px-4">Status</TableHead>
+                <TableHead className="w-[190px] px-4">User</TableHead>
+                <TableHead className="w-[240px]">Email</TableHead>
+                <TableHead className="w-[165px]">Created</TableHead>
+                <TableHead className="w-[165px]">Last Login</TableHead>
+                <TableHead className="w-[165px]">Last Active</TableHead>
+                <TableHead className="w-[90px] text-right">Logins</TableHead>
+                <TableHead className="w-[150px] px-4">Status</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
@@ -405,9 +405,15 @@ export default function AdminUsageClient() {
                   return (
                     <TableRow key={user.id}>
                       <TableCell className="px-4 font-medium text-gray-950">
-                        {user.name}
+                        <div className="truncate" title={user.name}>
+                          {user.name}
+                        </div>
                       </TableCell>
-                      <TableCell className="text-gray-600">{user.email || '-'}</TableCell>
+                      <TableCell className="text-gray-600">
+                        <div className="truncate" title={user.email || '-'}>
+                          {user.email || '-'}
+                        </div>
+                      </TableCell>
                       <TableCell>{formatDate(user.createdAt)}</TableCell>
                       <TableCell>{formatDate(user.lastLoginAt)}</TableCell>
                       <TableCell>{formatDate(user.lastActiveAt)}</TableCell>
