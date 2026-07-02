@@ -72,19 +72,21 @@ describe('AdminUsageClient', () => {
     expect(await screen.findByText('User Activity Dashboard')).toBeInTheDocument();
     expect(screen.getByText('Active Last 24 Hours')).toBeInTheDocument();
     expect(screen.getByText('New Users Last 7 Days')).toBeInTheDocument();
-    expect(screen.getByText('Admin User')).toBeInTheDocument();
-    expect(screen.getByText('Quiet User')).toBeInTheDocument();
+    expect(screen.getAllByText('Admin User').length).toBeGreaterThan(0);
+    expect(screen.getAllByText('Quiet User').length).toBeGreaterThan(0);
 
     await user.click(screen.getByRole('button', { name: 'Inactive' }));
 
     expect(screen.queryByText('Admin User')).not.toBeInTheDocument();
-    expect(screen.getByText('Quiet User')).toBeInTheDocument();
+    expect(screen.getAllByText('Quiet User').length).toBeGreaterThan(0);
 
     fireEvent.change(screen.getByPlaceholderText('Search users'), {
       target: { value: 'missing' },
     });
 
-    expect(await screen.findByText('No users match the current search or filter.')).toBeInTheDocument();
+    expect(
+      (await screen.findAllByText('No users match the current search or filter.')).length
+    ).toBeGreaterThan(0);
   });
 
   it('shows an access denied state for non-admin users', async () => {

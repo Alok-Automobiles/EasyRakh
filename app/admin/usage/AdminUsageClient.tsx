@@ -417,19 +417,81 @@ export default function AdminUsageClient() {
           </div>
         </CardHeader>
         <CardContent className="px-0">
-          <Table className="min-w-[860px] table-fixed text-sm">
-            <TableHeader>
-              <TableRow className="bg-gray-50">
-                <TableHead className="w-[17%] px-4">User</TableHead>
-                <TableHead className="w-[23%]">Email</TableHead>
-                <TableHead className="w-[12%]">Created</TableHead>
-                <TableHead className="w-[12%]">Last Login</TableHead>
-                <TableHead className="w-[12%]">Last Active</TableHead>
-                <TableHead className="w-[8%] text-right">Logins</TableHead>
-                <TableHead className="w-[16%] px-4">Status</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
+          <div className="divide-y divide-gray-100 md:hidden">
+            {filteredUsers.length === 0 ? (
+              <div className="px-4 py-10 text-center text-sm text-gray-500">
+                No users match the current search or filter.
+              </div>
+            ) : (
+              filteredUsers.map((user) => {
+                const status = getActivityStatus(user);
+                return (
+                  <div key={user.id} className="space-y-4 px-4 py-4">
+                    <div className="flex items-start justify-between gap-3">
+                      <div className="min-w-0">
+                        <p className="truncate font-semibold text-gray-950" title={user.name}>
+                          {user.name}
+                        </p>
+                        <p className="truncate text-sm text-gray-500" title={user.email || '-'}>
+                          {user.email || '-'}
+                        </p>
+                      </div>
+                      <Badge
+                        variant="outline"
+                        className={`shrink-0 ${status.className}`}
+                      >
+                        {status.label}
+                      </Badge>
+                    </div>
+
+                    <div className="grid grid-cols-2 gap-3 text-sm">
+                      <div>
+                        <p className="text-xs font-semibold uppercase tracking-wide text-gray-500">
+                          Created
+                        </p>
+                        <ActivityDate value={user.createdAt} />
+                      </div>
+                      <div>
+                        <p className="text-xs font-semibold uppercase tracking-wide text-gray-500">
+                          Logins
+                        </p>
+                        <p className="font-semibold tabular-nums text-gray-950">
+                          {user.loginCount.toLocaleString('en-IN')}
+                        </p>
+                      </div>
+                      <div>
+                        <p className="text-xs font-semibold uppercase tracking-wide text-gray-500">
+                          Last Login
+                        </p>
+                        <ActivityDate value={user.lastLoginAt} />
+                      </div>
+                      <div>
+                        <p className="text-xs font-semibold uppercase tracking-wide text-gray-500">
+                          Last Active
+                        </p>
+                        <ActivityDate value={user.lastActiveAt} />
+                      </div>
+                    </div>
+                  </div>
+                );
+              })
+            )}
+          </div>
+
+          <div className="hidden md:block">
+            <Table className="min-w-[860px] table-fixed text-sm">
+              <TableHeader>
+                <TableRow className="bg-gray-50">
+                  <TableHead className="w-[17%] px-4">User</TableHead>
+                  <TableHead className="w-[23%]">Email</TableHead>
+                  <TableHead className="w-[12%]">Created</TableHead>
+                  <TableHead className="w-[12%]">Last Login</TableHead>
+                  <TableHead className="w-[12%]">Last Active</TableHead>
+                  <TableHead className="w-[8%] text-right">Logins</TableHead>
+                  <TableHead className="w-[16%] px-4">Status</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
               {filteredUsers.length === 0 ? (
                 <TableRow>
                   <TableCell colSpan={7} className="h-28 text-center text-gray-500">
@@ -472,8 +534,9 @@ export default function AdminUsageClient() {
                   );
                 })
               )}
-            </TableBody>
-          </Table>
+              </TableBody>
+            </Table>
+          </div>
         </CardContent>
       </Card>
     </div>
