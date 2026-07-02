@@ -1,10 +1,12 @@
 'use client';
 
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import {
   Activity,
   BarChart3,
+  ChevronLeft,
+  ChevronRight,
   Clock3,
   Search,
   ShieldAlert,
@@ -15,6 +17,7 @@ import {
   Users,
 } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
+import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import {
@@ -25,8 +28,11 @@ import {
   TableHeader,
   TableRow,
 } from '@/components/ui/table';
+import { useDebounce } from '@/lib/hooks/useDebounce';
 
 type ActivityFilter = 'all' | '24h' | '7d' | '30d' | 'inactive';
+
+const USERS_PAGE_SIZE = 10;
 
 interface UsageUser {
   id: string;
@@ -50,6 +56,15 @@ interface AdminUsageResponse {
   stickinessRate: number;
   averageLoginCount: number;
   generatedAt: string;
+  pagination: {
+    total: number;
+    totalUsers: number;
+    page: number;
+    pageSize: number;
+    totalPages: number;
+    hasNextPage: boolean;
+    hasPreviousPage: boolean;
+  };
   users: UsageUser[];
 }
 
@@ -156,6 +171,8 @@ export default function AdminUsageClient() {
   const [forbidden, setForbidden] = useState(false);
   const [search, setSearch] = useState('');
   const [activityFilter, setActivityFilter] = useState<ActivityFilter>('all');
+  const [page, setPage] = useState(1);
+  const debouncedSearch = useDebounce(search, 300);
 
   useEffect(() => {
     const controller = new AbortController();
@@ -166,7 +183,17 @@ export default function AdminUsageClient() {
       setForbidden(false);
 
       try {
-        const response = await fetch('/api/admin/usage', {
+        const params = new URLSearchParams({
+          page: String(page),
+          limit: String(USERS_PAGE_SIZE),
+          status: activityFilter,
+        });
+        const query = debouncedSearch.trim();
+        if (query) {
+          params.set('search', query);
+        }
+
+        const response = await fetch(`/api/admin/usage?${params.toString()}`, {
           signal: controller.signal,
           cache: 'no-store',
         });
@@ -197,29 +224,9 @@ export default function AdminUsageClient() {
 
     loadUsage();
     return () => controller.abort();
-  }, [router]);
+  }, [activityFilter, debouncedSearch, page, router]);
 
-  const filteredUsers = useMemo(() => {
-    const query = search.trim().toLowerCase();
-
-    return (data?.users || []).filter((user) => {
-      const status = getActivityStatus(user);
-      const matchesFilter =
-        activityFilter === 'all' ||
-        status.filter === activityFilter ||
-        (activityFilter === '7d' && status.filter === '24h') ||
-        (activityFilter === '30d' && ['24h', '7d'].includes(status.filter));
-
-      const matchesSearch =
-        !query ||
-        user.name.toLowerCase().includes(query) ||
-        user.email.toLowerCase().includes(query);
-
-      return matchesFilter && matchesSearch;
-    });
-  }, [activityFilter, data?.users, search]);
-
-  if (loading) {
+  if (loading && !data) {
     return (
       <div className="space-y-6">
         <div className="h-8 w-64 rounded bg-gray-200 animate-pulse" />
@@ -324,6 +331,18 @@ export default function AdminUsageClient() {
     { label: 'Active 30d', value: '30d' },
     { label: 'Inactive', value: 'inactive' },
   ];
+  const users = data.users;
+  const pagination = data.pagination;
+  const firstVisibleUser =
+    pagination.total === 0 ? 0 : (pagination.page - 1) * pagination.pageSize + 1;
+  const lastVisibleUser = Math.min(pagination.page * pagination.pageSize, pagination.total);
+  const totalUsersLabel = pagination.totalUsers.toLocaleString('en-IN');
+  const listSummary =
+    pagination.total === 0
+      ? `0 users shown from ${totalUsersLabel} total`
+      : `${firstVisibleUser.toLocaleString('en-IN')}-${lastVisibleUser.toLocaleString('en-IN')} of ${pagination.total.toLocaleString('en-IN')} users shown${
+          pagination.total !== pagination.totalUsers ? ` from ${totalUsersLabel} total` : ''
+        }`;
 
   return (
     <div className="space-y-6">
@@ -384,7 +403,7 @@ export default function AdminUsageClient() {
             <div>
               <CardTitle className="text-lg">Registered Users</CardTitle>
               <p className="mt-1 text-sm text-gray-500">
-                {filteredUsers.length.toLocaleString('en-IN')} of {data.users.length.toLocaleString('en-IN')} users shown
+                {listSummary}
               </p>
             </div>
             <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
@@ -392,7 +411,10 @@ export default function AdminUsageClient() {
                 <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400" />
                 <Input
                   value={search}
-                  onChange={(event) => setSearch(event.target.value)}
+                  onChange={(event) => {
+                    setSearch(event.target.value);
+                    setPage(1);
+                  }}
                   placeholder="Search users"
                   className="pl-9"
                 />
@@ -402,7 +424,10 @@ export default function AdminUsageClient() {
                   <button
                     key={filter.value}
                     type="button"
-                    onClick={() => setActivityFilter(filter.value)}
+                    onClick={() => {
+                      setActivityFilter(filter.value);
+                      setPage(1);
+                    }}
                     className={`h-9 rounded-md border px-3 text-sm font-medium transition-colors ${
                       activityFilter === filter.value
                         ? 'border-slate-900 bg-slate-900 text-white'
@@ -416,14 +441,14 @@ export default function AdminUsageClient() {
             </div>
           </div>
         </CardHeader>
-        <CardContent className="px-0">
+        <CardContent className="px-0" aria-busy={loading}>
           <div className="divide-y divide-gray-100 md:hidden">
-            {filteredUsers.length === 0 ? (
+            {users.length === 0 ? (
               <div className="px-4 py-10 text-center text-sm text-gray-500">
                 No users match the current search or filter.
               </div>
             ) : (
-              filteredUsers.map((user) => {
+              users.map((user) => {
                 const status = getActivityStatus(user);
                 return (
                   <div key={user.id} className="space-y-4 px-4 py-4">
@@ -478,7 +503,7 @@ export default function AdminUsageClient() {
             )}
           </div>
 
-          <div className="hidden md:block">
+          <div className="hidden overflow-x-auto md:block">
             <Table className="min-w-[860px] table-fixed text-sm">
               <TableHeader>
                 <TableRow className="bg-gray-50">
@@ -492,14 +517,14 @@ export default function AdminUsageClient() {
                 </TableRow>
               </TableHeader>
               <TableBody>
-              {filteredUsers.length === 0 ? (
+              {users.length === 0 ? (
                 <TableRow>
                   <TableCell colSpan={7} className="h-28 text-center text-gray-500">
                     No users match the current search or filter.
                   </TableCell>
                 </TableRow>
               ) : (
-                filteredUsers.map((user) => {
+                users.map((user) => {
                   const status = getActivityStatus(user);
                   return (
                     <TableRow key={user.id}>
@@ -537,6 +562,38 @@ export default function AdminUsageClient() {
               </TableBody>
             </Table>
           </div>
+          {pagination.totalPages > 1 && (
+            <div className="flex flex-col gap-3 border-t border-gray-100 px-4 py-4 sm:flex-row sm:items-center sm:justify-between sm:px-6">
+              <p className="text-sm text-gray-500">
+                Page {pagination.page.toLocaleString('en-IN')} of{' '}
+                {pagination.totalPages.toLocaleString('en-IN')}
+              </p>
+              <div className="flex gap-2">
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setPage(Math.max(1, pagination.page - 1))}
+                  disabled={loading || !pagination.hasPreviousPage}
+                >
+                  <ChevronLeft className="h-4 w-4" />
+                  Previous
+                </Button>
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  onClick={() =>
+                    setPage(Math.min(pagination.totalPages, pagination.page + 1))
+                  }
+                  disabled={loading || !pagination.hasNextPage}
+                >
+                  Next
+                  <ChevronRight className="h-4 w-4" />
+                </Button>
+              </div>
+            </div>
+          )}
         </CardContent>
       </Card>
     </div>

@@ -76,20 +76,25 @@ describe('/api/admin/usage', () => {
       .mockResolvedValueOnce(1)
       .mockResolvedValueOnce(1)
       .mockResolvedValueOnce(0)
-      .mockResolvedValueOnce(1);
+      .mockResolvedValueOnce(1)
+      .mockResolvedValueOnce(2);
     const findOne = vi.fn().mockResolvedValue({ email: 'admin@example.com' });
     const toArray = vi.fn().mockResolvedValue(users);
-    const sort = vi.fn(() => ({ toArray }));
+    const limit = vi.fn(() => ({ toArray }));
+    const skip = vi.fn(() => ({ limit }));
+    const sort = vi.fn(() => ({ skip }));
     const find = vi.fn(() => ({ sort }));
+    const aggregateToArray = vi.fn().mockResolvedValue([{ totalLoginCount: 5 }]);
+    const aggregate = vi.fn(() => ({ toArray: aggregateToArray }));
     mocks.getDb.mockResolvedValue({
-      collection: vi.fn(() => ({ findOne, countDocuments, find })),
+      collection: vi.fn(() => ({ findOne, countDocuments, aggregate, find })),
     });
 
     const { GET } = await import('@/app/api/admin/usage/route');
     const response = await GET(jsonRequest('http://localhost/api/admin/usage'));
 
     expect(response.status).toBe(200);
-    expect(countDocuments).toHaveBeenCalledTimes(6);
+    expect(countDocuments).toHaveBeenCalledTimes(7);
     expect(find).toHaveBeenCalledWith(
       {},
       {
@@ -98,7 +103,17 @@ describe('/api/admin/usage', () => {
         },
       }
     );
+    expect(aggregate).toHaveBeenCalledWith([
+      {
+        $group: {
+          _id: null,
+          totalLoginCount: { $sum: { $ifNull: ['$loginCount', 0] } },
+        },
+      },
+    ]);
     expect(sort).toHaveBeenCalledWith({ lastActiveAt: -1, createdAt: -1 });
+    expect(skip).toHaveBeenCalledWith(0);
+    expect(limit).toHaveBeenCalledWith(10);
     await expect(response.json()).resolves.toMatchObject({
       totalUsers: 2,
       activeLast24Hours: 1,
@@ -110,6 +125,15 @@ describe('/api/admin/usage', () => {
       activeRateLast30Days: 50,
       stickinessRate: 100,
       averageLoginCount: 2.5,
+      pagination: {
+        total: 2,
+        totalUsers: 2,
+        page: 1,
+        pageSize: 10,
+        totalPages: 1,
+        hasNextPage: false,
+        hasPreviousPage: false,
+      },
       users: [
         {
           id: ids.user,
@@ -120,6 +144,96 @@ describe('/api/admin/usage', () => {
           lastActiveAt: '2026-07-02T03:00:00.000Z',
           loginCount: 5,
         },
+        {
+          name: 'Quiet User',
+          email: 'quiet@example.com',
+          lastLoginAt: null,
+          lastActiveAt: null,
+          loginCount: 0,
+        },
+      ],
+    });
+  });
+
+  it('paginates and filters admin user rows from query params', async () => {
+    mocks.getUserIdFromRequest.mockReturnValue(ids.user);
+    const users = [
+      {
+        _id: objectIdLike('507f1f77bcf86cd799439020'),
+        name: 'Quiet User',
+        email: 'quiet@example.com',
+        createdAt: new Date('2026-05-01T10:00:00.000Z'),
+        lastLoginAt: null,
+        lastActiveAt: null,
+        loginCount: 0,
+      },
+    ];
+    const countDocuments = vi
+      .fn()
+      .mockResolvedValueOnce(15)
+      .mockResolvedValueOnce(3)
+      .mockResolvedValueOnce(5)
+      .mockResolvedValueOnce(8)
+      .mockResolvedValueOnce(2)
+      .mockResolvedValueOnce(7)
+      .mockResolvedValueOnce(7);
+    const findOne = vi.fn().mockResolvedValue({ email: 'admin@example.com' });
+    const toArray = vi.fn().mockResolvedValue(users);
+    const limit = vi.fn(() => ({ toArray }));
+    const skip = vi.fn(() => ({ limit }));
+    const sort = vi.fn(() => ({ skip }));
+    const find = vi.fn(() => ({ sort }));
+    const aggregate = vi.fn(() => ({
+      toArray: vi.fn().mockResolvedValue([{ totalLoginCount: 30 }]),
+    }));
+    mocks.getDb.mockResolvedValue({
+      collection: vi.fn(() => ({ findOne, countDocuments, aggregate, find })),
+    });
+
+    const { GET } = await import('@/app/api/admin/usage/route');
+    const response = await GET(
+      jsonRequest('http://localhost/api/admin/usage?search=quiet&status=inactive&page=2&limit=5')
+    );
+
+    const findCalls = find.mock.calls as unknown[][];
+    const countDocumentCalls = countDocuments.mock.calls as unknown[][];
+    const filter = findCalls[0]?.[0] as {
+      $and: Array<{
+        $or: Array<{
+          name?: RegExp;
+          lastActiveAt?: unknown;
+        }>;
+      }>;
+    };
+
+    expect(response.status).toBe(200);
+    expect(countDocuments).toHaveBeenCalledTimes(7);
+    expect(countDocumentCalls[6]?.[0]).toBe(filter);
+    expect(filter.$and).toHaveLength(2);
+    const searchRegex = filter.$and[0]?.$or[0]?.name;
+    expect(searchRegex).toBeInstanceOf(RegExp);
+    expect(searchRegex?.test('Quiet User')).toBe(true);
+    expect(filter.$and[1]?.$or).toEqual(
+      expect.arrayContaining([
+        { lastActiveAt: { $exists: false } },
+        { lastActiveAt: null },
+      ])
+    );
+    expect(skip).toHaveBeenCalledWith(5);
+    expect(limit).toHaveBeenCalledWith(5);
+    await expect(response.json()).resolves.toMatchObject({
+      totalUsers: 15,
+      averageLoginCount: 2,
+      pagination: {
+        total: 7,
+        totalUsers: 15,
+        page: 2,
+        pageSize: 5,
+        totalPages: 2,
+        hasNextPage: false,
+        hasPreviousPage: true,
+      },
+      users: [
         {
           name: 'Quiet User',
           email: 'quiet@example.com',
