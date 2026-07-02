@@ -33,6 +33,7 @@ import InvoiceItemsEditor, {
 } from '@/components/InvoiceItemsEditor';
 import type { EditableInvoiceItem } from '@/components/InvoiceItemsEditor';
 import { Customer } from '@/lib/types';
+import { parseNumberInputOrZero } from '@/lib/number-input';
 
 interface CustomerWithId extends Customer {
   id: string;
@@ -561,8 +562,11 @@ export default function NewInvoicePage() {
                 <Input
                   id="paidAmount"
                   type="number"
+                  inputMode="decimal"
+                  min="0"
+                  step="0.01"
                   value={paidAmount || ''}
-                  onChange={(e) => setPaidAmount(parseFloat(e.target.value) || 0)}
+                  onChange={(e) => setPaidAmount(parseNumberInputOrZero(e.target.value))}
                   placeholder="0"
                   className="mt-1"
                   disabled={status === 'paid' || status === 'unpaid'}

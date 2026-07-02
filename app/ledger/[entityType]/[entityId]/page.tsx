@@ -31,6 +31,7 @@ import { motion } from 'motion/react'
 import PrintLedgerOverlay from '@/components/PrintLedgerOverlay';
 import { ASSISTANT_DATA_UPDATED_EVENT } from '@/lib/assistant-events';
 import { compressImage, isCompressibleImage, formatFileSize } from '@/lib/imageCompression';
+import { parseNumberInput } from '@/lib/number-input';
 
 interface LedgerEntry {
   date: Date;
@@ -52,6 +53,8 @@ const ACCEPTED_BILL_TYPES = [
   'image/heif',
   'application/pdf',
 ];
+
+type EditableAmount = number | '';
 
 interface LedgerData {
   entity: {
@@ -123,7 +126,7 @@ export default function LedgerPage() {
     entityType: string;
     entityId: string;
     type: 'credit' | 'debit';
-    amount: number;
+    amount: EditableAmount;
     description: string;
     date: string;
     billUrl?: string;
@@ -140,7 +143,7 @@ export default function LedgerPage() {
   // Opening balance edit state
   const [openingBalanceModalOpen, setOpeningBalanceModalOpen] = useState(false);
   const [openingBalanceEditData, setOpeningBalanceEditData] = useState<{
-    amount: number;
+    amount: EditableAmount;
     balanceType: 'credit' | 'debit';
     description: string;
     billUrl: string;
@@ -309,6 +312,10 @@ export default function LedgerPage() {
 
   const handleEditSave = async () => {
     if (!editingTransaction) return;
+    if (editingTransaction.amount === '' || editingTransaction.amount <= 0) {
+      toast.error('Enter an amount greater than zero');
+      return;
+    }
     
     setEditSaving(true);
     try {
@@ -623,6 +630,10 @@ export default function LedgerPage() {
 
   const handleOpeningBalanceSave = async () => {
     if (!openingBalanceEditData || !ledgerData) return;
+    if (openingBalanceEditData.amount === '') {
+      toast.error('Enter an opening balance amount');
+      return;
+    }
 
     setOpeningBalanceSaving(true);
     try {
@@ -1097,13 +1108,14 @@ export default function LedgerPage() {
                   <label className="text-sm font-medium text-gray-700">Amount (₹)</label>
                   <Input
                     type="number"
+                    inputMode="decimal"
                     min="0"
                     step="0.01"
                     value={editingTransaction.amount}
                     onChange={(e) => 
                       setEditingTransaction({ 
                         ...editingTransaction, 
-                        amount: parseFloat(e.target.value) || 0 
+                        amount: parseNumberInput(e.target.value) ?? ''
                       })
                     }
                   />
@@ -1196,15 +1208,17 @@ export default function LedgerPage() {
                   <label className="text-sm font-medium text-gray-700">Amount (₹)</label>
                   <Input
                     type="number"
+                    inputMode="decimal"
                     value={openingBalanceEditData.amount}
                     onChange={(e) =>
                       setOpeningBalanceEditData({
                         ...openingBalanceEditData,
-                        amount: parseFloat(e.target.value) || 0,
+                        amount: parseNumberInput(e.target.value) ?? '',
                       })
                     }
                     placeholder="Enter amount"
                     min="0"
+                    step="0.01"
                   />
                 </div>
                 <div className="space-y-2">
@@ -1314,7 +1328,7 @@ export default function LedgerPage() {
               </Button>
               <Button
                 onClick={handleOpeningBalanceSave}
-                disabled={openingBalanceSaving || !openingBalanceEditData?.amount}
+                disabled={openingBalanceSaving || openingBalanceEditData?.amount === ''}
               >
                 {openingBalanceSaving ? 'Saving...' : 'Save Changes'}
               </Button>
@@ -1332,4 +1346,3 @@ export default function LedgerPage() {
     </motion.div>
   );
 }
-

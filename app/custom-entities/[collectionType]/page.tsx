@@ -39,6 +39,7 @@ import { CustomEntity } from '@/lib/types';
 import { motion } from 'motion/react'
 import Link from 'next/link';
 import { compressImage, isCompressibleImage, formatFileSize } from '@/lib/imageCompression';
+import { parseNumberInput } from '@/lib/number-input';
 
 const MAX_BILL_SIZE_BYTES = 5 * 1024 * 1024; // 5MB
 const ACCEPTED_BILL_TYPES = [
@@ -55,7 +56,7 @@ const customEntitySchema = z.object({
   phone: z.string().optional(),
   email: z.string().email('Invalid email').optional().or(z.literal('')),
   address: z.string().optional(),
-  openingBalance: z.number().default(0),
+  openingBalance: z.number().min(0, 'Opening balance cannot be negative').default(0),
   balanceType: z.enum(['credit', 'debit']).default('debit'),
   openingBalanceDescription: z.string().optional(),
   openingBalanceBillUrl: z.string().optional(),
@@ -481,9 +482,12 @@ export default function CustomEntitiesPage() {
                       <FormControl>
                         <Input
                           type="number"
+                          inputMode="decimal"
+                          min="0"
                           step="0.01"
                           {...field}
-                          onChange={(e) => field.onChange(parseFloat(e.target.value) || 0)}
+                          value={field.value ?? ''}
+                          onChange={(e) => field.onChange(parseNumberInput(e.target.value))}
                         />
                       </FormControl>
                       <FormMessage />
@@ -679,4 +683,3 @@ export default function CustomEntitiesPage() {
     </motion.div>
   );
 }
-
