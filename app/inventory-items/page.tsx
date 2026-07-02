@@ -83,6 +83,7 @@ import {
 } from '@/components/ui/select';
 import type { InventoryStats } from '@/lib/types';
 import { compressImage, formatFileSize, isCompressibleImage } from '@/lib/imageCompression';
+import { parseNumberInput } from '@/lib/number-input';
 
 const MAX_FILE_SIZE_BYTES = 5 * 1024 * 1024;
 const COMPRESSION_TARGET_BYTES = 1 * 1024 * 1024;
@@ -1908,7 +1909,7 @@ export default function InventoryItemsPage() {
                         <td className="px-4 py-3">
                           <Input
                             type="number"
-                            inputMode="decimal"
+                            inputMode="numeric"
                             min="0"
                             step="1"
                             value={orderQuantities[item.id] || ''}
@@ -2231,7 +2232,7 @@ export default function InventoryItemsPage() {
                             quantityInputRef.current = node;
                           }}
                           value={field.value ?? ''}
-                          onChange={(event) => field.onChange(parseFloat(event.target.value) || 0)}
+                          onChange={(event) => field.onChange(parseNumberInput(event.target.value))}
                         />
                       </FormControl>
                       <FormMessage />
@@ -2352,8 +2353,7 @@ export default function InventoryItemsPage() {
                           }}
                           value={field.value ?? ''}
                           onChange={(event) => {
-                            const value = event.target.value;
-                            field.onChange(value === '' ? undefined : parseFloat(value));
+                            field.onChange(parseNumberInput(event.target.value));
                           }}
                         />
                       </FormControl>
@@ -2381,8 +2381,7 @@ export default function InventoryItemsPage() {
                           }}
                           value={field.value ?? ''}
                           onChange={(event) => {
-                            const value = event.target.value;
-                            field.onChange(value === '' ? undefined : parseFloat(value));
+                            field.onChange(parseNumberInput(event.target.value));
                           }}
                         />
                       </FormControl>

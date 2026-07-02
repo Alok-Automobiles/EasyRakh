@@ -51,6 +51,7 @@ import { Invoice, InvoiceItem } from '@/lib/types';
 import InvoiceItemsEditor from '@/components/InvoiceItemsEditor';
 import type { EditableInvoiceItem } from '@/components/InvoiceItemsEditor';
 import { getInvoiceItemDisplayRows, getInvoicePdfTableRows } from '@/lib/invoice-format';
+import { parseNumberInputOrZero } from '@/lib/number-input';
 
 interface InvoiceWithId extends Invoice {
   id: string;
@@ -890,8 +891,11 @@ export default function InvoiceDetailPage() {
                   <Label>Amount Paid (₹)</Label>
                   <Input
                     type="number"
+                    inputMode="decimal"
+                    min="0"
+                    step="0.01"
                     value={editPaidAmount || ''}
-                    onChange={(e) => setEditPaidAmount(parseFloat(e.target.value) || 0)}
+                    onChange={(e) => setEditPaidAmount(parseNumberInputOrZero(e.target.value))}
                     className="mt-1"
                   />
                 </div>

@@ -11,6 +11,7 @@ import toast from 'react-hot-toast';
 import { format } from 'date-fns';
 import { Customer, Supplier, CustomEntity, CollectionType } from '@/lib/types';
 import { compressImage, isCompressibleImage, formatFileSize } from '@/lib/imageCompression';
+import { parseNumberInput, parseNumberInputOrZero } from '@/lib/number-input';
 import {
   Dialog,
   DialogContent,
@@ -76,7 +77,7 @@ const customerSchema = z.object({
   phone: z.string().optional(),
   email: z.string().email('Invalid email').optional().or(z.literal('')),
   address: z.string().optional(),
-  openingBalance: z.number().default(0),
+  openingBalance: z.number().min(0, 'Opening balance cannot be negative').default(0),
   balanceType: z.enum(['credit', 'debit']).default('debit'),
 });
 
@@ -85,7 +86,7 @@ const supplierSchema = z.object({
   phone: z.string().optional(),
   email: z.string().email('Invalid email').optional().or(z.literal('')),
   address: z.string().optional(),
-  openingBalance: z.number().default(0),
+  openingBalance: z.number().min(0, 'Opening balance cannot be negative').default(0),
   balanceType: z.enum(['credit', 'debit']).default('debit'),
 });
 
@@ -95,7 +96,7 @@ const customEntitySchema = z.object({
   phone: z.string().optional(),
   email: z.string().email('Invalid email').optional().or(z.literal('')),
   address: z.string().optional(),
-  openingBalance: z.number().default(0),
+  openingBalance: z.number().min(0, 'Opening balance cannot be negative').default(0),
   balanceType: z.enum(['credit', 'debit']).default('debit'),
 });
 
@@ -830,8 +831,9 @@ function NewTransactionPageContent() {
                     <IndianRupee className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
                     <Input
                       id="amount"
-                      {...register('amount', { valueAsNumber: true })}
+                      {...register('amount', { setValueAs: parseNumberInput })}
                       type="number"
+                      inputMode="decimal"
                       step="0.01"
                       min="0.01"
                       placeholder="0.00"
@@ -1075,8 +1077,10 @@ function NewTransactionPageContent() {
                       <IndianRupee className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
                       <Input
                         id="customer-opening"
-                        {...registerCustomer('openingBalance', { valueAsNumber: true })}
+                        {...registerCustomer('openingBalance', { setValueAs: parseNumberInputOrZero })}
                         type="number"
+                        inputMode="decimal"
+                        min="0"
                         step="0.01"
                         defaultValue={0}
                         className="pl-9"
@@ -1169,8 +1173,10 @@ function NewTransactionPageContent() {
                       <IndianRupee className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
                       <Input
                         id="supplier-opening"
-                        {...registerSupplier('openingBalance', { valueAsNumber: true })}
+                        {...registerSupplier('openingBalance', { setValueAs: parseNumberInputOrZero })}
                         type="number"
+                        inputMode="decimal"
+                        min="0"
                         step="0.01"
                         defaultValue={0}
                         className="pl-9"
@@ -1264,8 +1270,10 @@ function NewTransactionPageContent() {
                       <IndianRupee className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
                       <Input
                         id="entity-opening"
-                        {...registerCustomEntity('openingBalance', { valueAsNumber: true })}
+                        {...registerCustomEntity('openingBalance', { setValueAs: parseNumberInputOrZero })}
                         type="number"
+                        inputMode="decimal"
+                        min="0"
                         step="0.01"
                         defaultValue={0}
                         className="pl-9"

@@ -786,6 +786,9 @@ export default function DailyCashRecordPage() {
                   <Input
                     id="amount"
                     type="number"
+                    inputMode="decimal"
+                    min="0.01"
+                    step="0.01"
                     placeholder="Enter amount"
                     value={amount}
                     onChange={(e) => setAmount(e.target.value)}
@@ -1396,6 +1399,9 @@ export default function DailyCashRecordPage() {
                 <Input
                   id="add-transaction-amount"
                   type="number"
+                  inputMode="decimal"
+                  min="0.01"
+                  step="0.01"
                   placeholder="Enter amount"
                   value={amount}
                   onChange={(e) => setAmount(e.target.value)}
@@ -1521,6 +1527,9 @@ export default function DailyCashRecordPage() {
                 <Input
                   id="edit-amount"
                   type="number"
+                  inputMode="decimal"
+                  min="0.01"
+                  step="0.01"
                   placeholder="Enter amount"
                   value={amount}
                   onChange={(e) => setAmount(e.target.value)}
