@@ -89,6 +89,7 @@ describe('POST /api/auth/login', () => {
   });
 
   it('logs in valid users and sets the token cookie', async () => {
+    const updateOne = vi.fn().mockResolvedValue({ modifiedCount: 1 });
     const findOne = vi.fn().mockResolvedValue({
       _id: { toString: () => 'user-1' },
       name: 'Shop Owner',
@@ -98,6 +99,7 @@ describe('POST /api/auth/login', () => {
     mocks.getDb.mockResolvedValue({
       collection: vi.fn(() => ({
         findOne,
+        updateOne,
       })),
     });
     mocks.compare.mockResolvedValue(true);
@@ -111,6 +113,18 @@ describe('POST /api/auth/login', () => {
     expect(response.status).toBe(200);
     expect(findOne).toHaveBeenCalledWith({ email: 'owner@example.com' });
     expect(mocks.compare).toHaveBeenCalledWith('secret', 'hashed-password');
+    expect(updateOne).toHaveBeenCalledWith(
+      { _id: expect.any(Object) },
+      {
+        $set: {
+          lastLoginAt: expect.any(Date),
+          lastActiveAt: expect.any(Date),
+        },
+        $inc: {
+          loginCount: 1,
+        },
+      }
+    );
     await expect(response.json()).resolves.toEqual({
       message: 'Login successful',
       token: 'signed-jwt',

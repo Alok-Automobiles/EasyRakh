@@ -1,7 +1,10 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getDb } from '@/lib/mongodb';
 import { getUserIdFromRequest } from '@/lib/auth';
+import { isAdminEmail } from '@/lib/admin';
 import { z } from 'zod';
+
+const LAST_ACTIVE_WRITE_INTERVAL_MS = 15 * 60 * 1000;
 
 const updateProfileSchema = z.object({
   name: z.string().min(2, 'Name must be at least 2 characters'),
@@ -39,11 +42,26 @@ export async function GET(request: NextRequest) {
       );
     }
 
+    const lastActiveAt = user.lastActiveAt ? new Date(user.lastActiveAt) : null;
+    const now = new Date();
+    const shouldUpdateLastActive =
+      !lastActiveAt ||
+      !Number.isFinite(lastActiveAt.getTime()) ||
+      now.getTime() - lastActiveAt.getTime() >= LAST_ACTIVE_WRITE_INTERVAL_MS;
+
+    if (shouldUpdateLastActive) {
+      await usersCollection.updateOne(
+        { _id: new ObjectId(userId) },
+        { $set: { lastActiveAt: now } }
+      );
+    }
+
     return NextResponse.json({
       user: {
         id: user._id.toString(),
         name: user.name,
         email: user.email,
+        isAdmin: isAdminEmail(user.email),
         firmTitle: user.firmTitle || '',
         gstNumber: user.gstNumber || '',
         firmPhone: user.firmPhone || '',
@@ -112,6 +130,7 @@ export async function PUT(request: NextRequest) {
         id: updatedUser!._id.toString(),
         name: updatedUser!.name,
         email: updatedUser!.email,
+        isAdmin: isAdminEmail(updatedUser!.email),
         firmTitle: updatedUser!.firmTitle || '',
         gstNumber: updatedUser!.gstNumber || '',
         firmPhone: updatedUser!.firmPhone || '',
@@ -134,4 +153,3 @@ export async function PUT(request: NextRequest) {
     );
   }
 }
-

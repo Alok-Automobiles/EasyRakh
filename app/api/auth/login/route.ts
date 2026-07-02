@@ -46,6 +46,20 @@ export async function POST(request: NextRequest) {
       );
     }
 
+    const now = new Date();
+    await usersCollection.updateOne(
+      { _id: user._id },
+      {
+        $set: {
+          lastLoginAt: now,
+          lastActiveAt: now,
+        },
+        $inc: {
+          loginCount: 1,
+        },
+      }
+    );
+
     const token = generateToken({
       userId: user._id.toString(),
       email: user.email,
@@ -87,4 +101,3 @@ export async function POST(request: NextRequest) {
     );
   }
 }
-
