@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useRef, ChangeEvent } from 'react';
+import { useState, useEffect, useRef, useMemo, ChangeEvent } from 'react';
 import { useRouter, useParams } from 'next/navigation';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
@@ -40,6 +40,7 @@ import { motion } from 'motion/react'
 import Link from 'next/link';
 import { compressImage, isCompressibleImage, formatFileSize } from '@/lib/imageCompression';
 import { parseNumberInput } from '@/lib/number-input';
+import { Search, X } from 'lucide-react';
 
 const MAX_BILL_SIZE_BYTES = 5 * 1024 * 1024; // 5MB
 const ACCEPTED_BILL_TYPES = [
@@ -91,6 +92,7 @@ export default function CustomEntitiesPage() {
   const [billUploadResult, setBillUploadResult] = useState<BillUploadResult | null>(null);
   const [isUploading, setIsUploading] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
+  const [searchQuery, setSearchQuery] = useState('');
   const hasFetchedRef = useRef(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const form = useForm<CustomEntityForm>({
@@ -107,6 +109,16 @@ export default function CustomEntitiesPage() {
       openingBalanceBillPublicId: '',
     },
   });
+  const normalizedSearchQuery = searchQuery.trim().toLowerCase();
+  const filteredEntities = useMemo(() => {
+    if (!normalizedSearchQuery) return entities;
+
+    return entities.filter((entity) =>
+      [entity.name, entity.phone, entity.email, entity.address].some((value) =>
+        (value || '').toLowerCase().includes(normalizedSearchQuery)
+      )
+    );
+  }, [entities, normalizedSearchQuery]);
 
   useEffect(() => {
     if (hasFetchedRef.current) return;
@@ -383,14 +395,47 @@ export default function CustomEntitiesPage() {
           </Button>
         </div>
 
+        <div className="mb-6 flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+          <div className="relative w-full sm:max-w-sm">
+            <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+            <Input
+              value={searchQuery}
+              onChange={(event) => setSearchQuery(event.target.value)}
+              placeholder={`Search ${collectionType.name.toLowerCase()}...`}
+              aria-label={`Search ${collectionType.name}`}
+              className="pl-10 pr-10"
+            />
+            {searchQuery && (
+              <button
+                type="button"
+                onClick={() => setSearchQuery('')}
+                className="absolute right-3 top-1/2 flex h-5 w-5 -translate-y-1/2 items-center justify-center rounded-full text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
+                aria-label={`Clear ${collectionType.name} search`}
+              >
+                <X className="h-3.5 w-3.5" />
+              </button>
+            )}
+          </div>
+          {normalizedSearchQuery && (
+            <p className="text-sm text-muted-foreground">
+              {filteredEntities.length} of {entities.length} {collectionType.name.toLowerCase()}
+            </p>
+          )}
+        </div>
+
         {entities.length === 0 ? (
           <div className="text-center py-12">
             <p className="text-muted-foreground text-lg">No entities yet.</p>
             <p className="text-muted-foreground mt-2">Add your first entity to get started.</p>
           </div>
+        ) : filteredEntities.length === 0 ? (
+          <div className="text-center py-12">
+            <p className="text-muted-foreground text-lg">No entities match your search.</p>
+            <p className="text-muted-foreground mt-2">Try another name, phone, email, or address.</p>
+          </div>
         ) : (
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-            {entities.map((entity) => (
+            {filteredEntities.map((entity) => (
               <EntityCard
                 key={entity.id}
                 entity={{

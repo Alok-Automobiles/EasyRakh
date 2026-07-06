@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useRef, ChangeEvent } from 'react';
+import { useState, useRef, useMemo, ChangeEvent } from 'react';
 import { useRouter } from 'next/navigation';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
@@ -40,6 +40,7 @@ import { Customer } from '@/lib/types';
 import { motion } from 'motion/react'
 import { compressImage, isCompressibleImage, formatFileSize } from '@/lib/imageCompression';
 import { parseNumberInput } from '@/lib/number-input';
+import { Search, X } from 'lucide-react';
 
 const MAX_BILL_SIZE_BYTES = 5 * 1024 * 1024; // 5MB
 const ACCEPTED_BILL_TYPES = [
@@ -80,6 +81,7 @@ export default function CustomersPage() {
   const [deletingCustomer, setDeletingCustomer] = useState<{ id: string; name: string } | null>(null);
   const [billUploadResult, setBillUploadResult] = useState<BillUploadResult | null>(null);
   const [isUploading, setIsUploading] = useState(false);
+  const [searchQuery, setSearchQuery] = useState('');
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const form = useForm<CustomerForm>({
@@ -97,7 +99,7 @@ export default function CustomersPage() {
     },
   });
 
-  const { data, isLoading, error } = useQuery<{ customers: (Customer & { id: string; totalBalance: number })[] }>({
+  const { data, isLoading } = useQuery<{ customers: (Customer & { id: string; totalBalance: number })[] }>({
     queryKey: ['customers'],
     queryFn: async () => {
       const response = await fetch('/api/customers');
@@ -111,6 +113,16 @@ export default function CustomersPage() {
   });
 
   const customers = data?.customers ?? [];
+  const normalizedSearchQuery = searchQuery.trim().toLowerCase();
+  const filteredCustomers = useMemo(() => {
+    if (!normalizedSearchQuery) return customers;
+
+    return customers.filter((customer) =>
+      [customer.name, customer.phone, customer.email, customer.address].some((value) =>
+        (value || '').toLowerCase().includes(normalizedSearchQuery)
+      )
+    );
+  }, [customers, normalizedSearchQuery]);
 
   const handleBillUpload = async (event: ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
@@ -322,14 +334,47 @@ export default function CustomersPage() {
           </Button>
         </div>
 
+        <div className="mb-6 flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+          <div className="relative w-full sm:max-w-sm">
+            <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+            <Input
+              value={searchQuery}
+              onChange={(event) => setSearchQuery(event.target.value)}
+              placeholder="Search customers..."
+              aria-label="Search customers"
+              className="pl-10 pr-10"
+            />
+            {searchQuery && (
+              <button
+                type="button"
+                onClick={() => setSearchQuery('')}
+                className="absolute right-3 top-1/2 flex h-5 w-5 -translate-y-1/2 items-center justify-center rounded-full text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
+                aria-label="Clear customer search"
+              >
+                <X className="h-3.5 w-3.5" />
+              </button>
+            )}
+          </div>
+          {normalizedSearchQuery && (
+            <p className="text-sm text-muted-foreground">
+              {filteredCustomers.length} of {customers.length} customers
+            </p>
+          )}
+        </div>
+
         {customers.length === 0 ? (
           <div className="text-center py-12">
             <p className="text-muted-foreground text-lg">No customers yet.</p>
             <p className="text-muted-foreground mt-2">Add your first customer to get started.</p>
           </div>
+        ) : filteredCustomers.length === 0 ? (
+          <div className="text-center py-12">
+            <p className="text-muted-foreground text-lg">No customers match your search.</p>
+            <p className="text-muted-foreground mt-2">Try another name, phone, email, or address.</p>
+          </div>
         ) : (
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-            {customers.map((customer) => (
+            {filteredCustomers.map((customer) => (
               <EntityCard
                 key={customer.id}
                 entity={{
