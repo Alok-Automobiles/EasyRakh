@@ -56,7 +56,7 @@ const stats = [
 const marqueeItems = [
   'Party khata',
   'Daily cash',
-  'GST invoices',
+  'Simple invoices',
   'Dashboard charts',
   'Ask your khata',
   'PDF export',
@@ -106,7 +106,7 @@ export default function AboutPageContent() {
               </h1>
               <p className="mx-auto mt-6 max-w-xl text-lg leading-relaxed text-gray-600 lg:mx-0 lg:max-w-lg">
                 We built EasyRakh for Indian shops and teams who outgrow notebooks and scattered
-                chats—khata, cash, GST invoices, charts, and answers from your books, without the
+                chats—khata, cash, simple invoices, charts, and answers from your books, without the
                 clutter of generic accounting software.
               </p>
               <div className="mt-8 flex flex-col items-center gap-3 sm:flex-row sm:justify-center lg:justify-start">
@@ -156,7 +156,7 @@ export default function AboutPageContent() {
                   {[
                     'Party khata with running balance & bill attachments',
                     'Daily cash register with history by month',
-                    'GST invoices & PDFs you can share instantly',
+                    'Simple invoices & PDFs you can share instantly',
                     'Ask your khata in Hindi or English',
                   ].map((line, i) => (
                     <motion.li
@@ -321,7 +321,7 @@ export default function AboutPageContent() {
               <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-rose-100 text-rose-700 transition-transform group-hover:scale-110">
                 <FileText className="h-5 w-5" aria-hidden />
               </div>
-              <h3 className="mt-4 font-semibold text-gray-900">GST invoices & PDFs</h3>
+              <h3 className="mt-4 font-semibold text-gray-900">Simple invoices & PDFs</h3>
               <p className="mt-2 text-sm text-gray-600">
                 Firm details on bills, professional layout, download and share like any other
                 document.

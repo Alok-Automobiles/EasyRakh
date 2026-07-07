@@ -217,7 +217,7 @@ export default function Features() {
           <h2 className="text-base font-semibold text-(--brand-green) tracking-wide uppercase mb-2">Powerful features</h2>
           <p className="text-4xl sm:text-5xl font-bold text-gray-900 mb-5">Built for real shop bookkeeping</p>
           <p className="text-xl text-gray-600">
-            Ask questions in plain language, keep ledgers and cash in sync, use charts and GST invoices, export PDFs, attach bills, and stay backed up in the cloud—without noisy clutter.
+            Ask questions in plain language, keep ledgers and cash in sync, use charts and simple invoices, export PDFs, attach bills, and stay backed up in the cloud—without noisy clutter.
           </p>
         </div>
 
@@ -303,10 +303,10 @@ export default function Features() {
 
           <FeatureBlock
             icon={FileText}
-            title="Invoices with GST, firm details & PDF download"
-            description="Capture your firm name, GST number, address, and contact details at registration (and refine them later). Invoices pull that context into a professional layout with line items, totals, and status—then you can download a ready-to-send PDF."
+            title="Simple invoices with firm details & PDF download"
+            description="Capture your firm name, address, and contact details at registration (and refine them later). Invoices pull that context into a professional layout with line items, totals, and status—then you can download a ready-to-send PDF."
             points={[
-              'Firm title, GST number, phone, email, and address for compliant-looking bills',
+              'Firm title, phone, email, and address for professional-looking bills',
               'Line items, totals, and paid / partial / unpaid tracking per invoice',
               'Download invoice as PDF for printing or sending on WhatsApp, email, or any channel you use',
             ]}
