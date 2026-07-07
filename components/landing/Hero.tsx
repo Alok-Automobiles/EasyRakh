@@ -28,8 +28,8 @@ const leftTransactions: Transaction[] = [
     time: 'Yesterday, 5:42 PM',
   },
   {
-    name: 'GST Payment',
-    note: 'Quarterly tax',
+    name: 'Utility Payment',
+    note: 'Monthly expense',
     amount: '-₹3,200',
     type: 'out',
     time: '12 May, 10:00 AM',
@@ -121,7 +121,7 @@ export default function Hero() {
                 See your entire business at a glance with EasyRakh
               </h1>
               <p className="text-base text-gray-600 sm:text-lg md:max-w-2xl leading-relaxed">
-                Khata, daily cash, GST invoices, and your dashboard—together in one workspace, so you always know how the business stands.
+                Khata, daily cash, simple invoices, and your dashboard—together in one workspace, so you always know how the business stands.
               </p>
               <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:gap-4">
                 <Button

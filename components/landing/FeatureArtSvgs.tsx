@@ -320,8 +320,8 @@ export function ArtMain05Invoices({ className = '' }: ArtProps) {
         <rect x="30" y="15" width="180" height="190" rx="8" fill="white" stroke="#E2E8F0" strokeWidth="1"/>
         <rect x="30" y="15" width="180" height="40" rx="8" fill="#1E40AF"/>
         <rect x="30" y="43" width="180" height="12" fill="#1E40AF"/>
-        <text x="120" y="32" textAnchor="middle" fontFamily="Sora,system-ui,sans-serif" fontSize="10" fontWeight="700" fill="white">TAX INVOICE</text>
-        <text x="120" y="48" textAnchor="middle" fontFamily="system-ui,sans-serif" fontSize="7" fill="#93C5FD">GSTIN: 09AAAAA0000A1Z5</text>
+        <text x="120" y="32" textAnchor="middle" fontFamily="Sora,system-ui,sans-serif" fontSize="10" fontWeight="700" fill="white">INVOICE</text>
+        <text x="120" y="48" textAnchor="middle" fontFamily="system-ui,sans-serif" fontSize="7" fill="#93C5FD">Simple invoice PDF</text>
         <text x="42" y="68" fontFamily="Sora,system-ui,sans-serif" fontSize="8" fontWeight="700" fill="#1E293B">Sharma Enterprises</text>
         <text x="42" y="78" fontFamily="system-ui,sans-serif" fontSize="7" fill="#64748B">Delhi, India · +91 98100 00000</text>
         <text x="200" y="68" textAnchor="end" fontFamily="system-ui,sans-serif" fontSize="7" fill="#64748B">Invoice #INV-0042</text>
@@ -341,11 +341,11 @@ export function ArtMain05Invoices({ className = '' }: ArtProps) {
         <text x="140" y="140" textAnchor="middle" fontFamily="system-ui,sans-serif" fontSize="7" fill="#475569">8</text>
         <text x="192" y="140" textAnchor="end" fontFamily="system-ui,sans-serif" fontSize="7" fill="#1E293B">₹4,800</text>
         <line x1="42" y1="146" x2="198" y2="146" stroke="#E2E8F0"/>
-        <text x="140" y="156" textAnchor="middle" fontFamily="system-ui,sans-serif" fontSize="7" fill="#64748B">GST 18%</text>
-        <text x="192" y="156" textAnchor="end" fontFamily="system-ui,sans-serif" fontSize="7" fill="#475569">+₹4,230</text>
+        <text x="140" y="156" textAnchor="middle" fontFamily="system-ui,sans-serif" fontSize="7" fill="#64748B">Subtotal</text>
+        <text x="192" y="156" textAnchor="end" fontFamily="system-ui,sans-serif" fontSize="7" fill="#475569">₹23,500</text>
         <rect x="42" y="160" width="156" height="16" rx="3" fill="#DCFCE7"/>
         <text x="100" y="172" fontFamily="Sora,system-ui,sans-serif" fontSize="8" fontWeight="600" fill="#166534">Total</text>
-        <text x="192" y="172" textAnchor="end" fontFamily="Sora,system-ui,sans-serif" fontSize="9" fontWeight="700" fill="#14532D">₹27,730</text>
+        <text x="192" y="172" textAnchor="end" fontFamily="Sora,system-ui,sans-serif" fontSize="9" fontWeight="700" fill="#14532D">₹23,500</text>
         <rect x="42" y="182" width="44" height="14" rx="7" fill="#FEF3C7"/>
         <text x="64" y="193" textAnchor="middle" fontFamily="Sora,system-ui,sans-serif" fontSize="7" fontWeight="600" fill="#92400E">PARTIAL</text>
         <rect x="100" y="182" width="98" height="14" rx="7" fill="#1E40AF"/>
@@ -448,7 +448,7 @@ export function ArtMain07Notes({ className = '' }: ArtProps) {
         <rect x="24" y="142" width="312" height="64" rx="8" fill="white" stroke="#E2E8F0"/>
         <text x="36" y="158" fontFamily="Sora,system-ui,sans-serif" fontSize="8" fontWeight="600" fill="#1E293B">All Notes</text>
         <rect x="36" y="163" width="136" height="32" rx="5" fill="#F8FAFC"/>
-        <text x="44" y="176" fontFamily="system-ui,sans-serif" fontSize="7" fill="#475569">Check GST filing date</text>
+        <text x="44" y="176" fontFamily="system-ui,sans-serif" fontSize="7" fill="#475569">Review invoice payments</text>
         <text x="44" y="188" fontFamily="system-ui,sans-serif" fontSize="6.5" fill="#94A3B8">15 Mar · archived</text>
         <rect x="180" y="163" width="144" height="32" rx="5" fill="#F8FAFC"/>
         <text x="188" y="176" fontFamily="system-ui,sans-serif" fontSize="7" fill="#475569">Repair shop shutter lock</text>
@@ -806,4 +806,3 @@ export function ArtMini08Counter({ className = '' }: ArtProps) {
     </svg>
   );
 }
-
