@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { getDb } from '@/lib/mongodb';
 import { getUserIdFromRequest } from '@/lib/auth';
 import type { InventoryItem } from '@/lib/types';
+import { normalizeIdentifier } from '@/lib/search-normalization';
 
 function escapeRegex(value: string) {
   return value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
@@ -27,13 +28,13 @@ export async function GET(request: NextRequest) {
 
     const db = await getDb();
     const inventoryCollection = db.collection<InventoryItem>('inventory');
-    const regex = { $regex: `^${escapeRegex(itemNumber)}`, $options: 'i' };
+    const regex = { $regex: `^${escapeRegex(normalizeIdentifier(itemNumber))}` };
 
     const items = await inventoryCollection
       .find(
         {
           userId,
-          itemNumber: regex,
+          itemNumberKey: regex,
         },
         {
           projection: {

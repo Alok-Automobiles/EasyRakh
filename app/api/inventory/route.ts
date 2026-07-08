@@ -12,30 +12,10 @@ import {
 } from '@/lib/cache';
 import { z } from 'zod';
 import { uppercaseInventoryPayload } from '@/lib/inventory-text';
-import { cleanSearchQuery, scoreInventoryItem } from '@/lib/voice-assistant';
-
-const LOW_STOCK_THRESHOLD = 5;
-const INACTIVE_THRESHOLD_DAYS = 60;
-const MS_PER_DAY = 24 * 60 * 60 * 1000;
-const UNKNOWN_QUANTITY_UPDATED_AT = new Date(0);
-
-function getInactiveCutoff() {
-  return new Date(Date.now() - INACTIVE_THRESHOLD_DAYS * MS_PER_DAY);
-}
-
-function zeroStockDateCondition(operator: '$gt' | '$lte', cutoff: Date) {
-  const dateCondition = { [operator]: cutoff };
-  const conditions: Record<string, unknown>[] = [
-    { lastQuantityUpdatedAt: dateCondition },
-    { lastQuantityUpdatedAt: null, createdAt: dateCondition },
-  ];
-
-  if (operator === '$lte') {
-    conditions.push({ lastQuantityUpdatedAt: null, createdAt: null });
-  }
-
-  return { $or: conditions };
-}
+import { scoreInventoryItem } from '@/lib/voice-assistant';
+import { getCacheVersion } from '@/lib/cache-version';
+import { queryTokens, normalizeIdentifier } from '@/lib/search-normalization';
+import { ensureUserReadModels, inventoryDerivedFields, refreshUserReadModels } from '@/lib/read-models';
 
 const optionalDateSchema = z.preprocess(
   (value) => {
@@ -65,10 +45,6 @@ const inventoryItemSchema = z.object({
   billImages: z.array(z.string().url('Invalid bill image URL')).optional(),
   billImagePublicIds: z.array(z.string().trim().min(1)).optional(),
 });
-
-function escapeRegex(value: string) {
-  return value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-}
 
 function serializeInventoryItem(item: InventoryItem & { _id: { toString(): string } }) {
   return {
@@ -116,121 +92,6 @@ function normalizeItemInput(data: z.infer<typeof inventoryItemSchema>) {
   });
 }
 
-async function getInventoryStats(userId: string): Promise<InventoryStats> {
-  const db = await getDb();
-  const inventoryCollection = db.collection<InventoryItem>('inventory');
-  const inactiveCutoff = getInactiveCutoff();
-  const quantityDateExpression = {
-    $ifNull: [
-      '$lastQuantityUpdatedAt',
-      { $ifNull: ['$createdAt', UNKNOWN_QUANTITY_UPDATED_AT] },
-    ],
-  };
-
-  const [stats] = await inventoryCollection
-    .aggregate<InventoryStats>([
-      { $match: { userId } },
-      {
-        $group: {
-          _id: null,
-          totalItems: { $sum: 1 },
-          totalQuantity: { $sum: { $ifNull: ['$quantity', 0] } },
-          totalValue: {
-            $sum: {
-              $multiply: [
-                { $ifNull: ['$quantity', 0] },
-                { $ifNull: ['$buyingPrice', 0] },
-              ],
-            },
-          },
-          outOfStockItems: {
-            $sum: {
-              $cond: [
-                {
-                  $and: [
-                    { $lte: [{ $ifNull: ['$quantity', 0] }, 0] },
-                    { $gt: [quantityDateExpression, inactiveCutoff] },
-                  ],
-                },
-                1,
-                0,
-              ],
-            },
-          },
-          inactiveItems: {
-            $sum: {
-              $cond: [
-                {
-                  $and: [
-                    { $lte: [{ $ifNull: ['$quantity', 0] }, 0] },
-                    { $lte: [quantityDateExpression, inactiveCutoff] },
-                  ],
-                },
-                1,
-                0,
-              ],
-            },
-          },
-          restockItems: {
-            $sum: {
-              $cond: [
-                {
-                  $and: [
-                    { $gt: [{ $ifNull: ['$quantity', 0] }, 0] },
-                    { $lte: [{ $ifNull: ['$quantity', 0] }, LOW_STOCK_THRESHOLD] },
-                  ],
-                },
-                1,
-                0,
-              ],
-            },
-          },
-          locations: { $addToSet: '$location' },
-          brands: { $addToSet: '$brand' },
-        },
-      },
-      {
-        $project: {
-          _id: 0,
-          totalItems: 1,
-          totalQuantity: 1,
-          totalValue: 1,
-          outOfStockItems: 1,
-          inactiveItems: 1,
-          restockItems: 1,
-          lowStockThreshold: { $literal: LOW_STOCK_THRESHOLD },
-          locations: {
-            $filter: {
-              input: '$locations',
-              as: 'location',
-              cond: { $ne: ['$$location', ''] },
-            },
-          },
-          brands: {
-            $filter: {
-              input: '$brands',
-              as: 'brand',
-              cond: { $ne: ['$$brand', ''] },
-            },
-          },
-        },
-      },
-    ])
-    .toArray();
-
-  return stats || {
-    totalItems: 0,
-    totalQuantity: 0,
-    totalValue: 0,
-    outOfStockItems: 0,
-    inactiveItems: 0,
-    restockItems: 0,
-    lowStockThreshold: LOW_STOCK_THRESHOLD,
-    locations: [],
-    brands: [],
-  };
-}
-
 type SerializedItem = ReturnType<typeof serializeInventoryItem>;
 
 function safeParseCache<T>(cached: string | null, cacheKey: string): T | null {
@@ -274,9 +135,10 @@ export async function GET(request: NextRequest) {
     const page = Math.max(parseInt(searchParams.get('page') || '1', 10), 1);
     const limit = Math.min(Math.max(parseInt(searchParams.get('limit') || '20', 10), 1), 100);
     const skip = (page - 1) * limit;
+    const cacheVersion = await getCacheVersion('inventory', userId);
 
-    const listCacheKey = inventoryListKey(userId, { page, limit, status, search });
-    const summaryCacheKey = inventorySummaryKey(userId);
+    const listCacheKey = inventoryListKey(userId, { page, limit, status, search, version: cacheVersion });
+    const summaryCacheKey = inventorySummaryKey(userId, cacheVersion);
 
     const [cachedList, cachedSummary] = await Promise.all([
       cacheGet(listCacheKey),
@@ -292,52 +154,35 @@ export async function GET(request: NextRequest) {
 
       const buildListPayload = async (): Promise<ListCachePayload> => {
         const query: Record<string, unknown> = { userId };
-        const andConditions: Record<string, unknown>[] = [];
-        const inactiveCutoff = getInactiveCutoff();
 
         if (status === 'in-stock') {
-          query.quantity = { $gt: LOW_STOCK_THRESHOLD };
+          query.stockStatus = 'in-stock';
         } else if (status === 'low-stock' || status === 'restock') {
-          query.quantity = { $gt: 0, $lte: LOW_STOCK_THRESHOLD };
+          query.stockStatus = 'low-stock';
         } else if (status === 'out-of-stock') {
-          query.quantity = { $lte: 0 };
-          andConditions.push(zeroStockDateCondition('$gt', inactiveCutoff));
+          query.stockStatus = 'out-of-stock';
         } else if (status === 'inactive') {
-          query.quantity = { $lte: 0 };
-          andConditions.push(zeroStockDateCondition('$lte', inactiveCutoff));
+          query.stockStatus = 'inactive';
         }
 
-        const queryTokens = search ? cleanSearchQuery(search, false) : [];
+        const tokens = search ? queryTokens(search) : [];
 
-        if (search && queryTokens.length > 0) {
-          const searchFields = ['itemName', 'itemNumber', 'uniqueCode', 'brand', 'description', 'location', 'supplier'];
-          const orConditions = queryTokens.flatMap((token) => {
-            const regex = { $regex: escapeRegex(token), $options: 'i' };
-            return searchFields.map((field) => ({ [field]: regex }));
-          });
-
-          const phraseRegex = { $regex: escapeRegex(queryTokens.join(' ')), $options: 'i' };
-          orConditions.push(
-            ...searchFields.map((field) => ({ [field]: phraseRegex }))
-          );
-
-          andConditions.push({ $or: orConditions });
+        if (tokens.length > 0) {
+          query.searchTokens = { $all: tokens };
         }
 
-        if (andConditions.length > 0) {
-          query.$and = andConditions;
-        }
-
-        if (search && queryTokens.length > 0) {
-          // Fetch candidates up to a safe limit to perform fuzzy scoring in-memory
+        if (tokens.length > 0) {
+          // Score a bounded indexed candidate set in memory for typo tolerance.
           const candidates = await inventoryCollection
             .find(query)
+            .sort({ updatedAt: -1, createdAt: -1 })
+            .limit(500)
             .toArray();
 
           const scored = candidates
             .map((item) => ({
               item,
-              score: scoreInventoryItem(item, queryTokens),
+              score: scoreInventoryItem(item, tokens),
             }))
             .filter(({ score }) => score >= 0.25)
             .sort((a, b) => b.score - a.score || b.item.updatedAt.getTime() - a.item.updatedAt.getTime());
@@ -380,17 +225,17 @@ export async function GET(request: NextRequest) {
       };
 
       const buildSummaryPayload = async (): Promise<SummaryCachePayload> => {
-        const [stats, lowStockItems] = await Promise.all([
-          getInventoryStats(userId),
+        const [summary, lowStockItems] = await Promise.all([
+          ensureUserReadModels(db, userId),
           inventoryCollection
-            .find({ userId, quantity: { $gt: 0, $lte: LOW_STOCK_THRESHOLD } })
-            .sort({ quantity: 1, updatedAt: -1 })
+            .find({ userId, stockStatus: 'low-stock' })
+            .sort({ quantity: 1, updatedAt: -1, createdAt: -1 })
             .limit(20)
             .toArray(),
         ]);
 
         return {
-          stats,
+          stats: summary.inventory,
           lowStockItems: lowStockItems.map(serializeInventoryItem),
         };
       };
@@ -446,7 +291,7 @@ export async function POST(request: NextRequest) {
       const existing = await inventoryCollection.findOne(
         {
           userId,
-          itemNumber: { $regex: `^${escapeRegex(itemData.itemNumber)}$`, $options: 'i' },
+          itemNumberKey: normalizeIdentifier(itemData.itemNumber),
         },
         { projection: { _id: 1, itemName: 1, itemNumber: 1 } }
       );
@@ -473,11 +318,18 @@ export async function POST(request: NextRequest) {
       lastQuantityUpdatedAt: now,
       createdAt: now,
       updatedAt: now,
+      ...inventoryDerivedFields({
+        ...itemData,
+        lastQuantityUpdatedAt: now,
+        createdAt: now,
+        updatedAt: now,
+      }),
     });
 
-    invalidateInventoryCache(userId).catch((err) => {
-      console.warn('Redis cache invalidation failed:', err);
-    });
+    await Promise.all([
+      refreshUserReadModels(db, userId),
+      invalidateInventoryCache(userId),
+    ]);
 
     return NextResponse.json(
       {

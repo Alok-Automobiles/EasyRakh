@@ -3,7 +3,7 @@ import { getDb } from '@/lib/mongodb';
 import { getUserIdFromRequest } from '@/lib/auth';
 import { z } from 'zod';
 import { ObjectId } from 'mongodb';
-import redis from '@/lib/redis';
+import { bumpCacheVersions } from '@/lib/cache-version';
 
 const collectionTypeSchema = z.object({
   name: z.string().min(1, 'Name is required').max(50, 'Name must be 50 characters or less'),
@@ -137,10 +137,7 @@ export async function PUT(
       );
     }
 
-    const pattern = `customEntities:${existing.slug}:${userId}`;
-    redis.del(`collectionTypes:${userId}`, pattern).catch((err) => {
-      console.warn('Redis cache invalidation failed:', err);
-    });
+    await bumpCacheVersions(userId, ['collectionTypes', 'customEntities', 'bootstrap']);
 
     return NextResponse.json({
       message: 'Collection type updated successfully',
@@ -221,9 +218,7 @@ export async function DELETE(
       );
     }
 
-    redis.del(`collectionTypes:${userId}`).catch((err) => {
-      console.warn('Redis cache invalidation failed:', err);
-    });
+    await bumpCacheVersions(userId, ['collectionTypes', 'bootstrap']);
 
     return NextResponse.json({
       message: 'Collection type deleted successfully',
@@ -236,4 +231,3 @@ export async function DELETE(
     );
   }
 }
-

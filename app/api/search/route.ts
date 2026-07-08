@@ -2,7 +2,8 @@ import { NextRequest, NextResponse } from 'next/server';
 import { getDb } from '@/lib/mongodb';
 import { getUserIdFromRequest } from '@/lib/auth';
 import { checkRateLimit, rateLimitConfigs } from '@/lib/rateLimit';
-import redis from '@/lib/redis';
+import { getCachedJson, setCachedJson, versionedCacheKey } from '@/lib/cache-version';
+import { queryTokens } from '@/lib/search-normalization';
 
 interface SearchResult {
   id: string;
@@ -31,25 +32,25 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ results: [] }, { status: 200 });
     }
 
-    const cacheKey = `search:${userId}:${query.toLowerCase()}`;
-    try {
-      const cached = await redis.get(cacheKey);
-      if (cached) {
-        return NextResponse.json(JSON.parse(cached), { status: 200 });
-      }
-    } catch {
-      // Cache miss, continue to DB query
+    const tokens = queryTokens(query);
+    if (tokens.length === 0) {
+      return NextResponse.json({ results: [] }, { status: 200 });
+    }
+
+    const cacheKey = await versionedCacheKey('search', userId, query.toLowerCase());
+    const cached = await getCachedJson<{ results: SearchResult[] }>(cacheKey);
+    if (cached) {
+      return NextResponse.json(cached, { status: 200 });
     }
 
     const db = await getDb();
-    const escapedQuery = query.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-    const regex = { $regex: escapedQuery, $options: 'i' };
+    const tokenQuery = { $all: tokens };
 
     const [customers, suppliers, customEntities, invoices] = await Promise.all([
       db.collection('customers')
         .find({
           userId,
-          $or: [{ name: regex }, { phone: regex }, { email: regex }],
+          searchTokens: tokenQuery,
         })
         .project({ _id: 1, name: 1, phone: 1, email: 1 })
         .limit(5)
@@ -58,7 +59,7 @@ export async function GET(request: NextRequest) {
       db.collection('suppliers')
         .find({
           userId,
-          $or: [{ name: regex }, { phone: regex }, { email: regex }],
+          searchTokens: tokenQuery,
         })
         .project({ _id: 1, name: 1, phone: 1, email: 1 })
         .limit(5)
@@ -67,7 +68,7 @@ export async function GET(request: NextRequest) {
       db.collection('customEntities')
         .find({
           userId,
-          $or: [{ name: regex }, { phone: regex }, { collectionType: regex }],
+          searchTokens: tokenQuery,
         })
         .project({ _id: 1, name: 1, phone: 1, collectionType: 1 })
         .limit(5)
@@ -76,7 +77,7 @@ export async function GET(request: NextRequest) {
       db.collection('invoices')
         .find({
           userId,
-          $or: [{ invoiceNumber: regex }, { customerName: regex }],
+          searchTokens: tokenQuery,
         })
         .project({ _id: 1, invoiceNumber: 1, customerName: 1, totalAmount: 1, status: 1 })
         .limit(5)
@@ -132,11 +133,7 @@ export async function GET(request: NextRequest) {
 
     const responseData = { results };
 
-    try {
-      await redis.setex(cacheKey, 60, JSON.stringify(responseData));
-    } catch {
-      // Cache write failure is non-critical
-    }
+    await setCachedJson(cacheKey, 60, responseData);
 
     return NextResponse.json(responseData, { status: 200 });
   } catch (error) {

@@ -70,7 +70,7 @@ describe('/api/inventory/suggestions', () => {
     expect(chain.find).toHaveBeenCalledWith(
       {
         userId: ids.user,
-        itemNumber: { $regex: '^BP', $options: 'i' },
+        itemNumberKey: { $regex: '^BP' },
       },
       {
         projection: {

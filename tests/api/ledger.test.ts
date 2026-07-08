@@ -4,8 +4,6 @@ import { ids, jsonRequest, objectIdLike, routeParams } from '@/tests/helpers/api
 const mocks = vi.hoisted(() => ({
   getDb: vi.fn(),
   getUserIdFromRequest: vi.fn(),
-  redisGet: vi.fn(),
-  redisSetex: vi.fn(),
 }));
 
 vi.mock('@/lib/auth', () => ({
@@ -16,16 +14,10 @@ vi.mock('@/lib/mongodb', () => ({
   getDb: mocks.getDb,
 }));
 
-vi.mock('@/lib/redis', () => ({
-  default: {
-    get: mocks.redisGet,
-    setex: mocks.redisSetex,
-  },
-}));
-
 function transactionCursor(items: unknown[]) {
   const cursor = {
     sort: vi.fn(() => cursor),
+    limit: vi.fn(() => cursor),
     toArray: vi.fn().mockResolvedValue(items),
   };
   return {
@@ -38,27 +30,7 @@ describe('/api/ledger/[entityType]/[entityId]', () => {
   beforeEach(() => {
     mocks.getDb.mockReset();
     mocks.getUserIdFromRequest.mockReset();
-    mocks.redisGet.mockReset();
-    mocks.redisSetex.mockReset();
     mocks.getUserIdFromRequest.mockReturnValue(ids.user);
-    mocks.redisGet.mockResolvedValue(null);
-    mocks.redisSetex.mockResolvedValue('OK');
-  });
-
-  it('returns cached ledgers without touching MongoDB', async () => {
-    const cached = { entries: [], totals: { credit: 0, debit: 0, balance: 0 } };
-    mocks.redisGet.mockResolvedValue(JSON.stringify(cached));
-
-    const { GET } = await import('@/app/api/ledger/[entityType]/[entityId]/route');
-    const response = await GET(
-      jsonRequest('http://localhost/api/ledger/customer/customer-1'),
-      routeParams({ entityType: 'customer', entityId: ids.customer })
-    );
-
-    expect(response.status).toBe(200);
-    await expect(response.json()).resolves.toEqual(cached);
-    expect(mocks.redisGet).toHaveBeenCalledWith(`ledger:customer:${ids.customer}:${ids.user}`);
-    expect(mocks.getDb).not.toHaveBeenCalled();
   });
 
   it('calculates running balances from credit opening balances and ordered transactions', async () => {
@@ -87,6 +59,15 @@ describe('/api/ledger/[entityType]/[entityId]', () => {
     const collection = vi.fn((name: string) => {
       if (name === 'customers') return { findOne: vi.fn().mockResolvedValue(customer) };
       if (name === 'transactions') return { find: transactions.find };
+      if (name === 'entityBalances') {
+        return {
+          findOne: vi.fn().mockResolvedValue({
+            totalCredit: 100,
+            totalDebit: 200,
+            totalBalance: -400,
+          }),
+        };
+      }
       return { findOne: vi.fn().mockResolvedValue(null) };
     });
     mocks.getDb.mockResolvedValue({ collection });
@@ -103,6 +84,7 @@ describe('/api/ledger/[entityType]/[entityId]', () => {
       entityType: 'customer',
       userId: ids.user,
     });
+    expect(transactions.cursor.limit).toHaveBeenCalledWith(101);
     await expect(response.json()).resolves.toMatchObject({
       entity: {
         id: ids.customer,
@@ -119,11 +101,10 @@ describe('/api/ledger/[entityType]/[entityId]', () => {
         debit: 200,
         balance: -400,
       },
+      pagination: {
+        limit: 100,
+        hasMore: false,
+      },
     });
-    expect(mocks.redisSetex).toHaveBeenCalledWith(
-      `ledger:customer:${ids.customer}:${ids.user}`,
-      180,
-      expect.any(String)
-    );
   });
 });

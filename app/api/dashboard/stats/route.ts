@@ -3,15 +3,13 @@ import { getDb } from '@/lib/mongodb';
 import { getUserIdFromRequest } from '@/lib/auth';
 import { subDays, format } from 'date-fns';
 import type { RecentActivity, Transaction } from '@/lib/types';
-import redis from '@/lib/redis';
 import { ObjectId } from 'mongodb';
+import { ensureUserReadModels, type EntityBalance } from '@/lib/read-models';
+import { getCachedJson, setCachedJson, versionedCacheKey } from '@/lib/cache-version';
 
 const MONTH_REGEX = /^\d{4}-(0[1-9]|1[0-2])$/;
 const DATE_REGEX = /^\d{4}-(0[1-9]|1[0-2])-(0[1-9]|[12]\d|3[01])$/;
 const LOW_STOCK_THRESHOLD = 5;
-const INACTIVE_THRESHOLD_DAYS = 60;
-const MS_PER_DAY = 24 * 60 * 60 * 1000;
-const UNKNOWN_QUANTITY_UPDATED_AT = new Date(0);
 
 export async function GET(request: NextRequest) {
   try {
@@ -64,19 +62,11 @@ export async function GET(request: NextRequest) {
     }
 
     const hasDateFilter = rangeStart !== null && rangeEnd !== null;
-    const cacheKey = hasDateFilter
-      ? `dashboard:stats:${userId}:${monthParam || `${fromParam}-${toParam}`}`
-      : `dashboard:stats:${userId}`;
-
-    if (redis.status === 'ready') {
-      try {
-        const cached = await redis.get(cacheKey);
-        if (cached) {
-          return NextResponse.json(JSON.parse(cached));
-        }
-      } catch (cacheError) {
-        console.warn('Redis cache read failed, falling back to DB:', cacheError);
-      }
+    const cacheSuffix = hasDateFilter ? monthParam || `${fromParam}-${toParam}` : 'current';
+    const cacheKey = await versionedCacheKey('dashboard', userId, cacheSuffix);
+    const cached = await getCachedJson<Record<string, unknown>>(cacheKey);
+    if (cached) {
+      return NextResponse.json(cached);
     }
 
     const db = await getDb();
@@ -86,7 +76,7 @@ export async function GET(request: NextRequest) {
     const transactionsCollection = db.collection<Transaction>('transactions');
     const dailyCashRecordsCollection = db.collection('dailyCashRecords');
     const notesCollection = db.collection('notes');
-    const inventoryCollection = db.collection('inventory');
+    const entityBalancesCollection = db.collection<EntityBalance>('entityBalances');
 
     const normalizeToUTCStart = (date: Date) =>
       new Date(Date.UTC(date.getUTCFullYear(), date.getUTCMonth(), date.getUTCDate(), 0, 0, 0, 0));
@@ -97,208 +87,48 @@ export async function GET(request: NextRequest) {
     const tomorrow = new Date(Date.UTC(today.getUTCFullYear(), today.getUTCMonth(), today.getUTCDate() + 1, 0, 0, 0, 0));
     const thirtyDaysAgo = new Date(Date.UTC(now.getFullYear(), now.getMonth(), now.getDate() - 29, 0, 0, 0, 0));
     const currentMonthStart = new Date(Date.UTC(today.getUTCFullYear(), today.getUTCMonth(), 1, 0, 0, 0, 0));
-    const inactiveCutoff = new Date(now.getTime() - INACTIVE_THRESHOLD_DAYS * MS_PER_DAY);
-    const quantityDateExpression = {
-      $ifNull: [
-        '$lastQuantityUpdatedAt',
-        { $ifNull: ['$createdAt', UNKNOWN_QUANTITY_UPDATED_AT] },
-      ],
-    };
-
     const dailyCashQuery = hasDateFilter
       ? { userId, date: { $gte: rangeStart!, $lt: rangeEnd! } }
       : { userId, date: { $gte: thirtyDaysAgo, $lt: tomorrow } };
 
     const [
-      transactionFacets,
-      customerStats,
-      supplierStats,
+      summary,
+      topCustomerBalances,
+      topSupplierBalances,
+      recentTransactions,
       recentCustomers,
       recentSuppliers,
       recentDailyCashRecords,
       dashboardNotes,
-      inventoryStats,
     ] = await Promise.all([
+      ensureUserReadModels(db, userId),
+      entityBalancesCollection
+        .find({ userId, entityType: 'customer' })
+        .sort({ totalDebit: -1, totalCredit: -1, lastTransactionDate: -1 })
+        .limit(3)
+        .toArray(),
+      entityBalancesCollection
+        .find({ userId, entityType: 'supplier' })
+        .sort({ totalDebit: -1, totalCredit: -1, lastTransactionDate: -1 })
+        .limit(3)
+        .toArray(),
       transactionsCollection
-        .aggregate([
-          { $match: { userId } },
-          {
-            $facet: {
-              totals: [
-                {
-                  $group: {
-                    _id: null,
-                    count: { $sum: 1 },
-                    totalCredit: {
-                      $sum: {
-                        $cond: [{ $eq: ['$type', 'credit'] }, '$amount', 0],
-                      },
-                    },
-                    totalDebit: {
-                      $sum: {
-                        $cond: [{ $eq: ['$type', 'debit'] }, '$amount', 0],
-                      },
-                    },
-                    customerCredit: {
-                      $sum: {
-                        $cond: [
-                          { $and: [{ $eq: ['$entityType', 'customer'] }, { $eq: ['$type', 'credit'] }] },
-                          '$amount',
-                          0,
-                        ],
-                      },
-                    },
-                    customerDebit: {
-                      $sum: {
-                        $cond: [
-                          { $and: [{ $eq: ['$entityType', 'customer'] }, { $eq: ['$type', 'debit'] }] },
-                          '$amount',
-                          0,
-                        ],
-                      },
-                    },
-                    supplierCredit: {
-                      $sum: {
-                        $cond: [
-                          { $and: [{ $eq: ['$entityType', 'supplier'] }, { $eq: ['$type', 'credit'] }] },
-                          '$amount',
-                          0,
-                        ],
-                      },
-                    },
-                    supplierDebit: {
-                      $sum: {
-                        $cond: [
-                          { $and: [{ $eq: ['$entityType', 'supplier'] }, { $eq: ['$type', 'debit'] }] },
-                          '$amount',
-                          0,
-                        ],
-                      },
-                    },
-                  },
-                },
-              ],
-              topCustomers: [
-                { $match: { entityType: 'customer' } },
-                {
-                  $group: {
-                    _id: '$entityId',
-                    total: { $sum: '$amount' },
-                    credit: { $sum: { $cond: [{ $eq: ['$type', 'credit'] }, '$amount', 0] } },
-                    debit: { $sum: { $cond: [{ $eq: ['$type', 'debit'] }, '$amount', 0] } },
-                  },
-                },
-                { $sort: { total: -1 } },
-                { $limit: 3 },
-                {
-                  $lookup: {
-                    from: 'customers',
-                    let: { entityId: { $toObjectId: '$_id' } },
-                    pipeline: [
-                      { $match: { $expr: { $eq: ['$_id', '$$entityId'] } } },
-                      { $project: { name: 1 } },
-                    ],
-                    as: 'entity',
-                  },
-                },
-                { $unwind: { path: '$entity', preserveNullAndEmptyArrays: true } },
-                {
-                  $project: {
-                    _id: 1,
-                    total: 1,
-                    credit: 1,
-                    debit: 1,
-                    name: { $ifNull: ['$entity.name', 'Unknown'] },
-                  },
-                },
-              ],
-              topSuppliers: [
-                { $match: { entityType: 'supplier' } },
-                {
-                  $group: {
-                    _id: '$entityId',
-                    total: { $sum: '$amount' },
-                    credit: { $sum: { $cond: [{ $eq: ['$type', 'credit'] }, '$amount', 0] } },
-                    debit: { $sum: { $cond: [{ $eq: ['$type', 'debit'] }, '$amount', 0] } },
-                  },
-                },
-                { $sort: { total: -1 } },
-                { $limit: 3 },
-                {
-                  $lookup: {
-                    from: 'suppliers',
-                    let: { entityId: { $toObjectId: '$_id' } },
-                    pipeline: [
-                      { $match: { $expr: { $eq: ['$_id', '$$entityId'] } } },
-                      { $project: { name: 1 } },
-                    ],
-                    as: 'entity',
-                  },
-                },
-                { $unwind: { path: '$entity', preserveNullAndEmptyArrays: true } },
-                {
-                  $project: {
-                    _id: 1,
-                    total: 1,
-                    credit: 1,
-                    debit: 1,
-                    name: { $ifNull: ['$entity.name', 'Unknown'] },
-                  },
-                },
-              ],
-              recent: [
-                { $sort: { createdAt: -1 } },
-                { $limit: 20 },
-                {
-                  $project: {
-                    _id: 1,
-                    entityId: 1,
-                    entityType: 1,
-                    customerId: 1,
-                    supplierId: 1,
-                    amount: 1,
-                    type: 1,
-                    description: 1,
-                    date: 1,
-                    createdAt: 1,
-                  },
-                },
-              ],
-            },
+        .find({ userId }, {
+          projection: {
+            _id: 1,
+            entityId: 1,
+            entityType: 1,
+            customerId: 1,
+            supplierId: 1,
+            amount: 1,
+            type: 1,
+            description: 1,
+            date: 1,
+            createdAt: 1,
           },
-        ])
-        .toArray(),
-      customersCollection
-        .aggregate([
-          { $match: { userId } },
-          {
-            $group: {
-              _id: null,
-              count: { $sum: 1 },
-              creditBalance: {
-                $sum: {
-                  $cond: [{ $eq: ['$balanceType', 'credit'] }, { $multiply: ['$openingBalance', -1] }, '$openingBalance'],
-                },
-              },
-            },
-          },
-        ])
-        .toArray(),
-      suppliersCollection
-        .aggregate([
-          { $match: { userId } },
-          {
-            $group: {
-              _id: null,
-              count: { $sum: 1 },
-              creditBalance: {
-                $sum: {
-                  $cond: [{ $eq: ['$balanceType', 'credit'] }, { $multiply: ['$openingBalance', -1] }, '$openingBalance'],
-                },
-              },
-            },
-          },
-        ])
+        })
+        .sort({ createdAt: -1 })
+        .limit(20)
         .toArray(),
       customersCollection
         .find({ userId }, { projection: { _id: 1, name: 1, createdAt: 1 } })
@@ -322,101 +152,21 @@ export async function GET(request: NextRequest) {
         .sort({ updatedAt: -1 })
         .limit(6)
         .toArray(),
-      inventoryCollection
-        .aggregate([
-          { $match: { userId } },
-          {
-            $group: {
-              _id: null,
-              totalItems: { $sum: 1 },
-              totalQuantity: { $sum: { $ifNull: ['$quantity', 0] } },
-              totalValue: {
-                $sum: {
-                  $multiply: [
-                    { $ifNull: ['$quantity', 0] },
-                    { $ifNull: ['$buyingPrice', 0] },
-                  ],
-                },
-              },
-              outOfStockItems: {
-                $sum: {
-                  $cond: [
-                    {
-                      $and: [
-                        { $lte: [{ $ifNull: ['$quantity', 0] }, 0] },
-                        { $gt: [quantityDateExpression, inactiveCutoff] },
-                      ],
-                    },
-                    1,
-                    0,
-                  ],
-                },
-              },
-              inactiveItems: {
-                $sum: {
-                  $cond: [
-                    {
-                      $and: [
-                        { $lte: [{ $ifNull: ['$quantity', 0] }, 0] },
-                        { $lte: [quantityDateExpression, inactiveCutoff] },
-                      ],
-                    },
-                    1,
-                    0,
-                  ],
-                },
-              },
-              restockItems: {
-                $sum: {
-                  $cond: [
-                    {
-                      $and: [
-                        { $gt: [{ $ifNull: ['$quantity', 0] }, 0] },
-                        { $lte: [{ $ifNull: ['$quantity', 0] }, LOW_STOCK_THRESHOLD] },
-                      ],
-                    },
-                    1,
-                    0,
-                  ],
-                },
-              },
-            },
-          },
-          {
-            $project: {
-              _id: 0,
-              totalItems: 1,
-              totalQuantity: 1,
-              totalValue: 1,
-              outOfStockItems: 1,
-              inactiveItems: 1,
-              restockItems: 1,
-              lowStockThreshold: { $literal: LOW_STOCK_THRESHOLD },
-            },
-          },
-        ])
-        .toArray(),
     ]);
 
-    const facet = transactionFacets[0] || { totals: [], topCustomers: [], topSuppliers: [], recent: [] };
-
-    const txStats = (facet.totals && facet.totals[0]) || { totalCredit: 0, totalDebit: 0, customerCredit: 0, customerDebit: 0, supplierCredit: 0, supplierDebit: 0, count: 0 };
-    const totalCredit = txStats.totalCredit || 0;
-    const totalDebit = txStats.totalDebit || 0;
-    const transactionCount = txStats.count || 0;
-
-    const custStats = customerStats[0] || { count: 0, creditBalance: 0 };
-    const suppStats = supplierStats[0] || { count: 0, creditBalance: 0 };
-    const totalCustomers = custStats.count || 0;
-    const totalSuppliers = suppStats.count || 0;
+    const totalCredit = summary.totalCredit || 0;
+    const totalDebit = summary.totalDebit || 0;
+    const transactionCount = summary.totalTransactions || 0;
+    const totalCustomers = summary.totalCustomers || 0;
+    const totalSuppliers = summary.totalSuppliers || 0;
 
     const netBalance =
-      (custStats.creditBalance || 0) +
-      (suppStats.creditBalance || 0) -
-      (txStats.customerCredit || 0) +
-      (txStats.customerDebit || 0) -
-      (txStats.supplierCredit || 0) +
-      (txStats.supplierDebit || 0);
+      (summary.customerOpeningBalanceTotal || 0) +
+      (summary.supplierOpeningBalanceTotal || 0) -
+      (summary.customerCredit || 0) +
+      (summary.customerDebit || 0) -
+      (summary.supplierCredit || 0) +
+      (summary.supplierDebit || 0);
 
     const recordByDate = new Map(
       recentDailyCashRecords.map((record) => [dateKey(record.date), record])
@@ -535,8 +285,6 @@ export async function GET(request: NextRequest) {
       recentSuppliers.map((s) => [s._id.toString(), s.name])
     );
 
-    const recentTransactions = (facet.recent as Transaction[]) || [];
-
     const customEntityTransactions = recentTransactions.filter(
       (tx) => tx.entityType && tx.entityType !== 'customer' && tx.entityType !== 'supplier'
     );
@@ -602,23 +350,23 @@ export async function GET(request: NextRequest) {
 
     const topActivities = activities.slice(0, 20);
 
-    const topCustomers = (facet.topCustomers as any[]).map((agg) => ({
-      id: agg._id || '',
-      name: agg.name || 'Unknown',
-      total: agg.total || 0,
-      credit: agg.credit || 0,
-      debit: agg.debit || 0,
+    const topCustomers = topCustomerBalances.map((balance) => ({
+      id: balance.entityId || '',
+      name: balance.entityName || 'Unknown',
+      total: (balance.totalCredit || 0) + (balance.totalDebit || 0),
+      credit: balance.totalCredit || 0,
+      debit: balance.totalDebit || 0,
     }));
 
-    const topSuppliers = (facet.topSuppliers as any[]).map((agg) => ({
-      id: agg._id || '',
-      name: agg.name || 'Unknown',
-      total: agg.total || 0,
-      credit: agg.credit || 0,
-      debit: agg.debit || 0,
+    const topSuppliers = topSupplierBalances.map((balance) => ({
+      id: balance.entityId || '',
+      name: balance.entityName || 'Unknown',
+      total: (balance.totalCredit || 0) + (balance.totalDebit || 0),
+      credit: balance.totalCredit || 0,
+      debit: balance.totalDebit || 0,
     }));
 
-    const inventorySummary = inventoryStats[0] || {
+    const inventorySummary = summary.inventory || {
       totalItems: 0,
       totalQuantity: 0,
       totalValue: 0,
@@ -654,13 +402,7 @@ export async function GET(request: NextRequest) {
       ...(periodLabel && { periodLabel }),
     };
 
-    if (redis.status === 'ready') {
-      try {
-        await redis.setex(cacheKey, 300, JSON.stringify(responseData));
-      } catch (cacheError) {
-        console.warn('Redis cache write failed:', cacheError);
-      }
-    }
+    await setCachedJson(cacheKey, 300, responseData);
 
     return NextResponse.json(responseData);
   } catch (error) {

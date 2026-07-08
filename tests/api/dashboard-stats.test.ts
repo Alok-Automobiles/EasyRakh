@@ -72,7 +72,8 @@ describe('/api/dashboard/stats', () => {
     const response = await GET(jsonRequest('http://localhost/api/dashboard/stats?month=2026-06'));
 
     expect(response.status).toBe(200);
-    expect(mocks.redisGet).toHaveBeenCalledWith(`dashboard:stats:${ids.user}:2026-06`);
+    expect(mocks.redisGet).toHaveBeenCalledWith(`cache:v:dashboard:${ids.user}`);
+    expect(mocks.redisGet).toHaveBeenCalledWith(`dashboard:${ids.user}:v0:2026-06`);
     expect(mocks.getDb).not.toHaveBeenCalled();
     await expect(response.json()).resolves.toEqual(cached);
   });

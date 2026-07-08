@@ -117,6 +117,7 @@ describe('/api/inventory', () => {
       limit: 100,
       status: 'all',
       search: 'brake',
+      version: '0',
     });
     expect(mocks.getDb).not.toHaveBeenCalled();
     await expect(response.json()).resolves.toEqual({
@@ -144,7 +145,7 @@ describe('/api/inventory', () => {
     expect(findOne).toHaveBeenCalledWith(
       {
         userId: ids.user,
-        itemNumber: { $regex: '^BP-104$', $options: 'i' },
+        itemNumberKey: 'BP-104',
       },
       { projection: { _id: 1, itemName: 1, itemNumber: 1 } }
     );

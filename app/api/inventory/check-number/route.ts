@@ -3,10 +3,7 @@ import { ObjectId } from 'mongodb';
 import { getDb } from '@/lib/mongodb';
 import { getUserIdFromRequest } from '@/lib/auth';
 import type { InventoryItem } from '@/lib/types';
-
-function escapeRegex(value: string) {
-  return value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-}
+import { normalizeIdentifier } from '@/lib/search-normalization';
 
 export async function GET(request: NextRequest) {
   try {
@@ -28,7 +25,7 @@ export async function GET(request: NextRequest) {
 
     const query: Record<string, unknown> = {
       userId,
-      itemNumber: { $regex: `^${escapeRegex(itemNumber)}$`, $options: 'i' },
+      itemNumberKey: normalizeIdentifier(itemNumber),
     };
 
     if (excludeId && ObjectId.isValid(excludeId)) {

@@ -68,65 +68,26 @@ export default function Sidebar({ collapsed = false }: SidebarProps) {
     if (lastPathnameRef.current === pathname) return;
     lastPathnameRef.current = pathname;
 
-    Promise.all([
-      fetch('/api/auth/me').then((res) => {
-        if (res.ok) {
-          return res.json();
-        }
+    fetch('/api/bootstrap')
+      .then((res) => {
+        if (res.ok) return res.json();
         if (res.status === 401) {
           router.push('/login');
           return null;
         }
         return null;
-      }),
-      fetch('/api/collection-types').then((res) => {
-        if (res.ok) {
-          return res.json();
+      })
+      .then((bootstrapData) => {
+        if (bootstrapData?.user) {
+          setUser(bootstrapData.user);
         }
-        return { collectionTypes: [] };
-      }).catch(() => ({ collectionTypes: [] })),
-      fetch('/api/transactions?limit=100').then((res) => {
-        if (res.ok) {
-          return res.json();
-        }
-        return { transactions: [] };
-      }).catch(() => ({ transactions: [] })),
-    ])
-      .then(([userData, collectionTypesData, transactionsData]) => {
-        if (userData?.user) {
-          setUser(userData.user);
-        }
-        if (collectionTypesData?.collectionTypes) {
-          const collections = collectionTypesData.collectionTypes;
-          const transactions = transactionsData?.transactions || [];
-          
-          const collectionLastTransactionMap = new Map<string, Date>();
-          
-          transactions.forEach((tx: { entityType: string; date: string | Date; createdAt: string | Date }) => {
-            if (tx.entityType && tx.entityType !== 'customer' && tx.entityType !== 'supplier') {
-              const txDate = new Date(tx.date || tx.createdAt);
-              const existing = collectionLastTransactionMap.get(tx.entityType);
-              if (!existing || txDate > existing) {
-                collectionLastTransactionMap.set(tx.entityType, txDate);
-              }
-            }
-          });
-          
-          const collectionsWithDates = collections.map((ct: { id: string; name: string; slug: string }) => ({
-            ...ct,
-            lastTransactionDate: collectionLastTransactionMap.get(ct.slug),
-          }));
-          
-          collectionsWithDates.sort((a: { id: string; name: string; slug: string; lastTransactionDate?: Date }, b: { id: string; name: string; slug: string; lastTransactionDate?: Date }) => {
-            if (a.lastTransactionDate && b.lastTransactionDate) {
-              return b.lastTransactionDate.getTime() - a.lastTransactionDate.getTime();
-            }
-            if (a.lastTransactionDate) return -1;
-            if (b.lastTransactionDate) return 1;
-            return 0;
-          });
-          
-          setCustomCollectionTypes(collectionsWithDates);
+        if (bootstrapData?.collectionTypes) {
+          setCustomCollectionTypes(
+            bootstrapData.collectionTypes.map((ct: { id: string; name: string; slug: string; lastTransactionDate?: string | Date }) => ({
+              ...ct,
+              lastTransactionDate: ct.lastTransactionDate ? new Date(ct.lastTransactionDate) : undefined,
+            }))
+          );
         }
         setLoading(false);
       })

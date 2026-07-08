@@ -2,7 +2,9 @@ import { NextRequest, NextResponse } from 'next/server';
 import { getDb } from '@/lib/mongodb';
 import { getUserIdFromRequest } from '@/lib/auth';
 import { z } from 'zod';
-import redis from '@/lib/redis';
+import { bumpCacheVersions, getCachedJson, setCachedJson, versionedCacheKey } from '@/lib/cache-version';
+import { entitySearchTokens } from '@/lib/search-normalization';
+import { ensureUserReadModels, refreshUserReadModels, type EntityBalance } from '@/lib/read-models';
 
 const supplierSchema = z.object({
   name: z.string().min(1, 'Name is required'),
@@ -27,91 +29,46 @@ export async function GET(request: NextRequest) {
       );
     }
 
-    try {
-      const cacheKey = `suppliers:${userId}`;
-      const cached = await redis.get(cacheKey);
-      if (cached) {
-        return NextResponse.json(JSON.parse(cached));
-      }
-    } catch (cacheError) {
-      console.warn('Redis cache read failed, falling back to DB:', cacheError);
+    const cacheKey = await versionedCacheKey('suppliers', userId);
+    const cached = await getCachedJson<{ suppliers: unknown[] }>(cacheKey);
+    if (cached) {
+      return NextResponse.json(cached);
     }
 
     const db = await getDb();
     const suppliersCollection = db.collection('suppliers');
+    const entityBalancesCollection = db.collection<EntityBalance>('entityBalances');
+    await ensureUserReadModels(db, userId);
 
-    const suppliersWithBalance = await suppliersCollection.aggregate([
-      { $match: { userId } },
-      { $sort: { createdAt: -1 } },
-      {
-        $lookup: {
-          from: 'transactions',
-          let: { supplierId: { $toString: '$_id' } },
-          pipeline: [
-            {
-              $match: {
-                $expr: {
-                  $and: [
-                    { $eq: ['$entityId', '$$supplierId'] },
-                    { $eq: ['$entityType', 'supplier'] },
-                    { $eq: ['$userId', userId] },
-                  ],
-                },
-              },
-            },
-            {
-              $group: {
-                _id: null,
-                totalCredit: {
-                  $sum: { $cond: [{ $eq: ['$type', 'credit'] }, '$amount', 0] },
-                },
-                totalDebit: {
-                  $sum: { $cond: [{ $eq: ['$type', 'debit'] }, '$amount', 0] },
-                },
-              },
-            },
-          ],
-          as: 'txSummary',
-        },
-      },
-      { $unwind: { path: '$txSummary', preserveNullAndEmptyArrays: true } },
-      {
-        $project: {
-          id: { $toString: '$_id' },
-          name: 1,
-          phone: 1,
-          email: 1,
-          address: 1,
-          openingBalance: 1,
-          balanceType: 1,
-          createdAt: 1,
-          totalBalance: {
-            $add: [
-              {
-                $cond: [
-                  { $eq: ['$balanceType', 'credit'] },
-                  { $multiply: ['$openingBalance', -1] },
-                  '$openingBalance',
-                ],
-              },
-              { $ifNull: ['$txSummary.totalDebit', 0] },
-              { $multiply: [{ $ifNull: ['$txSummary.totalCredit', 0] }, -1] },
-            ],
-          },
-        },
-      },
-    ]).toArray();
+    const [suppliers, balances] = await Promise.all([
+      suppliersCollection.find({ userId }).sort({ createdAt: -1 }).toArray(),
+      entityBalancesCollection.find({ userId, entityType: 'supplier' }).toArray(),
+    ]);
+
+    const balanceMap = new Map(balances.map((balance) => [balance.entityId, balance]));
+    const suppliersWithBalance = suppliers.map((supplier) => {
+      const id = supplier._id.toString();
+      const balance = balanceMap.get(id);
+      const openingBalance = supplier.openingBalance || 0;
+      const signedOpening = supplier.balanceType === 'credit' ? -openingBalance : openingBalance;
+      return {
+        id,
+        name: supplier.name,
+        phone: supplier.phone,
+        email: supplier.email,
+        address: supplier.address,
+        openingBalance,
+        balanceType: supplier.balanceType,
+        createdAt: supplier.createdAt,
+        totalBalance: balance?.totalBalance ?? signedOpening,
+      };
+    });
 
     const responseData = {
       suppliers: suppliersWithBalance,
     };
 
-    try {
-      const cacheKey = `suppliers:${userId}`;
-      await redis.setex(cacheKey, 600, JSON.stringify(responseData));
-    } catch (cacheError) {
-      console.warn('Redis cache write failed:', cacheError);
-    }
+    await setCachedJson(cacheKey, 600, responseData);
 
     return NextResponse.json(responseData);
   } catch (error) {
@@ -151,12 +108,14 @@ export async function POST(request: NextRequest) {
       openingBalanceDescription: validatedData.openingBalanceDescription || '',
       openingBalanceBillUrl: validatedData.openingBalanceBillUrl || '',
       openingBalanceBillPublicId: validatedData.openingBalanceBillPublicId || '',
+      searchTokens: entitySearchTokens(validatedData),
       createdAt: new Date(),
     });
 
-    redis.del(`suppliers:${userId}`, `dashboard:stats:${userId}`).catch((err) => {
-      console.warn('Redis cache invalidation failed:', err);
-    });
+    await Promise.all([
+      refreshUserReadModels(db, userId),
+      bumpCacheVersions(userId, ['suppliers', 'dashboard', 'bootstrap', 'search']),
+    ]);
 
     return NextResponse.json(
       {
@@ -183,4 +142,3 @@ export async function POST(request: NextRequest) {
     );
   }
 }
-

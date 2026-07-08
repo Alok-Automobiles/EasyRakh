@@ -4,7 +4,7 @@ import { getUserIdFromRequest } from '@/lib/auth';
 import { z } from 'zod';
 import { format } from 'date-fns';
 import { ObjectId } from 'mongodb';
-import redis, { deleteByPattern } from '@/lib/redis';
+import { bumpCacheVersions } from '@/lib/cache-version';
 
 const BILL_URL_MAX_LENGTH = 2048;
 const ALLOWED_BILL_URL_SCHEMES = ['https:'];
@@ -101,20 +101,8 @@ function serializeRecord(record: any) {
 }
 
 async function invalidateDailyCashCaches(userId: string, dateKey: string) {
-  const results = await Promise.allSettled([
-    redis.del(
-      `daily-cash:date:${userId}:${dateKey}`,
-      `dashboard:stats:${userId}`
-    ),
-    deleteByPattern(`daily-cash:list:${userId}:page:*`),
-    deleteByPattern(`dashboard:stats:${userId}:*`),
-  ]);
-
-  results.forEach((result) => {
-    if (result.status === 'rejected') {
-      console.warn('Redis cache invalidation failed:', result.reason);
-    }
-  });
+  void dateKey;
+  await bumpCacheVersions(userId, ['dailyCash', 'dashboard']);
 }
 
 export async function PUT(
