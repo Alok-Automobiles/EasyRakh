@@ -7,6 +7,7 @@ const mocks = vi.hoisted(() => ({
   redisGet: vi.fn(),
   redisSetex: vi.fn(),
   redisDel: vi.fn(),
+  redisIncr: vi.fn(),
 }));
 
 vi.mock('@/lib/auth', () => ({
@@ -22,6 +23,7 @@ vi.mock('@/lib/redis', () => ({
     get: mocks.redisGet,
     setex: mocks.redisSetex,
     del: mocks.redisDel,
+    incr: mocks.redisIncr,
   },
 }));
 
@@ -39,6 +41,8 @@ describe('/api/customers', () => {
     mocks.redisGet.mockReset();
     mocks.redisSetex.mockReset();
     mocks.redisDel.mockReset();
+    mocks.redisIncr.mockReset();
+    mocks.redisIncr.mockResolvedValue(1);
   });
 
   it('rejects unauthenticated reads', async () => {
@@ -122,10 +126,9 @@ describe('/api/customers', () => {
         balanceType: 'debit',
       })
     );
-    expect(mocks.redisDel).toHaveBeenCalledWith(
-      'customers:user-1',
-      'dashboard:stats:user-1'
-    );
+    expect(mocks.redisIncr).toHaveBeenCalledWith('cache:v:customers:user-1');
+    expect(mocks.redisIncr).toHaveBeenCalledWith('cache:v:dashboard:user-1');
+    expect(mocks.redisIncr).toHaveBeenCalledWith('cache:v:bootstrap:user-1');
     await expect(response.json()).resolves.toMatchObject({
       message: 'Customer created successfully',
       customer: {

@@ -11,6 +11,8 @@ import {
 } from '@/lib/cache';
 import { z } from 'zod';
 import { uppercaseInventoryPayload } from '@/lib/inventory-text';
+import { normalizeIdentifier } from '@/lib/search-normalization';
+import { inventoryDerivedFields, refreshUserReadModels } from '@/lib/read-models';
 import {
   cloudinaryAssetsFromFields,
   deleteCloudinaryAssets,
@@ -94,10 +96,6 @@ function normalizeItemInput(data: z.infer<typeof inventoryItemSchema>) {
 function getObjectId(id: string) {
   if (!ObjectId.isValid(id)) return null;
   return new ObjectId(id);
-}
-
-function escapeRegex(value: string) {
-  return value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 }
 
 export async function GET(
@@ -196,7 +194,7 @@ export async function PUT(
         {
           userId,
           _id: { $ne: objectId },
-          itemNumber: { $regex: `^${escapeRegex(itemData.itemNumber)}$`, $options: 'i' },
+          itemNumberKey: normalizeIdentifier(itemData.itemNumber),
         },
         { projection: { _id: 1, itemName: 1, itemNumber: 1 } }
       );
@@ -222,6 +220,7 @@ export async function PUT(
       {
         $set: {
           ...updateData,
+          ...inventoryDerivedFields(updateData),
         },
       }
     );
@@ -230,7 +229,10 @@ export async function PUT(
       return NextResponse.json({ error: 'Inventory item not found' }, { status: 404 });
     }
 
-    await invalidateInventoryCache(userId, id);
+    await Promise.all([
+      refreshUserReadModels(db, userId),
+      invalidateInventoryCache(userId, id),
+    ]);
 
     return NextResponse.json({
       message: 'Inventory item updated successfully',
@@ -314,7 +316,14 @@ export async function PATCH(
         return NextResponse.json({ error: 'Inventory item not found' }, { status: 404 });
       }
 
-      await invalidateInventoryCache(userId, id);
+      const derived = inventoryDerivedFields(
+        result as unknown as InventoryItem & { _id: { toString(): string } }
+      );
+      await inventoryCollection.updateOne({ _id: objectId, userId }, { $set: derived });
+      await Promise.all([
+        refreshUserReadModels(db, userId),
+        invalidateInventoryCache(userId, id),
+      ]);
 
       const item = serializeInventoryItem(
         result as unknown as InventoryItem & { _id: { toString(): string } }
@@ -337,7 +346,14 @@ export async function PATCH(
         return NextResponse.json({ error: 'Inventory item not found' }, { status: 404 });
       }
 
-      await invalidateInventoryCache(userId, id);
+      const derived = inventoryDerivedFields(
+        result as unknown as InventoryItem & { _id: { toString(): string } }
+      );
+      await inventoryCollection.updateOne({ _id: objectId, userId }, { $set: derived });
+      await Promise.all([
+        refreshUserReadModels(db, userId),
+        invalidateInventoryCache(userId, id),
+      ]);
 
       const item = serializeInventoryItem(
         result as unknown as InventoryItem & { _id: { toString(): string } }
@@ -374,14 +390,24 @@ export async function PATCH(
       }
       // Quantity was already 0; return current state unchanged
       const current = await inventoryCollection.findOne({ _id: objectId, userId });
-      await invalidateInventoryCache(userId, id);
+      await Promise.all([
+        refreshUserReadModels(db, userId),
+        invalidateInventoryCache(userId, id),
+      ]);
       const item = serializeInventoryItem(
         current as unknown as InventoryItem & { _id: { toString(): string } }
       );
       return NextResponse.json({ message: 'Quantity already at minimum', item });
     }
 
-    await invalidateInventoryCache(userId, id);
+    const derived = inventoryDerivedFields(
+      result as unknown as InventoryItem & { _id: { toString(): string } }
+    );
+    await inventoryCollection.updateOne({ _id: objectId, userId }, { $set: derived });
+    await Promise.all([
+      refreshUserReadModels(db, userId),
+      invalidateInventoryCache(userId, id),
+    ]);
 
     const item = serializeInventoryItem(
       result as unknown as InventoryItem & { _id: { toString(): string } }
@@ -454,7 +480,10 @@ export async function DELETE(
       return NextResponse.json({ error: 'Inventory item not found' }, { status: 404 });
     }
 
-    await invalidateInventoryCache(userId, id);
+    await Promise.all([
+      refreshUserReadModels(db, userId),
+      invalidateInventoryCache(userId, id),
+    ]);
 
     return NextResponse.json({ message: 'Inventory item deleted successfully' });
   } catch (error) {

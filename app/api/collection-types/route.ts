@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { getDb } from '@/lib/mongodb';
 import { getUserIdFromRequest } from '@/lib/auth';
 import { z } from 'zod';
-import redis from '@/lib/redis';
+import { bumpCacheVersions, getCachedJson, setCachedJson, versionedCacheKey } from '@/lib/cache-version';
 
 const collectionTypeSchema = z.object({
   name: z.string().min(1, 'Name is required').max(50, 'Name must be 50 characters or less'),
@@ -28,14 +28,10 @@ export async function GET(request: NextRequest) {
       );
     }
 
-    try {
-      const cacheKey = `collectionTypes:${userId}`;
-      const cached = await redis.get(cacheKey);
-      if (cached) {
-        return NextResponse.json(JSON.parse(cached));
-      }
-    } catch (cacheError) {
-      console.warn('Redis cache read failed, falling back to DB:', cacheError);
+    const cacheKey = await versionedCacheKey('collectionTypes', userId);
+    const cached = await getCachedJson<{ collectionTypes: unknown[] }>(cacheKey);
+    if (cached) {
+      return NextResponse.json(cached);
     }
 
     const db = await getDb();
@@ -55,12 +51,7 @@ export async function GET(request: NextRequest) {
       })),
     };
 
-    try {
-      const cacheKey = `collectionTypes:${userId}`;
-      await redis.setex(cacheKey, 600, JSON.stringify(responseData));
-    } catch (cacheError) {
-      console.warn('Redis cache write failed:', cacheError);
-    }
+    await setCachedJson(cacheKey, 600, responseData);
 
     return NextResponse.json(responseData);
   } catch (error) {
@@ -114,9 +105,7 @@ export async function POST(request: NextRequest) {
       createdAt: new Date(),
     });
 
-    redis.del(`collectionTypes:${userId}`).catch((err) => {
-      console.warn('Redis cache invalidation failed:', err);
-    });
+    await bumpCacheVersions(userId, ['collectionTypes', 'bootstrap']);
 
     return NextResponse.json(
       {
@@ -144,4 +133,3 @@ export async function POST(request: NextRequest) {
     );
   }
 }
-

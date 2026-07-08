@@ -2,7 +2,9 @@ import { NextRequest, NextResponse } from "next/server";
 import { getDb } from "@/lib/mongodb";
 import { getUserIdFromRequest } from "@/lib/auth";
 import { z } from "zod";
-import redis from "@/lib/redis";
+import { bumpCacheVersions, getCachedJson, setCachedJson, versionedCacheKey } from "@/lib/cache-version";
+import { entitySearchTokens } from "@/lib/search-normalization";
+import { ensureUserReadModels, refreshUserReadModels, type EntityBalance } from "@/lib/read-models";
 
 const customerSchema = z.object({
   name: z.string().min(1, "Name is required"),
@@ -24,87 +26,44 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
     
-    try {
-      const cachedCustomers = await redis.get(`customers:${userId}`);
-      if (cachedCustomers) {
-        return NextResponse.json(JSON.parse(cachedCustomers), { status: 200 });
-      }
-    } catch (cacheError) {
-      console.warn('Redis cache read failed, falling back to DB:', cacheError);
+    const cacheKey = await versionedCacheKey('customers', userId);
+    const cachedCustomers = await getCachedJson<{ customers: unknown[] }>(cacheKey);
+    if (cachedCustomers) {
+      return NextResponse.json(cachedCustomers, { status: 200 });
     }
 
     const db = await getDb();
     const customersCollection = db.collection("customers");
+    const entityBalancesCollection = db.collection<EntityBalance>('entityBalances');
+    await ensureUserReadModels(db, userId);
 
-    const customersWithBalance = await customersCollection.aggregate([
-      { $match: { userId } },
-      { $sort: { createdAt: -1 } },
-      {
-        $lookup: {
-          from: 'transactions',
-          let: { customerId: { $toString: '$_id' } },
-          pipeline: [
-            {
-              $match: {
-                $expr: {
-                  $and: [
-                    { $eq: ['$entityId', '$$customerId'] },
-                    { $eq: ['$entityType', 'customer'] },
-                    { $eq: ['$userId', userId] },
-                  ],
-                },
-              },
-            },
-            {
-              $group: {
-                _id: null,
-                totalCredit: {
-                  $sum: { $cond: [{ $eq: ['$type', 'credit'] }, '$amount', 0] },
-                },
-                totalDebit: {
-                  $sum: { $cond: [{ $eq: ['$type', 'debit'] }, '$amount', 0] },
-                },
-              },
-            },
-          ],
-          as: 'txSummary',
-        },
-      },
-      { $unwind: { path: '$txSummary', preserveNullAndEmptyArrays: true } },
-      {
-        $project: {
-          id: { $toString: '$_id' },
-          name: 1,
-          phone: 1,
-          email: 1,
-          address: 1,
-          openingBalance: 1,
-          balanceType: 1,
-          createdAt: 1,
-          totalBalance: {
-            $add: [
-              {
-                $cond: [
-                  { $eq: ['$balanceType', 'credit'] },
-                  { $multiply: ['$openingBalance', -1] },
-                  '$openingBalance',
-                ],
-              },
-              { $ifNull: ['$txSummary.totalDebit', 0] },
-              { $multiply: [{ $ifNull: ['$txSummary.totalCredit', 0] }, -1] },
-            ],
-          },
-        },
-      },
-    ]).toArray();
+    const [customers, balances] = await Promise.all([
+      customersCollection.find({ userId }).sort({ createdAt: -1 }).toArray(),
+      entityBalancesCollection.find({ userId, entityType: 'customer' }).toArray(),
+    ]);
+
+    const balanceMap = new Map(balances.map((balance) => [balance.entityId, balance]));
+    const customersWithBalance = customers.map((customer) => {
+      const id = customer._id.toString();
+      const balance = balanceMap.get(id);
+      const openingBalance = customer.openingBalance || 0;
+      const signedOpening = customer.balanceType === 'credit' ? -openingBalance : openingBalance;
+      return {
+        id,
+        name: customer.name,
+        phone: customer.phone,
+        email: customer.email,
+        address: customer.address,
+        openingBalance,
+        balanceType: customer.balanceType,
+        createdAt: customer.createdAt,
+        totalBalance: balance?.totalBalance ?? signedOpening,
+      };
+    });
 
     const responseData = { customers: customersWithBalance };
 
-    try {
-      await redis.setex(`customers:${userId}`, 600, JSON.stringify(responseData));
-    } catch (cacheError) {
-      console.warn('Redis cache write failed:', cacheError);
-    }
+    await setCachedJson(cacheKey, 600, responseData);
 
     return NextResponse.json(responseData, { status: 200 });
   } catch (error) {
@@ -141,12 +100,14 @@ export async function POST(request: NextRequest) {
       openingBalanceDescription: validatedData.openingBalanceDescription || "",
       openingBalanceBillUrl: validatedData.openingBalanceBillUrl || "",
       openingBalanceBillPublicId: validatedData.openingBalanceBillPublicId || "",
+      searchTokens: entitySearchTokens(validatedData),
       createdAt: new Date(),
     });
 
-    redis.del(`customers:${userId}`, `dashboard:stats:${userId}`).catch((err) => {
-      console.warn('Redis cache invalidation failed:', err);
-    });
+    await Promise.all([
+      refreshUserReadModels(db, userId),
+      bumpCacheVersions(userId, ['customers', 'dashboard', 'bootstrap', 'search']),
+    ]);
 
     return NextResponse.json(
       {

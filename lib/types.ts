@@ -26,6 +26,7 @@ export interface Customer {
   openingBalanceDescription?: string;
   openingBalanceBillUrl?: string;
   openingBalanceBillPublicId?: string;
+  searchTokens?: string[];
   createdAt: Date;
 }
 
@@ -41,6 +42,7 @@ export interface Supplier {
   openingBalanceDescription?: string;
   openingBalanceBillUrl?: string;
   openingBalanceBillPublicId?: string;
+  searchTokens?: string[];
   createdAt: Date;
 }
 
@@ -65,6 +67,7 @@ export interface CustomEntity {
   openingBalanceDescription?: string;
   openingBalanceBillUrl?: string;
   openingBalanceBillPublicId?: string;
+  searchTokens?: string[];
   createdAt: Date;
 }
 
@@ -143,6 +146,7 @@ export interface Invoice {
   notes?: string;
   addedToLedger: boolean;
   transactionId?: string; // linked transaction if added to ledger
+  searchTokens?: string[];
   createdAt: Date;
   updatedAt: Date;
 }
@@ -166,6 +170,9 @@ export interface InventoryItem {
   billingDate?: Date;
   billImages?: string[];
   billImagePublicIds?: string[];
+  itemNumberKey?: string;
+  searchTokens?: string[];
+  stockStatus?: 'in-stock' | 'low-stock' | 'out-of-stock' | 'inactive';
   lastQuantityUpdatedAt?: Date;
   createdAt: Date;
   updatedAt: Date;

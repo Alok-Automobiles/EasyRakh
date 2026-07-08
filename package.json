@@ -11,7 +11,9 @@
     "test": "vitest",
     "test:unit": "vitest run",
     "test:e2e": "playwright test",
-    "migrate:quantity-date": "tsx scripts/migrate-last-quantity-updated.ts"
+    "migrate:quantity-date": "tsx scripts/migrate-last-quantity-updated.ts",
+    "backfill:read-models": "tsx scripts/backfill-read-models.ts",
+    "check:query-shapes": "tsx scripts/check-hot-query-shapes.ts"
   },
   "dependencies": {
     "@google/generative-ai": "^0.24.1",

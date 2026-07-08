@@ -2,7 +2,9 @@ import { NextRequest, NextResponse } from 'next/server';
 import { getDb } from '@/lib/mongodb';
 import { getUserIdFromRequest } from '@/lib/auth';
 import { z } from 'zod';
-import redis from '@/lib/redis';
+import { bumpCacheVersions, getCachedJson, setCachedJson, versionedCacheKey } from '@/lib/cache-version';
+import { entitySearchTokens } from '@/lib/search-normalization';
+import { ensureUserReadModels, refreshUserReadModels, type EntityBalance } from '@/lib/read-models';
 
 const customEntitySchema = z.object({
   collectionType: z.string().min(1, 'Collection type is required'),
@@ -38,19 +40,16 @@ export async function GET(request: NextRequest) {
       );
     }
 
-    try {
-      const cacheKey = `customEntities:${collectionType}:${userId}`;
-      const cached = await redis.get(cacheKey);
-      if (cached) {
-        return NextResponse.json(JSON.parse(cached));
-      }
-    } catch (cacheError) {
-      console.warn('Redis cache read failed, falling back to DB:', cacheError);
+    const cacheKey = await versionedCacheKey('customEntities', userId, collectionType);
+    const cached = await getCachedJson<{ entities: unknown[] }>(cacheKey);
+    if (cached) {
+      return NextResponse.json(cached);
     }
 
     const db = await getDb();
     const collectionTypesCollection = db.collection('collectionTypes');
     const customEntitiesCollection = db.collection('customEntities');
+    const entityBalancesCollection = db.collection<EntityBalance>('entityBalances');
 
     const collectionTypeDoc = await collectionTypesCollection.findOne({
       userId,
@@ -64,63 +63,39 @@ export async function GET(request: NextRequest) {
       );
     }
 
-    const entities = await customEntitiesCollection
-      .find({ userId, collectionType })
-      .sort({ createdAt: -1 })
-      .toArray();
+    await ensureUserReadModels(db, userId);
 
-    const transactionsCollection = db.collection('transactions');
+    const [entities, balances] = await Promise.all([
+      customEntitiesCollection.find({ userId, collectionType }).sort({ createdAt: -1 }).toArray(),
+      entityBalancesCollection.find({ userId, entityType: collectionType }).toArray(),
+    ]);
 
-    const entitiesWithBalance = await Promise.all(
-      entities.map(async (entity) => {
-        const entityId = entity._id.toString();
-        
-        const transactions = await transactionsCollection
-          .find({
-            entityId: entityId,
-            entityType: collectionType,
-            userId,
-          })
-          .toArray();
+    const balanceMap = new Map(balances.map((balance) => [balance.entityId, balance]));
+    const entitiesWithBalance = entities.map((entity) => {
+      const id = entity._id.toString();
+      const balance = balanceMap.get(id);
+      const openingBalance = entity.openingBalance || 0;
+      const signedOpening = entity.balanceType === 'credit' ? -openingBalance : openingBalance;
 
-        const totalCredit = transactions
-          .filter((t) => t.type === 'credit')
-          .reduce((sum, t) => sum + t.amount, 0);
-        const totalDebit = transactions
-          .filter((t) => t.type === 'debit')
-          .reduce((sum, t) => sum + t.amount, 0);
-
-        let totalBalance = entity.openingBalance;
-        if (entity.balanceType === 'credit') {
-          totalBalance = -totalBalance;
-        }
-        totalBalance = totalBalance - totalCredit + totalDebit;
-
-        return {
-          id: entityId,
-          collectionType: entity.collectionType,
-          name: entity.name,
-          phone: entity.phone,
-          email: entity.email,
-          address: entity.address,
-          openingBalance: entity.openingBalance,
-          balanceType: entity.balanceType,
-          totalBalance,
-          createdAt: entity.createdAt,
-        };
-      })
-    );
+      return {
+        id,
+        collectionType: entity.collectionType,
+        name: entity.name,
+        phone: entity.phone,
+        email: entity.email,
+        address: entity.address,
+        openingBalance,
+        balanceType: entity.balanceType,
+        totalBalance: balance?.totalBalance ?? signedOpening,
+        createdAt: entity.createdAt,
+      };
+    });
 
     const responseData = {
       entities: entitiesWithBalance,
     };
 
-    try {
-      const cacheKey = `customEntities:${collectionType}:${userId}`;
-      await redis.setex(cacheKey, 600, JSON.stringify(responseData));
-    } catch (cacheError) {
-      console.warn('Redis cache write failed:', cacheError);
-    }
+    await setCachedJson(cacheKey, 600, responseData);
 
     return NextResponse.json(responseData);
   } catch (error) {
@@ -174,15 +149,14 @@ export async function POST(request: NextRequest) {
       openingBalanceDescription: validatedData.openingBalanceDescription || '',
       openingBalanceBillUrl: validatedData.openingBalanceBillUrl || '',
       openingBalanceBillPublicId: validatedData.openingBalanceBillPublicId || '',
+      searchTokens: entitySearchTokens(validatedData),
       createdAt: new Date(),
     });
 
-    redis.del(
-      `customEntities:${validatedData.collectionType}:${userId}`,
-      `dashboard:stats:${userId}`
-    ).catch((err) => {
-      console.warn('Redis cache invalidation failed:', err);
-    });
+    await Promise.all([
+      refreshUserReadModels(db, userId),
+      bumpCacheVersions(userId, ['customEntities', 'dashboard', 'bootstrap', 'search']),
+    ]);
 
     return NextResponse.json(
       {
@@ -209,4 +183,3 @@ export async function POST(request: NextRequest) {
     );
   }
 }
-

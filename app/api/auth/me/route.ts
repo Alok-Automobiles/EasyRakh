@@ -3,6 +3,7 @@ import { getDb } from '@/lib/mongodb';
 import { getUserIdFromRequest } from '@/lib/auth';
 import { isAdminEmail } from '@/lib/admin';
 import { z } from 'zod';
+import { bumpCacheVersions } from '@/lib/cache-version';
 
 const LAST_ACTIVE_WRITE_INTERVAL_MS = 15 * 60 * 1000;
 
@@ -118,6 +119,7 @@ export async function PUT(request: NextRequest) {
         { status: 404 }
       );
     }
+    await bumpCacheVersions(userId, ['bootstrap']);
 
     const updatedUser = await usersCollection.findOne(
       { _id: new ObjectId(userId) },

@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { getDb } from '@/lib/mongodb';
 import { getUserIdFromRequest } from '@/lib/auth';
 import { z } from 'zod';
-import redis from '@/lib/redis';
+import { bumpCacheVersions } from '@/lib/cache-version';
 
 const noteSchema = z.object({
   title: z.string().min(1, 'Title is required'),
@@ -90,9 +90,7 @@ export async function POST(request: NextRequest) {
       updatedAt: now,
     });
 
-    redis.del(`dashboard:stats:${userId}`).catch((err) => {
-      console.warn('Redis cache invalidation failed:', err);
-    });
+    await bumpCacheVersions(userId, ['dashboard']);
 
     return NextResponse.json(
       {
@@ -125,4 +123,3 @@ export async function POST(request: NextRequest) {
     );
   }
 }
-

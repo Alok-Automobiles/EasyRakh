@@ -4,6 +4,8 @@ import { getUserIdFromRequest } from '@/lib/auth';
 import { z } from 'zod';
 import { ObjectId } from 'mongodb';
 import redis from '@/lib/redis';
+import { bumpCacheVersions } from '@/lib/cache-version';
+import { refreshUserReadModels } from '@/lib/read-models';
 
 const transactionSchema = z
   .object({
@@ -208,22 +210,17 @@ export async function POST(request: NextRequest) {
       createdAt: new Date(),
     });
 
-    const cachesToInvalidate = [
-      `dashboard:stats:${userId}`,
-      `ledger:${validatedData.entityType}:${validatedData.entityId}:${userId}`
-    ];
-    
-    if (validatedData.entityType === 'customer') {
-      cachesToInvalidate.push(`customers:${userId}`);
-    } else if (validatedData.entityType === 'supplier') {
-      cachesToInvalidate.push(`suppliers:${userId}`);
-    } else {
-      cachesToInvalidate.push(`customEntities:${validatedData.entityType}:${userId}`);
-    }
-    
-    redis.del(...cachesToInvalidate).catch((err) => {
-      console.warn('Redis cache invalidation failed:', err);
-    });
+    const namespaces = validatedData.entityType === 'customer'
+      ? ['dashboard', 'customers', 'bootstrap'] as const
+      : validatedData.entityType === 'supplier'
+        ? ['dashboard', 'suppliers', 'bootstrap'] as const
+        : ['dashboard', 'customEntities', 'bootstrap'] as const;
+
+    await Promise.all([
+      refreshUserReadModels(db, userId),
+      bumpCacheVersions(userId, [...namespaces]),
+      redis.del(`ledger:${validatedData.entityType}:${validatedData.entityId}:${userId}`),
+    ]);
 
     return NextResponse.json(
       {
@@ -257,4 +254,3 @@ export async function POST(request: NextRequest) {
     );
   }
 }
-

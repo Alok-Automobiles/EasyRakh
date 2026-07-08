@@ -4,6 +4,9 @@ import { getUserIdFromRequest } from '@/lib/auth';
 import { z } from 'zod';
 import { ObjectId } from 'mongodb';
 import redis from '@/lib/redis';
+import { bumpCacheVersions } from '@/lib/cache-version';
+import { entitySearchTokens } from '@/lib/search-normalization';
+import { refreshUserReadModels } from '@/lib/read-models';
 import {
   cloudinaryAssetsFromFields,
   deleteCloudinaryAssets,
@@ -98,6 +101,7 @@ export async function PUT(
     const db = await getDb();
     const collectionTypesCollection = db.collection('collectionTypes');
     const customEntitiesCollection = db.collection('customEntities');
+    const transactionsCollection = db.collection('transactions');
 
     const collectionTypeDoc = await collectionTypesCollection.findOne({
       userId,
@@ -140,6 +144,7 @@ export async function PUT(
           openingBalanceDescription: validatedData.openingBalanceDescription || '',
           openingBalanceBillUrl: validatedData.openingBalanceBillUrl || '',
           openingBalanceBillPublicId: validatedData.openingBalanceBillPublicId || '',
+          searchTokens: entitySearchTokens(validatedData),
         },
       }
     );
@@ -151,20 +156,26 @@ export async function PUT(
       );
     }
 
+    if (existingEntity.collectionType !== validatedData.collectionType) {
+      await transactionsCollection.updateMany(
+        { userId, entityId: id, entityType: existingEntity.collectionType },
+        { $set: { entityType: validatedData.collectionType } }
+      );
+    }
+
     const keysToInvalidate = [
-      `customEntities:${validatedData.collectionType}:${userId}`,
-      `dashboard:stats:${userId}`,
       `ledger:${validatedData.collectionType}:${id}:${userId}`
     ];
     if (existingEntity.collectionType !== validatedData.collectionType) {
       keysToInvalidate.push(
-        `customEntities:${existingEntity.collectionType}:${userId}`,
         `ledger:${existingEntity.collectionType}:${id}:${userId}`
       );
     }
-    redis.del(...keysToInvalidate).catch((err) => {
-      console.warn('Redis cache invalidation failed:', err);
-    });
+    await Promise.all([
+      refreshUserReadModels(db, userId),
+      bumpCacheVersions(userId, ['customEntities', 'dashboard', 'bootstrap', 'search']),
+      redis.del(...keysToInvalidate),
+    ]);
 
     return NextResponse.json({
       message: 'Entity updated successfully',
@@ -265,13 +276,11 @@ export async function DELETE(
       );
     }
 
-    redis.del(
-      `customEntities:${entity.collectionType}:${userId}`,
-      `dashboard:stats:${userId}`,
-      `ledger:${entity.collectionType}:${id}:${userId}`
-    ).catch((err) => {
-      console.warn('Redis cache invalidation failed:', err);
-    });
+    await Promise.all([
+      refreshUserReadModels(db, userId),
+      bumpCacheVersions(userId, ['customEntities', 'dashboard', 'bootstrap', 'search']),
+      redis.del(`ledger:${entity.collectionType}:${id}:${userId}`),
+    ]);
 
     return NextResponse.json({
       message: 'Entity and all associated transactions deleted successfully',

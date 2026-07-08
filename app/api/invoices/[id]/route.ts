@@ -2,9 +2,12 @@ import { NextRequest, NextResponse } from 'next/server';
 import clientPromise, { getDb } from '@/lib/mongodb';
 import { getUserIdFromRequest } from '@/lib/auth';
 import { z } from 'zod';
-import { ObjectId } from 'mongodb';
-import redis, { deleteByPattern } from '@/lib/redis';
+import { Db, ObjectId } from 'mongodb';
+import redis from '@/lib/redis';
 import { invalidateInventoryCache } from '@/lib/cache';
+import { bumpCacheVersions } from '@/lib/cache-version';
+import { invoiceSearchTokens } from '@/lib/search-normalization';
+import { refreshUserReadModels } from '@/lib/read-models';
 import {
   applyInventoryAdjustments,
   getInventoryDiffAdjustments,
@@ -52,16 +55,16 @@ type InvoiceRecord = {
 };
 
 async function invalidateInvoiceCaches(
+  db: Db,
   userId: string,
   customerId: string | undefined,
   changedInventoryIds: Set<string>
 ) {
   try {
-    await deleteByPattern(`invoices:${userId}:*`);
-    await deleteByPattern(`dashboard:stats:${userId}*`);
+    await refreshUserReadModels(db, userId);
+    await bumpCacheVersions(userId, ['invoices', 'dashboard', 'customers', 'inventory', 'search', 'bootstrap']);
     if (customerId) {
       await redis.del(
-        `customers:${userId}`,
         `ledger:customer:${customerId}:${userId}`
       );
     }
@@ -230,6 +233,11 @@ export async function PUT(
 
         updateFields.paidAmount = paidAmount;
         updateFields.status = status;
+        updateFields.searchTokens = invoiceSearchTokens({
+          invoiceNumber: existingInvoice.invoiceNumber,
+          customerName: String(updateFields.customerName || existingInvoice.customerName || ''),
+          customerPhone: String(updateFields.customerPhone || existingInvoice.customerPhone || ''),
+        });
 
         const now = new Date();
 
@@ -349,7 +357,7 @@ export async function PUT(
       return NextResponse.json({ error: 'Invoice not found' }, { status: 404 });
     }
 
-    await invalidateInvoiceCaches(userId, cacheCustomerId, changedInventoryIds);
+    await invalidateInvoiceCaches(db, userId, cacheCustomerId, changedInventoryIds);
 
     return NextResponse.json({
       message: 'Invoice updated successfully',
@@ -456,7 +464,7 @@ export async function DELETE(
       await session.endSession();
     }
 
-    await invalidateInvoiceCaches(userId, cacheCustomerId, changedInventoryIds);
+    await invalidateInvoiceCaches(db, userId, cacheCustomerId, changedInventoryIds);
 
     return NextResponse.json({ message: 'Invoice deleted successfully' });
   } catch (error) {

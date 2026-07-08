@@ -4,6 +4,8 @@ import { getUserIdFromRequest } from '@/lib/auth';
 import { z } from 'zod';
 import { ObjectId } from 'mongodb';
 import redis from '@/lib/redis';
+import { bumpCacheVersions } from '@/lib/cache-version';
+import { refreshUserReadModels } from '@/lib/read-models';
 import {
   cloudinaryAssetsFromFields,
   deleteCloudinaryAssets,
@@ -228,31 +230,33 @@ export async function PUT(
     const oldEntityId = oldTransaction.entityId || oldTransaction.customerId || oldTransaction.supplierId;
     const oldEntityType = oldTransaction.entityType || (oldTransaction.customerId ? 'customer' : 'supplier');
     const keysToDelete = [
-      `dashboard:stats:${userId}`,
       `ledger:${validatedData.entityType}:${validatedData.entityId}:${userId}`,
     ];
-    
-    if (validatedData.entityType === 'customer') {
-      keysToDelete.push(`customers:${userId}`);
-    } else if (validatedData.entityType === 'supplier') {
-      keysToDelete.push(`suppliers:${userId}`);
-    } else {
-      keysToDelete.push(`customEntities:${validatedData.entityType}:${userId}`);
-    }
+    const namespaces = new Set<'dashboard' | 'customers' | 'suppliers' | 'customEntities' | 'bootstrap'>([
+      'dashboard',
+      'bootstrap',
+      validatedData.entityType === 'customer'
+        ? 'customers'
+        : validatedData.entityType === 'supplier'
+          ? 'suppliers'
+          : 'customEntities',
+    ]);
     
     if (oldEntityId !== validatedData.entityId || oldEntityType !== validatedData.entityType) {
       keysToDelete.push(`ledger:${oldEntityType}:${oldEntityId}:${userId}`);
       if (oldEntityType === 'customer') {
-        keysToDelete.push(`customers:${userId}`);
+        namespaces.add('customers');
       } else if (oldEntityType === 'supplier') {
-        keysToDelete.push(`suppliers:${userId}`);
+        namespaces.add('suppliers');
       } else {
-        keysToDelete.push(`customEntities:${oldEntityType}:${userId}`);
+        namespaces.add('customEntities');
       }
     }
-    redis.del(...keysToDelete).catch((err) => {
-      console.warn('Redis cache invalidation failed:', err);
-    });
+    await Promise.all([
+      refreshUserReadModels(db, userId),
+      bumpCacheVersions(userId, Array.from(namespaces)),
+      redis.del(...keysToDelete),
+    ]);
 
     return NextResponse.json({
       message: 'Transaction updated successfully',
@@ -343,22 +347,17 @@ export async function DELETE(
 
     const entityId = transaction.entityId || transaction.customerId || transaction.supplierId;
     const entityType = transaction.entityType || (transaction.customerId ? 'customer' : 'supplier');
-    const keysToDelete = [
-      `dashboard:stats:${userId}`,
-      `ledger:${entityType}:${entityId}:${userId}`
-    ];
-    
-    if (entityType === 'customer') {
-      keysToDelete.push(`customers:${userId}`);
-    } else if (entityType === 'supplier') {
-      keysToDelete.push(`suppliers:${userId}`);
-    } else {
-      keysToDelete.push(`customEntities:${entityType}:${userId}`);
-    }
-    
-    redis.del(...keysToDelete).catch((err) => {
-      console.warn('Redis cache invalidation failed:', err);
-    });
+    const namespace = entityType === 'customer'
+      ? 'customers'
+      : entityType === 'supplier'
+        ? 'suppliers'
+        : 'customEntities';
+
+    await Promise.all([
+      refreshUserReadModels(db, userId),
+      bumpCacheVersions(userId, ['dashboard', 'bootstrap', namespace]),
+      redis.del(`ledger:${entityType}:${entityId}:${userId}`),
+    ]);
 
     return NextResponse.json({
       message: 'Transaction deleted successfully',

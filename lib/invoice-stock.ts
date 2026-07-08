@@ -1,5 +1,7 @@
 import { ClientSession, Db, ObjectId } from 'mongodb';
 import type { InventoryItem, InvoiceItem } from '@/lib/types';
+import { normalizeIdentifier } from './search-normalization';
+import { inventoryDerivedFields } from './read-models';
 
 export type InvoiceItemInput = {
   inventoryItemId?: string;
@@ -32,12 +34,9 @@ type InventorySnapshot = Pick<InventoryItem, 'itemName' | 'itemNumber' | 'quanti
   _id: ObjectId;
   userId: string;
   lastQuantityUpdatedAt?: Date;
+  createdAt?: Date;
   updatedAt?: Date;
 };
-
-function escapeRegex(value: string) {
-  return value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-}
 
 function normalizeItemNumber(value?: string) {
   return value?.trim() || '';
@@ -113,11 +112,11 @@ async function getInventoryLookups(
 
     const itemNumber = normalizeItemNumber(item.itemNumber);
     if (itemNumber) {
-      itemNumbers.add(itemNumber.toLowerCase());
+      itemNumbers.add(normalizeIdentifier(itemNumber));
     }
   }
 
-  const projection = { _id: 1, itemName: 1, itemNumber: 1, quantity: 1 };
+  const projection = { _id: 1, itemName: 1, itemNumber: 1, quantity: 1, createdAt: 1, updatedAt: 1, lastQuantityUpdatedAt: 1 };
   const [itemsById, itemsByNumber] = await Promise.all([
     ids.size > 0
       ? inventoryCollection
@@ -135,9 +134,7 @@ async function getInventoryLookups(
           .find(
             {
               userId,
-              $or: Array.from(itemNumbers, (itemNumber) => ({
-                itemNumber: { $regex: `^${escapeRegex(itemNumber)}$`, $options: 'i' },
-              })),
+              itemNumberKey: { $in: Array.from(itemNumbers) },
             },
             { projection, session }
           )
@@ -150,7 +147,7 @@ async function getInventoryLookups(
     byNumber: new Map(
       itemsByNumber
         .filter((item) => item.itemNumber)
-        .map((item) => [item.itemNumber!.toLowerCase(), item])
+        .map((item) => [normalizeIdentifier(item.itemNumber), item])
     ),
   };
 }
@@ -199,7 +196,7 @@ export async function normalizeInvoiceItemsForSave(
     }
 
     if (itemNumber) {
-      const inventoryItem = inventoryLookups.byNumber.get(itemNumber.toLowerCase());
+      const inventoryItem = inventoryLookups.byNumber.get(normalizeIdentifier(itemNumber));
 
       if (inventoryItem) {
         normalizedItems.push({
@@ -286,6 +283,14 @@ export async function applyInventoryAdjustments(
           availableQuantity: current.quantity || 0,
           requestedQuantity: Math.abs(quantityDelta),
         }
+      );
+    }
+
+    if (typeof inventoryCollection.updateOne === 'function') {
+      await inventoryCollection.updateOne(
+        { _id: objectId, userId },
+        { $set: inventoryDerivedFields(result as unknown as InventoryItem) },
+        { session }
       );
     }
 

@@ -5,6 +5,7 @@ const mocks = vi.hoisted(() => ({
   getDb: vi.fn(),
   getUserIdFromRequest: vi.fn(),
   redisDel: vi.fn(),
+  redisIncr: vi.fn(),
   cloudinaryAssetsFromFields: vi.fn(),
   deleteCloudinaryAssets: vi.fn(),
 }));
@@ -20,6 +21,7 @@ vi.mock('@/lib/mongodb', () => ({
 vi.mock('@/lib/redis', () => ({
   default: {
     del: mocks.redisDel,
+    incr: mocks.redisIncr,
   },
 }));
 
@@ -33,10 +35,12 @@ describe('/api/transactions/[id]', () => {
     mocks.getDb.mockReset();
     mocks.getUserIdFromRequest.mockReset();
     mocks.redisDel.mockReset();
+    mocks.redisIncr.mockReset();
     mocks.cloudinaryAssetsFromFields.mockReset();
     mocks.deleteCloudinaryAssets.mockReset();
     mocks.getUserIdFromRequest.mockReturnValue(ids.user);
     mocks.redisDel.mockResolvedValue(1);
+    mocks.redisIncr.mockResolvedValue(1);
     mocks.cloudinaryAssetsFromFields.mockImplementation(({ publicIds }) =>
       (publicIds || []).filter(Boolean).map((publicId: string) => ({ publicId }))
     );
@@ -100,12 +104,13 @@ describe('/api/transactions/[id]', () => {
       })
     );
     expect(mocks.redisDel).toHaveBeenCalledWith(
-      `dashboard:stats:${ids.user}`,
       `ledger:customer:${ids.customer}:${ids.user}`,
-      `customers:${ids.user}`,
-      `ledger:supplier:${ids.supplier}:${ids.user}`,
-      `suppliers:${ids.user}`
+      `ledger:supplier:${ids.supplier}:${ids.user}`
     );
+    expect(mocks.redisIncr).toHaveBeenCalledWith(`cache:v:dashboard:${ids.user}`);
+    expect(mocks.redisIncr).toHaveBeenCalledWith(`cache:v:customers:${ids.user}`);
+    expect(mocks.redisIncr).toHaveBeenCalledWith(`cache:v:suppliers:${ids.user}`);
+    expect(mocks.redisIncr).toHaveBeenCalledWith(`cache:v:bootstrap:${ids.user}`);
     const body = await response.json();
     expect(body.transaction).toMatchObject({ id: ids.transaction });
     expect(body.transaction).not.toHaveProperty('billUrl');
@@ -138,9 +143,10 @@ describe('/api/transactions/[id]', () => {
     expect(mocks.deleteCloudinaryAssets).toHaveBeenCalledWith([{ publicId: 'bills/to-delete' }]);
     expect(deleteOne).toHaveBeenCalledWith({ _id: expect.any(Object), userId: ids.user });
     expect(mocks.redisDel).toHaveBeenCalledWith(
-      `dashboard:stats:${ids.user}`,
-      `ledger:customer:${ids.customer}:${ids.user}`,
-      `customers:${ids.user}`
+      `ledger:customer:${ids.customer}:${ids.user}`
     );
+    expect(mocks.redisIncr).toHaveBeenCalledWith(`cache:v:dashboard:${ids.user}`);
+    expect(mocks.redisIncr).toHaveBeenCalledWith(`cache:v:customers:${ids.user}`);
+    expect(mocks.redisIncr).toHaveBeenCalledWith(`cache:v:bootstrap:${ids.user}`);
   });
 });

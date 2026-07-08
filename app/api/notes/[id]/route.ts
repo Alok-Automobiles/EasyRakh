@@ -3,7 +3,7 @@ import { getDb } from '@/lib/mongodb';
 import { getUserIdFromRequest } from '@/lib/auth';
 import { z } from 'zod';
 import { ObjectId } from 'mongodb';
-import redis from '@/lib/redis';
+import { bumpCacheVersions } from '@/lib/cache-version';
 
 const updateNoteSchema = z.object({
   title: z.string().min(1, 'Title is required').optional(),
@@ -92,9 +92,7 @@ export async function PUT(
       userId,
     });
 
-    redis.del(`dashboard:stats:${userId}`).catch((err) => {
-      console.warn('Redis cache invalidation failed:', err);
-    });
+    await bumpCacheVersions(userId, ['dashboard']);
 
     return NextResponse.json({
       message: 'Note updated successfully',
@@ -161,9 +159,7 @@ export async function DELETE(
       userId,
     });
 
-    redis.del(`dashboard:stats:${userId}`).catch((err) => {
-      console.warn('Redis cache invalidation failed:', err);
-    });
+    await bumpCacheVersions(userId, ['dashboard']);
 
     return NextResponse.json({
       message: 'Note deleted successfully',
@@ -176,4 +172,3 @@ export async function DELETE(
     );
   }
 }
-

@@ -5,6 +5,7 @@ const mocks = vi.hoisted(() => ({
   getDb: vi.fn(),
   getUserIdFromRequest: vi.fn(),
   redisDel: vi.fn(),
+  redisIncr: vi.fn(),
 }));
 
 vi.mock('@/lib/auth', () => ({
@@ -18,6 +19,7 @@ vi.mock('@/lib/mongodb', () => ({
 vi.mock('@/lib/redis', () => ({
   default: {
     del: mocks.redisDel,
+    incr: mocks.redisIncr,
   },
 }));
 
@@ -36,8 +38,10 @@ describe('/api/transactions', () => {
     mocks.getDb.mockReset();
     mocks.getUserIdFromRequest.mockReset();
     mocks.redisDel.mockReset();
+    mocks.redisIncr.mockReset();
     mocks.getUserIdFromRequest.mockReturnValue(ids.user);
     mocks.redisDel.mockResolvedValue(1);
+    mocks.redisIncr.mockResolvedValue(1);
   });
 
   it('builds a user-scoped filtered paginated read query and maps legacy entity ids', async () => {
@@ -165,10 +169,11 @@ describe('/api/transactions', () => {
       })
     );
     expect(mocks.redisDel).toHaveBeenCalledWith(
-      `dashboard:stats:${ids.user}`,
-      `ledger:supplier:${ids.supplier}:${ids.user}`,
-      `suppliers:${ids.user}`
+      `ledger:supplier:${ids.supplier}:${ids.user}`
     );
+    expect(mocks.redisIncr).toHaveBeenCalledWith(`cache:v:dashboard:${ids.user}`);
+    expect(mocks.redisIncr).toHaveBeenCalledWith(`cache:v:suppliers:${ids.user}`);
+    expect(mocks.redisIncr).toHaveBeenCalledWith(`cache:v:bootstrap:${ids.user}`);
     await expect(response.json()).resolves.toMatchObject({
       message: 'Transaction created successfully',
       transaction: {

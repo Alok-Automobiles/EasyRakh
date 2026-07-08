@@ -90,7 +90,8 @@ describe('/api/search', () => {
 
     expect(response.status).toBe(200);
     await expect(response.json()).resolves.toEqual(cached);
-    expect(mocks.redisGet).toHaveBeenCalledWith(`search:${ids.user}:raj`);
+    expect(mocks.redisGet).toHaveBeenCalledWith(`cache:v:search:${ids.user}`);
+    expect(mocks.redisGet).toHaveBeenCalledWith(`search:${ids.user}:v0:raj`);
     expect(mocks.getDb).not.toHaveBeenCalled();
   });
 
@@ -152,7 +153,7 @@ describe('/api/search', () => {
       }),
     ]);
     expect(mocks.redisSetex).toHaveBeenCalledWith(
-      `search:${ids.user}:raj`,
+      `search:${ids.user}:v0:raj`,
       60,
       JSON.stringify(body)
     );

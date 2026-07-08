@@ -4,7 +4,7 @@ import { getUserIdFromRequest } from '@/lib/auth';
 import { z } from 'zod';
 import { ObjectId } from 'mongodb';
 import { format } from 'date-fns';
-import redis, { deleteByPattern } from '@/lib/redis';
+import { bumpCacheVersions, getCachedJson, setCachedJson, versionedCacheKey } from '@/lib/cache-version';
 
 const BILL_URL_MAX_LENGTH = 2048;
 const ALLOWED_BILL_URL_SCHEMES = ['https:'];
@@ -66,20 +66,8 @@ function normalizeDate(date: Date): Date {
 }
 
 async function invalidateDailyCashCaches(userId: string, dateKey: string) {
-  const results = await Promise.allSettled([
-    redis.del(
-      `daily-cash:date:${userId}:${dateKey}`,
-      `dashboard:stats:${userId}`
-    ),
-    deleteByPattern(`daily-cash:list:${userId}:page:*`),
-    deleteByPattern(`dashboard:stats:${userId}:*`),
-  ]);
-
-  results.forEach((result) => {
-    if (result.status === 'rejected') {
-      console.warn('Redis cache invalidation failed:', result.reason);
-    }
-  });
+  void dateKey;
+  await bumpCacheVersions(userId, ['dailyCash', 'dashboard']);
 }
 
 export async function GET(request: NextRequest) {
@@ -104,14 +92,10 @@ export async function GET(request: NextRequest) {
       const normalizedDate = normalizeDate(parsedDate);
       const dateKey = format(normalizedDate, 'dd-MM-yyyy');
 
-      try {
-        const cacheKey = `daily-cash:date:${userId}:${dateKey}`;
-        const cached = await redis.get(cacheKey);
-        if (cached) {
-          return NextResponse.json(JSON.parse(cached));
-        }
-      } catch (cacheError) {
-        console.warn('Redis cache read failed, falling back to DB:', cacheError);
+      const cacheKey = await versionedCacheKey('dailyCash', userId, `date:${dateKey}`);
+      const cached = await getCachedJson<Record<string, unknown>>(cacheKey);
+      if (cached) {
+        return NextResponse.json(cached);
       }
 
       const record = await dailyCashRecordsCollection.findOne({
@@ -145,12 +129,7 @@ export async function GET(request: NextRequest) {
             date: dateKey,
           };
 
-      try {
-        const cacheKey = `daily-cash:date:${userId}:${dateKey}`;
-        await redis.setex(cacheKey, 300, JSON.stringify(responseData));
-      } catch (cacheError) {
-        console.warn('Redis cache write failed:', cacheError);
-      }
+      await setCachedJson(cacheKey, 300, responseData);
 
       return NextResponse.json(responseData);
     } else {
@@ -159,14 +138,10 @@ export async function GET(request: NextRequest) {
       const recordsPerPage = 7;
       const skip = (page - 1) * recordsPerPage;
 
-      try {
-        const cacheKey = `daily-cash:list:${userId}:page:${page}`;
-        const cached = await redis.get(cacheKey);
-        if (cached) {
-          return NextResponse.json(JSON.parse(cached));
-        }
-      } catch (cacheError) {
-        console.warn('Redis cache read failed, falling back to DB:', cacheError);
+      const cacheKey = await versionedCacheKey('dailyCash', userId, `page:${page}`);
+      const cached = await getCachedJson<Record<string, unknown>>(cacheKey);
+      if (cached) {
+        return NextResponse.json(cached);
       }
 
       const totalRecords = await dailyCashRecordsCollection.countDocuments({ userId });
@@ -197,12 +172,7 @@ export async function GET(request: NextRequest) {
         },
       };
 
-      try {
-        const cacheKey = `daily-cash:list:${userId}:page:${page}`;
-        await redis.setex(cacheKey, 300, JSON.stringify(responseData));
-      } catch (cacheError) {
-        console.warn('Redis cache write failed:', cacheError);
-      }
+      await setCachedJson(cacheKey, 300, responseData);
 
       return NextResponse.json(responseData);
     }

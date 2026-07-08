@@ -3,8 +3,11 @@ import clientPromise, { getDb } from '@/lib/mongodb';
 import { getUserIdFromRequest } from '@/lib/auth';
 import { z } from 'zod';
 import { ClientSession, Db, MongoServerError, ObjectId } from 'mongodb';
-import redis, { deleteByPattern } from '@/lib/redis';
+import redis from '@/lib/redis';
 import { invalidateInventoryCache } from '@/lib/cache';
+import { bumpCacheVersions, getCachedJson, setCachedJson, versionedCacheKey } from '@/lib/cache-version';
+import { entitySearchTokens, invoiceSearchTokens, queryTokens } from '@/lib/search-normalization';
+import { refreshUserReadModels } from '@/lib/read-models';
 import {
   applyInventoryAdjustments,
   getInventoryDiffAdjustments,
@@ -49,6 +52,7 @@ type CreatedInvoiceResponse = {
   notes: string;
   addedToLedger: boolean;
   transactionId?: string;
+  searchTokens?: string[];
   createdAt: Date;
   updatedAt: Date;
 };
@@ -108,16 +112,16 @@ async function generateInvoiceNumber(
 }
 
 async function invalidateInvoiceCaches(
+  db: Db,
   userId: string,
   customerId: string | undefined,
   changedInventoryIds: Set<string>
 ) {
   try {
-    await deleteByPattern(`invoices:${userId}:*`);
-    await deleteByPattern(`dashboard:stats:${userId}*`);
+    await refreshUserReadModels(db, userId);
+    await bumpCacheVersions(userId, ['invoices', 'dashboard', 'customers', 'inventory', 'search', 'bootstrap']);
     if (customerId) {
       await redis.del(
-        `customers:${userId}`,
         `ledger:customer:${customerId}:${userId}`
       );
     }
@@ -151,14 +155,14 @@ export async function GET(request: NextRequest) {
     const limit = Number.isNaN(limitParam) || limitParam < 1 ? 20 : Math.min(limitParam, 100);
     const skip = (page - 1) * limit;
 
-    const cacheKey = `invoices:${userId}:${customerId || ''}:${status || ''}:${search || ''}:${page}:${limit}`;
-    try {
-      const cachedData = await redis.get(cacheKey);
-      if (cachedData) {
-        return NextResponse.json(JSON.parse(cachedData), { status: 200 });
-      }
-    } catch (cacheError) {
-      console.warn('Redis cache read failed:', cacheError);
+    const cacheKey = await versionedCacheKey(
+      'invoices',
+      userId,
+      `${customerId || ''}:${status || ''}:${search || ''}:${page}:${limit}`
+    );
+    const cachedData = await getCachedJson<Record<string, unknown>>(cacheKey);
+    if (cachedData) {
+      return NextResponse.json(cachedData, { status: 200 });
     }
 
     const db = await getDb();
@@ -168,7 +172,7 @@ export async function GET(request: NextRequest) {
       userId: string;
       customerId?: string;
       status?: string;
-      $or?: Array<{ customerName?: { $regex: string; $options: string }; invoiceNumber?: { $regex: string; $options: string } }>;
+      searchTokens?: { $all: string[] };
     };
 
     const query: InvoiceQuery = { userId };
@@ -180,10 +184,10 @@ export async function GET(request: NextRequest) {
       query.status = status;
     }
     if (search) {
-      query.$or = [
-        { customerName: { $regex: search, $options: 'i' } },
-        { invoiceNumber: { $regex: search, $options: 'i' } },
-      ];
+      const tokens = queryTokens(search);
+      if (tokens.length > 0) {
+        query.searchTokens = { $all: tokens };
+      }
     }
 
     const [total, invoices] = await Promise.all([
@@ -224,11 +228,7 @@ export async function GET(request: NextRequest) {
       },
     };
 
-    try {
-      await redis.setex(cacheKey, 300, JSON.stringify(responseData));
-    } catch (cacheError) {
-      console.warn('Redis cache write failed:', cacheError);
-    }
+    await setCachedJson(cacheKey, 300, responseData);
 
     return NextResponse.json(responseData, { status: 200 });
   } catch (error) {
@@ -309,6 +309,11 @@ export async function POST(request: NextRequest) {
                 address: validatedData.customerAddress || '',
                 openingBalance: 0,
                 balanceType: 'debit',
+                searchTokens: entitySearchTokens({
+                  name: validatedData.customerName,
+                  phone: validatedData.customerPhone,
+                  email: '',
+                }),
                 createdAt: new Date(),
               },
               { session }
@@ -333,6 +338,11 @@ export async function POST(request: NextRequest) {
             notes: validatedData.notes || '',
             addedToLedger: false,
             transactionId: undefined as string | undefined,
+            searchTokens: invoiceSearchTokens({
+              invoiceNumber,
+              customerName: validatedData.customerName,
+              customerPhone: validatedData.customerPhone,
+            }),
             createdAt: now,
             updatedAt: now,
           };
@@ -407,7 +417,7 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Failed to create invoice' }, { status: 500 });
     }
 
-    await invalidateInvoiceCaches(userId, savedCustomerId, changedInventoryIds);
+    await invalidateInvoiceCaches(db, userId, savedCustomerId, changedInventoryIds);
 
     return NextResponse.json(
       {

@@ -26,10 +26,15 @@ export async function initializeIndexes(db: Db): Promise<void> {
 
       transactions.createIndex({ userId: 1, date: -1, createdAt: -1 }),
       transactions.createIndex({ userId: 1, entityId: 1, entityType: 1 }),
+      transactions.createIndex({ userId: 1, entityType: 1, entityId: 1, date: 1, createdAt: 1 }),
+      transactions.createIndex({ userId: 1, entityType: 1, entityId: 1, date: 1, createdAt: 1, _id: 1 }),
+      transactions.createIndex({ userId: 1, entityType: 1, entityId: 1, date: -1, createdAt: -1 }),
+      transactions.createIndex({ userId: 1, entityType: 1, type: 1, date: -1, createdAt: -1 }),
       transactions.createIndex({ userId: 1, entityType: 1 }),
       transactions.createIndex({ userId: 1, createdAt: -1 }),
 
       dailyCashRecords.createIndex({ userId: 1, date: -1 }),
+      dailyCashRecords.createIndex({ userId: 1, date: 1 }),
 
       notes.createIndex({ userId: 1, showOnDashboard: 1, updatedAt: -1 }),
       notes.createIndex({ userId: 1, createdAt: -1 }),
@@ -44,18 +49,37 @@ export async function initializeIndexes(db: Db): Promise<void> {
 
       customEntities.createIndex({ userId: 1, collectionType: 1, createdAt: -1 }),
       customEntities.createIndex({ userId: 1, collectionType: 1 }),
+      customEntities.createIndex({ userId: 1, searchTokens: 1 }),
 
       invoices.createIndex({ userId: 1, createdAt: -1 }),
       invoices.createIndex({ userId: 1, invoiceNumber: 1 }, { unique: true }),
       invoices.createIndex({ userId: 1, customerId: 1 }),
       invoices.createIndex({ userId: 1, status: 1 }),
+      invoices.createIndex({ userId: 1, status: 1, createdAt: -1 }),
+      invoices.createIndex({ userId: 1, customerId: 1, createdAt: -1 }),
+      invoices.createIndex({ userId: 1, searchTokens: 1, createdAt: -1 }),
 
       inventory.createIndex({ userId: 1, updatedAt: -1, createdAt: -1 }),
       inventory.createIndex({ userId: 1, itemName: 1 }),
       inventory.createIndex({ userId: 1, itemNumber: 1 }),
+      inventory.createIndex({ userId: 1, itemNumberKey: 1 }, { unique: true, partialFilterExpression: { itemNumberKey: { $gt: '' } } }),
+      inventory.createIndex({ userId: 1, searchTokens: 1, updatedAt: -1 }),
+      inventory.createIndex({ userId: 1, stockStatus: 1, updatedAt: -1, createdAt: -1 }),
       inventory.createIndex({ userId: 1, quantity: 1 }),
       inventory.createIndex({ userId: 1, quantity: 1, lastQuantityUpdatedAt: 1 }),
       inventory.createIndex({ userId: 1, location: 1 }),
+      inventory.createIndex({ userId: 1, quantity: 1, updatedAt: -1 }),
+
+      customers.createIndex({ userId: 1, searchTokens: 1 }),
+      suppliers.createIndex({ userId: 1, searchTokens: 1 }),
+
+      db.collection('entityBalances').createIndex({ userId: 1, entityType: 1, entityId: 1 }, { unique: true }),
+      db.collection('entityBalances').createIndex({ userId: 1, entityType: 1, lastTransactionDate: -1 }),
+      db.collection('entityBalances').createIndex({ userId: 1, entityType: 1, totalBalance: -1 }),
+      db.collection('entityBalances').createIndex({ userId: 1, entityType: 1, totalDebit: -1, totalCredit: -1, lastTransactionDate: -1 }),
+      db.collection('entityBalances').createIndex({ userId: 1, searchTokens: 1 }),
+
+      db.collection('userSummaries').createIndex({ userId: 1 }, { unique: true }),
     ]);
   } catch (error) {
     console.error('❌ Error initializing database indexes:', error);

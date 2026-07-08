@@ -4,6 +4,9 @@ import { getUserIdFromRequest } from '@/lib/auth';
 import { z } from 'zod';
 import { ObjectId } from 'mongodb';
 import redis from '@/lib/redis';
+import { bumpCacheVersions } from '@/lib/cache-version';
+import { entitySearchTokens } from '@/lib/search-normalization';
+import { refreshUserReadModels } from '@/lib/read-models';
 import {
   cloudinaryAssetsFromFields,
   deleteCloudinaryAssets,
@@ -112,6 +115,7 @@ export async function PUT(
           openingBalanceDescription: validatedData.openingBalanceDescription || '',
           openingBalanceBillUrl: validatedData.openingBalanceBillUrl || '',
           openingBalanceBillPublicId: validatedData.openingBalanceBillPublicId || '',
+          searchTokens: entitySearchTokens(validatedData),
         },
       }
     );
@@ -123,9 +127,11 @@ export async function PUT(
       );
     }
 
-    redis.del(`customers:${userId}`, `dashboard:stats:${userId}`, `ledger:customer:${id}:${userId}`).catch((err) => {
-      console.warn('Redis cache invalidation failed:', err);
-    });
+    await Promise.all([
+      refreshUserReadModels(db, userId),
+      bumpCacheVersions(userId, ['customers', 'dashboard', 'bootstrap', 'search']),
+      redis.del(`ledger:customer:${id}:${userId}`),
+    ]);
 
     return NextResponse.json({
       message: 'Customer updated successfully',
@@ -226,9 +232,11 @@ export async function DELETE(
       );
     }
 
-    redis.del(`customers:${userId}`, `dashboard:stats:${userId}`, `ledger:customer:${id}:${userId}`).catch((err) => {
-      console.warn('Redis cache invalidation failed:', err);
-    });
+    await Promise.all([
+      refreshUserReadModels(db, userId),
+      bumpCacheVersions(userId, ['customers', 'dashboard', 'bootstrap', 'search']),
+      redis.del(`ledger:customer:${id}:${userId}`),
+    ]);
 
     return NextResponse.json({
       message: 'Customer and all associated transactions deleted successfully',
