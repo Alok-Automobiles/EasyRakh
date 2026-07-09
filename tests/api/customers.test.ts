@@ -58,11 +58,13 @@ describe('/api/customers', () => {
 
   it('serves cached customers without hitting MongoDB', async () => {
     mocks.getUserIdFromRequest.mockReturnValue('user-1');
-    mocks.redisGet.mockResolvedValue(
+    mocks.redisGet
+      .mockResolvedValueOnce('4')
+      .mockResolvedValueOnce(
       JSON.stringify({
         customers: [{ id: 'customer-1', name: 'Raj Traders', totalBalance: 2500 }],
       })
-    );
+      );
 
     const { GET } = await import('@/app/api/customers/route');
     const response = await GET(createRequest());
@@ -72,6 +74,63 @@ describe('/api/customers', () => {
       customers: [{ id: 'customer-1', name: 'Raj Traders', totalBalance: 2500 }],
     });
     expect(mocks.getDb).not.toHaveBeenCalled();
+  });
+
+  it('reads MongoDB instead of stale Redis during the post-write barrier', async () => {
+    mocks.getUserIdFromRequest.mockReturnValue('user-1');
+    mocks.redisGet.mockResolvedValue(
+      JSON.stringify({
+        customers: [{ id: 'customer-1', name: 'Stale Name', totalBalance: 2500 }],
+      })
+    );
+
+    const customerCursor = {
+      sort: vi.fn(() => ({
+        toArray: vi.fn().mockResolvedValue([
+          {
+            _id: { toString: () => 'customer-1' },
+            name: 'Fresh Name',
+            openingBalance: 2500,
+            balanceType: 'debit',
+            createdAt: new Date('2026-07-09T00:00:00.000Z'),
+          },
+        ]),
+      })),
+    };
+    mocks.getDb.mockResolvedValue({
+      collection: vi.fn((name: string) => {
+        if (name === 'userSummaries') {
+          return { findOne: vi.fn().mockResolvedValue({ userId: 'user-1' }) };
+        }
+        if (name === 'customers') {
+          return { find: vi.fn(() => customerCursor) };
+        }
+        if (name === 'entityBalances') {
+          return {
+            find: vi.fn(() => ({
+              toArray: vi.fn().mockResolvedValue([
+                { entityId: 'customer-1', totalBalance: 2500 },
+              ]),
+            })),
+          };
+        }
+        throw new Error(`Unexpected collection ${name}`);
+      }),
+    });
+
+    const { GET } = await import('@/app/api/customers/route');
+    const response = await GET(
+      new NextRequest('http://localhost/api/customers', {
+        headers: { cookie: 'easyrakh_cache_write=1' },
+      })
+    );
+
+    expect(response.status).toBe(200);
+    await expect(response.json()).resolves.toMatchObject({
+      customers: [{ id: 'customer-1', name: 'Fresh Name', totalBalance: 2500 }],
+    });
+    expect(mocks.redisGet).not.toHaveBeenCalled();
+    expect(mocks.redisSetex).not.toHaveBeenCalled();
   });
 
   it('validates customer creation input', async () => {

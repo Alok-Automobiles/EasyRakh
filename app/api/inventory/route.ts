@@ -13,7 +13,7 @@ import {
 import { z } from 'zod';
 import { uppercaseInventoryPayload } from '@/lib/inventory-text';
 import { scoreInventoryItem } from '@/lib/voice-assistant';
-import { getCacheVersion } from '@/lib/cache-version';
+import { getRequestCacheVersion } from '@/lib/cache-version';
 import { queryTokens, normalizeIdentifier } from '@/lib/search-normalization';
 import { ensureUserReadModels, inventoryDerivedFields, refreshUserReadModels } from '@/lib/read-models';
 
@@ -135,18 +135,28 @@ export async function GET(request: NextRequest) {
     const page = Math.max(parseInt(searchParams.get('page') || '1', 10), 1);
     const limit = Math.min(Math.max(parseInt(searchParams.get('limit') || '20', 10), 1), 100);
     const skip = (page - 1) * limit;
-    const cacheVersion = await getCacheVersion('inventory', userId);
+    const cacheVersion = await getRequestCacheVersion(request, 'inventory', userId);
+    const cacheEnabled = cacheVersion !== null;
+    const listCacheKey = cacheEnabled
+      ? inventoryListKey(userId, { page, limit, status, search, version: cacheVersion })
+      : null;
+    const summaryCacheKey = cacheEnabled
+      ? inventorySummaryKey(userId, cacheVersion)
+      : null;
 
-    const listCacheKey = inventoryListKey(userId, { page, limit, status, search, version: cacheVersion });
-    const summaryCacheKey = inventorySummaryKey(userId, cacheVersion);
+    const [cachedList, cachedSummary] = cacheEnabled
+      ? await Promise.all([
+          cacheGet(listCacheKey!),
+          cacheGet(summaryCacheKey!),
+        ])
+      : [null, null];
 
-    const [cachedList, cachedSummary] = await Promise.all([
-      cacheGet(listCacheKey),
-      cacheGet(summaryCacheKey),
-    ]);
-
-    let listPayload = safeParseCache<ListCachePayload>(cachedList, listCacheKey);
-    let summaryPayload = safeParseCache<SummaryCachePayload>(cachedSummary, summaryCacheKey);
+    let listPayload = listCacheKey
+      ? safeParseCache<ListCachePayload>(cachedList, listCacheKey)
+      : null;
+    let summaryPayload = summaryCacheKey
+      ? safeParseCache<SummaryCachePayload>(cachedSummary, summaryCacheKey)
+      : null;
 
     if (!listPayload || !summaryPayload) {
       const db = await getDb();
@@ -245,18 +255,22 @@ export async function GET(request: NextRequest) {
         summaryPayload ?? buildSummaryPayload(),
       ]);
 
-      if (!listPayload) {
+      if (!listPayload && listCacheKey) {
         listPayload = resolvedList;
         redis
           .setex(listCacheKey, INVENTORY_LIST_TTL_SECONDS, JSON.stringify(listPayload))
           .catch((err) => console.warn('inventory list cache write failed:', err));
+      } else if (!listPayload) {
+        listPayload = resolvedList;
       }
 
-      if (!summaryPayload) {
+      if (!summaryPayload && summaryCacheKey) {
         summaryPayload = resolvedSummary;
         redis
           .setex(summaryCacheKey, INVENTORY_SUMMARY_TTL_SECONDS, JSON.stringify(summaryPayload))
           .catch((err) => console.warn('inventory summary cache write failed:', err));
+      } else if (!summaryPayload) {
+        summaryPayload = resolvedSummary;
       }
     }
 

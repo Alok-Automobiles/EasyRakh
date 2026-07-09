@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { getDb } from '@/lib/mongodb';
 import { getUserIdFromRequest } from '@/lib/auth';
 import { checkRateLimit, rateLimitConfigs } from '@/lib/rateLimit';
-import { getCachedJson, setCachedJson, versionedCacheKey } from '@/lib/cache-version';
+import { getCachedJson, requestCacheKey, setCachedJson } from '@/lib/cache-version';
 import { queryTokens } from '@/lib/search-normalization';
 
 interface SearchResult {
@@ -37,7 +37,7 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ results: [] }, { status: 200 });
     }
 
-    const cacheKey = await versionedCacheKey('search', userId, query.toLowerCase());
+    const cacheKey = await requestCacheKey(request, 'search', userId, query.toLowerCase());
     const cached = await getCachedJson<{ results: SearchResult[] }>(cacheKey);
     if (cached) {
       return NextResponse.json(cached, { status: 200 });

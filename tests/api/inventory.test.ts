@@ -5,6 +5,7 @@ const mocks = vi.hoisted(() => ({
   getDb: vi.fn(),
   getUserIdFromRequest: vi.fn(),
   cacheGet: vi.fn(),
+  redisGet: vi.fn(),
   redisSetex: vi.fn(),
   redisDel: vi.fn(),
   inventoryListKey: vi.fn(),
@@ -24,6 +25,7 @@ vi.mock('@/lib/mongodb', () => ({
 
 vi.mock('@/lib/redis', () => ({
   default: {
+    get: mocks.redisGet,
     setex: mocks.redisSetex,
     del: mocks.redisDel,
   },
@@ -67,6 +69,7 @@ describe('/api/inventory', () => {
     mocks.getDb.mockReset();
     mocks.getUserIdFromRequest.mockReset();
     mocks.cacheGet.mockReset();
+    mocks.redisGet.mockReset();
     mocks.redisSetex.mockReset();
     mocks.redisDel.mockReset();
     mocks.inventoryListKey.mockReset();
@@ -77,6 +80,7 @@ describe('/api/inventory', () => {
 
     mocks.getUserIdFromRequest.mockReturnValue(ids.user);
     mocks.cacheGet.mockResolvedValue(null);
+    mocks.redisGet.mockResolvedValue('0');
     mocks.redisSetex.mockResolvedValue('OK');
     mocks.redisDel.mockResolvedValue(1);
     mocks.inventoryListKey.mockReturnValue('inventory:list:key');

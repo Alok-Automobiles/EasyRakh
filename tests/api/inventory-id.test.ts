@@ -4,10 +4,9 @@ import { ids, jsonRequest, objectIdLike, routeParams } from '@/tests/helpers/api
 const mocks = vi.hoisted(() => ({
   getDb: vi.fn(),
   getUserIdFromRequest: vi.fn(),
-  cacheGet: vi.fn(),
+  redisGet: vi.fn(),
   redisSetex: vi.fn(),
   redisDel: vi.fn(),
-  inventoryItemKey: vi.fn(),
   invalidateInventoryCache: vi.fn(),
   cloudinaryAssetsFromFields: vi.fn(),
   deleteCloudinaryAssets: vi.fn(),
@@ -23,15 +22,14 @@ vi.mock('@/lib/mongodb', () => ({
 
 vi.mock('@/lib/redis', () => ({
   default: {
+    get: mocks.redisGet,
     setex: mocks.redisSetex,
     del: mocks.redisDel,
   },
-  cacheGet: mocks.cacheGet,
 }));
 
 vi.mock('@/lib/cache', () => ({
   INVENTORY_ITEM_TTL_SECONDS: 120,
-  inventoryItemKey: mocks.inventoryItemKey,
   invalidateInventoryCache: mocks.invalidateInventoryCache,
 }));
 
@@ -66,19 +64,19 @@ describe('/api/inventory/[id]', () => {
   beforeEach(() => {
     mocks.getDb.mockReset();
     mocks.getUserIdFromRequest.mockReset();
-    mocks.cacheGet.mockReset();
+    mocks.redisGet.mockReset();
     mocks.redisSetex.mockReset();
     mocks.redisDel.mockReset();
-    mocks.inventoryItemKey.mockReset();
     mocks.invalidateInventoryCache.mockReset();
     mocks.cloudinaryAssetsFromFields.mockReset();
     mocks.deleteCloudinaryAssets.mockReset();
 
     mocks.getUserIdFromRequest.mockReturnValue(ids.user);
-    mocks.cacheGet.mockResolvedValue(null);
+    mocks.redisGet
+      .mockResolvedValueOnce('0')
+      .mockResolvedValueOnce(null);
     mocks.redisSetex.mockResolvedValue('OK');
     mocks.redisDel.mockResolvedValue(1);
-    mocks.inventoryItemKey.mockReturnValue('inventory:item:key');
     mocks.invalidateInventoryCache.mockResolvedValue(undefined);
     mocks.cloudinaryAssetsFromFields.mockImplementation(({ publicIds }) =>
       (publicIds || []).filter(Boolean).map((publicId: string) => ({ publicId }))
@@ -95,13 +93,16 @@ describe('/api/inventory/[id]', () => {
 
     expect(response.status).toBe(400);
     await expect(response.json()).resolves.toEqual({ error: 'Invalid inventory item id' });
-    expect(mocks.cacheGet).not.toHaveBeenCalled();
+    expect(mocks.redisGet).not.toHaveBeenCalled();
     expect(mocks.getDb).not.toHaveBeenCalled();
   });
 
   it('deletes corrupt item cache entries and falls back to MongoDB', async () => {
     const findOne = vi.fn().mockResolvedValue(storedItem);
-    mocks.cacheGet.mockResolvedValue('{not json');
+    mocks.redisGet
+      .mockReset()
+      .mockResolvedValueOnce('0')
+      .mockResolvedValueOnce('{not json');
     mocks.getDb.mockResolvedValue({
       collection: vi.fn(() => ({ findOne })),
     });
@@ -114,10 +115,12 @@ describe('/api/inventory/[id]', () => {
     );
 
     expect(response.status).toBe(200);
-    expect(mocks.redisDel).toHaveBeenCalledWith('inventory:item:key');
+    expect(mocks.redisDel).toHaveBeenCalledWith(
+      `inventory:${ids.user}:v0:item:${ids.inventory}`
+    );
     expect(findOne).toHaveBeenCalledWith({ _id: expect.any(Object), userId: ids.user });
     expect(mocks.redisSetex).toHaveBeenCalledWith(
-      'inventory:item:key',
+      `inventory:${ids.user}:v0:item:${ids.inventory}`,
       120,
       expect.stringContaining('"itemName":"BRAKE PAD"')
     );

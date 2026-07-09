@@ -3,12 +3,11 @@ import { getDb } from '@/lib/mongodb';
 import { getUserIdFromRequest } from '@/lib/auth';
 import type { InventoryItem } from '@/lib/types';
 import { ObjectId } from 'mongodb';
-import redis, { cacheGet } from '@/lib/redis';
 import {
   INVENTORY_ITEM_TTL_SECONDS,
-  inventoryItemKey,
   invalidateInventoryCache,
 } from '@/lib/cache';
+import { getCachedJson, requestCacheKey, setCachedJson } from '@/lib/cache-version';
 import { z } from 'zod';
 import { uppercaseInventoryPayload } from '@/lib/inventory-text';
 import { normalizeIdentifier } from '@/lib/search-normalization';
@@ -114,17 +113,10 @@ export async function GET(
       return NextResponse.json({ error: 'Invalid inventory item id' }, { status: 400 });
     }
 
-    const cacheKey = inventoryItemKey(userId, id);
-    const cached = await cacheGet(cacheKey);
+    const cacheKey = await requestCacheKey(request, 'inventory', userId, `item:${id}`);
+    const cached = await getCachedJson<ReturnType<typeof serializeInventoryItem>>(cacheKey);
     if (cached) {
-      try {
-        return NextResponse.json({ item: JSON.parse(cached) });
-      } catch (parseError) {
-        console.warn('inventory item cache parse failed, falling back to DB:', parseError);
-        redis.del(cacheKey).catch((err) =>
-          console.warn('inventory item stale cache delete failed:', err)
-        );
-      }
+      return NextResponse.json({ item: cached });
     }
 
     const db = await getDb();
@@ -139,9 +131,7 @@ export async function GET(
       item as unknown as InventoryItem & { _id: { toString(): string } }
     );
 
-    redis
-      .setex(cacheKey, INVENTORY_ITEM_TTL_SECONDS, JSON.stringify(serialized))
-      .catch((err) => console.warn('inventory item cache write failed:', err));
+    await setCachedJson(cacheKey, INVENTORY_ITEM_TTL_SECONDS, serialized);
 
     return NextResponse.json({ item: serialized });
   } catch (error) {

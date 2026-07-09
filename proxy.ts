@@ -1,10 +1,32 @@
 import { NextResponse } from 'next/server';
 import type { NextRequest } from 'next/server';
+import {
+  CACHE_WRITE_BARRIER_COOKIE,
+  CACHE_WRITE_BARRIER_SECONDS,
+} from '@/lib/cache-consistency';
 
-export function middleware(request: NextRequest) {
+export function proxy(request: NextRequest) {
   const token = request.cookies.get('token')?.value;
   const { pathname } = request.nextUrl;
   const shouldShowLanding = request.nextUrl.searchParams.get('view') === 'landing';
+
+  if (pathname.startsWith('/api/')) {
+    const response = NextResponse.next();
+    const method = request.method.toUpperCase();
+    const isWrite = !['GET', 'HEAD', 'OPTIONS'].includes(method);
+
+    if (isWrite) {
+      response.cookies.set(CACHE_WRITE_BARRIER_COOKIE, '1', {
+        httpOnly: true,
+        secure: process.env.NODE_ENV === 'production',
+        sameSite: 'lax',
+        path: '/api',
+        maxAge: CACHE_WRITE_BARRIER_SECONDS,
+      });
+    }
+
+    return response;
+  }
 
   if (pathname === '/forgot-password' || pathname.startsWith('/forgot-password/')) {
     return NextResponse.next();
@@ -33,9 +55,10 @@ export function middleware(request: NextRequest) {
 
 export const config = {
   matcher: [
+    '/api/:path*',
     /*
      * Match all request paths except for the ones starting with:
-     * - api (API routes)
+     * - api (handled by the explicit API matcher above)
      * - _next/static (static files)
      * - _next/image (image optimization files)
      * - favicon.ico, sitemap.xml, robots.txt
