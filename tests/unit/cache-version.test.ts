@@ -46,7 +46,7 @@ describe('versioned cache safety', () => {
     );
 
     const cacheKeyPromise = versionedCacheKey('customers', 'user-1');
-    await vi.advanceTimersByTimeAsync(250);
+    await vi.advanceTimersByTimeAsync(500);
     const cacheKey = await cacheKeyPromise;
 
     expect(cacheKey).toBeNull();

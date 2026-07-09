@@ -1,7 +1,7 @@
 import redis from './redis';
 import { hasRecentWriteBarrier } from './cache-consistency';
 
-const CACHE_VERSION_TIMEOUT_MS = 250;
+const CACHE_VERSION_TIMEOUT_MS = 500;
 const CACHE_VALUE_TIMEOUT_MS = 250;
 
 export type CacheNamespace =
