@@ -12,7 +12,10 @@ const redis = new Redis(Number(process.env.REDIS_PORT), process.env.REDIS_HOST, 
     return delay;
   },
   enableReadyCheck: true,
-  enableOfflineQueue: false,
+  // lazyConnect starts the connection on the first command. That command must
+  // be allowed to queue until the socket is ready, especially on serverless
+  // cold starts; otherwise ioredis rejects it before connecting.
+  enableOfflineQueue: true,
   connectTimeout: 3000,
   lazyConnect: true,
 });
