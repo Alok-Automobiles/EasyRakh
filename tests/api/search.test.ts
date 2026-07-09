@@ -83,7 +83,9 @@ describe('/api/search', () => {
     const cached = {
       results: [{ id: ids.customer, name: 'Raj Traders', type: 'customer', href: `/ledger/customer/${ids.customer}` }],
     };
-    mocks.redisGet.mockResolvedValue(JSON.stringify(cached));
+    mocks.redisGet
+      .mockResolvedValueOnce('0')
+      .mockResolvedValueOnce(JSON.stringify(cached));
 
     const { GET } = await import('@/app/api/search/route');
     const response = await GET(jsonRequest('http://localhost/api/search?q=RAJ'));

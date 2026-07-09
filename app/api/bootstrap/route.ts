@@ -3,7 +3,7 @@ import { ObjectId } from 'mongodb';
 import { getDb } from '@/lib/mongodb';
 import { getUserIdFromRequest } from '@/lib/auth';
 import { isAdminEmail } from '@/lib/admin';
-import { getCachedJson, setCachedJson, versionedCacheKey } from '@/lib/cache-version';
+import { getCachedJson, requestCacheKey, setCachedJson } from '@/lib/cache-version';
 import { ensureUserReadModels, type EntityBalance } from '@/lib/read-models';
 
 const LAST_ACTIVE_WRITE_INTERVAL_MS = 15 * 60 * 1000;
@@ -15,7 +15,7 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
-    const cacheKey = await versionedCacheKey('bootstrap', userId);
+    const cacheKey = await requestCacheKey(request, 'bootstrap', userId);
     const cached = await getCachedJson<Record<string, unknown>>(cacheKey);
     if (cached) {
       return NextResponse.json(cached);
@@ -103,4 +103,3 @@ export async function GET(request: NextRequest) {
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
   }
 }
-

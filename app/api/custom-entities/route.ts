@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { getDb } from '@/lib/mongodb';
 import { getUserIdFromRequest } from '@/lib/auth';
 import { z } from 'zod';
-import { bumpCacheVersions, getCachedJson, setCachedJson, versionedCacheKey } from '@/lib/cache-version';
+import { bumpCacheVersions, getCachedJson, requestCacheKey, setCachedJson } from '@/lib/cache-version';
 import { entitySearchTokens } from '@/lib/search-normalization';
 import { ensureUserReadModels, refreshUserReadModels, type EntityBalance } from '@/lib/read-models';
 
@@ -40,7 +40,7 @@ export async function GET(request: NextRequest) {
       );
     }
 
-    const cacheKey = await versionedCacheKey('customEntities', userId, collectionType);
+    const cacheKey = await requestCacheKey(request, 'customEntities', userId, collectionType);
     const cached = await getCachedJson<{ entities: unknown[] }>(cacheKey);
     if (cached) {
       return NextResponse.json(cached);

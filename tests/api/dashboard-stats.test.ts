@@ -66,7 +66,9 @@ describe('/api/dashboard/stats', () => {
       stats: { totalCredit: 1000, totalDebit: 600, netBalance: -400 },
       periodLabel: 'June 2026',
     };
-    mocks.redisGet.mockResolvedValue(JSON.stringify(cached));
+    mocks.redisGet
+      .mockResolvedValueOnce('0')
+      .mockResolvedValueOnce(JSON.stringify(cached));
 
     const { GET } = await import('@/app/api/dashboard/stats/route');
     const response = await GET(jsonRequest('http://localhost/api/dashboard/stats?month=2026-06'));

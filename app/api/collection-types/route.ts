@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { getDb } from '@/lib/mongodb';
 import { getUserIdFromRequest } from '@/lib/auth';
 import { z } from 'zod';
-import { bumpCacheVersions, getCachedJson, setCachedJson, versionedCacheKey } from '@/lib/cache-version';
+import { bumpCacheVersions, getCachedJson, requestCacheKey, setCachedJson } from '@/lib/cache-version';
 
 const collectionTypeSchema = z.object({
   name: z.string().min(1, 'Name is required').max(50, 'Name must be 50 characters or less'),
@@ -28,7 +28,7 @@ export async function GET(request: NextRequest) {
       );
     }
 
-    const cacheKey = await versionedCacheKey('collectionTypes', userId);
+    const cacheKey = await requestCacheKey(request, 'collectionTypes', userId);
     const cached = await getCachedJson<{ collectionTypes: unknown[] }>(cacheKey);
     if (cached) {
       return NextResponse.json(cached);

@@ -4,7 +4,7 @@ import { getUserIdFromRequest } from '@/lib/auth';
 import { z } from 'zod';
 import { ObjectId } from 'mongodb';
 import { format } from 'date-fns';
-import { bumpCacheVersions, getCachedJson, setCachedJson, versionedCacheKey } from '@/lib/cache-version';
+import { bumpCacheVersions, getCachedJson, requestCacheKey, setCachedJson } from '@/lib/cache-version';
 
 const BILL_URL_MAX_LENGTH = 2048;
 const ALLOWED_BILL_URL_SCHEMES = ['https:'];
@@ -92,7 +92,7 @@ export async function GET(request: NextRequest) {
       const normalizedDate = normalizeDate(parsedDate);
       const dateKey = format(normalizedDate, 'dd-MM-yyyy');
 
-      const cacheKey = await versionedCacheKey('dailyCash', userId, `date:${dateKey}`);
+      const cacheKey = await requestCacheKey(request, 'dailyCash', userId, `date:${dateKey}`);
       const cached = await getCachedJson<Record<string, unknown>>(cacheKey);
       if (cached) {
         return NextResponse.json(cached);
@@ -138,7 +138,7 @@ export async function GET(request: NextRequest) {
       const recordsPerPage = 7;
       const skip = (page - 1) * recordsPerPage;
 
-      const cacheKey = await versionedCacheKey('dailyCash', userId, `page:${page}`);
+      const cacheKey = await requestCacheKey(request, 'dailyCash', userId, `page:${page}`);
       const cached = await getCachedJson<Record<string, unknown>>(cacheKey);
       if (cached) {
         return NextResponse.json(cached);

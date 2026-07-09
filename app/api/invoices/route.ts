@@ -5,7 +5,7 @@ import { z } from 'zod';
 import { ClientSession, Db, MongoServerError, ObjectId } from 'mongodb';
 import redis from '@/lib/redis';
 import { invalidateInventoryCache } from '@/lib/cache';
-import { bumpCacheVersions, getCachedJson, setCachedJson, versionedCacheKey } from '@/lib/cache-version';
+import { bumpCacheVersions, getCachedJson, requestCacheKey, setCachedJson } from '@/lib/cache-version';
 import { entitySearchTokens, invoiceSearchTokens, queryTokens } from '@/lib/search-normalization';
 import { refreshUserReadModels } from '@/lib/read-models';
 import {
@@ -155,7 +155,8 @@ export async function GET(request: NextRequest) {
     const limit = Number.isNaN(limitParam) || limitParam < 1 ? 20 : Math.min(limitParam, 100);
     const skip = (page - 1) * limit;
 
-    const cacheKey = await versionedCacheKey(
+    const cacheKey = await requestCacheKey(
+      request,
       'invoices',
       userId,
       `${customerId || ''}:${status || ''}:${search || ''}:${page}:${limit}`

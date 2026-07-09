@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { getDb } from "@/lib/mongodb";
 import { getUserIdFromRequest } from "@/lib/auth";
 import { z } from "zod";
-import { bumpCacheVersions, getCachedJson, setCachedJson, versionedCacheKey } from "@/lib/cache-version";
+import { bumpCacheVersions, getCachedJson, requestCacheKey, setCachedJson } from "@/lib/cache-version";
 import { entitySearchTokens } from "@/lib/search-normalization";
 import { ensureUserReadModels, refreshUserReadModels, type EntityBalance } from "@/lib/read-models";
 
@@ -26,7 +26,7 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
     
-    const cacheKey = await versionedCacheKey('customers', userId);
+    const cacheKey = await requestCacheKey(request, 'customers', userId);
     const cachedCustomers = await getCachedJson<{ customers: unknown[] }>(cacheKey);
     if (cachedCustomers) {
       return NextResponse.json(cachedCustomers, { status: 200 });

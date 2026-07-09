@@ -5,7 +5,7 @@ import { subDays, format } from 'date-fns';
 import type { RecentActivity, Transaction } from '@/lib/types';
 import { ObjectId } from 'mongodb';
 import { ensureUserReadModels, type EntityBalance } from '@/lib/read-models';
-import { getCachedJson, setCachedJson, versionedCacheKey } from '@/lib/cache-version';
+import { getCachedJson, requestCacheKey, setCachedJson } from '@/lib/cache-version';
 
 const MONTH_REGEX = /^\d{4}-(0[1-9]|1[0-2])$/;
 const DATE_REGEX = /^\d{4}-(0[1-9]|1[0-2])-(0[1-9]|[12]\d|3[01])$/;
@@ -63,7 +63,7 @@ export async function GET(request: NextRequest) {
 
     const hasDateFilter = rangeStart !== null && rangeEnd !== null;
     const cacheSuffix = hasDateFilter ? monthParam || `${fromParam}-${toParam}` : 'current';
-    const cacheKey = await versionedCacheKey('dashboard', userId, cacheSuffix);
+    const cacheKey = await requestCacheKey(request, 'dashboard', userId, cacheSuffix);
     const cached = await getCachedJson<Record<string, unknown>>(cacheKey);
     if (cached) {
       return NextResponse.json(cached);
