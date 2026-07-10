@@ -29,8 +29,13 @@ describe('inventory cache helpers', () => {
         limit: 50,
         status: 'low-stock',
         search: 'brake pad / front',
+        brand: 'TATA',
+        location: 'FRONT SHELF',
+        supplier: 'METRO SUPPLIES',
       })
-    ).toBe('inventory:list:user-1:v0:p2:l50:slow-stock:qbrake%20pad%20%2F%20front');
+    ).toBe(
+      'inventory:list:user-1:v0:p2:l50:slow-stock:qbrake%20pad%20%2F%20front:bTATA:oFRONT%20SHELF:uMETRO%20SUPPLIES'
+    );
     expect(inventorySummaryKey('user-1')).toBe('inventory:summary:user-1:v0');
     expect(inventoryItemKey('user-1', 'item-1')).toBe('inventory:item:user-1:item-1');
   });

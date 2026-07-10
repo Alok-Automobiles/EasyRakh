@@ -7,11 +7,22 @@ export const INVENTORY_ITEM_TTL_SECONDS = 120;
 
 export const inventoryListKey = (
   userId: string,
-  params: { page: number; limit: number; status: string; search: string; version?: string }
+  params: {
+    page: number;
+    limit: number;
+    status: string;
+    search: string;
+    brand?: string;
+    location?: string;
+    supplier?: string;
+    version?: string;
+  }
 ) =>
   `inventory:list:${userId}:v${params.version || '0'}:p${params.page}:l${params.limit}:s${params.status}:q${encodeURIComponent(
     params.search
-  )}`;
+  )}:b${encodeURIComponent(params.brand || '')}:o${encodeURIComponent(
+    params.location || ''
+  )}:u${encodeURIComponent(params.supplier || '')}`;
 
 export const inventorySummaryKey = (userId: string, version = '0') =>
   `inventory:summary:${userId}:v${version}`;

@@ -7,6 +7,8 @@ import autoTable from 'jspdf-autotable';
 import { ObjectId } from 'mongodb';
 import { z } from 'zod';
 import type { InventoryItem } from '@/lib/types';
+import { normalizeIdentifier } from '@/lib/search-normalization';
+import { scoreInventorySearch } from '@/lib/inventory-search';
 
 const LOW_STOCK_THRESHOLD = 5;
 const INACTIVE_THRESHOLD_DAYS = 60;
@@ -86,6 +88,10 @@ export async function GET(request: NextRequest) {
 
     const { searchParams } = new URL(request.url);
     const status = searchParams.get('status') || 'all';
+    const search = searchParams.get('search')?.trim() || '';
+    const brand = normalizeIdentifier(searchParams.get('brand'));
+    const location = normalizeIdentifier(searchParams.get('location'));
+    const supplier = normalizeIdentifier(searchParams.get('supplier'));
 
     const db = await getDb();
     const inventoryCollection = db.collection<InventoryItem>('inventory');
@@ -105,10 +111,22 @@ export async function GET(request: NextRequest) {
       query.$and = [zeroStockDateCondition('$lte', inactiveCutoff)];
     }
 
-    const items = await inventoryCollection
+    if (brand) query.brand = brand;
+    if (location) query.location = location;
+    if (supplier) query.supplier = supplier;
+
+    let items = await inventoryCollection
       .find(query)
       .sort({ itemName: 1 })
       .toArray();
+
+    if (search) {
+      items = items
+        .map((item) => ({ item, score: scoreInventorySearch(item, search) }))
+        .filter(({ score }) => score >= 0.42)
+        .sort((left, right) => right.score - left.score)
+        .map(({ item }) => item);
+    }
 
     const {
       firmTitle,

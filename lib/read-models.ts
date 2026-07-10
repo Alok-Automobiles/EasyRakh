@@ -7,6 +7,7 @@ import {
   inventorySearchTokens,
   normalizeIdentifier,
 } from './search-normalization';
+import { inventoryFuzzyTokens } from './inventory-search';
 
 export interface EntityBalance {
   userId: string;
@@ -49,6 +50,7 @@ export interface UserSummary {
     lowStockThreshold: number;
     locations: string[];
     brands: string[];
+    suppliers: string[];
   };
   updatedAt: Date;
 }
@@ -166,6 +168,7 @@ export async function rebuildUserReadModels(
       lowStockThreshold: LOW_STOCK_THRESHOLD,
       locations: [],
       brands: [],
+      suppliers: [],
     },
     updatedAt: now,
   };
@@ -214,6 +217,7 @@ export async function rebuildUserReadModels(
 
   const locations = new Set<string>();
   const brands = new Set<string>();
+  const inventorySuppliers = new Set<string>();
   for (const item of inventoryItems) {
     const quantity = item.quantity || 0;
     summary.inventory.totalItems += 1;
@@ -221,6 +225,7 @@ export async function rebuildUserReadModels(
     summary.inventory.totalValue += quantity * (item.buyingPrice || 0);
     if (item.location) locations.add(item.location);
     if (item.brand) brands.add(item.brand);
+    if (item.supplier) inventorySuppliers.add(item.supplier);
 
     const stockStatus = getInventoryStockStatus(item);
     if (stockStatus === 'low-stock') summary.inventory.restockItems += 1;
@@ -229,6 +234,7 @@ export async function rebuildUserReadModels(
   }
   summary.inventory.locations = Array.from(locations).sort();
   summary.inventory.brands = Array.from(brands).sort();
+  summary.inventory.suppliers = Array.from(inventorySuppliers).sort();
 
   await entityBalancesCollection.deleteMany({ userId }, { session });
   const balanceDocs = Array.from(balances.values());
@@ -260,6 +266,7 @@ export function inventoryDerivedFields(item: Partial<InventoryItem>) {
   return {
     itemNumberKey: normalizeIdentifier(item.itemNumber || ''),
     searchTokens: inventorySearchTokens(item),
+    fuzzySearchTokens: inventoryFuzzyTokens(item),
     stockStatus: getInventoryStockStatus({
       quantity: item.quantity || 0,
       lastQuantityUpdatedAt: item.lastQuantityUpdatedAt,

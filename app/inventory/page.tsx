@@ -55,6 +55,7 @@ const defaultStats: InventoryStats = {
   lowStockThreshold: 5,
   locations: [],
   brands: [],
+  suppliers: [],
 };
 
 const formatCurrency = (value: number) => currencyFormatter.format(value || 0);

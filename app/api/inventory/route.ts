@@ -12,10 +12,14 @@ import {
 } from '@/lib/cache';
 import { z } from 'zod';
 import { uppercaseInventoryPayload } from '@/lib/inventory-text';
-import { scoreInventoryItem } from '@/lib/voice-assistant';
 import { getRequestCacheVersion } from '@/lib/cache-version';
-import { queryTokens, normalizeIdentifier } from '@/lib/search-normalization';
+import { normalizeIdentifier } from '@/lib/search-normalization';
 import { ensureUserReadModels, inventoryDerivedFields, refreshUserReadModels } from '@/lib/read-models';
+import {
+  fuzzyCandidateTokens,
+  inventoryQueryTokens,
+  scoreInventorySearch,
+} from '@/lib/inventory-search';
 
 const optionalDateSchema = z.preprocess(
   (value) => {
@@ -132,13 +136,25 @@ export async function GET(request: NextRequest) {
     const searchParams = request.nextUrl.searchParams;
     const search = searchParams.get('search')?.trim() || '';
     const status = searchParams.get('status') || 'all';
+    const brand = normalizeIdentifier(searchParams.get('brand'));
+    const location = normalizeIdentifier(searchParams.get('location'));
+    const supplier = normalizeIdentifier(searchParams.get('supplier'));
     const page = Math.max(parseInt(searchParams.get('page') || '1', 10), 1);
     const limit = Math.min(Math.max(parseInt(searchParams.get('limit') || '20', 10), 1), 100);
     const skip = (page - 1) * limit;
     const cacheVersion = await getRequestCacheVersion(request, 'inventory', userId);
     const cacheEnabled = cacheVersion !== null;
     const listCacheKey = cacheEnabled
-      ? inventoryListKey(userId, { page, limit, status, search, version: cacheVersion })
+      ? inventoryListKey(userId, {
+          page,
+          limit,
+          status,
+          search,
+          brand,
+          location,
+          supplier,
+          version: cacheVersion,
+        })
       : null;
     const summaryCacheKey = cacheEnabled
       ? inventorySummaryKey(userId, cacheVersion)
@@ -175,26 +191,47 @@ export async function GET(request: NextRequest) {
           query.stockStatus = 'inactive';
         }
 
-        const tokens = search ? queryTokens(search) : [];
+        if (brand) query.brand = brand;
+        if (location) query.location = location;
+        if (supplier) query.supplier = supplier;
+
+        const tokens = search ? inventoryQueryTokens(search) : [];
 
         if (tokens.length > 0) {
-          query.searchTokens = { $all: tokens };
-        }
+          const fuzzyTokens = fuzzyCandidateTokens(search);
+          const candidateQuery: Record<string, unknown> = {
+            ...query,
+            $or: [
+              { searchTokens: { $all: tokens } },
+              ...(fuzzyTokens.length > 0
+                ? [{ fuzzySearchTokens: { $in: fuzzyTokens } }]
+                : []),
+            ],
+          };
 
-        if (tokens.length > 0) {
-          // Score a bounded indexed candidate set in memory for typo tolerance.
-          const candidates = await inventoryCollection
-            .find(query)
+          // Indexed prefix/n-gram retrieval keeps the candidate set small;
+          // the ranker then handles spelling mistakes and cross-field terms.
+          let candidates = await inventoryCollection
+            .find(candidateQuery)
             .sort({ updatedAt: -1, createdAt: -1 })
-            .limit(500)
             .toArray();
+
+          // Existing installations may not have fuzzySearchTokens until the
+          // read-model backfill runs. This fallback makes typo search work
+          // immediately instead of requiring a deployment-time migration.
+          if (candidates.length === 0) {
+            candidates = await inventoryCollection
+              .find(query)
+              .sort({ updatedAt: -1, createdAt: -1 })
+              .toArray();
+          }
 
           const scored = candidates
             .map((item) => ({
               item,
-              score: scoreInventoryItem(item, tokens),
+              score: scoreInventorySearch(item, search),
             }))
-            .filter(({ score }) => score >= 0.25)
+            .filter(({ score }) => score >= 0.42)
             .sort((a, b) => b.score - a.score || b.item.updatedAt.getTime() - a.item.updatedAt.getTime());
 
           const total = scored.length;
@@ -243,6 +280,17 @@ export async function GET(request: NextRequest) {
             .limit(20)
             .toArray(),
         ]);
+
+        // Summaries created before supplier facets were introduced do not
+        // contain this array. Populate it cheaply without rebuilding every
+        // user read model during an unrelated request.
+        if (!Array.isArray(summary.inventory.suppliers)) {
+          const suppliers = await inventoryCollection.distinct('supplier', {
+            userId,
+            supplier: { $gt: '' },
+          });
+          summary.inventory.suppliers = suppliers.map(String).sort();
+        }
 
         return {
           stats: summary.inventory,
