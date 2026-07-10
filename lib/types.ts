@@ -172,6 +172,7 @@ export interface InventoryItem {
   billImagePublicIds?: string[];
   itemNumberKey?: string;
   searchTokens?: string[];
+  fuzzySearchTokens?: string[];
   stockStatus?: 'in-stock' | 'low-stock' | 'out-of-stock' | 'inactive';
   lastQuantityUpdatedAt?: Date;
   createdAt: Date;
@@ -188,4 +189,5 @@ export interface InventoryStats {
   lowStockThreshold: number;
   locations: string[];
   brands: string[];
+  suppliers: string[];
 }

@@ -4,6 +4,7 @@ import {
   ChangeEvent,
   useCallback,
   useEffect,
+  useId,
   useMemo,
   useRef,
   useState,
@@ -24,16 +25,17 @@ import {
   ArrowLeft,
   Boxes,
   Camera,
+  Check,
   CheckCircle2,
   CheckSquare,
   ChevronLeft,
   ChevronRight,
+  ChevronDown,
   ClipboardList,
   Edit3,
   Eye,
   FileDown,
   FileText,
-  Filter,
   ImagePlus,
   Loader2,
   MapPin,
@@ -187,6 +189,7 @@ const defaultStats: InventoryStats = {
   lowStockThreshold: 5,
   locations: [],
   brands: [],
+  suppliers: [],
 };
 
 const defaultFormValues: InventoryItemForm = {
@@ -221,6 +224,150 @@ const unitOptions = ['pcs', 'set', 'box', 'pair', 'kg', 'litre', 'meter', 'roll'
 /** Pointer on all clickable inventory UI (native buttons, links, menu items). */
 const inventoryPointerClass =
   '[&_button:not(:disabled)]:cursor-pointer [&_a]:cursor-pointer [&_[role=menuitem]:not([data-disabled])]:cursor-pointer [&_[data-slot=dialog-close]]:cursor-pointer [&_[data-slot=select-trigger]:not(:disabled)]:cursor-pointer';
+
+interface SearchableInventoryFilterProps {
+  label: string;
+  value: string;
+  options: string[];
+  onChange: (value: string) => void;
+}
+
+function SearchableInventoryFilter({
+  label,
+  value,
+  options,
+  onChange,
+}: SearchableInventoryFilterProps) {
+  const listId = useId();
+  const containerRef = useRef<HTMLDivElement>(null);
+  const [open, setOpen] = useState(false);
+  const [query, setQuery] = useState(value === 'all' ? '' : value);
+  const [activeIndex, setActiveIndex] = useState(0);
+
+  const filteredOptions = useMemo(() => {
+    const normalizedQuery = query.trim().toLocaleLowerCase();
+    const matches = normalizedQuery
+      ? options.filter((option) => option.toLocaleLowerCase().includes(normalizedQuery))
+      : [...options];
+
+    return matches.sort((left, right) => {
+      const leftStarts = left.toLocaleLowerCase().startsWith(normalizedQuery);
+      const rightStarts = right.toLocaleLowerCase().startsWith(normalizedQuery);
+      if (leftStarts !== rightStarts) return leftStarts ? -1 : 1;
+      return left.localeCompare(right);
+    });
+  }, [options, query]);
+
+  useEffect(() => {
+    if (!open) setQuery(value === 'all' ? '' : value);
+  }, [open, value]);
+
+  useEffect(() => {
+    if (!open) return;
+
+    const handlePointerDown = (event: MouseEvent) => {
+      if (!containerRef.current?.contains(event.target as Node)) setOpen(false);
+    };
+
+    document.addEventListener('mousedown', handlePointerDown);
+    return () => document.removeEventListener('mousedown', handlePointerDown);
+  }, [open]);
+
+  const choose = (nextValue: string) => {
+    onChange(nextValue);
+    setQuery(nextValue === 'all' ? '' : nextValue);
+    setOpen(false);
+  };
+
+  const suggestions = query.trim() ? filteredOptions : ['all', ...filteredOptions];
+
+  return (
+    <div ref={containerRef} className="relative w-full min-w-0">
+      <div className="relative">
+        <Search className="pointer-events-none absolute left-3 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-gray-400" />
+        <Input
+          role="combobox"
+          aria-expanded={open}
+          aria-controls={listId}
+          aria-autocomplete="list"
+          aria-label={label}
+          value={query}
+          placeholder={label}
+          autoComplete="off"
+          className="h-10 bg-white pl-9 pr-8 text-xs"
+          onFocus={(event) => {
+            setOpen(true);
+            setActiveIndex(0);
+            event.currentTarget.select();
+          }}
+          onChange={(event) => {
+            setQuery(event.target.value);
+            setOpen(true);
+            setActiveIndex(0);
+          }}
+          onBlur={(event) => {
+            if (!containerRef.current?.contains(event.relatedTarget as Node | null)) {
+              setOpen(false);
+            }
+          }}
+          onKeyDown={(event) => {
+            if (event.key === 'ArrowDown') {
+              event.preventDefault();
+              setOpen(true);
+              setActiveIndex((index) => Math.min(index + 1, suggestions.length - 1));
+            } else if (event.key === 'ArrowUp') {
+              event.preventDefault();
+              setActiveIndex((index) => Math.max(index - 1, 0));
+            } else if (event.key === 'Enter' && open && suggestions[activeIndex]) {
+              event.preventDefault();
+              choose(suggestions[activeIndex]);
+            } else if (event.key === 'Escape') {
+              setOpen(false);
+              setQuery(value === 'all' ? '' : value);
+            }
+          }}
+        />
+        <ChevronDown className="pointer-events-none absolute right-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-gray-400" />
+      </div>
+
+      {open && (
+        <div
+          id={listId}
+          role="listbox"
+          className="absolute left-0 top-full z-50 mt-1 max-h-44 w-full overflow-y-auto rounded-md border border-gray-200 bg-white p-1 shadow-lg sm:min-w-48"
+        >
+          {suggestions.length === 0 ? (
+            <div className="px-3 py-4 text-center text-xs text-gray-500">No matching option</div>
+          ) : (
+            suggestions.map((option, index) => {
+              const optionValue = option === 'all' ? 'all' : option;
+              const optionLabel = option === 'all' ? label : option;
+              const selected = value === optionValue;
+
+              return (
+                <button
+                  key={optionValue}
+                  type="button"
+                  role="option"
+                  aria-selected={selected}
+                  onMouseDown={(event) => event.preventDefault()}
+                  onMouseEnter={() => setActiveIndex(index)}
+                  onClick={() => choose(optionValue)}
+                  className={`flex w-full cursor-pointer items-center gap-2 rounded px-2.5 py-2 text-left text-xs transition-colors ${
+                    activeIndex === index ? 'bg-gray-100 text-gray-950' : 'text-gray-700'
+                  }`}
+                >
+                  <Check className={`h-3.5 w-3.5 shrink-0 ${selected ? 'opacity-100' : 'opacity-0'}`} />
+                  <span className="truncate">{optionLabel}</span>
+                </button>
+              );
+            })
+          )}
+        </div>
+      )}
+    </div>
+  );
+}
 
 function normalizeUnitForForm(unit: string) {
   const u = unit.trim().toLowerCase();
@@ -806,6 +953,9 @@ export default function InventoryItemsPage() {
   }, [searchQuery]);
 
   const [statusFilter, setStatusFilter] = useState<StatusFilter>('all');
+  const [brandFilter, setBrandFilter] = useState('all');
+  const [locationFilter, setLocationFilter] = useState('all');
+  const [supplierFilter, setSupplierFilter] = useState('all');
   const [currentPage, setCurrentPage] = useState(1);
   const [formOpen, setFormOpen] = useState(false);
   const [editingItem, setEditingItem] = useState<InventoryItem | null>(null);
@@ -831,6 +981,10 @@ export default function InventoryItemsPage() {
     setDownloadingPdf(true);
     try {
       const params = new URLSearchParams({ status: statusFilter });
+      if (searchQuery.trim()) params.set('search', searchQuery.trim());
+      if (brandFilter !== 'all') params.set('brand', brandFilter);
+      if (locationFilter !== 'all') params.set('location', locationFilter);
+      if (supplierFilter !== 'all') params.set('supplier', supplierFilter);
       const response = await fetch(`/api/inventory/export-pdf?${params.toString()}`);
       if (!response.ok) throw new Error('Failed to generate PDF');
       const blob = await response.blob();
@@ -848,7 +1002,7 @@ export default function InventoryItemsPage() {
     } finally {
       setDownloadingPdf(false);
     }
-  }, [statusFilter]);
+  }, [brandFilter, locationFilter, searchQuery, statusFilter, supplierFilter]);
 
   const QUANTITY_ADJUST_DEBOUNCE_MS = 400;
 
@@ -935,8 +1089,14 @@ export default function InventoryItemsPage() {
     const newItem = params.get('new');
     const statusParam = params.get('status') as StatusFilter | null;
     const searchParam = params.get('search');
+    const brandParam = params.get('brand');
+    const locationParam = params.get('location');
+    const supplierParam = params.get('supplier');
 
     if (searchParam) setSearchQuery(searchParam);
+    if (brandParam) setBrandFilter(brandParam.toUpperCase());
+    if (locationParam) setLocationFilter(locationParam.toUpperCase());
+    if (supplierParam) setSupplierFilter(supplierParam.toUpperCase());
     if (statusParam && statusTabs.some((tab) => tab.value === statusParam)) {
       setStatusFilter(statusParam);
     }
@@ -949,14 +1109,25 @@ export default function InventoryItemsPage() {
 
   useEffect(() => {
     setCurrentPage(1);
-  }, [debouncedSearchQuery, statusFilter]);
+  }, [brandFilter, debouncedSearchQuery, locationFilter, statusFilter, supplierFilter]);
 
-  const { data, isLoading, isFetching } = useQuery<InventoryItemsResponse>({
-    queryKey: ['inventory-items', debouncedSearchQuery, statusFilter, currentPage],
+  const { data, isLoading } = useQuery<InventoryItemsResponse>({
+    queryKey: [
+      'inventory-items',
+      debouncedSearchQuery,
+      statusFilter,
+      brandFilter,
+      locationFilter,
+      supplierFilter,
+      currentPage,
+    ],
     queryFn: async () => {
       const params = new URLSearchParams();
       if (debouncedSearchQuery.trim()) params.set('search', debouncedSearchQuery.trim());
       if (statusFilter !== 'all') params.set('status', statusFilter);
+      if (brandFilter !== 'all') params.set('brand', brandFilter);
+      if (locationFilter !== 'all') params.set('location', locationFilter);
+      if (supplierFilter !== 'all') params.set('supplier', supplierFilter);
       params.set('page', currentPage.toString());
       params.set('limit', '16');
 
@@ -973,10 +1144,35 @@ export default function InventoryItemsPage() {
   const items = data?.items || [];
   const stats = data?.stats || defaultStats;
   const pagination = data?.pagination;
-  const inventoryListQueryKey = ['inventory-items', debouncedSearchQuery, statusFilter, currentPage] as const;
+  const inventoryListQueryKey = useMemo(
+    () =>
+      [
+        'inventory-items',
+        debouncedSearchQuery,
+        statusFilter,
+        brandFilter,
+        locationFilter,
+        supplierFilter,
+        currentPage,
+      ] as const,
+    [
+      brandFilter,
+      currentPage,
+      debouncedSearchQuery,
+      locationFilter,
+      statusFilter,
+      supplierFilter,
+    ]
+  );
   const partImages = form.watch('partImages') || [];
   const billImages = form.watch('billImages') || [];
   const inactiveItems = stats.inactiveItems || 0;
+  const activeFilterCount =
+    (searchQuery.trim() ? 1 : 0) +
+    (brandFilter !== 'all' ? 1 : 0) +
+    (locationFilter !== 'all' ? 1 : 0) +
+    (supplierFilter !== 'all' ? 1 : 0) +
+    (statusFilter !== 'all' ? 1 : 0);
 
   const tabCounts = useMemo(
     () => ({
@@ -1790,36 +1986,43 @@ export default function InventoryItemsPage() {
 
       {orderStep === 'select' && (
         <div className="rounded-xl border border-gray-200 bg-white p-2.5 shadow-sm sm:p-3">
-          <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
-            <div className="grid grid-cols-2 gap-1 rounded-lg border border-gray-200 bg-gray-50 p-1 sm:flex sm:overflow-x-auto">
-              {statusTabs.map((tab) => (
-                <button
-                  key={tab.value}
-                  type="button"
-                  onClick={() => setStatusFilter(tab.value)}
-                  className={`flex min-w-0 cursor-pointer items-center justify-center whitespace-nowrap rounded-md px-2 py-2 text-xs font-semibold transition-colors sm:px-3 ${
-                    statusFilter === tab.value
-                      ? 'bg-white text-slate-950 shadow-sm'
-                      : 'text-gray-500 hover:text-gray-900'
-                  }`}
-                >
-                  <span className="truncate">{tab.label}</span>
-                  <span className="ml-1.5 rounded-full bg-gray-100 px-1.5 py-0.5 text-[10px] text-gray-500 sm:ml-2 sm:px-2">
-                    {tabCounts[tab.value]}
-                  </span>
-                </button>
-              ))}
+          <div className="space-y-3">
+            <div className="overflow-x-auto pb-1 hide-scrollbar">
+              <div className="flex min-w-max gap-1 rounded-lg border border-gray-200 bg-gray-50 p-1 lg:grid lg:min-w-0 lg:grid-cols-5">
+                {statusTabs.map((tab) => (
+                  <button
+                    key={tab.value}
+                    type="button"
+                    onClick={() => setStatusFilter(tab.value)}
+                    className={`flex min-w-[7.25rem] cursor-pointer items-center justify-center whitespace-nowrap rounded-md px-3 py-2 text-xs font-semibold transition-colors lg:min-w-0 ${
+                      statusFilter === tab.value
+                        ? 'bg-white text-slate-950 shadow-sm'
+                        : 'text-gray-500 hover:text-gray-900'
+                    }`}
+                  >
+                    <span className="truncate">{tab.label}</span>
+                    <span className="ml-1.5 rounded-full bg-gray-100 px-1.5 py-0.5 text-[10px] text-gray-500 sm:ml-2 sm:px-2">
+                      {activeFilterCount === 0
+                        ? tabCounts[tab.value]
+                        : statusFilter === tab.value
+                          ? pagination?.total ?? items.length
+                          : '–'}
+                    </span>
+                  </button>
+                ))}
+              </div>
             </div>
 
-            <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
-              <div className="relative w-full sm:w-72">
+            <div className="grid grid-cols-1 gap-2 min-[420px]:grid-cols-2 lg:grid-cols-4 xl:grid-cols-[minmax(260px,2fr)_repeat(3,minmax(150px,1fr))_minmax(105px,auto)]">
+              <div className="relative min-[420px]:col-span-2 lg:col-span-4 xl:col-span-1">
                 <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400" />
                 <Input
                   ref={searchInputRef}
                   value={searchQuery}
                   onChange={(event) => setSearchQuery(event.target.value)}
-                  placeholder="Search item, brand, code..."
+                  placeholder="Search name, brand, code, location, supplier..."
                   className="h-10 pl-10 pr-9"
+                  aria-label="Search inventory"
                 />
                 <div className="absolute right-3 top-1/2 -translate-y-1/2 flex items-center">
                   {searchQuery ? (
@@ -1841,10 +2044,44 @@ export default function InventoryItemsPage() {
                   )}
                 </div>
               </div>
-              <div className="flex h-10 items-center gap-2 rounded-md border border-gray-200 px-3 text-xs font-medium text-gray-500">
-                <Filter className="h-4 w-4" />
-                {isFetching ? 'Refreshing' : `${items.length} shown`}
-              </div>
+
+              <SearchableInventoryFilter
+                label="All brands"
+                value={brandFilter}
+                options={stats.brands || []}
+                onChange={setBrandFilter}
+              />
+
+              <SearchableInventoryFilter
+                label="All locations"
+                value={locationFilter}
+                options={stats.locations || []}
+                onChange={setLocationFilter}
+              />
+
+              <SearchableInventoryFilter
+                label="All suppliers"
+                value={supplierFilter}
+                options={stats.suppliers || []}
+                onChange={setSupplierFilter}
+              />
+
+              <button
+                type="button"
+                onClick={() => {
+                  setSearchQuery('');
+                  setBrandFilter('all');
+                  setLocationFilter('all');
+                  setSupplierFilter('all');
+                  setStatusFilter('all');
+                }}
+                disabled={activeFilterCount === 0}
+                className="flex h-10 min-w-0 cursor-pointer items-center justify-center gap-2 rounded-md border border-gray-300 bg-white px-3 text-xs font-semibold text-gray-700 transition-colors hover:border-gray-400 hover:bg-gray-50 hover:text-gray-950 disabled:cursor-default disabled:border-gray-200 disabled:text-gray-400 disabled:opacity-70"
+                aria-label="Clear search and filters"
+              >
+                <X className="h-4 w-4" />
+                Clear filters
+              </button>
             </div>
           </div>
         </div>

@@ -105,6 +105,7 @@ describe('/api/inventory', () => {
         lowStockThreshold: 5,
         locations: ['FRONT SHELF'],
         brands: ['BOSCH'],
+        suppliers: ['METRO SUPPLIES'],
       },
       lowStockItems: [],
     };
@@ -113,7 +114,11 @@ describe('/api/inventory', () => {
       .mockResolvedValueOnce(JSON.stringify(summaryPayload));
 
     const { GET } = await import('@/app/api/inventory/route');
-    const response = await GET(jsonRequest('http://localhost/api/inventory?search=brake&page=0&limit=500'));
+    const response = await GET(
+      jsonRequest(
+        'http://localhost/api/inventory?search=brake&brand=tata&location=front%20shelf&supplier=metro%20supplies&page=0&limit=500'
+      )
+    );
 
     expect(response.status).toBe(200);
     expect(mocks.inventoryListKey).toHaveBeenCalledWith(ids.user, {
@@ -121,6 +126,9 @@ describe('/api/inventory', () => {
       limit: 100,
       status: 'all',
       search: 'brake',
+      brand: 'TATA',
+      location: 'FRONT SHELF',
+      supplier: 'METRO SUPPLIES',
       version: '0',
     });
     expect(mocks.getDb).not.toHaveBeenCalled();
