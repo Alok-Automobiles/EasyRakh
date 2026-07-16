@@ -53,7 +53,7 @@ function applyResolvedTheme(resolvedTheme: ResolvedTheme) {
   root.dataset.theme = resolvedTheme;
   root.style.colorScheme = resolvedTheme;
 
-  const themeColor = resolvedTheme === 'dark' ? '#0f1218' : '#faf9f6';
+  const themeColor = resolvedTheme === 'dark' ? '#080808' : '#f6f7f5';
   let metaThemeColor = document.querySelector<HTMLMetaElement>('meta[name="theme-color"]');
   if (!metaThemeColor) {
     metaThemeColor = document.createElement('meta');

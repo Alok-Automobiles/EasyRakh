@@ -36,7 +36,7 @@ const geistMono = Geist_Mono({
 });
 
 export const viewport: Viewport = {
-  themeColor: '#000000',
+  themeColor: '#f6f7f5',
   width: 'device-width',
   initialScale: 1,
   maximumScale: 1,
@@ -68,7 +68,7 @@ export default function RootLayout({
   return (
     <html lang="en" className="overflow-x-hidden" suppressHydrationWarning>
       <body
-        className={`${geistSans.variable} ${geistMono.variable} antialiased overflow-x-hidden neo-brutalist`}
+        className={`${geistSans.variable} ${geistMono.variable} overflow-x-hidden antialiased`}
       >
         <Script
           id="theme-script"

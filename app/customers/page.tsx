@@ -9,6 +9,7 @@ import toast from 'react-hot-toast';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import Image from 'next/image';
 import EntityCard from '@/components/EntityCard';
+import EntityDirectoryHeader from '@/components/EntityDirectoryHeader';
 import {
   Dialog,
   DialogContent,
@@ -40,7 +41,7 @@ import { Customer } from '@/lib/types';
 import { motion } from 'motion/react'
 import { compressImage, isCompressibleImage, formatFileSize } from '@/lib/imageCompression';
 import { parseNumberInput } from '@/lib/number-input';
-import { Search, X } from 'lucide-react';
+import { Users } from 'lucide-react';
 
 const MAX_BILL_SIZE_BYTES = 5 * 1024 * 1024; // 5MB
 const ACCEPTED_BILL_TYPES = [
@@ -112,7 +113,7 @@ export default function CustomersPage() {
     },
   });
 
-  const customers = data?.customers ?? [];
+  const customers = useMemo(() => data?.customers ?? [], [data?.customers]);
   const normalizedSearchQuery = searchQuery.trim().toLowerCase();
   const filteredCustomers = useMemo(() => {
     if (!normalizedSearchQuery) return customers;
@@ -123,6 +124,13 @@ export default function CustomersPage() {
       )
     );
   }, [customers, normalizedSearchQuery]);
+  const customerBalances = useMemo(() => customers.reduce(
+    (totals, customer) => ({
+      receivable: totals.receivable + Math.max(customer.totalBalance, 0),
+      payable: totals.payable + Math.abs(Math.min(customer.totalBalance, 0)),
+    }),
+    { receivable: 0, payable: 0 }
+  ), [customers]);
 
   const handleBillUpload = async (event: ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
@@ -319,61 +327,40 @@ export default function CustomersPage() {
       transition={{ duration: 1.3 }}
       exit={{ opacity: 0 }}
     >
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-        <div className="flex justify-between items-center mb-6">
-          <h1 className="text-3xl font-bold text-foreground">Customers</h1>
-          <Button
-            onClick={() => {
+      <div className="mx-auto max-w-6xl px-3 py-5 sm:px-6 sm:py-8 lg:px-8 lg:py-10">
+        <EntityDirectoryHeader
+          title="Customers"
+          description="Review customer ledgers, contact details, and outstanding balances."
+          singularLabel="Customer"
+          count={customers.length}
+          receivable={customerBalances.receivable}
+          payable={customerBalances.payable}
+          icon={<Users className="h-5 w-5" />}
+          searchQuery={searchQuery}
+          searchPlaceholder="Search customers by name, phone, email or address"
+          resultCount={normalizedSearchQuery ? filteredCustomers.length : undefined}
+          onSearchChange={setSearchQuery}
+          onAdd={() => {
               form.reset();
               setEditingCustomer(null);
               setBillUploadResult(null);
               setIsModalOpen(true);
-            }}
-          >
-            Add Customer
-          </Button>
-        </div>
+          }}
+        />
 
-        <div className="mb-6 flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
-          <div className="relative w-full sm:max-w-sm">
-            <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-            <Input
-              value={searchQuery}
-              onChange={(event) => setSearchQuery(event.target.value)}
-              placeholder="Search customers..."
-              aria-label="Search customers"
-              className="pl-10 pr-10"
-            />
-            {searchQuery && (
-              <button
-                type="button"
-                onClick={() => setSearchQuery('')}
-                className="absolute right-3 top-1/2 flex h-5 w-5 -translate-y-1/2 items-center justify-center rounded-full text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
-                aria-label="Clear customer search"
-              >
-                <X className="h-3.5 w-3.5" />
-              </button>
-            )}
-          </div>
-          {normalizedSearchQuery && (
-            <p className="text-sm text-muted-foreground">
-              {filteredCustomers.length} of {customers.length} customers
-            </p>
-          )}
-        </div>
-
+        <div className="mt-6">
         {customers.length === 0 ? (
-          <div className="text-center py-12">
+          <div className="rounded-2xl border border-dashed border-border bg-card px-6 py-16 text-center">
             <p className="text-muted-foreground text-lg">No customers yet.</p>
             <p className="text-muted-foreground mt-2">Add your first customer to get started.</p>
           </div>
         ) : filteredCustomers.length === 0 ? (
-          <div className="text-center py-12">
+          <div className="rounded-2xl border border-dashed border-border bg-card px-6 py-16 text-center">
             <p className="text-muted-foreground text-lg">No customers match your search.</p>
             <p className="text-muted-foreground mt-2">Try another name, phone, email, or address.</p>
           </div>
         ) : (
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+          <div className="space-y-3 sm:divide-y sm:divide-border sm:space-y-0 sm:overflow-hidden sm:rounded-2xl sm:border sm:border-border sm:bg-card">
             {filteredCustomers.map((customer) => (
               <EntityCard
                 key={customer.id}
@@ -392,6 +379,7 @@ export default function CustomersPage() {
             ))}
           </div>
         )}
+        </div>
 
         <Dialog open={isModalOpen} onOpenChange={setIsModalOpen}>
           <DialogContent className="max-h-[90vh] overflow-y-auto">

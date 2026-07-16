@@ -52,7 +52,7 @@ export default function ThemeToggle({ className, surface = 'default' }: ThemeTog
       duration={500}
       variant="circle"
       className={cn(
-        'inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-full border-2 border-border bg-card text-card-foreground shadow-sm transition-colors hover:bg-accent focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/50 [&_svg]:h-4 [&_svg]:w-4',
+        'inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-xl border border-border bg-card text-card-foreground shadow-xs transition-colors hover:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/30 [&_svg]:h-4 [&_svg]:w-4',
         className,
       )}
     />

@@ -167,7 +167,7 @@ export default function ProfilePage() {
                             placeholder="your@email.com" 
                             {...field} 
                             disabled
-                            className="bg-gray-50 cursor-not-allowed"
+                            className="cursor-not-allowed bg-muted/60 text-foreground dark:bg-muted/60"
                           />
                         </FormControl>
                         <FormMessage />

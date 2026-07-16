@@ -886,7 +886,7 @@ export default function LedgerPage() {
                 {entries.map((entry, index) => {
                   const balanceColor = entry.balance >= 0 ? 'text-green-600' : 'text-red-600';
                   return (
-                    <tr key={index} className="hover:bg-gray-50">
+                    <tr key={index} className="transition-colors hover:bg-muted/60">
                       <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
                         {format(new Date(entry.date), 'MMM dd, yyyy')}
                       </td>

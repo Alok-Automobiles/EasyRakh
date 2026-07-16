@@ -58,7 +58,6 @@ import {
 } from 'lucide-react';
 import { compressImage, isCompressibleImage, formatFileSize } from '@/lib/imageCompression';
 import GlobalSearch from '@/components/GlobalSearch';
-import { Calendar } from '@/components/ui/calendar';
 
 const MAX_BILL_SIZE_BYTES = 5 * 1024 * 1024;
 const ACCEPTED_BILL_TYPES = [
@@ -627,7 +626,7 @@ export default function DashboardClient() {
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-slate-50">
+      <div className="min-h-screen bg-transparent">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 space-y-8">
           <div className="flex items-center gap-4">
             <Skeleton className="h-12 w-12 rounded-xl" />
@@ -648,7 +647,7 @@ export default function DashboardClient() {
   }
 
   return (
-    <div className="min-h-screen bg-slate-50 overflow-x-hidden">
+    <div className="min-h-screen bg-transparent overflow-x-hidden">
       <motion.div
         initial="hidden"
         animate="visible"
@@ -892,7 +891,7 @@ export default function DashboardClient() {
                         <Input
                           value={format(new Date(), 'dd-MM-yyyy')}
                           readOnly
-                          className="bg-gray-50"
+                          className="bg-muted/60 text-foreground dark:bg-muted/60"
                         />
                       </div>
 
