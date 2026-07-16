@@ -58,6 +58,9 @@ export default function VoiceAssistantWrapper() {
     return null;
   }
 
-  return <VoiceAssistant />;
+  return (
+    <div className="app-ui contents">
+      <VoiceAssistant />
+    </div>
+  );
 }
-

@@ -152,7 +152,7 @@ export default function Sidebar({ collapsed = false }: SidebarProps) {
     return (
     <>
       <div
-        className={`border-b border-gray-200 px-3 py-2.5 lg:px-3 lg:py-3 ${
+        className={`border-b border-border px-4 py-4 ${
           effectiveCollapsed
             ? 'flex flex-col items-center justify-center gap-2'
             : 'space-y-1.5'
@@ -167,9 +167,9 @@ export default function Sidebar({ collapsed = false }: SidebarProps) {
             <Image
               src="/logo.png"
               alt="EasyRakh logo"
-              width={effectiveCollapsed ? 32 : 86}
-              height={effectiveCollapsed ? 32 : 54}
-              className="theme-logo-surface shrink-0 rounded-md p-1"
+              width={effectiveCollapsed ? 34 : 92}
+              height={effectiveCollapsed ? 34 : 56}
+              className="theme-logo-surface shrink-0 rounded-lg p-1"
             />
           </Link>
           <ThemeToggle
@@ -180,14 +180,14 @@ export default function Sidebar({ collapsed = false }: SidebarProps) {
         </div>
         {!effectiveCollapsed && (
           <Link href="/?view=landing" className="block min-w-0 text-center">
-            <span className="block truncate text-[11px] leading-4 text-gray-500">
-              Ek ek rupaye ka hisaab, ek screen par.
+            <span className="block truncate text-[11px] leading-4 text-muted-foreground">
+              Your business, clearly managed.
             </span>
           </Link>
         )}
       </div>
 
-      <nav className="flex-1 overflow-y-auto overscroll-contain px-2 py-3 lg:px-3 lg:py-6 space-y-1 sidebar-scrollbar min-h-0">
+      <nav className="sidebar-scrollbar min-h-0 flex-1 space-y-1 overflow-y-auto overscroll-contain px-3 py-5">
         {navLinks.map((link) => {
           const Icon = link.icon;
           const active = isActive(link.href);
@@ -195,10 +195,10 @@ export default function Sidebar({ collapsed = false }: SidebarProps) {
             <Link
               key={link.href}
               href={link.href}
-              className={`flex items-center ${effectiveCollapsed ? 'justify-center px-3' : 'space-x-3 px-4'} py-3 rounded-lg text-sm font-medium transition-all duration-200 ${
+              className={`flex items-center ${effectiveCollapsed ? 'justify-center px-3' : 'space-x-3 px-3'} py-2.5 rounded-lg text-sm font-medium transition-colors ${
                 active
                   ? 'bg-blue-50 text-blue-700 border border-blue-200'
-                  : 'text-gray-700 hover:bg-gray-50 hover:text-gray-900'
+                  : 'text-gray-600 hover:bg-gray-50 hover:text-gray-900'
               }`}
             >
               <Icon className={`h-5 w-5 ${active ? 'text-blue-600' : 'text-gray-500'}`} />
@@ -268,7 +268,7 @@ export default function Sidebar({ collapsed = false }: SidebarProps) {
         )}
       </nav>
 
-      <div className="shrink-0 p-3 lg:p-4 border-t border-gray-200 bg-gray-50">
+      <div className="shrink-0 border-t border-border bg-transparent p-3">
         <DropdownMenu modal={false}>
           <DropdownMenuTrigger asChild>
             <button 

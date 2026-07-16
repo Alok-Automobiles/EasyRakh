@@ -180,7 +180,7 @@ export default function AboutPageContent() {
       </section>
 
       {/* Marquee */}
-      <div className="relative border-y border-gray-200/70 bg-white/50 backdrop-blur-md">
+      <div className="relative border-y border-gray-200/70 bg-transparent">
         <div className="overflow-hidden py-3">
           <div className="about-marquee-track gap-10 pr-10">
             {[...marqueeItems, ...marqueeItems].map((label, i) => (
@@ -197,7 +197,7 @@ export default function AboutPageContent() {
       </div>
 
       {/* Stats */}
-      <section className="relative border-b border-gray-200/60 bg-white/60 py-12 backdrop-blur-sm">
+      <section className="relative border-b border-gray-200/60 bg-transparent py-12">
         <div className="mx-auto grid max-w-7xl gap-6 px-4 sm:grid-cols-3 sm:gap-8 sm:px-6 lg:px-10">
           {stats.map((s, i) => (
             <motion.div

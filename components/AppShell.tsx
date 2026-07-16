@@ -20,12 +20,12 @@ export default function AppShell({ children }: AppShellProps) {
   const sidebarWidth = '16rem';
 
   if (isMarketingPage) {
-    return <>{children}</>;
+    return <div className="marketing-ui min-h-screen bg-background text-foreground">{children}</div>;
   }
 
   if (isAuthPage) {
     return (
-      <div className="min-h-screen bg-background text-foreground neo-brutalist">
+      <div className="app-ui min-h-screen bg-background text-foreground">
         <div className="fixed right-4 top-4 z-50">
           <ThemeToggle />
         </div>
@@ -36,7 +36,7 @@ export default function AppShell({ children }: AppShellProps) {
 
   return (
     <div
-      className="min-h-screen bg-background text-foreground neo-brutalist"
+      className="app-ui min-h-screen bg-background text-foreground"
       style={{ ['--sidebar-width' as string]: sidebarWidth }}
     >
       <Sidebar />

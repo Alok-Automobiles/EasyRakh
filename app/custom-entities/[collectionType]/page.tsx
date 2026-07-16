@@ -8,6 +8,7 @@ import { z } from 'zod';
 import toast from 'react-hot-toast';
 import Image from 'next/image';
 import EntityCard from '@/components/EntityCard';
+import EntityDirectoryHeader from '@/components/EntityDirectoryHeader';
 import {
   Dialog,
   DialogContent,
@@ -40,7 +41,7 @@ import { motion } from 'motion/react'
 import Link from 'next/link';
 import { compressImage, isCompressibleImage, formatFileSize } from '@/lib/imageCompression';
 import { parseNumberInput } from '@/lib/number-input';
-import { Search, X } from 'lucide-react';
+import { ArrowLeft, Layers3 } from 'lucide-react';
 
 const MAX_BILL_SIZE_BYTES = 5 * 1024 * 1024; // 5MB
 const ACCEPTED_BILL_TYPES = [
@@ -119,6 +120,13 @@ export default function CustomEntitiesPage() {
       )
     );
   }, [entities, normalizedSearchQuery]);
+  const entityBalances = useMemo(() => entities.reduce(
+    (totals, entity) => ({
+      receivable: totals.receivable + Math.max(entity.totalBalance, 0),
+      payable: totals.payable + Math.abs(Math.min(entity.totalBalance, 0)),
+    }),
+    { receivable: 0, payable: 0 }
+  ), [entities]);
 
   useEffect(() => {
     if (hasFetchedRef.current) return;
@@ -372,69 +380,49 @@ export default function CustomEntitiesPage() {
       transition={{ duration: 1.3 }}
       exit={{ opacity: 0 }}
     >
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-        <div className="flex justify-between items-center mb-6">
-          <div>
+      <div className="mx-auto max-w-6xl px-3 py-5 sm:px-6 sm:py-8 lg:px-8 lg:py-10">
+        <EntityDirectoryHeader
+          title={collectionType.name}
+          description={`Manage every ${collectionType.name.toLowerCase()} ledger and outstanding balance.`}
+          singularLabel="Entry"
+          count={entities.length}
+          receivable={entityBalances.receivable}
+          payable={entityBalances.payable}
+          icon={<Layers3 className="h-5 w-5" />}
+          searchQuery={searchQuery}
+          searchPlaceholder={`Search ${collectionType.name.toLowerCase()} by name, phone, email or address`}
+          resultCount={normalizedSearchQuery ? filteredEntities.length : undefined}
+          onSearchChange={setSearchQuery}
+          backLink={
             <Link
               href="/collection-types"
-              className="text-blue-600 hover:text-blue-800 text-sm font-medium mb-2 inline-block"
+              className="mb-3 inline-flex items-center gap-1.5 text-sm text-muted-foreground transition-colors hover:text-foreground"
             >
-              ← Back to Custom Collections
+              <ArrowLeft className="h-3.5 w-3.5" />
+              Custom collections
             </Link>
-            <h1 className="text-3xl font-bold text-foreground">{collectionType.name}</h1>
-          </div>
-          <Button
-            onClick={() => {
+          }
+          onAdd={() => {
               form.reset();
               setEditingEntity(null);
               setBillUploadResult(null);
               setIsModalOpen(true);
-            }}
-          >
-            Add {collectionType.name.slice(0, -1) || 'Entity'}
-          </Button>
-        </div>
+          }}
+        />
 
-        <div className="mb-6 flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
-          <div className="relative w-full sm:max-w-sm">
-            <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-            <Input
-              value={searchQuery}
-              onChange={(event) => setSearchQuery(event.target.value)}
-              placeholder={`Search ${collectionType.name.toLowerCase()}...`}
-              aria-label={`Search ${collectionType.name}`}
-              className="pl-10 pr-10"
-            />
-            {searchQuery && (
-              <button
-                type="button"
-                onClick={() => setSearchQuery('')}
-                className="absolute right-3 top-1/2 flex h-5 w-5 -translate-y-1/2 items-center justify-center rounded-full text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
-                aria-label={`Clear ${collectionType.name} search`}
-              >
-                <X className="h-3.5 w-3.5" />
-              </button>
-            )}
-          </div>
-          {normalizedSearchQuery && (
-            <p className="text-sm text-muted-foreground">
-              {filteredEntities.length} of {entities.length} {collectionType.name.toLowerCase()}
-            </p>
-          )}
-        </div>
-
+        <div className="mt-6">
         {entities.length === 0 ? (
-          <div className="text-center py-12">
-            <p className="text-muted-foreground text-lg">No entities yet.</p>
-            <p className="text-muted-foreground mt-2">Add your first entity to get started.</p>
+          <div className="rounded-2xl border border-dashed border-border bg-card px-6 py-16 text-center">
+            <p className="text-muted-foreground text-lg">No entries yet.</p>
+            <p className="text-muted-foreground mt-2">Add the first entry to this collection to get started.</p>
           </div>
         ) : filteredEntities.length === 0 ? (
-          <div className="text-center py-12">
-            <p className="text-muted-foreground text-lg">No entities match your search.</p>
+          <div className="rounded-2xl border border-dashed border-border bg-card px-6 py-16 text-center">
+            <p className="text-muted-foreground text-lg">No entries match your search.</p>
             <p className="text-muted-foreground mt-2">Try another name, phone, email, or address.</p>
           </div>
         ) : (
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+          <div className="space-y-3 sm:divide-y sm:divide-border sm:space-y-0 sm:overflow-hidden sm:rounded-2xl sm:border sm:border-border sm:bg-card">
             {filteredEntities.map((entity) => (
               <EntityCard
                 key={entity.id}
@@ -453,15 +441,16 @@ export default function CustomEntitiesPage() {
             ))}
           </div>
         )}
+        </div>
 
         <Dialog open={isModalOpen} onOpenChange={setIsModalOpen}>
           <DialogContent className="max-h-[90vh] overflow-y-auto">
             <DialogHeader>
               <DialogTitle>
-                {editingEntity ? `Edit ${collectionType.name.slice(0, -1) || 'Entity'}` : `Add ${collectionType.name.slice(0, -1) || 'Entity'}`}
+                {editingEntity ? 'Edit Entry' : 'Add Entry'}
               </DialogTitle>
               <DialogDescription>
-                {editingEntity ? 'Update entity information' : `Create a new ${collectionType.name.slice(0, -1) || 'entity'}`}
+                {editingEntity ? 'Update entry information' : `Create a new entry in ${collectionType.name}`}
               </DialogDescription>
             </DialogHeader>
             <Form {...form}>
@@ -691,14 +680,14 @@ export default function CustomEntitiesPage() {
         <Dialog open={deleteDialogOpen} onOpenChange={setDeleteDialogOpen}>
           <DialogContent>
             <DialogHeader>
-              <DialogTitle className="text-destructive">Delete {collectionType.name.slice(0, -1) || 'Entity'}</DialogTitle>
+              <DialogTitle className="text-destructive">Delete Entry</DialogTitle>
               <DialogDescription asChild>
                 <div className="pt-2 space-y-2 text-sm text-muted-foreground">
                   <p>
                     Are you sure you want to delete <span className="font-semibold">{deletingEntity?.name}</span>?
                   </p>
                   <p className="text-destructive font-medium">
-                    This will permanently delete the {collectionType.name.slice(0, -1).toLowerCase() || 'entity'} and ALL associated transactions. This action cannot be undone and your data will be lost forever.
+                    This will permanently delete the entry and all associated transactions. This action cannot be undone.
                   </p>
                 </div>
               </DialogDescription>

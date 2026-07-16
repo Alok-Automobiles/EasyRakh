@@ -133,43 +133,43 @@
 }
 
 .dark {
-  --brand-bg: #0f1218;
+  --brand-bg: #080808;
   --brand-green: #2dd4bf;
   --brand-green-light: #15251f;
   --brand-red-light: #30181d;
   --brand-text: #f6f8fb;
 
-  --background: #0f1218;
-  --foreground: #f6f8fb;
-  --card: #171c24;
-  --card-foreground: #f6f8fb;
-  --popover: #181e27;
-  --popover-foreground: #f6f8fb;
+  --background: #080808;
+  --foreground: #f4f4f5;
+  --card: #111111;
+  --card-foreground: #f4f4f5;
+  --popover: #161616;
+  --popover-foreground: #f4f4f5;
   --primary: #2dd4bf;
   --primary-foreground: #061512;
-  --secondary: #1f2937;
-  --secondary-foreground: #e5e7eb;
-  --muted: #202833;
-  --muted-foreground: #c4ccd6;
-  --accent: #223126;
+  --secondary: #1c1c1c;
+  --secondary-foreground: #eeeeee;
+  --muted: #1a1a1a;
+  --muted-foreground: #a1a1aa;
+  --accent: #173126;
   --accent-foreground: #d7fbe8;
   --destructive: #f87171;
   --destructive-foreground: #1f0608;
-  --border: #374151;
-  --input: #4b5563;
+  --border: #292929;
+  --input: #383838;
   --ring: #2dd4bf;
   --chart-1: #60a5fa;
   --chart-2: #34d399;
   --chart-3: #fbbf24;
   --chart-4: #a78bfa;
   --chart-5: #fb7185;
-  --sidebar: #121720;
-  --sidebar-foreground: #f6f8fb;
+  --sidebar: #0c0c0c;
+  --sidebar-foreground: #f4f4f5;
   --sidebar-primary: #2dd4bf;
   --sidebar-primary-foreground: #061512;
-  --sidebar-accent: #202833;
+  --sidebar-accent: #1a1a1a;
   --sidebar-accent-foreground: #e5e7eb;
-  --sidebar-border: #374151;
+  --sidebar-border: #292929;
   --sidebar-ring: #2dd4bf;
 
   --neo-background: #0f1218;
@@ -1879,4 +1879,784 @@
 ::view-transition-old(root), ::view-transition-new(root) {
     animation: none;
     mix-blend-mode: normal;
+}
+
+/* =========================================================
+   EASYRAKH MINIMAL UI — unified application + theme layer
+   ========================================================= */
+.app-ui,
+.marketing-ui {
+  --background: #f6f7f5;
+  --foreground: #17201b;
+  --card: #ffffff;
+  --card-foreground: #17201b;
+  --popover: #ffffff;
+  --popover-foreground: #17201b;
+  --primary: #16815f;
+  --primary-foreground: #ffffff;
+  --secondary: #edf2ef;
+  --secondary-foreground: #26362e;
+  --muted: #f0f2f0;
+  --muted-foreground: #66716b;
+  --accent: #e7f3ed;
+  --accent-foreground: #116448;
+  --destructive: #dc4c4c;
+  --destructive-foreground: #ffffff;
+  --border: #dde2de;
+  --input: #d8ded9;
+  --ring: #16815f;
+  --sidebar: #fbfcfb;
+  --sidebar-foreground: #17201b;
+  --radius: 0.75rem;
+  min-height: 100vh;
+  background: var(--background);
+  color: var(--foreground);
+  font-family: var(--font-geist-sans), system-ui, sans-serif;
+  font-feature-settings: "ss01", "cv02", "cv11";
+}
+
+.dark .app-ui,
+.dark .marketing-ui {
+  --background: #080808;
+  --foreground: #f4f4f5;
+  --card: #111111;
+  --card-foreground: #f4f4f5;
+  --popover: #161616;
+  --popover-foreground: #f4f4f5;
+  --primary: #55c99d;
+  --primary-foreground: #06130e;
+  --secondary: #1c1c1c;
+  --secondary-foreground: #eeeeee;
+  --muted: #1a1a1a;
+  --muted-foreground: #a1a1aa;
+  --accent: #173126;
+  --accent-foreground: #9ce8c6;
+  --destructive: #f07171;
+  --destructive-foreground: #2a0909;
+  --border: #292929;
+  --input: #383838;
+  --ring: #55c99d;
+  --sidebar: #0c0c0c;
+  --sidebar-foreground: #f4f4f5;
+  color-scheme: dark;
+}
+
+.app-ui h1,
+.app-ui h2,
+.app-ui h3,
+.app-ui h4,
+.marketing-ui h1,
+.marketing-ui h2,
+.marketing-ui h3,
+.marketing-ui h4 {
+  color: var(--foreground);
+  font-family: var(--font-geist-sans), system-ui, sans-serif;
+  letter-spacing: -0.025em;
+}
+
+.app-ui .app-page-title {
+  color: var(--foreground) !important;
+  font-family: var(--font-geist-sans), system-ui, sans-serif !important;
+  font-weight: 700 !important;
+  letter-spacing: -0.035em !important;
+}
+
+.app-ui [data-slot="card"],
+.app-ui .note-card,
+.app-ui .cash-record-card,
+.app-ui .glass,
+.app-ui .glass-strong,
+.app-ui .glass-subtle {
+  background: var(--card) !important;
+  border: 1px solid var(--border) !important;
+  border-radius: 1rem !important;
+  box-shadow: 0 1px 2px rgb(10 25 16 / 0.04) !important;
+  color: var(--card-foreground) !important;
+  backdrop-filter: none;
+}
+
+.app-ui [data-slot="card"]:hover,
+.app-ui .note-card:hover,
+.app-ui .cash-record-card:hover {
+  border-color: color-mix(in srgb, var(--border), var(--foreground) 12%) !important;
+  box-shadow: 0 8px 24px rgb(10 25 16 / 0.06) !important;
+  transform: none !important;
+}
+
+.app-ui [data-slot="button"] {
+  border-radius: 0.625rem;
+  box-shadow: none;
+}
+
+.app-ui [data-slot="button"][data-variant="default"] {
+  background: var(--primary);
+  color: var(--primary-foreground);
+}
+
+.app-ui [data-slot="button"][data-variant="outline"],
+.app-ui [data-slot="button"][data-variant="ghost"] {
+  background: var(--card);
+  border-color: var(--border);
+  color: var(--foreground);
+}
+
+.app-ui [data-slot="button"][data-variant="outline"]:hover,
+.app-ui [data-slot="button"][data-variant="ghost"]:hover {
+  background: var(--muted);
+}
+
+.app-ui [data-slot="input"],
+.app-ui [data-slot="select-trigger"],
+.app-ui textarea,
+.app-ui select {
+  background: var(--card) !important;
+  border: 1px solid var(--input) !important;
+  border-radius: 0.625rem !important;
+  box-shadow: none !important;
+  color: var(--foreground) !important;
+}
+
+.app-ui [data-slot="input"]:focus,
+.app-ui [data-slot="select-trigger"]:focus,
+.app-ui textarea:focus,
+.app-ui select:focus {
+  border-color: var(--ring) !important;
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--ring) 18%, transparent) !important;
+}
+
+.app-ui aside {
+  background: var(--sidebar) !important;
+  border-color: var(--border) !important;
+  box-shadow: none !important;
+  color: var(--sidebar-foreground);
+}
+
+.app-ui aside nav a,
+.app-ui aside nav button {
+  border: 1px solid transparent !important;
+  border-radius: 0.625rem !important;
+  color: var(--muted-foreground) !important;
+  font-weight: 500 !important;
+  box-shadow: none !important;
+}
+
+.app-ui aside nav a svg,
+.app-ui aside nav button svg {
+  color: currentColor !important;
+}
+
+.app-ui aside nav a.bg-blue-50 {
+  background: var(--accent) !important;
+  border-color: color-mix(in srgb, var(--primary) 16%, transparent) !important;
+  color: var(--accent-foreground) !important;
+  font-weight: 650 !important;
+}
+
+.app-ui aside nav a:not(.bg-blue-50):hover,
+.app-ui aside nav button:hover {
+  background: var(--muted) !important;
+  color: var(--foreground) !important;
+}
+
+.app-ui aside > div > div:first-child,
+.app-ui aside > div > div:last-child,
+.app-ui aside .bg-gray-50 {
+  background: transparent !important;
+  border-color: var(--border) !important;
+}
+
+.app-ui [data-slot="table-container"] {
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: 0.875rem;
+  box-shadow: none;
+}
+
+.app-ui [data-slot="table-head"] {
+  background: var(--muted) !important;
+  color: var(--muted-foreground) !important;
+  font-size: 0.72rem;
+  font-weight: 650;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.app-ui [data-slot="table-row"],
+.app-ui [data-slot="table-cell"],
+.app-ui [data-slot="table-head"] {
+  border-color: var(--border) !important;
+}
+
+.app-ui [data-slot="table-row"]:hover {
+  background: var(--muted) !important;
+}
+
+.app-ui [data-slot="dialog-content"],
+.app-ui [role="dialog"],
+.app-ui [data-slot="dropdown-menu-content"],
+.app-ui [data-slot="select-content"],
+.app-ui [data-slot="popover-content"] {
+  background: var(--popover) !important;
+  border: 1px solid var(--border) !important;
+  border-radius: 0.875rem !important;
+  box-shadow: 0 20px 50px rgb(0 0 0 / 0.14) !important;
+  color: var(--popover-foreground) !important;
+}
+
+.app-ui .bg-white,
+.app-ui .bg-white\/90,
+.app-ui .bg-white\/95 {
+  background-color: var(--card) !important;
+}
+
+.app-ui .bg-gray-50,
+.app-ui .bg-gray-100,
+.app-ui .bg-slate-50,
+.app-ui .bg-slate-100,
+.app-ui .bg-neutral-50 {
+  background-color: var(--muted) !important;
+}
+
+.app-ui .hover\:bg-gray-50:hover,
+.app-ui .hover\:bg-gray-100:hover,
+.app-ui .hover\:bg-gray-200:hover,
+.app-ui .hover\:bg-slate-50:hover,
+.app-ui .hover\:bg-slate-100:hover,
+.app-ui .hover\:bg-slate-200:hover,
+.app-ui .hover\:bg-white:hover {
+  background-color: var(--muted) !important;
+}
+
+/* Dark-mode semantic tints: preserve meaning without bright pastel panels. */
+.dark .app-ui .bg-green-50,
+.dark .app-ui .bg-green-100,
+.dark .app-ui .bg-green-200,
+.dark .app-ui .bg-emerald-50,
+.dark .app-ui .bg-emerald-100,
+.dark .app-ui .bg-emerald-200 {
+  background-color: #10241b !important;
+}
+
+.dark .app-ui .text-green-600,
+.dark .app-ui .text-green-700,
+.dark .app-ui .text-emerald-600,
+.dark .app-ui .text-emerald-700 {
+  color: #6ed6aa !important;
+}
+
+.dark .app-ui .border-green-100,
+.dark .app-ui .border-green-200,
+.dark .app-ui .border-emerald-100,
+.dark .app-ui .border-emerald-200 {
+  border-color: #234b39 !important;
+}
+
+.dark .app-ui .bg-red-50,
+.dark .app-ui .bg-red-100,
+.dark .app-ui .bg-red-200,
+.dark .app-ui .bg-rose-50,
+.dark .app-ui .bg-rose-100,
+.dark .app-ui .bg-rose-200 {
+  background-color: #281416 !important;
+}
+
+.dark .app-ui .text-red-600,
+.dark .app-ui .text-red-700,
+.dark .app-ui .text-rose-600,
+.dark .app-ui .text-rose-700 {
+  color: #f28b8b !important;
+}
+
+.dark .app-ui .border-red-100,
+.dark .app-ui .border-red-200,
+.dark .app-ui .border-rose-100,
+.dark .app-ui .border-rose-200 {
+  border-color: #533033 !important;
+}
+
+.dark .app-ui .bg-blue-50,
+.dark .app-ui .bg-blue-100,
+.dark .app-ui .bg-blue-200,
+.dark .app-ui .bg-sky-50,
+.dark .app-ui .bg-sky-100 {
+  background-color: #111d2c !important;
+}
+
+.dark .app-ui .text-blue-600,
+.dark .app-ui .text-blue-700,
+.dark .app-ui .text-sky-600,
+.dark .app-ui .text-sky-700 {
+  color: #82b5ff !important;
+}
+
+.dark .app-ui .border-blue-100,
+.dark .app-ui .border-blue-200,
+.dark .app-ui .border-sky-100,
+.dark .app-ui .border-sky-200 {
+  border-color: #294363 !important;
+}
+
+.dark .app-ui .bg-purple-50,
+.dark .app-ui .bg-purple-100,
+.dark .app-ui .bg-purple-200,
+.dark .app-ui .bg-violet-50,
+.dark .app-ui .bg-violet-100 {
+  background-color: #21162b !important;
+}
+
+.dark .app-ui .text-purple-600,
+.dark .app-ui .text-purple-700,
+.dark .app-ui .text-violet-600,
+.dark .app-ui .text-violet-700 {
+  color: #c59af5 !important;
+}
+
+.dark .app-ui .border-purple-100,
+.dark .app-ui .border-purple-200,
+.dark .app-ui .border-violet-100,
+.dark .app-ui .border-violet-200 {
+  border-color: #48305d !important;
+}
+
+.dark .app-ui .bg-amber-50,
+.dark .app-ui .bg-amber-100,
+.dark .app-ui .bg-amber-200,
+.dark .app-ui .bg-yellow-50,
+.dark .app-ui .bg-yellow-100 {
+  background-color: #28220f !important;
+}
+
+.dark .app-ui .text-amber-600,
+.dark .app-ui .text-amber-700,
+.dark .app-ui .text-yellow-600,
+.dark .app-ui .text-yellow-700 {
+  color: #e8bd62 !important;
+}
+
+.dark .app-ui .border-amber-100,
+.dark .app-ui .border-amber-200,
+.dark .app-ui .border-yellow-100,
+.dark .app-ui .border-yellow-200 {
+  border-color: #55471f !important;
+}
+
+.app-ui .text-gray-950,
+.app-ui .text-gray-900,
+.app-ui .text-gray-800,
+.app-ui .text-slate-950,
+.app-ui .text-slate-900,
+.app-ui .text-black {
+  color: var(--foreground) !important;
+}
+
+.app-ui .text-gray-700,
+.app-ui .text-gray-600,
+.app-ui .text-slate-700,
+.app-ui .text-slate-600 {
+  color: color-mix(in srgb, var(--foreground) 78%, var(--background)) !important;
+}
+
+.app-ui .text-gray-500,
+.app-ui .text-gray-400,
+.app-ui .text-slate-500,
+.app-ui .text-slate-400 {
+  color: var(--muted-foreground) !important;
+}
+
+.app-ui .border-gray-100,
+.app-ui .border-gray-200,
+.app-ui .border-gray-300,
+.app-ui .border-slate-100,
+.app-ui .border-slate-200,
+.app-ui .border-slate-300 {
+  border-color: var(--border) !important;
+}
+
+.dark .app-ui .bg-black\/50 {
+  background: rgb(0 0 0 / 0.72) !important;
+}
+
+.app-ui .shadow-md,
+.app-ui .shadow-lg,
+.app-ui .shadow-xl,
+.app-ui .shadow-2xl {
+  box-shadow: 0 8px 24px rgb(10 25 16 / 0.07) !important;
+}
+
+.app-ui .rounded-full[class*="bg-green"],
+.app-ui .rounded-full[class*="bg-emerald"] {
+  background: color-mix(in srgb, var(--primary) 13%, var(--card)) !important;
+}
+
+.app-ui .auth-form-section,
+.app-ui .cash-record-summary,
+.app-ui .cash-record-entry-card,
+.app-ui .cash-record-entry-detail,
+.app-ui .cash-record-empty-state,
+.app-ui .voice-assistant-panel {
+  background: var(--card) !important;
+  border: 1px solid var(--border) !important;
+  border-radius: 1rem !important;
+  box-shadow: none !important;
+}
+
+/* AI assistant lives beside AppShell, so every layer owns a themed surface. */
+.app-ui .voice-assistant-panel {
+  isolation: isolate;
+  color: var(--foreground) !important;
+  overflow: hidden;
+}
+
+.app-ui .voice-assistant-header {
+  background: var(--card) !important;
+  border-bottom: 1px solid var(--border) !important;
+  color: var(--foreground) !important;
+}
+
+.app-ui .voice-assistant-header-icon {
+  background: var(--accent) !important;
+  border: 1px solid color-mix(in srgb, var(--primary) 18%, transparent) !important;
+  color: var(--primary) !important;
+}
+
+.app-ui .voice-assistant-header-button {
+  background: transparent !important;
+  border: 1px solid transparent !important;
+  color: var(--muted-foreground) !important;
+}
+
+.app-ui .voice-assistant-header-button:hover {
+  background: var(--muted) !important;
+  color: var(--foreground) !important;
+}
+
+.app-ui .voice-assistant-title,
+.app-ui .voice-assistant-empty-title {
+  color: var(--foreground) !important;
+}
+
+.app-ui .voice-assistant-subtitle,
+.app-ui .voice-assistant-empty-copy,
+.app-ui .voice-assistant-footer-label {
+  color: var(--muted-foreground) !important;
+}
+
+.app-ui .voice-assistant-body {
+  background: var(--background) !important;
+  background-image:
+    linear-gradient(rgb(246 247 245 / 0.38), rgb(246 247 245 / 0.38)),
+    url('/wallpaper.jpg') !important;
+  background-position: center !important;
+  background-size: cover !important;
+}
+
+.dark .app-ui .voice-assistant-body {
+  background-image:
+    linear-gradient(rgb(8 8 8 / 0.74), rgb(8 8 8 / 0.74)),
+    url('/wallpaper.jpg') !important;
+}
+
+.app-ui .voice-assistant-empty-card {
+  background: var(--card) !important;
+  border: 1px solid var(--border) !important;
+  box-shadow: none !important;
+  color: var(--foreground) !important;
+}
+
+.app-ui .voice-assistant-empty-icon {
+  background: var(--accent) !important;
+  color: var(--primary) !important;
+}
+
+.app-ui .voice-assistant-suggestion {
+  background: var(--card) !important;
+  border: 1px solid var(--border) !important;
+  color: var(--foreground) !important;
+}
+
+.app-ui .voice-assistant-suggestion:hover {
+  background: var(--muted) !important;
+  border-color: var(--input) !important;
+}
+
+.app-ui .voice-assistant-message-user {
+  background: var(--primary) !important;
+  color: var(--primary-foreground) !important;
+}
+
+.app-ui .voice-assistant-message-bot {
+  background: var(--card) !important;
+  border: 1px solid var(--border) !important;
+  color: var(--foreground) !important;
+}
+
+.app-ui .voice-assistant-message-time-user {
+  color: color-mix(in srgb, var(--primary-foreground) 68%, transparent) !important;
+}
+
+.app-ui .voice-assistant-message-time-bot {
+  color: var(--muted-foreground) !important;
+}
+
+.app-ui .voice-assistant-pending,
+.app-ui .voice-assistant-transcript {
+  background: var(--accent) !important;
+  border: 1px solid color-mix(in srgb, var(--primary) 20%, var(--border)) !important;
+  color: var(--accent-foreground) !important;
+}
+
+.app-ui .voice-assistant-pending-help {
+  color: var(--muted-foreground) !important;
+}
+
+.app-ui .voice-assistant-footer {
+  background: var(--card) !important;
+  border-color: var(--border) !important;
+}
+
+.app-ui .voice-assistant-language-tabs {
+  background: var(--muted) !important;
+  border: 1px solid var(--border) !important;
+}
+
+.app-ui .voice-assistant-language-tab {
+  color: var(--muted-foreground) !important;
+}
+
+.app-ui .voice-assistant-language-tab:hover {
+  color: var(--foreground) !important;
+}
+
+.app-ui .voice-assistant-language-tab-active {
+  background: var(--card) !important;
+  color: var(--foreground) !important;
+  box-shadow: 0 1px 2px rgb(0 0 0 / 0.08) !important;
+}
+
+.app-ui .voice-assistant-input {
+  background: var(--background) !important;
+  border-color: var(--input) !important;
+  color: var(--foreground) !important;
+}
+
+.app-ui .voice-assistant-input::placeholder {
+  color: var(--muted-foreground) !important;
+}
+
+.app-ui .voice-assistant-send-button,
+.app-ui .voice-assistant-mic-listening {
+  background: var(--primary) !important;
+  border: 0 !important;
+  color: var(--primary-foreground) !important;
+  box-shadow: none !important;
+}
+
+.app-ui .theme-logo-surface,
+.marketing-ui .theme-logo-surface {
+  background: #ffffff;
+  border: 1px solid #e6e9e7;
+}
+
+.marketing-ui section,
+.marketing-ui footer {
+  color: var(--foreground);
+}
+
+.dark .marketing-ui .bg-white,
+.dark .marketing-ui .bg-white\/80,
+.dark .marketing-ui .bg-white\/85,
+.dark .marketing-ui .bg-white\/90,
+.dark .marketing-ui .bg-white\/95,
+.dark .marketing-ui .bg-gray-50,
+.dark .marketing-ui .bg-neutral-50 {
+  background-color: var(--card) !important;
+}
+
+.dark .marketing-ui .text-gray-950,
+.dark .marketing-ui .text-gray-900,
+.dark .marketing-ui .text-gray-800,
+.dark .marketing-ui .text-neutral-900,
+.dark .marketing-ui .text-black {
+  color: var(--foreground) !important;
+}
+
+.dark .marketing-ui .text-gray-700,
+.dark .marketing-ui .text-gray-600,
+.dark .marketing-ui .text-neutral-700,
+.dark .marketing-ui .text-neutral-600 {
+  color: #c4c4c8 !important;
+}
+
+.dark .marketing-ui .text-gray-500,
+.dark .marketing-ui .text-gray-400 {
+  color: var(--muted-foreground) !important;
+}
+
+.dark .marketing-ui .border-gray-100,
+.dark .marketing-ui .border-gray-200,
+.dark .marketing-ui .border-gray-300,
+.dark .marketing-ui .border-white\/25,
+.dark .marketing-ui .border-white\/30 {
+  border-color: var(--border) !important;
+}
+
+.dark .marketing-ui .bg-emerald-50,
+.dark .marketing-ui .bg-emerald-100,
+.dark .marketing-ui .bg-green-50 {
+  background: #183126 !important;
+}
+
+.dark .marketing-ui .text-emerald-700,
+.dark .marketing-ui .text-emerald-600,
+.dark .marketing-ui .text-green-700 {
+  color: #78d9b2 !important;
+}
+
+/* Portal-safe daily cash modal styles. Radix portals render outside .app-ui. */
+.cash-record-dialog {
+  background: var(--card) !important;
+  border: 1px solid var(--border) !important;
+  border-radius: 1rem !important;
+  box-shadow: 0 24px 70px rgb(0 0 0 / 0.24) !important;
+  color: var(--card-foreground) !important;
+}
+
+.cash-record-dialog-header {
+  background: var(--card) !important;
+  border-color: var(--border) !important;
+  color: var(--card-foreground) !important;
+}
+
+.cash-record-dialog-body {
+  background: var(--background) !important;
+  color: var(--foreground) !important;
+}
+
+.cash-record-dialog-eyebrow,
+.cash-record-entry-date,
+.cash-record-entry-muted {
+  color: var(--muted-foreground) !important;
+}
+
+.cash-record-dialog-title,
+.cash-record-entry-description {
+  color: var(--foreground) !important;
+}
+
+.cash-record-modal-stat,
+.cash-record-entry-card,
+.cash-record-entry-detail,
+.cash-record-empty-state,
+.cash-record-table-wrap {
+  border-color: var(--border) !important;
+  box-shadow: none !important;
+}
+
+.cash-record-modal-stat-in,
+.cash-record-entry-type-in,
+.cash-record-entry-amount-in {
+  background: color-mix(in srgb, var(--primary) 12%, var(--card)) !important;
+  border-color: color-mix(in srgb, var(--primary) 28%, var(--border)) !important;
+  color: #16815f !important;
+  box-shadow: none !important;
+}
+
+.dark .cash-record-modal-stat-in,
+.dark .cash-record-entry-type-in,
+.dark .cash-record-entry-amount-in {
+  color: #78d9b2 !important;
+}
+
+.cash-record-modal-stat-out,
+.cash-record-entry-type-out,
+.cash-record-entry-amount-out {
+  background: color-mix(in srgb, var(--destructive) 10%, var(--card)) !important;
+  border-color: color-mix(in srgb, var(--destructive) 24%, var(--border)) !important;
+  color: #bd3e3e !important;
+  box-shadow: none !important;
+}
+
+.dark .cash-record-modal-stat-out,
+.dark .cash-record-entry-type-out,
+.dark .cash-record-entry-amount-out {
+  color: #f28b8b !important;
+}
+
+.cash-record-modal-stat-balance {
+  background: var(--muted) !important;
+  border-color: var(--border) !important;
+  color: var(--foreground) !important;
+}
+
+.cash-record-modal-stat-label,
+.cash-record-modal-stat-value {
+  color: currentColor !important;
+}
+
+.cash-record-entry-card,
+.cash-record-entry-detail,
+.cash-record-empty-state,
+.cash-record-table-wrap,
+.cash-record-table-row {
+  background: var(--card) !important;
+  color: var(--card-foreground) !important;
+}
+
+.cash-record-table-header,
+.cash-record-table-header [data-slot="table-row"],
+.cash-record-table-header [data-slot="table-row"]:hover,
+.cash-record-table-head-cell {
+  background: var(--muted) !important;
+  border-color: var(--border) !important;
+  color: var(--muted-foreground) !important;
+}
+
+.cash-record-table-row,
+.cash-record-table-cell {
+  border-color: var(--border) !important;
+  color: var(--foreground) !important;
+}
+
+.cash-record-table-row:hover {
+  background: var(--muted) !important;
+}
+
+.cash-record-icon-button {
+  background: var(--card) !important;
+  border-color: var(--border) !important;
+  box-shadow: none !important;
+  color: var(--foreground) !important;
+}
+
+.cash-record-icon-button:hover {
+  background: var(--muted) !important;
+}
+
+/* Compact themed calendar states (also applies inside portal dialogs). */
+[data-slot="calendar"] .rdp-selected .rdp-day_button {
+  background: var(--primary) !important;
+  border: 0 !important;
+  border-radius: 0.5rem !important;
+  color: var(--primary-foreground) !important;
+  font-size: 0.75rem !important;
+  font-weight: 650 !important;
+}
+
+[data-slot="calendar"] .rdp-today:not(.rdp-selected) .rdp-day_button {
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--primary) 45%, transparent);
+  color: var(--primary);
+}
+
+[data-slot="calendar"] .rdp-chevron {
+  fill: currentColor;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .app-ui *,
+  .marketing-ui * {
+    scroll-behavior: auto !important;
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
 }
