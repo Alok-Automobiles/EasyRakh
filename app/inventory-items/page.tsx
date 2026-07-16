@@ -522,8 +522,8 @@ function ItemImageCarousel({ images, itemName }: { images: string[]; itemName: s
 
   if (images.length === 0) {
     return (
-      <div className="flex h-full w-full items-center justify-center bg-gradient-to-br from-gray-50 to-slate-100">
-        <Package className="h-12 w-12 text-gray-300" strokeWidth={1.2} />
+      <div className="flex h-full w-full items-center justify-center bg-muted/55">
+        <Package className="h-12 w-12 text-muted-foreground/35" strokeWidth={1.2} />
       </div>
     );
   }
@@ -561,7 +561,7 @@ function ItemImageCarousel({ images, itemName }: { images: string[]; itemName: s
               scrollTo(activeIndex - 1);
             }}
             disabled={activeIndex === 0}
-            className="absolute left-1.5 top-1/2 z-10 -translate-y-1/2 cursor-pointer rounded-full bg-white/90 p-1.5 text-gray-700 opacity-0 shadow transition-opacity duration-200 hover:bg-white group-hover:opacity-100 disabled:cursor-not-allowed disabled:opacity-30 disabled:group-hover:opacity-30"
+            className="absolute left-1.5 top-1/2 z-10 -translate-y-1/2 cursor-pointer rounded-full border border-border bg-card/90 p-1.5 text-foreground opacity-0 shadow-sm transition-opacity duration-200 hover:bg-card group-hover:opacity-100 disabled:cursor-not-allowed disabled:opacity-30 disabled:group-hover:opacity-30"
             aria-label="Previous image"
           >
             <ChevronLeft className="h-4 w-4" />
@@ -574,17 +574,17 @@ function ItemImageCarousel({ images, itemName }: { images: string[]; itemName: s
               scrollTo(activeIndex + 1);
             }}
             disabled={activeIndex >= images.length - 1}
-            className="absolute right-1.5 top-1/2 z-10 -translate-y-1/2 cursor-pointer rounded-full bg-white/90 p-1.5 text-gray-700 opacity-0 shadow transition-opacity duration-200 hover:bg-white group-hover:opacity-100 disabled:cursor-not-allowed disabled:opacity-30 disabled:group-hover:opacity-30"
+            className="absolute right-1.5 top-1/2 z-10 -translate-y-1/2 cursor-pointer rounded-full border border-border bg-card/90 p-1.5 text-foreground opacity-0 shadow-sm transition-opacity duration-200 hover:bg-card group-hover:opacity-100 disabled:cursor-not-allowed disabled:opacity-30 disabled:group-hover:opacity-30"
             aria-label="Next image"
           >
             <ChevronRight className="h-4 w-4" />
           </button>
-          <div className="pointer-events-none absolute bottom-1.5 left-1/2 flex -translate-x-1/2 gap-1 rounded-full bg-white/80 px-1.5 py-1">
+          <div className="pointer-events-none absolute bottom-1.5 left-1/2 flex -translate-x-1/2 gap-1 rounded-full border border-border bg-card/80 px-1.5 py-1">
             {images.map((_, idx) => (
               <span
                 key={idx}
                 className={`h-1.5 rounded-full transition-all ${
-                  idx === activeIndex ? 'w-3.5 bg-slate-900' : 'w-1.5 bg-slate-300'
+                  idx === activeIndex ? 'w-3.5 bg-foreground' : 'w-1.5 bg-muted-foreground/35'
                 }`}
               />
             ))}
@@ -653,8 +653,8 @@ function InventoryItemCard({
       <motion.div
         layoutId={detailsLayoutId}
         transition={detailsTransition}
-        className={`group max-w-full overflow-hidden rounded-xl border bg-white p-2.5 shadow-sm transition-shadow hover:border-gray-300 hover:shadow-md sm:p-3 ${
-          isOrderMode && isSelected ? 'border-slate-900 ring-2 ring-slate-900/10' : 'border-gray-200'
+        className={`group max-w-full overflow-hidden rounded-xl border bg-card p-2.5 text-card-foreground shadow-sm transition-shadow hover:border-input hover:shadow-md sm:p-3 ${
+          isOrderMode && isSelected ? 'border-primary ring-2 ring-primary/15' : 'border-border'
         }`}
         whileHover={detailsOpen ? undefined : { y: -2 }}
       >
@@ -665,19 +665,19 @@ function InventoryItemCard({
               {status.label}
             </Badge>
             {item.location && (
-              <span className="inline-flex min-w-0 max-w-[5.5rem] items-center gap-1 rounded bg-slate-100 px-1.5 py-0.5 text-[10px] font-medium text-slate-600 sm:max-w-[8rem]" title={`Location: ${item.location}`}>
-                <MapPin className="h-2.5 w-2.5 text-slate-400" />
+              <span className="inline-flex min-w-0 max-w-[5.5rem] items-center gap-1 rounded bg-muted px-1.5 py-0.5 text-[10px] font-medium text-muted-foreground sm:max-w-[8rem]" title={`Location: ${item.location}`}>
+                <MapPin className="h-2.5 w-2.5 text-muted-foreground" />
                 <span className="truncate">{item.location}</span>
               </span>
             )}
           </div>
           {isOrderMode ? (
-            <label className="inline-flex min-h-11 min-w-11 cursor-pointer items-center gap-2 rounded-md border border-gray-300 bg-white px-3 text-xs font-semibold text-gray-800 shadow-sm transition-colors hover:bg-gray-50">
+            <label className="inline-flex min-h-11 min-w-11 cursor-pointer items-center gap-2 rounded-md border border-border bg-card px-3 text-xs font-semibold text-foreground shadow-sm transition-colors hover:bg-muted">
               <input
                 type="checkbox"
                 checked={isSelected}
                 onChange={() => onToggleOrderSelection(item)}
-                className="h-4 w-4 cursor-pointer accent-slate-900"
+                className="h-4 w-4 cursor-pointer accent-primary"
                 aria-label={`Select ${item.itemName} for supplier order`}
               />
               <span>Select</span>
@@ -688,7 +688,7 @@ function InventoryItemCard({
                 type="button"
                 variant="ghost"
                 size="icon-sm"
-                className="h-8 w-8 text-gray-500 hover:text-gray-900"
+                className="h-8 w-8 text-muted-foreground hover:text-foreground"
                 onClick={() => setDetailsOpen(true)}
                 aria-label={`View details for ${item.itemName}`}
                 aria-haspopup="dialog"
@@ -697,7 +697,7 @@ function InventoryItemCard({
               </Button>
               <DropdownMenu>
                 <DropdownMenuTrigger asChild>
-                  <Button variant="ghost" size="icon-sm" className="h-8 w-8 text-gray-500 hover:text-gray-900">
+                  <Button variant="ghost" size="icon-sm" className="h-8 w-8 text-muted-foreground hover:text-foreground">
                     <MoreVertical className="h-4 w-4" />
                   </Button>
                 </DropdownMenuTrigger>
@@ -720,76 +720,76 @@ function InventoryItemCard({
         </div>
 
         <div className="mt-3 flex gap-3 sm:block">
-          <div className="h-28 w-28 shrink-0 overflow-hidden rounded-lg bg-gray-50 sm:h-auto sm:w-full sm:aspect-[4/3]">
+          <div className="h-28 w-28 shrink-0 overflow-hidden rounded-lg border border-border bg-muted/55 sm:h-auto sm:w-full sm:aspect-[4/3]">
             <ItemImageCarousel images={images} itemName={item.itemName} />
           </div>
 
           <div className="min-w-0 flex-1 space-y-2 sm:mt-4 sm:space-y-3">
             <div>
-              <h3 className="line-clamp-2 text-sm font-semibold leading-snug text-gray-950 sm:truncate" title={item.itemName}>
+              <h3 className="line-clamp-2 text-sm font-semibold leading-snug text-foreground sm:truncate" title={item.itemName}>
                 {item.itemName}
               </h3>
-              <p className="mt-1 truncate text-xs text-gray-500" title={item.itemNumber || 'No item number'}>
-                {item.itemNumber ? item.itemNumber : <span className="italic text-gray-400">No item number</span>}
+              <p className="mt-1 truncate text-xs text-muted-foreground" title={item.itemNumber || 'No item number'}>
+                {item.itemNumber ? item.itemNumber : <span className="italic text-muted-foreground/70">No item number</span>}
                 {item.brand ? ` • ${item.brand}` : ''}
               </p>
             </div>
 
             <div className="grid min-w-0 grid-cols-2 gap-1.5">
-              <div className="flex min-w-0 flex-col justify-between rounded-lg border border-gray-100 bg-gray-50/80 p-2">
-                <span className="text-[10px] font-medium text-gray-400">Quantity</span>
+              <div className="flex min-w-0 flex-col justify-between rounded-lg border border-border bg-muted/55 p-2">
+                <span className="text-[10px] font-medium text-muted-foreground">Quantity</span>
                 <div className={`mt-1.5 flex items-center justify-between ${quantityControlsDisabled ? 'pointer-events-none opacity-60' : ''}`}>
                   <button
                     type="button"
                     disabled={quantityControlsDisabled || item.quantity <= 0}
                     aria-label={`Decrease quantity for ${item.itemName}`}
                     onClick={() => onAdjustQuantity(item, -1)}
-                    className="flex h-5 w-5 cursor-pointer items-center justify-center rounded border border-gray-200 bg-white text-gray-600 shadow-sm transition-colors hover:bg-gray-50 disabled:cursor-not-allowed disabled:opacity-40"
+                    className="flex h-5 w-5 cursor-pointer items-center justify-center rounded border border-input bg-card text-foreground shadow-sm transition-colors hover:bg-muted disabled:cursor-not-allowed disabled:opacity-40"
                   >
                     <Minus className="h-2.5 w-2.5" />
                   </button>
-                  <span className="mx-1 flex min-w-0 items-baseline gap-0.5 text-xs font-bold tabular-nums text-gray-900">
+                  <span className="mx-1 flex min-w-0 items-baseline gap-0.5 text-xs font-bold tabular-nums text-foreground">
                     {item.quantity}
-                    <span className="text-[9px] font-medium text-gray-400">{item.unitOfMeasure}</span>
+                    <span className="text-[9px] font-medium text-muted-foreground">{item.unitOfMeasure}</span>
                   </span>
                   <button
                     type="button"
                     disabled={quantityControlsDisabled}
                     aria-label={`Increase quantity for ${item.itemName}`}
                     onClick={() => onAdjustQuantity(item, 1)}
-                    className="flex h-5 w-5 cursor-pointer items-center justify-center rounded border border-gray-200 bg-white text-gray-600 shadow-sm transition-colors hover:bg-gray-50 disabled:cursor-not-allowed disabled:opacity-40"
+                    className="flex h-5 w-5 cursor-pointer items-center justify-center rounded border border-input bg-card text-foreground shadow-sm transition-colors hover:bg-muted disabled:cursor-not-allowed disabled:opacity-40"
                   >
                     <Plus className="h-2.5 w-2.5" />
                   </button>
                 </div>
               </div>
 
-              <div className="flex min-w-0 flex-col justify-between rounded-lg border border-gray-100 bg-gray-50/80 p-2">
-                <span className="text-[10px] font-medium text-gray-400">Stock value</span>
+              <div className="flex min-w-0 flex-col justify-between rounded-lg border border-border bg-muted/55 p-2">
+                <span className="text-[10px] font-medium text-muted-foreground">Stock value</span>
                 <div className="mt-1.5 flex h-5 min-w-0 items-center">
-                  <span className="truncate text-xs font-bold tabular-nums text-gray-900" title={formatCurrency(stockValue)}>
+                  <span className="truncate text-xs font-bold tabular-nums text-foreground" title={formatCurrency(stockValue)}>
                     {formatCurrency(stockValue)}
                   </span>
                 </div>
               </div>
             </div>
 
-            <div className="min-w-0 space-y-1 border-t border-gray-100 pt-2.5">
+            <div className="min-w-0 space-y-1 border-t border-border pt-2.5">
               <div className="flex min-w-0 items-center justify-between gap-2 text-xs">
-                <span className="truncate text-gray-500">
+                <span className="truncate text-muted-foreground">
                   Cost{' '}
-                  <span className="font-semibold tabular-nums text-gray-800">
+                  <span className="font-semibold tabular-nums text-foreground">
                     {item.buyingPrice != null ? formatCurrency(item.buyingPrice) : '—'}
                   </span>
                 </span>
-                <span className="truncate text-right text-gray-500">
+                <span className="truncate text-right text-muted-foreground">
                   MRP{' '}
-                  <span className="font-semibold tabular-nums text-gray-800">
+                  <span className="font-semibold tabular-nums text-foreground">
                     {item.mrp != null ? formatCurrency(item.mrp) : '—'}
                   </span>
                 </span>
               </div>
-              <p className="truncate text-[10px] text-gray-400" title={item.updatedAt ? formatItemUpdatedAt(item.updatedAt) : undefined}>
+              <p className="truncate text-[10px] text-muted-foreground" title={item.updatedAt ? formatItemUpdatedAt(item.updatedAt) : undefined}>
                 Updated {formatItemUpdatedAt(item.updatedAt)}
               </p>
             </div>
