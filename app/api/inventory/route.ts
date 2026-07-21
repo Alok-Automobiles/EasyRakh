@@ -13,7 +13,7 @@ import {
 import { z } from 'zod';
 import { uppercaseInventoryPayload } from '@/lib/inventory-text';
 import { getRequestCacheVersion } from '@/lib/cache-version';
-import { normalizeIdentifier } from '@/lib/search-normalization';
+import { getInventoryStatusFilter, normalizeIdentifier } from '@/lib/search-normalization';
 import { ensureUserReadModels, inventoryDerivedFields, refreshUserReadModels } from '@/lib/read-models';
 import {
   fuzzyCandidateTokens,
@@ -142,6 +142,7 @@ export async function GET(request: NextRequest) {
     const page = Math.max(parseInt(searchParams.get('page') || '1', 10), 1);
     const limit = Math.min(Math.max(parseInt(searchParams.get('limit') || '20', 10), 1), 100);
     const skip = (page - 1) * limit;
+    const statusNow = new Date();
     const cacheVersion = await getRequestCacheVersion(request, 'inventory', userId);
     const cacheEnabled = cacheVersion !== null;
     const listCacheKey = cacheEnabled
@@ -179,17 +180,10 @@ export async function GET(request: NextRequest) {
       const inventoryCollection = db.collection<InventoryItem>('inventory');
 
       const buildListPayload = async (): Promise<ListCachePayload> => {
-        const query: Record<string, unknown> = { userId };
-
-        if (status === 'in-stock') {
-          query.stockStatus = 'in-stock';
-        } else if (status === 'low-stock' || status === 'restock') {
-          query.stockStatus = 'low-stock';
-        } else if (status === 'out-of-stock') {
-          query.stockStatus = 'out-of-stock';
-        } else if (status === 'inactive') {
-          query.stockStatus = 'inactive';
-        }
+        const query: Record<string, unknown> = {
+          userId,
+          ...getInventoryStatusFilter(status, statusNow),
+        };
 
         if (brand) query.brand = brand;
         if (location) query.location = location;
@@ -272,13 +266,26 @@ export async function GET(request: NextRequest) {
       };
 
       const buildSummaryPayload = async (): Promise<SummaryCachePayload> => {
-        const [summary, lowStockItems] = await Promise.all([
+        const lowStockQuery = {
+          userId,
+          ...getInventoryStatusFilter('low-stock', statusNow),
+        };
+        const [summary, lowStockItems, restockItems, outOfStockItems, inactiveItems] = await Promise.all([
           ensureUserReadModels(db, userId),
           inventoryCollection
-            .find({ userId, stockStatus: 'low-stock' })
+            .find(lowStockQuery)
             .sort({ quantity: 1, updatedAt: -1, createdAt: -1 })
             .limit(20)
             .toArray(),
+          inventoryCollection.countDocuments(lowStockQuery),
+          inventoryCollection.countDocuments({
+            userId,
+            ...getInventoryStatusFilter('out-of-stock', statusNow),
+          }),
+          inventoryCollection.countDocuments({
+            userId,
+            ...getInventoryStatusFilter('inactive', statusNow),
+          }),
         ]);
 
         // Summaries created before supplier facets were introduced do not
@@ -293,7 +300,12 @@ export async function GET(request: NextRequest) {
         }
 
         return {
-          stats: summary.inventory,
+          stats: {
+            ...summary.inventory,
+            restockItems,
+            outOfStockItems,
+            inactiveItems,
+          },
           lowStockItems: lowStockItems.map(serializeInventoryItem),
         };
       };

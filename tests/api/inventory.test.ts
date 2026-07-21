@@ -140,6 +140,91 @@ describe('/api/inventory', () => {
     });
   });
 
+  it('loads inactive items using their zero-stock age instead of a stored status', async () => {
+    const find = vi.fn(() => {
+      const chain = {
+        sort: vi.fn(),
+        skip: vi.fn(),
+        limit: vi.fn(),
+        toArray: vi.fn().mockResolvedValue([]),
+      };
+      chain.sort.mockReturnValue(chain);
+      chain.skip.mockReturnValue(chain);
+      chain.limit.mockReturnValue(chain);
+      return chain;
+    });
+    const countDocuments = vi.fn((query: Record<string, unknown>) => {
+      const quantity = query.quantity as { $gt?: number } | undefined;
+      const dateFilters = query.$and as
+        | Array<{
+            $or?: Array<{ lastQuantityUpdatedAt?: { $gt?: Date; $lte?: Date } }>;
+          }>
+        | undefined;
+      if (quantity?.$gt === 0) return Promise.resolve(1);
+      const dateOperator = dateFilters?.[0]?.$or?.[0]?.lastQuantityUpdatedAt;
+      if (dateOperator?.$gt) return Promise.resolve(2);
+      if (dateOperator?.$lte) return Promise.resolve(3);
+      return Promise.resolve(0);
+    });
+    const inventoryCollection = {
+      find,
+      countDocuments,
+    };
+    const summary = {
+      userId: ids.user,
+      inventory: {
+        totalItems: 6,
+        totalQuantity: 10,
+        totalValue: 100,
+        outOfStockItems: 0,
+        inactiveItems: 0,
+        restockItems: 0,
+        lowStockThreshold: 5,
+        locations: [],
+        brands: [],
+        suppliers: [],
+      },
+    };
+    mocks.getDb.mockResolvedValue({
+      collection: vi.fn((name: string) =>
+        name === 'inventory'
+          ? inventoryCollection
+          : { findOne: vi.fn().mockResolvedValue(summary) }
+      ),
+    });
+
+    const { GET } = await import('@/app/api/inventory/route');
+    const response = await GET(
+      jsonRequest('http://localhost/api/inventory?status=inactive&page=1&limit=16')
+    );
+
+    expect(response.status).toBe(200);
+    expect(find).toHaveBeenCalledWith({
+      userId: ids.user,
+      quantity: { $lte: 0 },
+      $and: [
+        {
+          $or: [
+            { lastQuantityUpdatedAt: { $lte: expect.any(Date) } },
+            {
+              lastQuantityUpdatedAt: null,
+              createdAt: { $lte: expect.any(Date) },
+            },
+            { lastQuantityUpdatedAt: null, createdAt: null },
+          ],
+        },
+      ],
+    });
+    await expect(response.json()).resolves.toMatchObject({
+      stats: {
+        restockItems: 1,
+        outOfStockItems: 2,
+        inactiveItems: 3,
+      },
+      pagination: { total: 3 },
+    });
+  });
+
   it('returns a duplicate item-number conflict with the existing item details', async () => {
     const findOne = vi.fn().mockResolvedValue({
       _id: objectIdLike(ids.otherInventory),
