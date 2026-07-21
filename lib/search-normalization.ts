@@ -69,6 +69,44 @@ export function getInactiveCutoff(now = new Date()) {
   return new Date(now.getTime() - INACTIVE_THRESHOLD_DAYS * MS_PER_DAY);
 }
 
+function zeroStockDateFilter(operator: '$gt' | '$lte', cutoff: Date) {
+  const dateCondition = { [operator]: cutoff };
+  const conditions: Record<string, unknown>[] = [
+    { lastQuantityUpdatedAt: dateCondition },
+    { lastQuantityUpdatedAt: null, createdAt: dateCondition },
+  ];
+
+  // Items with no quantity date or creation date use the Unix epoch in
+  // getInventoryStockStatus, so they belong to the inactive group.
+  if (operator === '$lte') {
+    conditions.push({ lastQuantityUpdatedAt: null, createdAt: null });
+  }
+
+  return { $or: conditions };
+}
+
+export function getInventoryStatusFilter(status: string, now = new Date()): Record<string, unknown> {
+  if (status === 'in-stock') {
+    return { quantity: { $gt: LOW_STOCK_THRESHOLD } };
+  }
+  if (status === 'low-stock' || status === 'restock') {
+    return { quantity: { $gt: 0, $lte: LOW_STOCK_THRESHOLD } };
+  }
+  if (status === 'out-of-stock') {
+    return {
+      quantity: { $lte: 0 },
+      $and: [zeroStockDateFilter('$gt', getInactiveCutoff(now))],
+    };
+  }
+  if (status === 'inactive') {
+    return {
+      quantity: { $lte: 0 },
+      $and: [zeroStockDateFilter('$lte', getInactiveCutoff(now))],
+    };
+  }
+  return {};
+}
+
 export function getInventoryStockStatus(
   item: Pick<InventoryItem, 'quantity' | 'lastQuantityUpdatedAt' | 'createdAt'>,
   now = new Date()
@@ -109,4 +147,3 @@ export function invoiceSearchTokens(invoice: {
 }) {
   return buildSearchTokens(invoice.invoiceNumber, invoice.customerName, invoice.customerPhone);
 }
-

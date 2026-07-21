@@ -2,6 +2,7 @@ import { config } from 'dotenv';
 import { MongoClient } from 'mongodb';
 import path from 'node:path';
 import { initializeIndexes } from '../lib/db-indexes';
+import { getInventoryStatusFilter } from '../lib/search-normalization';
 
 config({ path: path.resolve(process.cwd(), '.env.local') });
 config();
@@ -69,7 +70,10 @@ async function main() {
   );
   await assertIndexedQuery(
     'inventory list',
-    db.collection('inventory').find({ userId, stockStatus: 'low-stock' }).sort({ updatedAt: -1, createdAt: -1 }).limit(20)
+    db.collection('inventory')
+      .find({ userId, ...getInventoryStatusFilter('low-stock') })
+      .sort({ updatedAt: -1, createdAt: -1 })
+      .limit(20)
   );
   await assertIndexedQuery(
     'invoice list',

@@ -7,12 +7,9 @@ import autoTable from 'jspdf-autotable';
 import { ObjectId } from 'mongodb';
 import { z } from 'zod';
 import type { InventoryItem } from '@/lib/types';
-import { normalizeIdentifier } from '@/lib/search-normalization';
+import { getInventoryStatusFilter, normalizeIdentifier } from '@/lib/search-normalization';
 import { scoreInventorySearch } from '@/lib/inventory-search';
 
-const LOW_STOCK_THRESHOLD = 5;
-const INACTIVE_THRESHOLD_DAYS = 60;
-const MS_PER_DAY = 24 * 60 * 60 * 1000;
 const STATUS_LABELS: Record<string, string> = {
   all: 'All Items',
   'in-stock': 'In Stock',
@@ -36,20 +33,6 @@ const supplierOrderSchema = z.object({
     .min(1, 'Select at least one inventory item')
     .max(300, 'Supplier orders can include up to 300 items'),
 });
-
-function zeroStockDateCondition(operator: '$gt' | '$lte', cutoff: Date) {
-  const dateCondition = { [operator]: cutoff };
-  const conditions: Record<string, unknown>[] = [
-    { lastQuantityUpdatedAt: dateCondition },
-    { lastQuantityUpdatedAt: null, createdAt: dateCondition },
-  ];
-
-  if (operator === '$lte') {
-    conditions.push({ lastQuantityUpdatedAt: null, createdAt: null });
-  }
-
-  return { $or: conditions };
-}
 
 function escapeRegex(value: string) {
   return value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
@@ -96,20 +79,10 @@ export async function GET(request: NextRequest) {
     const db = await getDb();
     const inventoryCollection = db.collection<InventoryItem>('inventory');
 
-    const query: Record<string, unknown> = { userId };
-    const inactiveCutoff = new Date(Date.now() - INACTIVE_THRESHOLD_DAYS * MS_PER_DAY);
-
-    if (status === 'in-stock') {
-      query.quantity = { $gt: LOW_STOCK_THRESHOLD };
-    } else if (status === 'low-stock' || status === 'restock') {
-      query.quantity = { $gt: 0, $lte: LOW_STOCK_THRESHOLD };
-    } else if (status === 'out-of-stock') {
-      query.quantity = { $lte: 0 };
-      query.$and = [zeroStockDateCondition('$gt', inactiveCutoff)];
-    } else if (status === 'inactive') {
-      query.quantity = { $lte: 0 };
-      query.$and = [zeroStockDateCondition('$lte', inactiveCutoff)];
-    }
+    const query: Record<string, unknown> = {
+      userId,
+      ...getInventoryStatusFilter(status),
+    };
 
     if (brand) query.brand = brand;
     if (location) query.location = location;
