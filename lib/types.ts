@@ -124,11 +124,40 @@ export interface Note {
 }
 
 export interface InvoiceItem {
+  id?: string;
   inventoryItemId?: string;
   itemNumber?: string;
   itemName: string;
   quantity: number;
+  /** Legacy/current line total. Preserved for backward compatibility. */
   amount: number;
+  unitPrice?: number;
+  lineTotal?: number;
+  unitCost?: number;
+  cogs?: number;
+  grossProfit?: number;
+  costStatus?: 'complete' | 'missing';
+  costSource?: 'inventory_snapshot' | 'entered' | 'legacy_backfill';
+}
+
+export interface InvoicePayment {
+  id: string;
+  idempotencyKey?: string;
+  amount: number;
+  date: Date;
+  dailyCashEntryId?: string;
+  ledgerTransactionId?: string;
+  source: 'initial' | 'added' | 'legacy';
+  createdAt: Date;
+  updatedAt: Date;
+}
+
+export interface InvoiceSellerSnapshot {
+  firmTitle: string;
+  gstNumber: string;
+  firmPhone: string;
+  firmEmail: string;
+  firmAddress: string;
 }
 
 export interface Invoice {
@@ -141,11 +170,24 @@ export interface Invoice {
   customerAddress?: string;
   items: InvoiceItem[];
   totalAmount: number;
+  totalCogs?: number;
+  costedSales?: number;
+  uncostedSales?: number;
+  missingCostItemCount?: number;
+  grossProfit?: number;
+  grossMargin?: number;
+  pricingVersion?: number;
   paidAmount: number;
+  payments?: InvoicePayment[];
   status: 'paid' | 'unpaid' | 'partial';
   notes?: string;
   addedToLedger: boolean;
   transactionId?: string; // linked transaction if added to ledger
+  sellerSnapshot?: InvoiceSellerSnapshot;
+  pdfUrl?: string;
+  pdfPublicId?: string;
+  pdfStatus?: 'ready' | 'missing' | 'failed';
+  pdfUpdatedAt?: Date;
   searchTokens?: string[];
   createdAt: Date;
   updatedAt: Date;

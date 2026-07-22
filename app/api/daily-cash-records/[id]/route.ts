@@ -91,6 +91,10 @@ function serializeRecord(record: any) {
       description: entry.description,
       billUrl: entry.billUrl || '',
       billPublicId: entry.billPublicId || '',
+      source: entry.source || 'manual',
+      invoiceId: entry.invoiceId,
+      invoiceNumber: entry.invoiceNumber,
+      paymentId: entry.paymentId,
       createdAt: entry.createdAt,
       updatedAt: entry.updatedAt,
     })),
@@ -154,6 +158,13 @@ export async function PUT(
 
     const updatedEntries = [...record.entries];
     const existingEntry = updatedEntries[entryIndex];
+
+    if (existingEntry.source === 'invoice_payment') {
+      return NextResponse.json(
+        { error: 'Invoice payment entries must be changed from the invoice payment history' },
+        { status: 409 }
+      );
+    }
 
     const resolveBillField = (
       incoming: string | null | undefined,
@@ -271,6 +282,13 @@ export async function DELETE(
       return NextResponse.json(
         { error: 'Entry not found' },
         { status: 404 }
+      );
+    }
+
+    if (entryToDelete.source === 'invoice_payment') {
+      return NextResponse.json(
+        { error: 'Invoice payment entries must be deleted from the invoice payment history' },
+        { status: 409 }
       );
     }
 

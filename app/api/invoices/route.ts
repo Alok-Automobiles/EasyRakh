@@ -14,48 +14,52 @@ import {
   InvoiceStockError,
   normalizeInvoiceItemsForSave,
 } from '@/lib/invoice-stock';
-import type { InvoiceItem } from '@/lib/types';
+import {
+  calculateInvoiceTotals,
+  deriveInvoiceStatus,
+  INVOICE_PRICING_VERSION,
+  roundMoney,
+} from '@/lib/invoice-calculations';
+import { addInvoicePaymentCashEntry, parsePaymentDate } from '@/lib/invoice-payments';
+import {
+  isSellerSnapshotComplete,
+  sellerSnapshotFromUser,
+  uploadInvoicePdf,
+} from '@/lib/invoice-pdf';
+import {
+  cleanupInvoicePdfUploads,
+  transactionCommitMayBeUnknown,
+} from '@/lib/invoice-pdf-cleanup';
 
 const invoiceItemSchema = z.object({
+  id: z.string().trim().optional(),
   inventoryItemId: z.string().trim().optional(),
   itemNumber: z.string().trim().optional(),
   itemName: z.string().trim().min(1, 'Item name is required'),
   quantity: z.number().finite().positive('Quantity must be greater than zero'),
-  amount: z.number().finite().positive('Amount must be greater than zero'),
+  amount: z.number().finite().positive('Amount must be greater than zero').optional(),
+  unitPrice: z.number().finite().positive('Selling price must be greater than zero').optional(),
+  unitCost: z.number().finite().min(0, 'Cost price cannot be negative').optional(),
+}).refine((item) => item.unitPrice !== undefined || item.amount !== undefined, {
+  message: 'Selling price is required',
 });
 
 const createInvoiceSchema = z.object({
+  clientRequestId: z.string().trim().min(8).max(100).optional(),
   customerId: z.string().optional(),
   customerName: z.string().min(1, 'Customer name is required'),
   customerPhone: z.string().optional(),
   customerAddress: z.string().optional(),
   items: z.array(invoiceItemSchema).min(1, 'At least one item is required'),
   paidAmount: z.number().min(0).default(0),
+  paymentDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, 'Payment date must use YYYY-MM-DD').optional(),
   status: z.enum(['paid', 'unpaid', 'partial']),
   notes: z.string().optional(),
   addToLedger: z.boolean().default(false),
   createCustomerIfNew: z.boolean().default(false),
 });
 
-type CreatedInvoiceResponse = {
-  id: string;
-  userId: string;
-  invoiceNumber: string;
-  customerId?: string;
-  customerName: string;
-  customerPhone: string;
-  customerAddress: string;
-  items: InvoiceItem[];
-  totalAmount: number;
-  paidAmount: number;
-  status: 'paid' | 'unpaid' | 'partial';
-  notes: string;
-  addedToLedger: boolean;
-  transactionId?: string;
-  searchTokens?: string[];
-  createdAt: Date;
-  updatedAt: Date;
-};
+type CreatedInvoiceResponse = { id: string } & Record<string, any>;
 
 const INVOICE_NUMBER_RETRY_ATTEMPTS = 3;
 
@@ -119,7 +123,7 @@ async function invalidateInvoiceCaches(
 ) {
   try {
     await refreshUserReadModels(db, userId);
-    await bumpCacheVersions(userId, ['invoices', 'dashboard', 'customers', 'inventory', 'search', 'bootstrap']);
+    await bumpCacheVersions(userId, ['invoices', 'dashboard', 'dailyCash', 'customers', 'inventory', 'search', 'bootstrap']);
     if (customerId) {
       await redis.del(
         `ledger:customer:${customerId}:${userId}`
@@ -213,11 +217,22 @@ export async function GET(request: NextRequest) {
         customerAddress: inv.customerAddress,
         items: inv.items,
         totalAmount: inv.totalAmount,
+        totalCogs: inv.totalCogs,
+        costedSales: inv.costedSales,
+        uncostedSales: inv.uncostedSales,
+        missingCostItemCount: inv.missingCostItemCount,
+        grossProfit: inv.grossProfit,
+        grossMargin: inv.grossMargin,
+        pricingVersion: inv.pricingVersion,
         paidAmount: inv.paidAmount,
+        payments: inv.payments || [],
         status: inv.status,
         notes: inv.notes,
         addedToLedger: inv.addedToLedger,
         transactionId: inv.transactionId,
+        pdfUrl: inv.pdfUrl,
+        pdfPublicId: inv.pdfPublicId,
+        pdfStatus: inv.pdfStatus,
         createdAt: inv.createdAt,
         updatedAt: inv.updatedAt,
       })),
@@ -253,6 +268,40 @@ export async function POST(request: NextRequest) {
     const invoicesCollection = db.collection('invoices');
     const customersCollection = db.collection('customers');
     const transactionsCollection = db.collection('transactions');
+    const usersCollection = db.collection('users');
+    if (validatedData.clientRequestId) {
+      const existingInvoice = await invoicesCollection.findOne({
+        userId,
+        clientRequestId: validatedData.clientRequestId,
+      });
+      if (existingInvoice) {
+        return NextResponse.json({
+          message: 'Invoice already created',
+          invoice: { ...existingInvoice, id: existingInvoice._id.toString() },
+        });
+      }
+    }
+    const user = await usersCollection.findOne({ _id: new ObjectId(userId) });
+    const sellerSnapshot = user ? sellerSnapshotFromUser(user) : null;
+    if (!isSellerSnapshotComplete(sellerSnapshot)) {
+      return NextResponse.json(
+        {
+          error: 'Complete and save your firm details before creating an invoice.',
+          code: 'FIRM_DETAILS_REQUIRED',
+        },
+        { status: 400 }
+      );
+    }
+
+    let paymentDate: Date;
+    try {
+      paymentDate = parsePaymentDate(validatedData.paymentDate);
+    } catch (error) {
+      return NextResponse.json(
+        { error: error instanceof Error ? error.message : 'Invalid payment date' },
+        { status: 400 }
+      );
+    }
     const client = await clientPromise;
     const changedInventoryIds = new Set<string>();
     let savedCustomerId: string | undefined;
@@ -263,6 +312,8 @@ export async function POST(request: NextRequest) {
       changedInventoryIds.clear();
       savedCustomerId = undefined;
       createdInvoice = undefined;
+      let uploadedPdfForAttempt: { url: string; publicId: string } | undefined;
+      const uploadedPdfsForAttempt: Array<{ url: string; publicId: string }> = [];
 
       try {
         await session.withTransaction(async () => {
@@ -272,16 +323,17 @@ export async function POST(request: NextRequest) {
             validatedData.items,
             session
           );
-          const totalAmount = normalizedItems.reduce((sum, item) => sum + item.amount, 0);
-
-          let status = validatedData.status;
-          if (validatedData.paidAmount >= totalAmount) {
-            status = 'paid';
-          } else if (validatedData.paidAmount > 0) {
-            status = 'partial';
-          } else {
-            status = 'unpaid';
+          const invoiceTotals = calculateInvoiceTotals(normalizedItems);
+          const totalAmount = invoiceTotals.totalAmount;
+          const initialPaidAmount = roundMoney(validatedData.paidAmount);
+          if (initialPaidAmount > totalAmount) {
+            throw new InvoiceStockError(
+              'OVERPAYMENT',
+              'Payment cannot be greater than the invoice total',
+              400
+            );
           }
+          const status = deriveInvoiceStatus(totalAmount, initialPaidAmount);
 
           let customerId = validatedData.customerId;
 
@@ -325,20 +377,31 @@ export async function POST(request: NextRequest) {
           savedCustomerId = customerId;
           const invoiceNumber = await generateInvoiceNumber(db, userId, session);
           const now = new Date();
-          const invoiceDoc = {
+          const invoiceObjectId = new ObjectId();
+          const paymentId = initialPaidAmount > 0 ? new ObjectId().toString() : undefined;
+          const cashEntryId = initialPaidAmount > 0 ? new ObjectId().toString() : undefined;
+          const invoiceDoc: Record<string, any> = {
+            _id: invoiceObjectId,
             userId,
+            clientRequestId: validatedData.clientRequestId,
             invoiceNumber,
             customerId: customerId || undefined,
             customerName: validatedData.customerName,
             customerPhone: validatedData.customerPhone || '',
             customerAddress: validatedData.customerAddress || '',
             items: normalizedItems,
-            totalAmount,
-            paidAmount: validatedData.paidAmount,
+            ...invoiceTotals,
+            pricingVersion: INVOICE_PRICING_VERSION,
+            paidAmount: initialPaidAmount,
+            payments: [],
             status,
             notes: validatedData.notes || '',
             addedToLedger: false,
             transactionId: undefined as string | undefined,
+            sellerSnapshot,
+            pdfUrl: '',
+            pdfPublicId: '',
+            pdfStatus: 'missing',
             searchTokens: invoiceSearchTokens({
               invoiceNumber,
               customerName: validatedData.customerName,
@@ -356,6 +419,7 @@ export async function POST(request: NextRequest) {
           );
           adjustedIds.forEach((itemId) => changedInventoryIds.add(itemId));
 
+          let paymentLedgerTransactionId: string | undefined;
           if (validatedData.addToLedger && customerId) {
             const debitTx = await transactionsCollection.insertOne(
               {
@@ -366,46 +430,112 @@ export async function POST(request: NextRequest) {
                 type: 'debit',
                 amount: totalAmount,
                 description: `Invoice ${invoiceNumber} - Amount due`,
-                date: now,
+                date: paymentDate,
                 createdAt: now,
               },
               { session }
             );
             invoiceDoc.transactionId = debitTx.insertedId.toString();
 
-            if (validatedData.paidAmount > 0) {
-              await transactionsCollection.insertOne(
+            if (initialPaidAmount > 0) {
+              const paymentTx = await transactionsCollection.insertOne(
                 {
                   userId,
                   entityType: 'customer',
                   entityId: customerId,
                   customerId,
                   type: 'credit',
-                  amount: validatedData.paidAmount,
+                  amount: initialPaidAmount,
                   description: `Invoice ${invoiceNumber} - Payment received`,
-                  date: now,
+                  date: paymentDate,
                   createdAt: now,
                 },
                 { session }
               );
+              paymentLedgerTransactionId = paymentTx.insertedId.toString();
             }
 
             invoiceDoc.addedToLedger = true;
           }
 
-          const result = await invoicesCollection.insertOne(invoiceDoc, { session });
+          uploadedPdfForAttempt = await uploadInvoicePdf(userId, {
+            invoiceNumber,
+            customerName: validatedData.customerName,
+            customerPhone: validatedData.customerPhone,
+            customerAddress: validatedData.customerAddress,
+            items: normalizedItems,
+            totalAmount,
+            paidAmount: initialPaidAmount,
+            status,
+            notes: validatedData.notes,
+            createdAt: now,
+            sellerSnapshot: sellerSnapshot!,
+          });
+          uploadedPdfsForAttempt.push(uploadedPdfForAttempt);
+          invoiceDoc.pdfUrl = uploadedPdfForAttempt.url;
+          invoiceDoc.pdfPublicId = uploadedPdfForAttempt.publicId;
+          invoiceDoc.pdfStatus = 'ready';
+          invoiceDoc.pdfUpdatedAt = now;
+
+          if (paymentId && cashEntryId) {
+            await addInvoicePaymentCashEntry(db, userId, {
+              entryId: cashEntryId,
+              paymentId,
+              invoiceId: invoiceObjectId.toString(),
+              invoiceNumber,
+              amount: initialPaidAmount,
+              date: paymentDate,
+              customerName: validatedData.customerName,
+              billUrl: invoiceDoc.pdfUrl,
+              billPublicId: invoiceDoc.pdfPublicId,
+            }, session);
+            invoiceDoc.payments = [{
+              id: paymentId,
+              amount: initialPaidAmount,
+              date: paymentDate,
+              dailyCashEntryId: cashEntryId,
+              ledgerTransactionId: paymentLedgerTransactionId,
+              source: 'initial',
+              createdAt: now,
+              updatedAt: now,
+            }];
+          }
+
+          await invoicesCollection.insertOne(invoiceDoc, { session });
           createdInvoice = {
-            id: result.insertedId.toString(),
+            id: invoiceObjectId.toString(),
             ...invoiceDoc,
           };
         });
 
+        await cleanupInvoicePdfUploads(
+          uploadedPdfsForAttempt,
+          uploadedPdfForAttempt?.publicId,
+          'retried invoice PDF upload'
+        );
+
         break;
       } catch (error) {
+        if (!transactionCommitMayBeUnknown(error)) {
+          await cleanupInvoicePdfUploads(uploadedPdfsForAttempt, undefined, 'uncommitted invoice PDF');
+        }
         if (
           attempt < INVOICE_NUMBER_RETRY_ATTEMPTS &&
           isDuplicateInvoiceNumberError(error)
         ) {
+          if (validatedData.clientRequestId) {
+            const existingInvoice = await invoicesCollection.findOne({
+              userId,
+              clientRequestId: validatedData.clientRequestId,
+            });
+            if (existingInvoice) {
+              createdInvoice = {
+                ...existingInvoice,
+                id: existingInvoice._id.toString(),
+              };
+              break;
+            }
+          }
           continue;
         }
         throw error;

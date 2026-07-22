@@ -57,6 +57,7 @@ describe('/api/inventory/suggestions', () => {
         itemName: 'BRAKE PAD',
         quantity: 8,
         unitOfMeasure: 'PCS',
+        buyingPrice: 450,
       },
     ]);
     mocks.getDb.mockResolvedValue({
@@ -79,6 +80,7 @@ describe('/api/inventory/suggestions', () => {
           itemName: 1,
           quantity: 1,
           unitOfMeasure: 1,
+          buyingPrice: 1,
         },
       }
     );
@@ -91,6 +93,7 @@ describe('/api/inventory/suggestions', () => {
           itemName: 'BRAKE PAD',
           quantity: 8,
           unitOfMeasure: 'PCS',
+          buyingPrice: 450,
         },
       ],
     });

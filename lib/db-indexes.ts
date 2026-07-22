@@ -35,6 +35,8 @@ export async function initializeIndexes(db: Db): Promise<void> {
 
       dailyCashRecords.createIndex({ userId: 1, date: -1 }),
       dailyCashRecords.createIndex({ userId: 1, date: 1 }),
+      dailyCashRecords.createIndex({ userId: 1, 'entries.invoiceId': 1 }),
+      dailyCashRecords.createIndex({ userId: 1, 'entries.paymentId': 1 }),
 
       notes.createIndex({ userId: 1, showOnDashboard: 1, updatedAt: -1 }),
       notes.createIndex({ userId: 1, createdAt: -1 }),
@@ -53,6 +55,13 @@ export async function initializeIndexes(db: Db): Promise<void> {
 
       invoices.createIndex({ userId: 1, createdAt: -1 }),
       invoices.createIndex({ userId: 1, invoiceNumber: 1 }, { unique: true }),
+      invoices.createIndex(
+        { userId: 1, clientRequestId: 1 },
+        {
+          unique: true,
+          partialFilterExpression: { clientRequestId: { $type: 'string' } },
+        }
+      ),
       invoices.createIndex({ userId: 1, customerId: 1 }),
       invoices.createIndex({ userId: 1, status: 1 }),
       invoices.createIndex({ userId: 1, status: 1, createdAt: -1 }),

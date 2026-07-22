@@ -43,6 +43,7 @@ export async function GET(request: NextRequest) {
             itemName: 1,
             quantity: 1,
             unitOfMeasure: 1,
+            buyingPrice: 1,
           },
         }
       )
@@ -57,6 +58,7 @@ export async function GET(request: NextRequest) {
         itemName: item.itemName,
         quantity: item.quantity || 0,
         unitOfMeasure: item.unitOfMeasure || '',
+        buyingPrice: item.buyingPrice ?? null,
       })),
     });
   } catch (error) {

@@ -34,6 +34,7 @@ type ProfileForm = z.infer<typeof profileSchema>;
 
 export default function ProfilePage() {
   const router = useRouter();
+  const [returnTo, setReturnTo] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
 
@@ -51,6 +52,12 @@ export default function ProfilePage() {
   });
 
   useEffect(() => {
+    const returnToParam = new URLSearchParams(window.location.search).get('returnTo');
+    setReturnTo(
+      returnToParam?.startsWith('/') && !returnToParam.startsWith('//')
+        ? returnToParam
+        : null
+    );
     const fetchProfile = async () => {
       try {
         const response = await fetch('/api/auth/me');
@@ -99,7 +106,8 @@ export default function ProfilePage() {
 
       if (response.ok) {
         toast.success('Profile updated successfully!');
-        router.refresh();
+        if (returnTo) router.push(returnTo);
+        else router.refresh();
       } else {
         toast.error(result.error || 'Failed to update profile');
       }
