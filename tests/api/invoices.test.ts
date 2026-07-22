@@ -429,6 +429,77 @@ describe('/api/invoices stock sync', () => {
     expect(invoices.updateOne).toHaveBeenCalled();
   });
 
+  it('updates payment without revalidating unchanged historical inventory details', async () => {
+    const historicalItem = {
+      ...linkedItem(1, 450),
+      itemNumber: 'OLD-BP-104',
+      itemName: 'OLD BRAKE PAD',
+    };
+    const previousInvoice = {
+      _id: objectIdLike(ids.transaction),
+      invoiceNumber: 'INV-2026-06-0001',
+      customerName: 'Raj Traders',
+      items: [historicalItem],
+      totalAmount: 450,
+      paidAmount: 100,
+      status: 'partial',
+      addedToLedger: false,
+      createdAt: new Date('2026-06-01T00:00:00.000Z'),
+      updatedAt: new Date('2026-06-01T00:00:00.000Z'),
+    };
+    const updatedInvoice = {
+      ...previousInvoice,
+      paidAmount: 250,
+      status: 'partial',
+      updatedAt: new Date('2026-06-02T00:00:00.000Z'),
+    };
+    const invoices = {
+      findOne: vi.fn().mockResolvedValueOnce(previousInvoice).mockResolvedValueOnce(updatedInvoice),
+      updateOne: vi.fn().mockResolvedValue({ matchedCount: 1 }),
+    };
+    const inventory = {
+      find: vi.fn(),
+      findOne: vi.fn(),
+      findOneAndUpdate: vi.fn(),
+    };
+    mocks.getDb.mockResolvedValue(
+      dbWithCollections({
+        invoices,
+        transactions: {},
+        inventory,
+      })
+    );
+
+    const { PUT } = await import('@/app/api/invoices/[id]/route');
+    const response = await PUT(
+      jsonRequest(
+        `http://localhost/api/invoices/${ids.transaction}`,
+        {
+          items: [historicalItem],
+          paidAmount: 250,
+          status: 'partial',
+        },
+        { method: 'PUT' }
+      ),
+      routeParams({ id: ids.transaction })
+    );
+
+    expect(response.status).toBe(200);
+    expect(inventory.find).not.toHaveBeenCalled();
+    expect(inventory.findOneAndUpdate).not.toHaveBeenCalled();
+    expect(invoices.updateOne).toHaveBeenCalledWith(
+      { _id: expect.any(Object), userId: ids.user },
+      {
+        $set: expect.objectContaining({
+          paidAmount: 250,
+          status: 'partial',
+        }),
+      },
+      { session: mocks.session }
+    );
+    expect(invoices.updateOne.mock.calls[0][1].$set).not.toHaveProperty('items');
+  });
+
   it('blocks an edit that increases quantity beyond available stock', async () => {
     const previousInvoice = {
       _id: objectIdLike('507f1f77bcf86cd799439099'),

@@ -10,6 +10,7 @@ import { invoiceSearchTokens } from '@/lib/search-normalization';
 import { refreshUserReadModels } from '@/lib/read-models';
 import {
   applyInventoryAdjustments,
+  areInvoiceItemsUnchanged,
   getInventoryDiffAdjustments,
   getInventoryRestoreAdjustments,
   InvoiceStockError,
@@ -200,7 +201,10 @@ export async function PUT(
         const previousItems = (existingInvoice.items || []) as InvoiceItem[];
         let nextItems = previousItems;
 
-        if (validatedData.items !== undefined) {
+        if (
+          validatedData.items !== undefined &&
+          !areInvoiceItemsUnchanged(previousItems, validatedData.items)
+        ) {
           nextItems = await normalizeInvoiceItemsForSave(
             db,
             userId,
@@ -220,7 +224,7 @@ export async function PUT(
           adjustedIds.forEach((itemId) => changedInventoryIds.add(itemId));
         }
 
-        let paidAmount = validatedData.paidAmount ?? existingInvoice.paidAmount;
+        const paidAmount = validatedData.paidAmount ?? existingInvoice.paidAmount;
         let status = validatedData.status ?? existingInvoice.status;
 
         if (paidAmount >= totalAmount) {
