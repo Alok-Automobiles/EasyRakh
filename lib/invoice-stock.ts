@@ -16,6 +16,25 @@ export type InventoryAdjustment = {
   quantityDelta: number;
 };
 
+export function areInvoiceItemsUnchanged(
+  previousItems: InvoiceItem[],
+  nextItems: InvoiceItemInput[]
+): boolean {
+  if (previousItems.length !== nextItems.length) return false;
+
+  return previousItems.every((previousItem, index) => {
+    const nextItem = nextItems[index];
+
+    return (
+      (previousItem.inventoryItemId || '') === (nextItem.inventoryItemId || '') &&
+      normalizeItemNumber(previousItem.itemNumber) === normalizeItemNumber(nextItem.itemNumber) &&
+      normalizeItemName(previousItem.itemName) === normalizeItemName(nextItem.itemName) &&
+      previousItem.quantity === nextItem.quantity &&
+      previousItem.amount === nextItem.amount
+    );
+  });
+}
+
 export class InvoiceStockError extends Error {
   code: string;
   status: number;
