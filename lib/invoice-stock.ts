@@ -285,7 +285,9 @@ export async function normalizeInvoiceItemsForSave(
       normalizedItems.push(buildCostedItem({
         inventoryItemId: inventoryItem._id.toString(),
         itemNumber: storedItemNumber,
-        itemName: inventoryItem.itemName,
+        // The inventory ID controls stock and cost. The entered name is an
+        // invoice-only description and must not rename the inventory record.
+        itemName,
       }, normalizedUnitCost, typeof storedCost === 'number' ? 'inventory_snapshot' : 'entered'));
       continue;
     }
@@ -315,7 +317,7 @@ export async function normalizeInvoiceItemsForSave(
         normalizedItems.push(buildCostedItem({
           inventoryItemId: inventoryItem._id.toString(),
           itemNumber: inventoryItem.itemNumber || itemNumber,
-          itemName: inventoryItem.itemName,
+          itemName,
         }, normalizedUnitCost, typeof storedCost === 'number' ? 'inventory_snapshot' : 'entered'));
         continue;
       }

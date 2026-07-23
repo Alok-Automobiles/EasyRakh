@@ -213,7 +213,7 @@ describe('/api/invoices stock sync', () => {
           expect.objectContaining({
             inventoryItemId: ids.inventory,
             itemNumber: 'BP-104',
-            itemName: 'BRAKE PAD',
+            itemName: 'typed name',
             quantity: 2,
             amount: 900,
             unitPrice: 450,
@@ -226,6 +226,73 @@ describe('/api/invoices stock sync', () => {
       { session: mocks.session }
     );
     expect(mocks.invalidateInventoryCache).toHaveBeenCalledWith(ids.user, ids.inventory);
+  });
+
+  it('links stock by inventory ID when the item has no part number and preserves the invoice description', async () => {
+    const inventoryItemWithoutNumber = {
+      _id: objectIdLike(ids.inventory),
+      itemNumber: '',
+      itemName: 'BRAKE SHOE',
+      quantity: 8,
+      buyingPrice: 300,
+    };
+    const invoiceFind = invoiceFindChain();
+    const insertOne = vi.fn().mockResolvedValue({
+      insertedId: objectIdLike('507f1f77bcf86cd799439099'),
+    });
+    const inventoryLookup = inventoryFindChain([inventoryItemWithoutNumber]);
+    const inventory = {
+      find: inventoryLookup.find,
+      findOne: vi.fn(),
+      findOneAndUpdate: vi.fn().mockResolvedValue({
+        ...inventoryItemWithoutNumber,
+        quantity: 6,
+      }),
+    };
+    mocks.getDb.mockResolvedValue(dbWithCollections({
+      invoices: { find: invoiceFind.find, insertOne },
+      customers: {},
+      transactions: {},
+      inventory,
+    }));
+
+    const { POST } = await import('@/app/api/invoices/route');
+    const response = await POST(jsonRequest(
+      'http://localhost/api/invoices',
+      createBody([{
+        inventoryItemId: ids.inventory,
+        itemNumber: '',
+        itemName: 'FRONT BRAKE SHOE',
+        quantity: 2,
+        unitPrice: 500,
+      }])
+    ));
+
+    expect(response.status).toBe(201);
+    expect(inventory.findOneAndUpdate).toHaveBeenCalledWith(
+      { _id: expect.any(Object), userId: ids.user, quantity: { $gte: 2 } },
+      expect.objectContaining({ $inc: { quantity: -2 } }),
+      { returnDocument: 'after', session: mocks.session }
+    );
+    expect(insertOne).toHaveBeenCalledWith(
+      expect.objectContaining({
+        items: [expect.objectContaining({
+          inventoryItemId: ids.inventory,
+          itemNumber: '',
+          itemName: 'FRONT BRAKE SHOE',
+          quantity: 2,
+          unitPrice: 500,
+          unitCost: 300,
+          amount: 1000,
+          cogs: 600,
+          grossProfit: 400,
+        })],
+        totalAmount: 1000,
+        totalCogs: 600,
+        grossProfit: 400,
+      }),
+      { session: mocks.session }
+    );
   });
 
   it('creates manual invoice rows without touching inventory quantity', async () => {
