@@ -2,7 +2,14 @@ import { NextRequest, NextResponse } from 'next/server';
 import { getDb } from '@/lib/mongodb';
 import { getUserIdFromRequest } from '@/lib/auth';
 import type { InventoryItem } from '@/lib/types';
-import { normalizeIdentifier } from '@/lib/search-normalization';
+import {
+  normalizeIdentifier,
+  queryTokens,
+} from '@/lib/search-normalization';
+import {
+  fuzzyCandidateTokens,
+  scoreInventorySearch,
+} from '@/lib/inventory-search';
 
 function escapeRegex(value: string) {
   return value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
@@ -16,25 +23,46 @@ export async function GET(request: NextRequest) {
     }
 
     const searchParams = request.nextUrl.searchParams;
-    const itemNumber = (searchParams.get('itemNumber') || '').trim();
+    // Keep itemNumber as a compatibility alias for older invoice clients.
+    const query = (
+      searchParams.get('query') ||
+      searchParams.get('itemNumber') ||
+      ''
+    ).trim().slice(0, 100);
     const limitParam = Number(searchParams.get('limit') || '8');
     const limit = Number.isFinite(limitParam)
       ? Math.min(Math.max(Math.trunc(limitParam), 1), 10)
       : 8;
 
-    if (!itemNumber) {
+    if (!query) {
       return NextResponse.json({ items: [] });
     }
 
     const db = await getDb();
     const inventoryCollection = db.collection<InventoryItem>('inventory');
-    const regex = { $regex: `^${escapeRegex(normalizeIdentifier(itemNumber))}` };
+    const normalizedQuery = normalizeIdentifier(query);
+    const prefixRegex = { $regex: `^${escapeRegex(normalizedQuery)}` };
+    const exactSearchTokens = queryTokens(query);
+    const fuzzyTokens = fuzzyCandidateTokens(query);
+    const searchClauses: Record<string, unknown>[] = [
+      { itemNumberKey: prefixRegex },
+      { itemName: prefixRegex },
+      { uniqueCode: prefixRegex },
+      { brand: prefixRegex },
+      { location: prefixRegex },
+    ];
+    if (exactSearchTokens.length > 0) {
+      searchClauses.push({ searchTokens: { $all: exactSearchTokens } });
+    }
+    if (fuzzyTokens.length > 0) {
+      searchClauses.push({ fuzzySearchTokens: { $in: fuzzyTokens } });
+    }
 
-    const items = await inventoryCollection
+    const candidates = await inventoryCollection
       .find(
         {
           userId,
-          itemNumberKey: regex,
+          $or: searchClauses,
         },
         {
           projection: {
@@ -44,12 +72,31 @@ export async function GET(request: NextRequest) {
             quantity: 1,
             unitOfMeasure: 1,
             buyingPrice: 1,
+            uniqueCode: 1,
+            brand: 1,
+            location: 1,
+            updatedAt: 1,
           },
         }
       )
-      .sort({ itemNumber: 1, updatedAt: -1 })
-      .limit(limit)
+      .sort({ updatedAt: -1 })
+      .limit(100)
       .toArray();
+
+    const items = candidates
+      .map((item, index) => ({
+        item,
+        index,
+        score: scoreInventorySearch(item, query),
+      }))
+      .filter(({ score }) => score >= 0.42)
+      .sort((left, right) =>
+        right.score - left.score ||
+        Number(right.item.quantity || 0) - Number(left.item.quantity || 0) ||
+        left.index - right.index
+      )
+      .slice(0, limit)
+      .map(({ item }) => item);
 
     return NextResponse.json({
       items: items.map((item) => ({
@@ -59,6 +106,9 @@ export async function GET(request: NextRequest) {
         quantity: item.quantity || 0,
         unitOfMeasure: item.unitOfMeasure || '',
         buyingPrice: item.buyingPrice ?? null,
+        uniqueCode: item.uniqueCode || '',
+        brand: item.brand || '',
+        location: item.location || '',
       })),
     });
   } catch (error) {

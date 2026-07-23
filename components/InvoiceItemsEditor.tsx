@@ -4,7 +4,7 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import type { KeyboardEvent } from 'react';
 import { createPortal } from 'react-dom';
 import toast from 'react-hot-toast';
-import { CheckCircle2, Plus, Trash2 } from 'lucide-react';
+import { CheckCircle2, Plus, Trash2, X } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 
@@ -28,9 +28,13 @@ interface InventorySuggestion {
   quantity: number;
   unitOfMeasure: string;
   buyingPrice: number | null;
+  uniqueCode: string;
+  brand: string;
+  location: string;
 }
 
 type ItemField = 'itemNumber' | 'itemName' | 'quantity' | 'amount' | 'unitCost';
+type InventorySearchField = 'itemNumber' | 'itemName';
 
 interface InvoiceItemsEditorProps {
   items: EditableInvoiceItem[];
@@ -79,8 +83,9 @@ export default function InvoiceItemsEditor({
   const [pendingFocus, setPendingFocus] = useState<{ itemId: string; field: ItemField } | null>(
     null
   );
-  const [activePartInput, setActivePartInput] = useState<{
+  const [activeInventorySearch, setActiveInventorySearch] = useState<{
     itemId: string;
+    field: InventorySearchField;
     query: string;
   } | null>(null);
   const [suggestions, setSuggestions] = useState<InventorySuggestion[]>([]);
@@ -150,7 +155,7 @@ export default function InvoiceItemsEditor({
   );
 
   const closeSuggestions = useCallback(() => {
-    setActivePartInput(null);
+    setActiveInventorySearch(null);
     setSuggestions([]);
     setHighlightedIndex(0);
     setLoadingSuggestions(false);
@@ -158,12 +163,14 @@ export default function InvoiceItemsEditor({
   }, []);
 
   const updateSuggestionMenuPosition = useCallback(() => {
-    if (!activePartInput) {
+    if (!activeInventorySearch) {
       setSuggestionMenuPosition(null);
       return;
     }
 
-    const node = inputRefs.current[activePartInput.itemId]?.itemNumber;
+    const node = inputRefs.current[activeInventorySearch.itemId]?.[
+      activeInventorySearch.field
+    ];
     if (!node) {
       setSuggestionMenuPosition(null);
       return;
@@ -175,11 +182,11 @@ export default function InvoiceItemsEditor({
       left: rect.left,
       width: rect.width,
     });
-  }, [activePartInput]);
+  }, [activeInventorySearch]);
 
   useEffect(() => {
-    const query = activePartInput?.query.trim();
-    if (!activePartInput || !query) {
+    const query = activeInventorySearch?.query.trim();
+    if (!activeInventorySearch || !query) {
       setSuggestions([]);
       setLoadingSuggestions(false);
       return;
@@ -189,7 +196,7 @@ export default function InvoiceItemsEditor({
     const timer = window.setTimeout(async () => {
       setLoadingSuggestions(true);
       try {
-        const params = new URLSearchParams({ itemNumber: query, limit: '8' });
+        const params = new URLSearchParams({ query, limit: '8' });
         const response = await fetch(`/api/inventory/suggestions?${params.toString()}`, {
           cache: 'no-store',
           signal: controller.signal,
@@ -214,7 +221,7 @@ export default function InvoiceItemsEditor({
       controller.abort();
       window.clearTimeout(timer);
     };
-  }, [activePartInput, suggestionDelayMs]);
+  }, [activeInventorySearch, suggestionDelayMs]);
 
   useEffect(() => {
     const onPointerDown = (event: MouseEvent | TouchEvent) => {
@@ -236,7 +243,7 @@ export default function InvoiceItemsEditor({
   }, [closeSuggestions]);
 
   useEffect(() => {
-    if (!activePartInput) return;
+    if (!activeInventorySearch) return;
 
     updateSuggestionMenuPosition();
     window.addEventListener('resize', updateSuggestionMenuPosition);
@@ -245,7 +252,7 @@ export default function InvoiceItemsEditor({
       window.removeEventListener('resize', updateSuggestionMenuPosition);
       window.removeEventListener('scroll', updateSuggestionMenuPosition, true);
     };
-  }, [activePartInput, updateSuggestionMenuPosition]);
+  }, [activeInventorySearch, updateSuggestionMenuPosition]);
 
   const selectSuggestion = useCallback(
     (itemId: string, suggestion: InventorySuggestion) => {
@@ -288,8 +295,31 @@ export default function InvoiceItemsEditor({
       inventoryItemId: undefined,
       ...(item.inventoryItemId ? { itemName: '', unitCost: undefined, unitCostInput: '' } : {}),
     });
-    setActivePartInput({ itemId: item.id, query: value });
+    setActiveInventorySearch({ itemId: item.id, field: 'itemNumber', query: value });
     window.requestAnimationFrame(updateSuggestionMenuPosition);
+  };
+
+  const handleItemNameChange = (item: EditableInvoiceItem, value: string) => {
+    // The inventory ID remains the stock link. A typed name is only the
+    // description printed on this invoice unless another suggestion is chosen.
+    updateItem(item.id, { itemName: value });
+    if (item.inventoryItemId) {
+      closeSuggestions();
+      return;
+    }
+    setActiveInventorySearch({ itemId: item.id, field: 'itemName', query: value });
+    window.requestAnimationFrame(updateSuggestionMenuPosition);
+  };
+
+  const unlinkInventoryItem = (item: EditableInvoiceItem) => {
+    updateItem(item.id, {
+      inventoryItemId: undefined,
+      itemNumber: '',
+      unitCost: undefined,
+      unitCostInput: '',
+    });
+    closeSuggestions();
+    setPendingFocus({ itemId: item.id, field: 'itemName' });
   };
 
   const handleKeyDown = (
@@ -297,9 +327,12 @@ export default function InvoiceItemsEditor({
     field: ItemField,
     event: KeyboardEvent<HTMLInputElement>
   ) => {
-    const suggestionsOpen = activePartInput?.itemId === itemId && suggestions.length > 0;
+    const suggestionsOpen =
+      activeInventorySearch?.itemId === itemId &&
+      activeInventorySearch.field === field &&
+      suggestions.length > 0;
 
-    if (field === 'itemNumber') {
+    if (field === 'itemNumber' || field === 'itemName') {
       if (event.key === 'ArrowDown' && suggestionsOpen) {
         event.preventDefault();
         setHighlightedIndex((index) => Math.min(index + 1, suggestions.length - 1));
@@ -345,7 +378,9 @@ export default function InvoiceItemsEditor({
   };
 
   const activeSuggestionsOpen =
-    activePartInput && suggestionMenuPosition && (suggestions.length > 0 || loadingSuggestions);
+    activeInventorySearch &&
+    suggestionMenuPosition &&
+    (suggestions.length > 0 || loadingSuggestions);
 
   return (
     <div ref={rootRef} className="rounded-lg border border-gray-200 bg-white">
@@ -376,7 +411,11 @@ export default function InvoiceItemsEditor({
                       value={item.itemNumber}
                       onChange={(event) => handleItemNumberChange(item, event.target.value)}
                       onFocus={() =>
-                        setActivePartInput({ itemId: item.id, query: item.itemNumber })
+                        setActiveInventorySearch({
+                          itemId: item.id,
+                          field: 'itemNumber',
+                          query: item.itemNumber,
+                        })
                       }
                       onKeyDown={(event) => handleKeyDown(item.id, 'itemNumber', event)}
                       placeholder="Part number"
@@ -390,18 +429,35 @@ export default function InvoiceItemsEditor({
                       <Input
                         ref={(node) => setInputRef(item.id, 'itemName', node)}
                         value={item.itemName}
-                        onChange={(event) =>
-                          updateItem(item.id, { itemName: event.target.value })
-                        }
+                        onChange={(event) => handleItemNameChange(item, event.target.value)}
+                        onFocus={() => {
+                          if (!item.inventoryItemId) {
+                            setActiveInventorySearch({
+                              itemId: item.id,
+                              field: 'itemName',
+                              query: item.itemName,
+                            });
+                          }
+                        }}
                         onKeyDown={(event) => handleKeyDown(item.id, 'itemName', event)}
                         placeholder="Item name"
                         aria-label={`Row ${index + 1} item name`}
+                        autoComplete="off"
                         className={`h-9 bg-white shadow-none ${
                           item.inventoryItemId ? 'pr-9' : ''
                         }`}
                       />
                       {item.inventoryItemId && (
-                        <CheckCircle2 className="pointer-events-none absolute right-3 top-1/2 h-4 w-4 -translate-y-1/2 text-green-600" />
+                        <button
+                          type="button"
+                          onClick={() => unlinkInventoryItem(item)}
+                          className="absolute right-2 top-1/2 flex -translate-y-1/2 items-center gap-0.5 rounded px-1 py-0.5 text-green-600 hover:bg-green-50 hover:text-red-600"
+                          aria-label={`Unlink row ${index + 1} inventory item`}
+                          title="Linked to inventory. Click to choose a different item."
+                        >
+                          <CheckCircle2 className="h-4 w-4" />
+                          <X className="h-3 w-3" />
+                        </button>
                       )}
                     </div>
                   </td>
@@ -520,7 +576,7 @@ export default function InvoiceItemsEditor({
                   role="option"
                   aria-selected={suggestionIndex === highlightedIndex}
                   onMouseDown={(event) => event.preventDefault()}
-                  onClick={() => selectSuggestion(activePartInput.itemId, suggestion)}
+                  onClick={() => selectSuggestion(activeInventorySearch.itemId, suggestion)}
                   className={`w-full px-3 py-2.5 text-left text-sm ${
                     suggestionIndex === highlightedIndex
                       ? 'bg-blue-50 text-blue-900'
@@ -530,11 +586,18 @@ export default function InvoiceItemsEditor({
                   <span className="flex items-center justify-between gap-3">
                     <span className="min-w-0">
                       <span className="block truncate font-semibold">
-                        {suggestion.itemNumber}
+                        {suggestion.itemNumber || 'No part number'}
                       </span>
                       <span className="block truncate text-xs text-gray-500">
                         {suggestion.itemName}
                       </span>
+                      {(suggestion.brand || suggestion.location || suggestion.uniqueCode) && (
+                        <span className="block truncate text-[11px] text-gray-400">
+                          {[suggestion.brand, suggestion.location, suggestion.uniqueCode]
+                            .filter(Boolean)
+                            .join(' • ')}
+                        </span>
+                      )}
                     </span>
                     <span className="shrink-0 rounded bg-gray-100 px-2 py-1 text-xs font-medium text-gray-600">
                       {suggestion.quantity} {suggestion.unitOfMeasure}

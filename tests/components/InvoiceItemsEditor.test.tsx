@@ -15,6 +15,9 @@ const suggestions = [
     quantity: 8,
     unitOfMeasure: 'PCS',
     buyingPrice: 450,
+    uniqueCode: 'UC-104',
+    brand: 'BOSCH',
+    location: 'RACK A',
   },
   {
     id: '507f1f77bcf86cd799439017',
@@ -23,6 +26,9 @@ const suggestions = [
     quantity: 3,
     unitOfMeasure: 'PCS',
     buyingPrice: 700,
+    uniqueCode: 'UC-205',
+    brand: 'BREMBO',
+    location: 'RACK B',
   },
 ];
 
@@ -93,6 +99,123 @@ describe('InvoiceItemsEditor', () => {
     await user.keyboard('{ArrowDown}{Enter}');
 
     expect(screen.getByLabelText('Row 1 item name')).toHaveValue('BRAKE PAD PREMIUM');
+  });
+
+  it('finds and links an inventory item by name when it has no part number', async () => {
+    const blankNumberSuggestion = {
+      id: '507f1f77bcf86cd799439018',
+      itemNumber: '',
+      itemName: 'BRAKE SHOE',
+      quantity: 6,
+      unitOfMeasure: 'PCS',
+      buyingPrice: 300,
+      uniqueCode: 'SHOE-01',
+      brand: 'BOSCH',
+      location: 'RACK B',
+    };
+    vi.stubGlobal(
+      'fetch',
+      vi.fn().mockResolvedValue({
+        ok: true,
+        json: async () => ({ items: [blankNumberSuggestion] }),
+      })
+    );
+    const user = userEvent.setup();
+    render(<EditorHarness />);
+
+    await user.type(screen.getByLabelText('Row 1 item name'), 'BRAKE SHOE');
+    await screen.findByText('No part number');
+    expect(screen.getByText('BOSCH • RACK B • SHOE-01')).toBeInTheDocument();
+    await user.keyboard('{Enter}');
+
+    expect(screen.getByLabelText('Row 1 part number')).toHaveValue('');
+    expect(screen.getByLabelText('Row 1 item name')).toHaveValue('BRAKE SHOE');
+    expect(screen.getByLabelText('Row 1 cost price')).toHaveValue(300);
+    expect(screen.getByLabelText('Row 1 quantity')).toHaveFocus();
+    expect(JSON.parse(screen.getByTestId('items-json').textContent || '[]')[0]).toMatchObject({
+      inventoryItemId: blankNumberSuggestion.id,
+      itemNumber: '',
+      itemName: 'BRAKE SHOE',
+      unitCost: 300,
+    });
+    expect(fetch).toHaveBeenCalledWith(
+      expect.stringContaining('query=BRAKE+SHOE'),
+      expect.any(Object)
+    );
+  });
+
+  it('keeps the inventory link and part number when only the invoice name is edited', async () => {
+    const user = userEvent.setup();
+    render(<EditorHarness initialItems={[{
+      id: '1',
+      inventoryItemId: suggestions[0].id,
+      itemNumber: suggestions[0].itemNumber,
+      itemName: suggestions[0].itemName,
+      quantity: 1,
+      amount: 500,
+      unitCost: 450,
+      unitCostInput: '450',
+    }]} />);
+
+    const itemName = screen.getByLabelText('Row 1 item name');
+    await user.clear(itemName);
+    await user.type(itemName, 'FRONT BRAKE PAD');
+
+    expect(JSON.parse(screen.getByTestId('items-json').textContent || '[]')[0]).toMatchObject({
+      inventoryItemId: suggestions[0].id,
+      itemNumber: 'BP-104',
+      itemName: 'FRONT BRAKE PAD',
+      unitCost: 450,
+    });
+    expect(fetch).not.toHaveBeenCalled();
+  });
+
+  it('can explicitly unlink a selected inventory item before choosing another one', async () => {
+    const user = userEvent.setup();
+    render(<EditorHarness initialItems={[{
+      id: '1',
+      inventoryItemId: suggestions[0].id,
+      itemNumber: suggestions[0].itemNumber,
+      itemName: suggestions[0].itemName,
+      quantity: 1,
+      amount: 500,
+      unitCost: 450,
+      unitCostInput: '450',
+    }]} />);
+
+    await user.click(screen.getByLabelText('Unlink row 1 inventory item'));
+
+    const unlinked = JSON.parse(screen.getByTestId('items-json').textContent || '[]')[0];
+    expect(unlinked.inventoryItemId).toBeUndefined();
+    expect(unlinked.itemNumber).toBe('');
+    expect(unlinked.itemName).toBe('BRAKE PAD');
+    expect(unlinked.unitCost).toBeUndefined();
+    await waitFor(() => {
+      expect(screen.getByLabelText('Row 1 item name')).toHaveFocus();
+    });
+  });
+
+  it('clears the inventory link when the part number itself is changed', async () => {
+    const user = userEvent.setup();
+    render(<EditorHarness initialItems={[{
+      id: '1',
+      inventoryItemId: suggestions[0].id,
+      itemNumber: suggestions[0].itemNumber,
+      itemName: suggestions[0].itemName,
+      quantity: 1,
+      amount: 500,
+      unitCost: 450,
+      unitCostInput: '450',
+    }]} />);
+
+    const partNumber = screen.getByLabelText('Row 1 part number');
+    await user.clear(partNumber);
+    await user.type(partNumber, 'NEW-1');
+
+    const edited = JSON.parse(screen.getByTestId('items-json').textContent || '[]')[0];
+    expect(edited.inventoryItemId).toBeUndefined();
+    expect(edited.itemName).toBe('');
+    expect(edited.unitCost).toBeUndefined();
   });
 
   it('moves through inputs with Enter and back with Shift+Enter', async () => {
