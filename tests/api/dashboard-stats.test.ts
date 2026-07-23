@@ -61,6 +61,20 @@ describe('/api/dashboard/stats', () => {
     expect(mocks.getDb).not.toHaveBeenCalled();
   });
 
+  it('rejects a date that matches the format but does not exist', async () => {
+    const { GET } = await import('@/app/api/dashboard/stats/route');
+    const response = await GET(
+      jsonRequest('http://localhost/api/dashboard/stats?from=2026-02-30&to=2026-03-01')
+    );
+
+    expect(response.status).toBe(400);
+    await expect(response.json()).resolves.toEqual({
+      error: 'Invalid date format. Use YYYY-MM-DD for from and to.',
+    });
+    expect(mocks.redisGet).not.toHaveBeenCalled();
+    expect(mocks.getDb).not.toHaveBeenCalled();
+  });
+
   it('serves cached dashboard stats for period-scoped requests', async () => {
     const cached = {
       stats: { totalCredit: 1000, totalDebit: 600, netBalance: -400 },

@@ -25,6 +25,8 @@ import {
   Save,
   X,
   Building2,
+  Plus,
+  Trash2,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -40,18 +42,11 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog';
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '@/components/ui/select';
 import { Invoice, InvoiceItem } from '@/lib/types';
 import InvoiceItemsEditor from '@/components/InvoiceItemsEditor';
 import type { EditableInvoiceItem } from '@/components/InvoiceItemsEditor';
 import { getInvoiceItemDisplayRows, getInvoicePdfTableRows } from '@/lib/invoice-format';
-import { parseNumberInputOrZero } from '@/lib/number-input';
+import { legacyUnitPrice } from '@/lib/invoice-calculations';
 
 interface InvoiceWithId extends Invoice {
   id: string;
@@ -96,7 +91,9 @@ function toEditableInvoiceItem(item: InvoiceItem, index: number): EditableInvoic
     itemNumber: item.itemNumber || '',
     itemName: item.itemName,
     quantity: item.quantity,
-    amount: item.amount,
+    amount: legacyUnitPrice(item),
+    unitCost: item.unitCost,
+    unitCostInput: item.unitCost === undefined ? '' : String(item.unitCost),
   };
 }
 
@@ -110,7 +107,8 @@ function isBlankInvoiceItem(item: EditableInvoiceItem) {
     !item.itemNumber.trim() &&
     !item.itemName.trim() &&
     !hasNumericEntry(item.quantity, item.quantityInput) &&
-    !hasNumericEntry(item.amount, item.amountInput)
+    !hasNumericEntry(item.amount, item.amountInput) &&
+    item.unitCost === undefined
   );
 }
 
@@ -120,7 +118,10 @@ function isValidInvoiceItem(item: EditableInvoiceItem) {
     Number.isFinite(item.quantity) &&
     item.quantity > 0 &&
     Number.isFinite(item.amount) &&
-    item.amount > 0
+    item.amount > 0 &&
+    item.unitCost !== undefined &&
+    Number.isFinite(item.unitCost) &&
+    item.unitCost >= 0
   );
 }
 
@@ -134,6 +135,7 @@ export default function InvoiceDetailPage() {
 
   const [invoice, setInvoice] = useState<InvoiceWithId | null>(null);
   const [firmInfo, setFirmInfo] = useState<FirmInfo | null>(null);
+  const [profileName, setProfileName] = useState('');
   const [loading, setLoading] = useState(true);
   const [isEditing, setIsEditing] = useState(false);
   const [saving, setSaving] = useState(false);
@@ -153,9 +155,13 @@ export default function InvoiceDetailPage() {
 
   const [editItems, setEditItems] = useState<EditableInvoiceItem[]>([]);
   const [editPaidAmount, setEditPaidAmount] = useState(0);
-  const [editStatus, setEditStatus] = useState<'paid' | 'unpaid' | 'partial'>('unpaid');
   const [editNotes, setEditNotes] = useState('');
   const [editAddToLedger, setEditAddToLedger] = useState(false);
+  const [paymentAmount, setPaymentAmount] = useState('');
+  const [paymentDate, setPaymentDate] = useState(format(new Date(), 'yyyy-MM-dd'));
+  const [paymentSaving, setPaymentSaving] = useState(false);
+  const [paymentFormOpen, setPaymentFormOpen] = useState(false);
+  const paymentRequestIdRef = useRef<string | null>(null);
 
   useEffect(() => {
     if (hasFetchedRef.current) return;
@@ -188,12 +194,12 @@ export default function InvoiceDetailPage() {
           )
         );
         setEditPaidAmount(invoiceData.invoice.paidAmount);
-        setEditStatus(invoiceData.invoice.status);
         setEditNotes(invoiceData.invoice.notes || '');
 
         if (userRes.ok) {
           const userData = await userRes.json();
           if (userData.user) {
+            setProfileName(userData.user.name || 'Business Owner');
             const info = {
               firmTitle: userData.user.firmTitle || '',
               gstNumber: userData.user.gstNumber || '',
@@ -337,7 +343,7 @@ export default function InvoiceDetailPage() {
 
       autoTable(doc, {
         startY: yPos,
-        head: [['S.No', 'Part Number', 'Item Name', 'Quantity', 'Amount']],
+        head: [['S.No', 'Part Number', 'Item Name', 'Quantity', 'Unit Price', 'Amount']],
         body: tableRows,
         headStyles: {
           fillColor: black,
@@ -361,7 +367,8 @@ export default function InvoiceDetailPage() {
           1: { cellWidth: 36 },
           2: { cellWidth: 'auto' },
           3: { cellWidth: 24, halign: 'right' },
-          4: { cellWidth: 36, halign: 'right' },
+          4: { cellWidth: 26, halign: 'right' },
+          5: { cellWidth: 28, halign: 'right' },
         },
         margin: { left: margin, right: margin },
         theme: 'plain',
@@ -536,30 +543,21 @@ export default function InvoiceDetailPage() {
     }
   }, [shouldShare, invoice, firmInfo, generatePDF, isFirmInfoComplete]);
 
-  const editTotalAmount = editItems.reduce((sum, item) => sum + (item.amount || 0), 0);
-
-  useEffect(() => {
-    if (isEditing) {
-      if (editPaidAmount >= editTotalAmount && editTotalAmount > 0) {
-        setEditStatus('paid');
-      } else if (editPaidAmount > 0) {
-        setEditStatus('partial');
-      } else {
-        setEditStatus('unpaid');
-      }
-    }
-  }, [editPaidAmount, editTotalAmount, isEditing]);
+  const editTotalAmount = editItems.reduce(
+    (sum, item) => sum + (item.quantity || 0) * (item.amount || 0),
+    0
+  );
 
   const handleSave = async () => {
     const enteredItems = editItems.filter((item) => !isBlankInvoiceItem(item));
     if (enteredItems.length === 0) {
-      toast.error('At least one item with item name, quantity, and amount is required');
+      toast.error('At least one complete item with selling price and cost price is required');
       return;
     }
     const invalidItem = enteredItems.find((item) => !isValidInvoiceItem(item));
     if (invalidItem) {
       const rowNumber = editItems.findIndex((item) => item.id === invalidItem.id) + 1;
-      toast.error(`Complete item row ${rowNumber} with item name, quantity, and amount`);
+      toast.error(`Complete item row ${rowNumber}, including selling price and cost price`);
       return;
     }
 
@@ -572,10 +570,9 @@ export default function InvoiceDetailPage() {
           itemNumber: item.itemNumber.trim(),
           itemName: item.itemName.trim(),
           quantity: item.quantity,
-          amount: item.amount,
+          unitPrice: item.amount,
+          unitCost: item.unitCost,
         })),
-        paidAmount: editPaidAmount,
-        status: editStatus,
         notes: editNotes.trim(),
         addToLedger: editAddToLedger && !invoice?.addedToLedger,
       };
@@ -602,13 +599,71 @@ export default function InvoiceDetailPage() {
     }
   };
 
+  const refreshInvoice = async () => {
+    const response = await fetch(`/api/invoices/${id}`, { cache: 'no-store' });
+    if (!response.ok) throw new Error('Failed to refresh invoice');
+    const data = await response.json();
+    setInvoice(data.invoice);
+    setEditPaidAmount(data.invoice.paidAmount);
+  };
+
+  const handleAddPayment = async () => {
+    const amount = Number(paymentAmount);
+    if (!Number.isFinite(amount) || amount <= 0) {
+      toast.error('Enter a valid payment amount');
+      return;
+    }
+    if (!invoice || amount > invoice.totalAmount - invoice.paidAmount) {
+      toast.error('Payment cannot be greater than the remaining balance');
+      return;
+    }
+    setPaymentSaving(true);
+    try {
+      const idempotencyKey = paymentRequestIdRef.current || (paymentRequestIdRef.current = crypto.randomUUID());
+      const response = await fetch(`/api/invoices/${id}/payments`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ amount, date: paymentDate, idempotencyKey }),
+      });
+      const data = await response.json();
+      if (!response.ok) {
+        if (response.status < 500) paymentRequestIdRef.current = null;
+        throw new Error(data.error || 'Failed to add payment');
+      }
+      await refreshInvoice();
+      paymentRequestIdRef.current = null;
+      setPaymentAmount('');
+      setPaymentFormOpen(false);
+      toast.success('Payment added to invoice and Daily Cash');
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : 'Failed to add payment');
+    } finally {
+      setPaymentSaving(false);
+    }
+  };
+
+  const handleDeletePayment = async (paymentId: string) => {
+    if (!window.confirm('Delete this payment from the invoice, Daily Cash, and ledger?')) return;
+    setPaymentSaving(true);
+    try {
+      const response = await fetch(`/api/invoices/${id}/payments/${paymentId}`, { method: 'DELETE' });
+      const data = await response.json();
+      if (!response.ok) throw new Error(data.error || 'Failed to delete payment');
+      await refreshInvoice();
+      toast.success('Payment deleted');
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : 'Failed to delete payment');
+    } finally {
+      setPaymentSaving(false);
+    }
+  };
+
   const cancelEdit = () => {
     if (invoice) {
       setEditItems(
         invoice.items.map((item, idx) => toEditableInvoiceItem(item, idx))
       );
       setEditPaidAmount(invoice.paidAmount);
-      setEditStatus(invoice.status);
       setEditNotes(invoice.notes || '');
     }
     setIsEditing(false);
@@ -809,13 +864,14 @@ export default function InvoiceDetailPage() {
               </div>
             ) : (
               <div className="overflow-x-auto">
-                <table className="min-w-[760px] w-full text-sm">
+                <table className="min-w-[900px] w-full text-sm">
                   <thead>
                     <tr className="border-b border-gray-200 text-left text-xs font-semibold uppercase tracking-wide text-gray-500">
                       <th className="w-16 py-2 pr-3">S.No</th>
                       <th className="w-40 px-3 py-2">Part Number</th>
                       <th className="px-3 py-2">Item Name</th>
                       <th className="w-28 px-3 py-2 text-right">Quantity</th>
+                      <th className="w-32 px-3 py-2 text-right">Unit Price</th>
                       <th className="w-36 py-2 pl-3 text-right">Amount</th>
                     </tr>
                   </thead>
@@ -826,6 +882,9 @@ export default function InvoiceDetailPage() {
                         <td className="px-3 py-3 text-gray-700">{item.itemNumber}</td>
                         <td className="px-3 py-3 font-medium text-gray-900">{item.itemName}</td>
                         <td className="px-3 py-3 text-right text-gray-700">{item.quantity}</td>
+                        <td className="px-3 py-3 text-right text-gray-700">
+                          {currencyFormatter.format(item.unitPrice)}
+                        </td>
                         <td className="py-3 pl-3 text-right font-semibold text-gray-900">
                           {currencyFormatter.format(item.amount)}
                         </td>
@@ -869,63 +928,95 @@ export default function InvoiceDetailPage() {
             </div>
           </div>
 
-          {/* Payment Status (Edit Mode) */}
-          {isEditing && (
-            <div className="bg-white rounded-xl border border-gray-200 shadow-sm p-5">
-              <h2 className="text-lg font-semibold text-gray-900 mb-4">Payment Status</h2>
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                <div>
-                  <Label>Status</Label>
-                  <Select value={editStatus} onValueChange={(v) => setEditStatus(v as 'paid' | 'unpaid' | 'partial')}>
-                    <SelectTrigger className="mt-1">
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="paid">Paid</SelectItem>
-                      <SelectItem value="partial">Partial</SelectItem>
-                      <SelectItem value="unpaid">Unpaid</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
-                <div>
-                  <Label>Amount Paid (₹)</Label>
-                  <Input
-                    type="number"
-                    inputMode="decimal"
-                    min="0"
-                    step="0.01"
-                    value={editPaidAmount || ''}
-                    onChange={(e) => setEditPaidAmount(parseNumberInputOrZero(e.target.value))}
-                    className="mt-1"
-                  />
-                </div>
+          <div className="bg-white rounded-xl border border-gray-200 shadow-sm p-5">
+            <h2 className="text-lg font-semibold text-gray-900 mb-4">Private Profit Details</h2>
+            <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
+              <div className="rounded-lg bg-blue-50 p-3">
+                <p className="text-xs text-blue-700">Sales</p>
+                <p className="font-bold text-gray-900">{currencyFormatter.format(invoice.totalAmount)}</p>
               </div>
+              <div className="rounded-lg bg-amber-50 p-3">
+                <p className="text-xs text-amber-700">COGS</p>
+                <p className="font-bold text-gray-900">{currencyFormatter.format(invoice.totalCogs || 0)}</p>
+              </div>
+              <div className="rounded-lg bg-green-50 p-3">
+                <p className="text-xs text-green-700">Gross Profit</p>
+                <p className="font-bold text-gray-900">{currencyFormatter.format(invoice.grossProfit || 0)}</p>
+              </div>
+              <div className="rounded-lg bg-purple-50 p-3">
+                <p className="text-xs text-purple-700">Gross Margin</p>
+                <p className="font-bold text-gray-900">{(invoice.grossMargin || 0).toFixed(2)}%</p>
+              </div>
+            </div>
+            {(invoice.missingCostItemCount || 0) > 0 && (
+              <p className="mt-3 text-sm text-amber-700">
+                {invoice.missingCostItemCount} historical item(s) need a cost price. Profit excludes those lines.
+              </p>
+            )}
+            <p className="mt-3 text-xs text-gray-500">Cost and profit never appear on the customer PDF.</p>
+          </div>
 
-              {/* Add to Ledger Option */}
-              {!invoice.addedToLedger && invoice.customerId && (
-                <div className="mt-4 p-4 bg-purple-50 rounded-lg border border-purple-200">
-                  <div className="flex items-start gap-3">
-                    <input
-                      type="checkbox"
-                      id="editAddToLedger"
-                      checked={editAddToLedger}
-                      onChange={(e) => setEditAddToLedger(e.target.checked)}
-                      className="mt-1 w-4 h-4 text-purple-600 border-gray-300 rounded"
-                    />
-                    <label htmlFor="editAddToLedger" className="cursor-pointer">
-                      <span className="font-medium text-gray-900 flex items-center gap-2">
-                        <BookOpen className="w-4 h-4 text-purple-600" />
-                        Add to Ledger
-                      </span>
-                      <p className="text-sm text-gray-600 mt-1">
-                        Record this invoice in the customer&apos;s ledger
-                      </p>
-                    </label>
-                  </div>
-                </div>
+          <div className="bg-white rounded-xl border border-gray-200 shadow-sm p-5">
+            <div className="flex items-center justify-between gap-3 mb-4">
+              <div>
+                <h2 className="text-lg font-semibold text-gray-900">Payment History</h2>
+                <p className="text-sm text-gray-500">Each payment is added to Daily Cash on its receipt date.</p>
+              </div>
+              {invoice.paidAmount < invoice.totalAmount && !isEditing && (
+                <Button size="sm" onClick={() => setPaymentFormOpen((open) => !open)}>
+                  <Plus className="w-4 h-4 mr-1" /> Add Payment
+                </Button>
               )}
             </div>
-          )}
+
+            {paymentFormOpen && (
+              <div className="grid grid-cols-1 sm:grid-cols-[1fr_1fr_auto] gap-3 rounded-lg border border-blue-100 bg-blue-50 p-3 mb-4">
+                <div>
+                  <Label htmlFor="paymentAmount">Amount received</Label>
+                  <Input id="paymentAmount" type="number" min="0" step="0.01" value={paymentAmount} onChange={(event) => setPaymentAmount(event.target.value)} className="mt-1 bg-white" />
+                </div>
+                <div>
+                  <Label htmlFor="paymentDate">Payment date</Label>
+                  <Input id="paymentDate" type="date" value={paymentDate} onChange={(event) => setPaymentDate(event.target.value)} className="mt-1 bg-white" />
+                </div>
+                <Button onClick={handleAddPayment} disabled={paymentSaving} className="self-end">
+                  {paymentSaving ? 'Saving...' : 'Save Payment'}
+                </Button>
+              </div>
+            )}
+
+            {(invoice.payments || []).length === 0 ? (
+              <p className="text-sm text-gray-500">No payment history recorded.</p>
+            ) : (
+              <div className="space-y-2">
+                {(invoice.payments || []).map((payment) => (
+                  <div key={payment.id} className="flex items-center justify-between gap-3 rounded-lg border border-gray-100 p-3">
+                    <div>
+                      <p className="font-semibold text-gray-900">{currencyFormatter.format(payment.amount)}</p>
+                      <p className="text-xs text-gray-500">{format(new Date(payment.date), 'dd MMM yyyy')}{payment.source === 'legacy' ? ' - Historical payment' : ' - Added to Daily Cash'}</p>
+                    </div>
+                    {payment.source !== 'legacy' && (
+                      <Button variant="ghost" size="icon" disabled={paymentSaving} onClick={() => handleDeletePayment(payment.id)} className="text-red-600 hover:bg-red-50">
+                        <Trash2 className="w-4 h-4" />
+                      </Button>
+                    )}
+                  </div>
+                ))}
+              </div>
+            )}
+
+            {isEditing && !invoice.addedToLedger && invoice.customerId && (
+              <div className="mt-4 p-4 bg-purple-50 rounded-lg border border-purple-200">
+                <label htmlFor="editAddToLedger" className="flex cursor-pointer items-start gap-3">
+                  <input type="checkbox" id="editAddToLedger" checked={editAddToLedger} onChange={(e) => setEditAddToLedger(e.target.checked)} className="mt-1 w-4 h-4 text-purple-600 border-gray-300 rounded" />
+                  <span>
+                    <span className="font-medium text-gray-900 flex items-center gap-2"><BookOpen className="w-4 h-4 text-purple-600" />Add to Ledger</span>
+                    <span className="block text-sm text-gray-600 mt-1">Record this invoice and its payment history in the customer ledger.</span>
+                  </span>
+                </label>
+              </div>
+            )}
+          </div>
 
           {/* Notes */}
           {(isEditing || invoice.notes) && (
@@ -1029,9 +1120,19 @@ export default function InvoiceDetailPage() {
                 Cancel
               </Button>
               <Button
-                onClick={() => {
+                onClick={async () => {
                   if (!isFirmInfoComplete(editFirmInfo)) {
                     toast.error('Please fill in all firm details');
+                    return;
+                  }
+                  const profileResponse = await fetch('/api/auth/me', {
+                    method: 'PUT',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ name: profileName || 'Business Owner', ...editFirmInfo }),
+                  });
+                  if (!profileResponse.ok) {
+                    const result = await profileResponse.json().catch(() => ({}));
+                    toast.error(result.error || 'Failed to save firm details');
                     return;
                   }
                   setFirmInfo(editFirmInfo);

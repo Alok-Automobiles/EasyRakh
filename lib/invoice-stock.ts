@@ -2,13 +2,17 @@ import { ClientSession, Db, ObjectId } from 'mongodb';
 import type { InventoryItem, InvoiceItem } from '@/lib/types';
 import { normalizeIdentifier } from './search-normalization';
 import { inventoryDerivedFields } from './read-models';
+import { calculateInvoiceLine, legacyUnitPrice, roundMoney } from './invoice-calculations';
 
 export type InvoiceItemInput = {
+  id?: string;
   inventoryItemId?: string;
   itemNumber?: string;
   itemName: string;
   quantity: number;
-  amount: number;
+  amount?: number;
+  unitPrice?: number;
+  unitCost?: number;
 };
 
 export type InventoryAdjustment = {
@@ -24,13 +28,21 @@ export function areInvoiceItemsUnchanged(
 
   return previousItems.every((previousItem, index) => {
     const nextItem = nextItems[index];
+    const previousUnitPrice = legacyUnitPrice(previousItem);
+    const nextUnitPrice = nextItem.unitPrice ?? legacyUnitPrice({
+      quantity: nextItem.quantity,
+      amount: nextItem.amount || 0,
+      unitPrice: nextItem.unitPrice,
+    });
 
     return (
+      (previousItem.id || '') === (nextItem.id || previousItem.id || '') &&
       (previousItem.inventoryItemId || '') === (nextItem.inventoryItemId || '') &&
       normalizeItemNumber(previousItem.itemNumber) === normalizeItemNumber(nextItem.itemNumber) &&
       normalizeItemName(previousItem.itemName) === normalizeItemName(nextItem.itemName) &&
       previousItem.quantity === nextItem.quantity &&
-      previousItem.amount === nextItem.amount
+      previousUnitPrice === nextUnitPrice &&
+      (previousItem.unitCost ?? undefined) === (nextItem.unitCost ?? previousItem.unitCost ?? undefined)
     );
   });
 }
@@ -49,7 +61,7 @@ export class InvoiceStockError extends Error {
   }
 }
 
-type InventorySnapshot = Pick<InventoryItem, 'itemName' | 'itemNumber' | 'quantity'> & {
+type InventorySnapshot = Pick<InventoryItem, 'itemName' | 'itemNumber' | 'quantity' | 'buyingPrice'> & {
   _id: ObjectId;
   userId: string;
   lastQuantityUpdatedAt?: Date;
@@ -135,7 +147,7 @@ async function getInventoryLookups(
     }
   }
 
-  const projection = { _id: 1, itemName: 1, itemNumber: 1, quantity: 1, createdAt: 1, updatedAt: 1, lastQuantityUpdatedAt: 1 };
+  const projection = { _id: 1, itemName: 1, itemNumber: 1, quantity: 1, buyingPrice: 1, createdAt: 1, updatedAt: 1, lastQuantityUpdatedAt: 1 };
   const [itemsById, itemsByNumber] = await Promise.all([
     ids.size > 0
       ? inventoryCollection
@@ -183,6 +195,52 @@ export async function normalizeInvoiceItemsForSave(
   for (const item of items) {
     const itemNumber = normalizeItemNumber(item.itemNumber);
     const itemName = normalizeItemName(item.itemName);
+    const unitPrice = roundMoney(item.unitPrice ?? legacyUnitPrice({
+      quantity: item.quantity,
+      amount: item.amount || 0,
+      unitPrice: item.unitPrice,
+    }));
+
+    if (!Number.isFinite(unitPrice) || unitPrice <= 0) {
+      throw new InvoiceStockError(
+        'INVALID_UNIT_PRICE',
+        `Enter a valid selling price for ${itemName || itemNumber || 'the invoice item'}`,
+        400
+      );
+    }
+
+    const buildCostedItem = (
+      base: Pick<InvoiceItem, 'inventoryItemId' | 'itemNumber' | 'itemName'>,
+      unitCost: number,
+      costSource: NonNullable<InvoiceItem['costSource']>
+    ): InvoiceItem => {
+      const normalizedUnitCost = roundMoney(unitCost);
+      const { lineTotal, cogs, grossProfit } = calculateInvoiceLine({
+        quantity: item.quantity,
+        unitPrice,
+        unitCost: normalizedUnitCost,
+      });
+      if (![lineTotal, cogs, grossProfit].every(Number.isFinite)) {
+        throw new InvoiceStockError(
+          'INVALID_LINE_TOTAL',
+          `The quantity or price is too large for ${itemName || itemNumber || 'the invoice item'}`,
+          400
+        );
+      }
+      return {
+        id: item.id || new ObjectId().toString(),
+        ...base,
+        quantity: item.quantity,
+        unitPrice,
+        lineTotal,
+        amount: lineTotal,
+        unitCost: normalizedUnitCost,
+        cogs,
+        grossProfit,
+        costStatus: 'complete',
+        costSource,
+      };
+    };
 
     if (item.inventoryItemId) {
       const inventoryItem = inventoryLookups.byId.get(item.inventoryItemId);
@@ -204,13 +262,31 @@ export async function normalizeInvoiceItemsForSave(
         );
       }
 
-      normalizedItems.push({
+      const storedCost = inventoryItem.buyingPrice;
+      const unitCost = typeof storedCost === 'number' ? storedCost : item.unitCost;
+      if (unitCost === undefined || !Number.isFinite(unitCost) || unitCost < 0) {
+        throw new InvoiceStockError(
+          'MISSING_COST_PRICE',
+          `Enter the cost price for ${inventoryItem.itemName}`,
+          400,
+          { inventoryItemId: inventoryItem._id.toString(), itemNumber: storedItemNumber }
+        );
+      }
+      const normalizedUnitCost = roundMoney(unitCost);
+
+      if (typeof storedCost !== 'number') {
+        await db.collection('inventory').updateOne(
+          { _id: inventoryItem._id, userId },
+          { $set: { buyingPrice: normalizedUnitCost, updatedAt: new Date() } },
+          { session }
+        );
+      }
+
+      normalizedItems.push(buildCostedItem({
         inventoryItemId: inventoryItem._id.toString(),
         itemNumber: storedItemNumber,
         itemName: inventoryItem.itemName,
-        quantity: item.quantity,
-        amount: item.amount,
-      });
+      }, normalizedUnitCost, typeof storedCost === 'number' ? 'inventory_snapshot' : 'entered'));
       continue;
     }
 
@@ -218,23 +294,45 @@ export async function normalizeInvoiceItemsForSave(
       const inventoryItem = inventoryLookups.byNumber.get(normalizeIdentifier(itemNumber));
 
       if (inventoryItem) {
-        normalizedItems.push({
+        const storedCost = inventoryItem.buyingPrice;
+        const unitCost = typeof storedCost === 'number' ? storedCost : item.unitCost;
+        if (unitCost === undefined || !Number.isFinite(unitCost) || unitCost < 0) {
+          throw new InvoiceStockError(
+            'MISSING_COST_PRICE',
+            `Enter the cost price for ${inventoryItem.itemName}`,
+            400,
+            { inventoryItemId: inventoryItem._id.toString(), itemNumber: inventoryItem.itemNumber }
+          );
+        }
+        const normalizedUnitCost = roundMoney(unitCost);
+        if (typeof storedCost !== 'number') {
+          await db.collection('inventory').updateOne(
+            { _id: inventoryItem._id, userId },
+            { $set: { buyingPrice: normalizedUnitCost, updatedAt: new Date() } },
+            { session }
+          );
+        }
+        normalizedItems.push(buildCostedItem({
           inventoryItemId: inventoryItem._id.toString(),
           itemNumber: inventoryItem.itemNumber || itemNumber,
           itemName: inventoryItem.itemName,
-          quantity: item.quantity,
-          amount: item.amount,
-        });
+        }, normalizedUnitCost, typeof storedCost === 'number' ? 'inventory_snapshot' : 'entered'));
         continue;
       }
     }
 
-    normalizedItems.push({
+    if (item.unitCost === undefined || !Number.isFinite(item.unitCost) || item.unitCost < 0) {
+      throw new InvoiceStockError(
+        'MISSING_COST_PRICE',
+        `Enter the cost price for ${itemName || itemNumber || 'the invoice item'}`,
+        400
+      );
+    }
+
+    normalizedItems.push(buildCostedItem({
       itemNumber: itemNumber || undefined,
       itemName,
-      quantity: item.quantity,
-      amount: item.amount,
-    });
+    }, item.unitCost, 'entered'));
   }
 
   return normalizedItems;

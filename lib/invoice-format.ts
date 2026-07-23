@@ -1,10 +1,12 @@
 import type { InvoiceItem } from '@/lib/types';
+import { invoiceLineTotal, legacyUnitPrice } from '@/lib/invoice-calculations';
 
 export interface InvoiceItemDisplayRow {
   serialNumber: string;
   itemNumber: string;
   itemName: string;
   quantity: string;
+  unitPrice: number;
   amount: number;
 }
 
@@ -19,7 +21,8 @@ export function getInvoiceItemDisplayRows(items: InvoiceItem[]): InvoiceItemDisp
     itemNumber: item.itemNumber?.trim() || '-',
     itemName: item.itemName,
     quantity: formatInvoiceQuantity(item.quantity),
-    amount: item.amount,
+    unitPrice: legacyUnitPrice(item),
+    amount: invoiceLineTotal(item),
   }));
 }
 
@@ -29,6 +32,7 @@ export function getInvoicePdfTableRows(items: InvoiceItem[]): string[][] {
     item.itemNumber,
     item.itemName,
     item.quantity,
+    `Rs ${item.unitPrice.toLocaleString('en-IN')}`,
     `Rs ${item.amount.toLocaleString('en-IN')}`,
   ]);
 }

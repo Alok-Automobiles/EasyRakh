@@ -34,6 +34,7 @@ import InvoiceItemsEditor, {
 import type { EditableInvoiceItem } from '@/components/InvoiceItemsEditor';
 import { Customer } from '@/lib/types';
 import { parseNumberInputOrZero } from '@/lib/number-input';
+import { format } from 'date-fns';
 
 interface CustomerWithId extends Customer {
   id: string;
@@ -55,7 +56,8 @@ function isBlankInvoiceItem(item: EditableInvoiceItem) {
     !item.itemNumber.trim() &&
     !item.itemName.trim() &&
     !hasNumericEntry(item.quantity, item.quantityInput) &&
-    !hasNumericEntry(item.amount, item.amountInput)
+    !hasNumericEntry(item.amount, item.amountInput) &&
+    item.unitCost === undefined
   );
 }
 
@@ -65,7 +67,10 @@ function isValidInvoiceItem(item: EditableInvoiceItem) {
     Number.isFinite(item.quantity) &&
     item.quantity > 0 &&
     Number.isFinite(item.amount) &&
-    item.amount > 0
+    item.amount > 0 &&
+    item.unitCost !== undefined &&
+    Number.isFinite(item.unitCost) &&
+    item.unitCost >= 0
   );
 }
 
@@ -74,6 +79,7 @@ export default function NewInvoicePage() {
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
   const hasFetchedRef = useRef(false);
+  const createRequestIdRef = useRef<string | null>(null);
 
   const [nextInvoiceNumber, setNextInvoiceNumber] = useState('');
 
@@ -95,10 +101,14 @@ export default function NewInvoicePage() {
 
   const [notes, setNotes] = useState('');
   const [addToLedger, setAddToLedger] = useState(false);
+  const [firmDetailsComplete, setFirmDetailsComplete] = useState(false);
 
   const customerDropdownRef = useRef<HTMLDivElement | null>(null);
 
-  const totalAmount = items.reduce((sum, item) => sum + (item.amount || 0), 0);
+  const totalAmount = items.reduce(
+    (sum, item) => sum + (item.quantity || 0) * (item.amount || 0),
+    0
+  );
 
   useEffect(() => {
     if (hasFetchedRef.current) return;
@@ -106,9 +116,10 @@ export default function NewInvoicePage() {
 
     const fetchData = async () => {
       try {
-        const [customersRes, invoiceNumRes] = await Promise.all([
+        const [customersRes, invoiceNumRes, userRes] = await Promise.all([
           fetch('/api/customers'),
           fetch('/api/invoices/next-number'),
+          fetch('/api/auth/me'),
         ]);
 
         if (customersRes.ok) {
@@ -119,6 +130,14 @@ export default function NewInvoicePage() {
         if (invoiceNumRes.ok) {
           const data = await invoiceNumRes.json();
           setNextInvoiceNumber(data.nextInvoiceNumber);
+        }
+
+        if (userRes.ok) {
+          const data = await userRes.json();
+          const user = data.user || {};
+          setFirmDetailsComplete(Boolean(
+            user.firmTitle && user.gstNumber && user.firmPhone && user.firmEmail && user.firmAddress
+          ));
         }
       } catch (error) {
         console.error('Failed to fetch initial data:', error);
@@ -234,15 +253,21 @@ export default function NewInvoicePage() {
       return;
     }
 
+    if (!firmDetailsComplete) {
+      toast.error('Complete and save your firm details before creating an invoice');
+      router.push('/profile?returnTo=/invoices/new');
+      return;
+    }
+
     const enteredItems = items.filter((item) => !isBlankInvoiceItem(item));
     if (enteredItems.length === 0) {
-      toast.error('At least one item with item name, quantity, and amount is required');
+      toast.error('At least one complete item with selling price and cost price is required');
       return;
     }
     const invalidItem = enteredItems.find((item) => !isValidInvoiceItem(item));
     if (invalidItem) {
       const rowNumber = items.findIndex((item) => item.id === invalidItem.id) + 1;
-      toast.error(`Complete item row ${rowNumber} with item name, quantity, and amount`);
+      toast.error(`Complete item row ${rowNumber}, including selling price and cost price`);
       return;
     }
 
@@ -255,6 +280,7 @@ export default function NewInvoicePage() {
 
     try {
       const payload = {
+        clientRequestId: createRequestIdRef.current || (createRequestIdRef.current = crypto.randomUUID()),
         customerId: selectedCustomer?.id,
         customerName: customerName.trim(),
         customerPhone: customerPhone.trim(),
@@ -264,9 +290,11 @@ export default function NewInvoicePage() {
           itemNumber: item.itemNumber.trim(),
           itemName: item.itemName.trim(),
           quantity: item.quantity,
-          amount: item.amount,
+          unitPrice: item.amount,
+          unitCost: item.unitCost,
         })),
         paidAmount,
+        paymentDate: format(new Date(), 'yyyy-MM-dd'),
         status,
         notes: notes.trim(),
         addToLedger,
@@ -285,6 +313,7 @@ export default function NewInvoicePage() {
       }
 
       const data = await response.json();
+      createRequestIdRef.current = null;
       toast.success('Invoice created successfully!');
       router.push(`/invoices/${data.invoice.id}`);
     } catch (error) {
@@ -303,6 +332,7 @@ export default function NewInvoicePage() {
     addToLedger,
     selectedCustomer,
     createNewCustomer,
+    firmDetailsComplete,
     router,
   ]);
 

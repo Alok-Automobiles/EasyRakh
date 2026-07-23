@@ -14,6 +14,7 @@ const suggestions = [
     itemName: 'BRAKE PAD',
     quantity: 8,
     unitOfMeasure: 'PCS',
+    buyingPrice: 450,
   },
   {
     id: '507f1f77bcf86cd799439017',
@@ -21,6 +22,7 @@ const suggestions = [
     itemName: 'BRAKE PAD PREMIUM',
     quantity: 3,
     unitOfMeasure: 'PCS',
+    buyingPrice: 700,
   },
 ];
 
@@ -59,7 +61,9 @@ describe('InvoiceItemsEditor', () => {
     expect(screen.getByText('Part Number')).toBeInTheDocument();
     expect(screen.getByText('Item Name')).toBeInTheDocument();
     expect(screen.getByText('Quantity')).toBeInTheDocument();
-    expect(screen.getByText('Amount')).toBeInTheDocument();
+    expect(screen.getByText('Selling Price')).toBeInTheDocument();
+    expect(screen.getByText('Cost Price')).toBeInTheDocument();
+    expect(screen.getByText('Line Total')).toBeInTheDocument();
   });
 
   it('autofills item name by selecting an inventory suggestion with the keyboard', async () => {
@@ -76,6 +80,7 @@ describe('InvoiceItemsEditor', () => {
       inventoryItemId: '507f1f77bcf86cd799439016',
       itemNumber: 'BP-104',
       itemName: 'BRAKE PAD',
+      unitCost: 450,
     });
   });
 
@@ -103,11 +108,11 @@ describe('InvoiceItemsEditor', () => {
     expect(partNumber).toHaveFocus();
   });
 
-  it('adds a new row from the last amount input using Enter', async () => {
+  it('adds a new row from the last cost-price input using Enter', async () => {
     const user = userEvent.setup();
     render(<EditorHarness />);
 
-    await user.click(screen.getByLabelText('Row 1 amount'));
+    await user.click(screen.getByLabelText('Row 1 cost price'));
     await user.keyboard('{Enter}');
 
     await waitFor(() => {

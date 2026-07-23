@@ -41,6 +41,10 @@ interface CashEntry {
   description: string;
   billUrl?: string;
   billPublicId?: string;
+  source?: 'manual' | 'invoice_payment';
+  invoiceId?: string;
+  invoiceNumber?: string;
+  paymentId?: string;
   createdAt: Date;
   updatedAt: Date;
 }
@@ -1150,26 +1154,16 @@ export default function DailyCashRecordPage() {
                                   <FileText className="h-3.5 w-3.5 stroke-[2.5px]" />
                                 </Button>
                               )}
-                              <Button
-                                size="sm"
-                                variant="outline"
-                                onClick={() => handleEditEntry(entry, viewingRecord)}
-                                aria-label="Edit entry"
-                                title="Edit entry"
-                                className="cash-record-icon-button h-7 w-7 rounded-lg border p-0 transition-colors"
-                              >
-                                <Edit2 className="h-3.5 w-3.5 stroke-[2.5px]" />
-                              </Button>
-                              <Button
-                                size="sm"
-                                variant="outline"
-                                onClick={() => handleRequestDeleteEntry(entry)}
-                                aria-label="Delete entry"
-                                title="Delete entry"
-                                className="cash-record-icon-button h-7 w-7 rounded-lg border p-0 text-red-600 transition-colors"
-                              >
-                                <Trash2 className="h-3.5 w-3.5 stroke-[2.5px]" />
-                              </Button>
+                              {entry.source === 'invoice_payment' && entry.invoiceId ? (
+                                <Button size="sm" variant="outline" onClick={() => router.push(`/invoices/${entry.invoiceId}`)} aria-label="Open invoice" title="Manage from invoice" className="cash-record-icon-button h-7 rounded-lg border px-2 text-[10px] transition-colors">
+                                  Invoice
+                                </Button>
+                              ) : (
+                                <>
+                                  <Button size="sm" variant="outline" onClick={() => handleEditEntry(entry, viewingRecord)} aria-label="Edit entry" title="Edit entry" className="cash-record-icon-button h-7 w-7 rounded-lg border p-0 transition-colors"><Edit2 className="h-3.5 w-3.5 stroke-[2.5px]" /></Button>
+                                  <Button size="sm" variant="outline" onClick={() => handleRequestDeleteEntry(entry)} aria-label="Delete entry" title="Delete entry" className="cash-record-icon-button h-7 w-7 rounded-lg border p-0 text-red-600 transition-colors"><Trash2 className="h-3.5 w-3.5 stroke-[2.5px]" /></Button>
+                                </>
+                              )}
                             </div>
                           </div>
                           
@@ -1241,28 +1235,18 @@ export default function DailyCashRecordPage() {
                                 )}
                               </TableCell>
                               <TableCell className="cash-record-table-cell px-3 py-3 text-center">
-                                <Button
-                                  size="sm"
-                                  variant="outline"
-                                  onClick={() => handleEditEntry(entry, viewingRecord)}
-                                  className="cash-record-icon-button h-7 w-7 rounded-lg border p-0 transition-colors"
-                                  title="Edit entry"
-                                  aria-label="Edit entry"
-                                >
-                                  <Edit2 className="h-3.5 w-3.5 stroke-[2.5px]" />
-                                </Button>
+                                {entry.source === 'invoice_payment' && entry.invoiceId ? (
+                                  <Button size="sm" variant="outline" onClick={() => router.push(`/invoices/${entry.invoiceId}`)} className="cash-record-icon-button h-7 rounded-lg border px-2 text-[10px] transition-colors" title="Manage from invoice" aria-label="Open invoice">Invoice</Button>
+                                ) : (
+                                  <Button size="sm" variant="outline" onClick={() => handleEditEntry(entry, viewingRecord)} className="cash-record-icon-button h-7 w-7 rounded-lg border p-0 transition-colors" title="Edit entry" aria-label="Edit entry"><Edit2 className="h-3.5 w-3.5 stroke-[2.5px]" /></Button>
+                                )}
                               </TableCell>
                               <TableCell className="cash-record-table-cell px-3 py-3 text-center">
-                                <Button
-                                  size="sm"
-                                  variant="outline"
-                                  onClick={() => handleRequestDeleteEntry(entry)}
-                                  className="cash-record-icon-button h-7 w-7 rounded-lg border p-0 text-red-600 transition-colors"
-                                  title="Delete entry"
-                                  aria-label="Delete entry"
-                                >
-                                  <Trash2 className="h-3.5 w-3.5 stroke-[2.5px]" />
-                                </Button>
+                                {entry.source === 'invoice_payment' ? (
+                                  <span className="text-[10px] text-gray-400">Locked</span>
+                                ) : (
+                                  <Button size="sm" variant="outline" onClick={() => handleRequestDeleteEntry(entry)} className="cash-record-icon-button h-7 w-7 rounded-lg border p-0 text-red-600 transition-colors" title="Delete entry" aria-label="Delete entry"><Trash2 className="h-3.5 w-3.5 stroke-[2.5px]" /></Button>
+                                )}
                               </TableCell>
                             </TableRow>
                           );

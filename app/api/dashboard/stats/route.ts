@@ -1,15 +1,30 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getDb } from '@/lib/mongodb';
 import { getUserIdFromRequest } from '@/lib/auth';
-import { subDays, format } from 'date-fns';
+import { format } from 'date-fns';
 import type { RecentActivity, Transaction } from '@/lib/types';
 import { ObjectId } from 'mongodb';
 import { ensureUserReadModels, type EntityBalance } from '@/lib/read-models';
 import { getCachedJson, requestCacheKey, setCachedJson } from '@/lib/cache-version';
+import { calculateInvoiceTotals } from '@/lib/invoice-calculations';
 
 const MONTH_REGEX = /^\d{4}-(0[1-9]|1[0-2])$/;
 const DATE_REGEX = /^\d{4}-(0[1-9]|1[0-2])-(0[1-9]|[12]\d|3[01])$/;
 const LOW_STOCK_THRESHOLD = 5;
+
+function parseUtcCalendarDate(value: string) {
+  if (!DATE_REGEX.test(value)) return null;
+  const [year, month, day] = value.split('-').map(Number);
+  const date = new Date(Date.UTC(year, month - 1, day, 0, 0, 0, 0));
+  if (
+    date.getUTCFullYear() !== year ||
+    date.getUTCMonth() !== month - 1 ||
+    date.getUTCDate() !== day
+  ) {
+    return null;
+  }
+  return date;
+}
 
 export async function GET(request: NextRequest) {
   try {
@@ -42,23 +57,28 @@ export async function GET(request: NextRequest) {
       rangeEnd = new Date(Date.UTC(y, m, 1, 0, 0, 0, 0));
       periodLabel = format(rangeStart, 'MMMM yyyy');
     } else if (fromParam && toParam) {
-      if (!DATE_REGEX.test(fromParam) || !DATE_REGEX.test(toParam)) {
+      const fromDate = parseUtcCalendarDate(fromParam);
+      const toDate = parseUtcCalendarDate(toParam);
+      if (!fromDate || !toDate) {
         return NextResponse.json(
           { error: 'Invalid date format. Use YYYY-MM-DD for from and to.' },
           { status: 400 }
         );
       }
-      const [fy, fm, fd] = fromParam.split('-').map(Number);
-      const [ty, tm, td] = toParam.split('-').map(Number);
-      rangeStart = new Date(Date.UTC(fy, fm - 1, fd, 0, 0, 0, 0));
-      rangeEnd = new Date(Date.UTC(ty, tm - 1, td + 1, 0, 0, 0, 0));
+      rangeStart = fromDate;
+      rangeEnd = new Date(Date.UTC(
+        toDate.getUTCFullYear(),
+        toDate.getUTCMonth(),
+        toDate.getUTCDate() + 1,
+        0, 0, 0, 0
+      ));
       if (rangeStart >= rangeEnd) {
         return NextResponse.json(
           { error: 'from must be before or equal to to.' },
           { status: 400 }
         );
       }
-      periodLabel = `${format(rangeStart, 'd MMM yyyy')} – ${format(new Date(ty, tm - 1, td), 'd MMM yyyy')}`;
+      periodLabel = `${format(rangeStart, 'd MMM yyyy')} – ${format(toDate, 'd MMM yyyy')}`;
     }
 
     const hasDateFilter = rangeStart !== null && rangeEnd !== null;
@@ -75,6 +95,7 @@ export async function GET(request: NextRequest) {
     const customEntitiesCollection = db.collection('customEntities');
     const transactionsCollection = db.collection<Transaction>('transactions');
     const dailyCashRecordsCollection = db.collection('dailyCashRecords');
+    const invoicesCollection = db.collection('invoices');
     const notesCollection = db.collection('notes');
     const entityBalancesCollection = db.collection<EntityBalance>('entityBalances');
 
@@ -85,11 +106,12 @@ export async function GET(request: NextRequest) {
     const now = new Date();
     const today = new Date(Date.UTC(now.getFullYear(), now.getMonth(), now.getDate(), 0, 0, 0, 0));
     const tomorrow = new Date(Date.UTC(today.getUTCFullYear(), today.getUTCMonth(), today.getUTCDate() + 1, 0, 0, 0, 0));
-    const thirtyDaysAgo = new Date(Date.UTC(now.getFullYear(), now.getMonth(), now.getDate() - 29, 0, 0, 0, 0));
     const currentMonthStart = new Date(Date.UTC(today.getUTCFullYear(), today.getUTCMonth(), 1, 0, 0, 0, 0));
+    const periodStart = rangeStart || currentMonthStart;
+    const periodEnd = rangeEnd || tomorrow;
     const dailyCashQuery = hasDateFilter
       ? { userId, date: { $gte: rangeStart!, $lt: rangeEnd! } }
-      : { userId, date: { $gte: thirtyDaysAgo, $lt: tomorrow } };
+      : { userId, date: { $gte: currentMonthStart, $lt: tomorrow } };
 
     const [
       summary,
@@ -99,6 +121,7 @@ export async function GET(request: NextRequest) {
       recentCustomers,
       recentSuppliers,
       recentDailyCashRecords,
+      periodInvoices,
       dashboardNotes,
     ] = await Promise.all([
       ensureUserReadModels(db, userId),
@@ -143,6 +166,22 @@ export async function GET(request: NextRequest) {
       dailyCashRecordsCollection
         .find(dailyCashQuery, { projection: { date: 1, totalIn: 1, totalOut: 1, totalLeft: 1 } })
         .sort({ date: 1 })
+        .toArray(),
+      invoicesCollection
+        .find(
+          { userId, createdAt: { $gte: periodStart, $lt: periodEnd } },
+          {
+            projection: {
+              totalAmount: 1,
+              totalCogs: 1,
+              costedSales: 1,
+              uncostedSales: 1,
+              missingCostItemCount: 1,
+              grossProfit: 1,
+              items: 1,
+            },
+          }
+        )
         .toArray(),
       notesCollection
         .find(
@@ -190,6 +229,41 @@ export async function GET(request: NextRequest) {
       totalLeft: todayRecord?.totalLeft || 0,
     };
 
+    const salesProfit = periodInvoices.reduce(
+      (acc, invoice) => {
+        const calculated = calculateInvoiceTotals(invoice.items || []);
+        const totalSales = Number(invoice.totalAmount ?? calculated.totalAmount ?? 0);
+        const totalCogs = Number(invoice.totalCogs ?? calculated.totalCogs ?? 0);
+        const costedSales = Number(invoice.costedSales ?? calculated.costedSales ?? 0);
+        const uncostedSales = Number(invoice.uncostedSales ?? calculated.uncostedSales ?? 0);
+        acc.totalSales += totalSales;
+        acc.totalCogs += totalCogs;
+        acc.costedSales += costedSales;
+        acc.uncostedSales += uncostedSales;
+        acc.missingCostItemCount += Number(
+          invoice.missingCostItemCount ?? calculated.missingCostItemCount ?? 0
+        );
+        return acc;
+      },
+      {
+        totalSales: 0,
+        totalCogs: 0,
+        costedSales: 0,
+        uncostedSales: 0,
+        missingCostItemCount: 0,
+        grossProfit: 0,
+        grossMargin: 0,
+      }
+    );
+    salesProfit.totalSales = Math.round(salesProfit.totalSales * 100) / 100;
+    salesProfit.totalCogs = Math.round(salesProfit.totalCogs * 100) / 100;
+    salesProfit.costedSales = Math.round(salesProfit.costedSales * 100) / 100;
+    salesProfit.uncostedSales = Math.round(salesProfit.uncostedSales * 100) / 100;
+    salesProfit.grossProfit = Math.round((salesProfit.costedSales - salesProfit.totalCogs) * 100) / 100;
+    salesProfit.grossMargin = salesProfit.costedSales > 0
+      ? Math.round((salesProfit.grossProfit / salesProfit.costedSales) * 10000) / 100
+      : 0;
+
     let monthlyRecords: typeof recentDailyCashRecords;
     let monthlyTotals: { totalIn: number; totalOut: number; totalLeft: number };
     let monthlySeries: { dateLabel: string; totalIn: number; totalOut: number; totalLeft: number }[];
@@ -236,8 +310,9 @@ export async function GET(request: NextRequest) {
         { totalIn: 0, totalOut: 0, totalLeft: 0 }
       );
       monthlySeries = [];
-      for (let i = 0; i < 30; i++) {
-        const day = normalizeToUTCStart(subDays(today, 29 - i));
+      const currentMonthDayCount = today.getUTCDate();
+      for (let i = 0; i < currentMonthDayCount; i++) {
+        const day = new Date(Date.UTC(today.getUTCFullYear(), today.getUTCMonth(), i + 1));
         const inRangeRecord = recordByDate.get(day.getTime());
         monthlySeries.push({
           dateLabel: day.toISOString(),
@@ -387,6 +462,7 @@ export async function GET(request: NextRequest) {
         todayCash,
         monthlyTotals,
         monthlySeries,
+        salesProfit,
         inventory: inventorySummary,
       },
       activities: topActivities,

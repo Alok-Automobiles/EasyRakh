@@ -17,6 +17,8 @@ export interface EditableInvoiceItem {
   quantityInput?: string;
   amount: number;
   amountInput?: string;
+  unitCost?: number;
+  unitCostInput?: string;
 }
 
 interface InventorySuggestion {
@@ -25,9 +27,10 @@ interface InventorySuggestion {
   itemName: string;
   quantity: number;
   unitOfMeasure: string;
+  buyingPrice: number | null;
 }
 
-type ItemField = 'itemNumber' | 'itemName' | 'quantity' | 'amount';
+type ItemField = 'itemNumber' | 'itemName' | 'quantity' | 'amount' | 'unitCost';
 
 interface InvoiceItemsEditorProps {
   items: EditableInvoiceItem[];
@@ -35,7 +38,7 @@ interface InvoiceItemsEditorProps {
   suggestionDelayMs?: number;
 }
 
-const itemFields: ItemField[] = ['itemNumber', 'itemName', 'quantity', 'amount'];
+const itemFields: ItemField[] = ['itemNumber', 'itemName', 'quantity', 'amount', 'unitCost'];
 
 export function createEmptyInvoiceItem(id = `${Date.now()}`): EditableInvoiceItem {
   return {
@@ -47,6 +50,8 @@ export function createEmptyInvoiceItem(id = `${Date.now()}`): EditableInvoiceIte
     quantityInput: '',
     amount: 0,
     amountInput: '',
+    unitCost: undefined,
+    unitCostInput: '',
   };
 }
 
@@ -248,6 +253,8 @@ export default function InvoiceItemsEditor({
         inventoryItemId: suggestion.id,
         itemNumber: suggestion.itemNumber,
         itemName: suggestion.itemName,
+        unitCost: suggestion.buyingPrice ?? undefined,
+        unitCostInput: suggestion.buyingPrice == null ? '' : String(suggestion.buyingPrice),
       });
       closeSuggestions();
       focusInput(itemId, 'quantity');
@@ -279,7 +286,7 @@ export default function InvoiceItemsEditor({
     updateItem(item.id, {
       itemNumber: value,
       inventoryItemId: undefined,
-      ...(item.inventoryItemId ? { itemName: '' } : {}),
+      ...(item.inventoryItemId ? { itemName: '', unitCost: undefined, unitCostInput: '' } : {}),
     });
     setActivePartInput({ itemId: item.id, query: value });
     window.requestAnimationFrame(updateSuggestionMenuPosition);
@@ -329,7 +336,7 @@ export default function InvoiceItemsEditor({
     }
 
     const isLastItem = items[items.length - 1]?.id === itemId;
-    if (field === 'amount' && isLastItem) {
+    if (field === 'unitCost' && isLastItem) {
       addItem();
       return;
     }
@@ -343,14 +350,16 @@ export default function InvoiceItemsEditor({
   return (
     <div ref={rootRef} className="rounded-lg border border-gray-200 bg-white">
       <div className="overflow-x-auto rounded-lg">
-        <table className="min-w-[900px] w-full border-collapse">
+        <table className="min-w-[1120px] w-full border-collapse">
           <thead>
             <tr className="border-b border-gray-200 bg-gray-50 text-left text-xs font-semibold uppercase text-gray-500">
               <th className="w-14 px-3 py-3">S.No</th>
               <th className="w-48 px-3 py-3">Part Number</th>
               <th className="px-3 py-3">Item Name</th>
               <th className="w-32 px-3 py-3">Quantity</th>
-              <th className="w-36 px-3 py-3">Amount</th>
+              <th className="w-36 px-3 py-3">Selling Price</th>
+              <th className="w-36 px-3 py-3">Cost Price</th>
+              <th className="w-36 px-3 py-3 text-right">Line Total</th>
               <th className="w-12 px-3 py-3" aria-label="Actions" />
             </tr>
           </thead>
@@ -435,6 +444,33 @@ export default function InvoiceItemsEditor({
                       aria-label={`Row ${index + 1} amount`}
                       className="h-9 bg-white text-right shadow-none"
                     />
+                  </td>
+                  <td className="px-3 py-3 align-middle">
+                    <Input
+                      ref={(node) => setInputRef(item.id, 'unitCost', node)}
+                      type="number"
+                      inputMode="decimal"
+                      min="0"
+                      step="0.01"
+                      value={item.unitCostInput !== undefined ? item.unitCostInput : item.unitCost ?? ''}
+                      onChange={(event) =>
+                        updateItem(item.id, {
+                          unitCostInput: event.target.value,
+                          unitCost: event.target.value.trim() === '' ? undefined : parseNumberInput(event.target.value),
+                        })
+                      }
+                      onKeyDown={(event) => handleKeyDown(item.id, 'unitCost', event)}
+                      placeholder="Required"
+                      aria-label={`Row ${index + 1} cost price`}
+                      className={`h-9 bg-white text-right shadow-none ${item.unitCost === undefined ? 'border-amber-300' : ''}`}
+                    />
+                  </td>
+                  <td className="px-3 py-3 text-right align-middle font-semibold text-gray-900">
+                    {(item.quantity * item.amount).toLocaleString('en-IN', {
+                      style: 'currency',
+                      currency: 'INR',
+                      maximumFractionDigits: 2,
+                    })}
                   </td>
                   <td className="px-3 py-3 align-middle">
                     <Button
