@@ -28,6 +28,10 @@ import { ASSISTANT_DATA_UPDATED_EVENT } from '@/lib/assistant-events';
 import Image from 'next/image';
 import { compressImage, isCompressibleImage, formatFileSize } from '@/lib/imageCompression';
 import { motion } from 'motion/react'
+import {
+  getDailyCashBillViewUrl,
+  isPdfBillAttachment,
+} from '@/lib/bill-attachments';
 
 const MAX_BILL_SIZE_BYTES = 5 * 1024 * 1024; // 5MB
 const ACCEPTED_BILL_TYPES = [
@@ -122,6 +126,7 @@ export default function DailyCashRecordPage() {
   // Bill view modal state
   const [billViewOpen, setBillViewOpen] = useState(false);
   const [billViewUrl, setBillViewUrl] = useState<string>('');
+  const [billViewIsPdf, setBillViewIsPdf] = useState(false);
 
   const resetBillState = () => {
     setBillPreviewUrl('');
@@ -130,6 +135,12 @@ export default function DailyCashRecordPage() {
     setBillUploading(false);
     if (billFileInputRef.current) billFileInputRef.current.value = '';
   };
+
+  const openBillAttachment = useCallback((recordId: string, entry: CashEntry) => {
+    setBillViewUrl(getDailyCashBillViewUrl(recordId, entry));
+    setBillViewIsPdf(isPdfBillAttachment(entry));
+    setBillViewOpen(true);
+  }, []);
 
   const handleBillFileSelect = async (e: ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -1146,7 +1157,7 @@ export default function DailyCashRecordPage() {
                                 <Button
                                   size="sm"
                                   variant="outline"
-                                  onClick={() => { setBillViewUrl(entry.billUrl!); setBillViewOpen(true); }}
+                                  onClick={() => openBillAttachment(viewingRecord.id, entry)}
                                   aria-label="View bill"
                                   title="View bill"
                                   className="cash-record-icon-button h-7 w-7 rounded-lg border p-0 transition-colors"
@@ -1223,7 +1234,7 @@ export default function DailyCashRecordPage() {
                                   <Button
                                     size="sm"
                                     variant="outline"
-                                    onClick={() => { setBillViewUrl(entry.billUrl!); setBillViewOpen(true); }}
+                                    onClick={() => openBillAttachment(viewingRecord.id, entry)}
                                     className="cash-record-icon-button h-7 w-7 rounded-lg border p-0 transition-colors"
                                     title="View bill"
                                     aria-label="View bill"
@@ -1584,26 +1595,28 @@ export default function DailyCashRecordPage() {
         </Dialog>
 
         {/* Bill View Modal */}
-        <Dialog open={billViewOpen} onOpenChange={setBillViewOpen}>
-          <DialogContent className="sm:max-w-xl">
+        <Dialog
+          open={billViewOpen}
+          onOpenChange={(open) => {
+            setBillViewOpen(open);
+            if (!open) {
+              setBillViewUrl('');
+              setBillViewIsPdf(false);
+            }
+          }}
+        >
+          <DialogContent className="max-w-[95vw] sm:max-w-4xl">
             <DialogHeader>
               <DialogTitle>Bill Attachment</DialogTitle>
             </DialogHeader>
             <div className="space-y-4">
               {billViewUrl ? (
-                billViewUrl.toLowerCase().includes('.pdf') ? (
-                  <div className="rounded border border-dashed p-4 text-sm text-gray-700 text-center">
-                    <FileText className="h-8 w-8 text-red-500 mx-auto mb-2" />
-                    <p>Bill is a PDF document.</p>
-                    <a
-                      href={billViewUrl}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="text-blue-600 hover:underline text-sm mt-2 inline-block"
-                    >
-                      Open PDF in new tab
-                    </a>
-                  </div>
+                billViewIsPdf ? (
+                  <iframe
+                    src={billViewUrl}
+                    title="Bill PDF"
+                    className="h-[70vh] w-full rounded-md border bg-white"
+                  />
                 ) : (
                   <Image
                     src={billViewUrl}
