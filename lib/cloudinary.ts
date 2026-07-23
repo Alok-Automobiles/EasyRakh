@@ -40,3 +40,22 @@ export async function uploadBuffer(
 export async function deleteAsset(publicId: string, resourceType: CloudinaryResourceType = 'image') {
   await cloudinary.uploader.destroy(publicId, { resource_type: resourceType });
 }
+
+export async function downloadRawAsset(publicId: string) {
+  const expiresAt = Math.floor(Date.now() / 1000) + 60;
+  const downloadUrl = cloudinary.utils.private_download_url(publicId, '', {
+    resource_type: 'raw',
+    type: 'upload',
+    expires_at: expiresAt,
+  });
+  const response = await fetch(downloadUrl, { cache: 'no-store' });
+
+  if (!response.ok) {
+    throw new Error(`Cloudinary download failed with status ${response.status}`);
+  }
+
+  return {
+    buffer: Buffer.from(await response.arrayBuffer()),
+    contentType: response.headers.get('content-type') || 'application/octet-stream',
+  };
+}
