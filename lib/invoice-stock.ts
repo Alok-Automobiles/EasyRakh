@@ -148,35 +148,35 @@ async function getInventoryLookups(
   }
 
   const projection = { _id: 1, itemName: 1, itemNumber: 1, quantity: 1, buyingPrice: 1, createdAt: 1, updatedAt: 1, lastQuantityUpdatedAt: 1 };
-  const [itemsById, itemsByNumber] = await Promise.all([
-    ids.size > 0
-      ? inventoryCollection
-          .find(
-            {
-              _id: { $in: Array.from(ids, (id) => new ObjectId(id)) },
-              userId,
-            },
-            { projection, session }
-          )
-          .toArray()
-      : Promise.resolve([]),
-    itemNumbers.size > 0
-      ? inventoryCollection
-          .find(
-            {
-              userId,
-              itemNumberKey: { $in: Array.from(itemNumbers) },
-            },
-            { projection, session }
-          )
-          .toArray()
-      : Promise.resolve([]),
-  ]);
+  const lookupFilters: Record<string, unknown>[] = [];
+
+  if (ids.size > 0) {
+    lookupFilters.push({
+      _id: { $in: Array.from(ids, (id) => new ObjectId(id)) },
+    });
+  }
+  if (itemNumbers.size > 0) {
+    lookupFilters.push({
+      itemNumberKey: { $in: Array.from(itemNumbers) },
+    });
+  }
+
+  const inventoryItems = lookupFilters.length > 0
+    ? await inventoryCollection
+        .find(
+          {
+            userId,
+            $or: lookupFilters,
+          },
+          { projection, session }
+        )
+        .toArray()
+    : [];
 
   return {
-    byId: new Map(itemsById.map((item) => [item._id.toString(), item])),
+    byId: new Map(inventoryItems.map((item) => [item._id.toString(), item])),
     byNumber: new Map(
-      itemsByNumber
+      inventoryItems
         .filter((item) => item.itemNumber)
         .map((item) => [normalizeIdentifier(item.itemNumber), item])
     ),

@@ -335,6 +335,96 @@ describe('/api/invoices stock sync', () => {
     );
   });
 
+  it('creates an invoice with linked stock and a manual item that has a part number', async () => {
+    const linkedInventoryItem = {
+      _id: objectIdLike(ids.inventory),
+      itemNumber: 'F 002 H27 738-4AR',
+      itemName: 'DIESEL FILTER SET OF 2 1/2 LITRE',
+      quantity: 61,
+      buyingPrice: 130,
+    };
+    const invoiceFind = invoiceFindChain();
+    const insertOne = vi.fn().mockResolvedValue({
+      insertedId: objectIdLike('507f1f77bcf86cd799439099'),
+    });
+    const inventoryLookup = inventoryFindChain([linkedInventoryItem]);
+    const inventory = {
+      find: inventoryLookup.find,
+      findOne: vi.fn(),
+      findOneAndUpdate: vi.fn().mockResolvedValue({
+        ...linkedInventoryItem,
+        quantity: 60,
+      }),
+    };
+    mocks.getDb.mockResolvedValue(
+      dbWithCollections({
+        invoices: { find: invoiceFind.find, insertOne },
+        customers: {},
+        transactions: {},
+        inventory,
+      })
+    );
+
+    const { POST } = await import('@/app/api/invoices/route');
+    const response = await POST(jsonRequest(
+      'http://localhost/api/invoices',
+      createBody([
+        {
+          inventoryItemId: ids.inventory,
+          itemNumber: 'F 002 H27 738-4AR',
+          itemName: 'DIESEL FILTER SET OF 2 1/2 LITRE',
+          quantity: 1,
+          unitPrice: 170,
+          unitCost: 130,
+        },
+        {
+          itemNumber: 'tmacvfs001',
+          itemName: 'gilasi',
+          quantity: 1,
+          unitPrice: 150,
+          unitCost: 105,
+        },
+      ])
+    ));
+
+    expect(response.status).toBe(201);
+    expect(inventoryLookup.find).toHaveBeenCalledTimes(1);
+    expect(inventoryLookup.find).toHaveBeenCalledWith(
+      {
+        userId: ids.user,
+        $or: [
+          { _id: { $in: [expect.any(Object)] } },
+          { itemNumberKey: { $in: ['TMACVFS001'] } },
+        ],
+      },
+      expect.objectContaining({ session: mocks.session })
+    );
+    expect(inventory.findOneAndUpdate).toHaveBeenCalledTimes(1);
+    expect(insertOne).toHaveBeenCalledWith(
+      expect.objectContaining({
+        items: [
+          expect.objectContaining({
+            inventoryItemId: ids.inventory,
+            itemNumber: 'F 002 H27 738-4AR',
+            unitPrice: 170,
+            unitCost: 130,
+          }),
+          expect.objectContaining({
+            itemNumber: 'tmacvfs001',
+            itemName: 'gilasi',
+            unitPrice: 150,
+            unitCost: 105,
+          }),
+        ],
+        totalAmount: 320,
+        totalCogs: 235,
+        grossProfit: 85,
+      }),
+      { session: mocks.session }
+    );
+    expect(insertOne.mock.calls[0][0].items[1]).not.toHaveProperty('inventoryItemId');
+  });
+
   it('returns an already-created invoice for a repeated client request id', async () => {
     const existingInvoice = {
       _id: objectIdLike(ids.transaction),
