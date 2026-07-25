@@ -84,6 +84,7 @@ export default function InvoicesPage() {
   const [searchQuery, setSearchQuery] = useState('');
   const [statusFilter, setStatusFilter] = useState<string>('all');
   const [currentPage, setCurrentPage] = useState(1);
+  const [downloadingInvoiceId, setDownloadingInvoiceId] = useState<string | null>(null);
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [deletingInvoice, setDeletingInvoice] = useState<{ id: string; invoiceNumber: string; addedToLedger: boolean } | null>(null);
   const [deleteTransactions, setDeleteTransactions] = useState(false);
@@ -163,6 +164,48 @@ export default function InvoicesPage() {
   const handleDelete = () => {
     if (!deletingInvoice) return;
     deleteMutation.mutate({ id: deletingInvoice.id, deleteTransactions });
+  };
+
+  const handleDownload = async (invoice: InvoiceWithId) => {
+    setDownloadingInvoiceId(invoice.id);
+
+    try {
+      const response = await fetch(`/api/invoices/${invoice.id}/download`);
+
+      if (response.status === 401) {
+        router.push('/login');
+        return;
+      }
+
+      if (response.status === 409) {
+        const result = await response.json().catch(() => ({}));
+        if (result.code === 'FIRM_DETAILS_REQUIRED') {
+          router.push(`/invoices/${invoice.id}?download=true`);
+          return;
+        }
+      }
+
+      if (!response.ok) {
+        const result = await response.json().catch(() => ({}));
+        throw new Error(result.error || 'Failed to download invoice');
+      }
+
+      const pdfBlob = await response.blob();
+      const downloadUrl = URL.createObjectURL(pdfBlob);
+      const link = document.createElement('a');
+      link.href = downloadUrl;
+      link.download = `${invoice.invoiceNumber.replace(/[^a-z0-9_-]/gi, '-')}.pdf`;
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+      window.setTimeout(() => URL.revokeObjectURL(downloadUrl), 0);
+      toast.success('Invoice downloaded');
+    } catch (error) {
+      console.error('Failed to download invoice:', error);
+      toast.error(error instanceof Error ? error.message : 'Failed to download invoice');
+    } finally {
+      setDownloadingInvoiceId(null);
+    }
   };
 
   const handlePageClick = (page: number) => {
@@ -352,11 +395,11 @@ export default function InvoicesPage() {
                           size="icon"
                           className="h-9 w-9"
                           title="Download PDF"
-                          asChild
+                          aria-label={`Download invoice ${invoice.invoiceNumber}`}
+                          disabled={downloadingInvoiceId === invoice.id}
+                          onClick={() => handleDownload(invoice)}
                         >
-                          <Link href={`/invoices/${invoice.id}?download=true`}>
-                            <Download className="w-4 h-4" />
-                          </Link>
+                          <Download className="w-4 h-4" />
                         </Button>
                         <Button
                           variant="outline"
