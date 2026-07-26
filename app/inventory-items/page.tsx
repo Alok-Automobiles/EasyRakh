@@ -54,6 +54,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { Label } from '@/components/ui/label';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Badge } from '@/components/ui/badge';
+import { Pagination } from '@/components/ui/pagination';
 import {
   Dialog,
   DialogContent,
@@ -2222,56 +2223,12 @@ export default function InventoryItemsPage() {
           )}
 
           {pagination && pagination.totalPages > 1 && (
-            <div className="grid grid-cols-[auto_minmax(0,1fr)_auto] items-center gap-2 overflow-hidden rounded-lg border border-gray-200 bg-white px-2 py-2 sm:px-3 sm:py-3">
-              <Button
-                variant="outline"
-                size="sm"
-                className="h-9 w-9 border-gray-300 p-0 sm:w-auto sm:px-3"
-                disabled={currentPage <= 1}
-                onClick={() => setCurrentPage((page) => Math.max(page - 1, 1))}
-                aria-label="Previous page"
-              >
-                <ChevronLeft className="h-4 w-4 sm:hidden" />
-                <span className="hidden sm:inline">Previous</span>
-              </Button>
-              <div className="min-w-0 overflow-x-auto hide-scrollbar">
-                <div className="mx-auto flex w-max items-center gap-1 px-1">
-                  {Array.from({ length: Math.min(pagination.totalPages, 5) }, (_, index) => {
-                    let page = index + 1;
-                    if (pagination.totalPages > 5 && currentPage > 3) {
-                      page = Math.min(currentPage - 2 + index, pagination.totalPages - 4 + index);
-                    }
-                    return (
-                      <Button
-                        key={page}
-                        variant={currentPage === page ? 'default' : 'outline'}
-                        size="sm"
-                        className={`h-9 min-w-9 px-3 ${
-                          currentPage === page
-                            ? 'bg-slate-900 text-white hover:bg-slate-800'
-                            : 'border-gray-300'
-                        }`}
-                        onClick={() => setCurrentPage(page)}
-                        aria-current={currentPage === page ? 'page' : undefined}
-                      >
-                        {page}
-                      </Button>
-                    );
-                  })}
-                </div>
-              </div>
-              <Button
-                variant="outline"
-                size="sm"
-                className="h-9 w-9 border-gray-300 p-0 sm:w-auto sm:px-3"
-                disabled={currentPage >= pagination.totalPages}
-                onClick={() => setCurrentPage((page) => Math.min(page + 1, pagination.totalPages))}
-                aria-label="Next page"
-              >
-                <span className="hidden sm:inline">Next</span>
-                <ChevronRight className="h-4 w-4 sm:hidden" />
-              </Button>
-            </div>
+            <Pagination
+              currentPage={currentPage}
+              totalPages={pagination.totalPages}
+              onPageChange={setCurrentPage}
+              className="rounded-lg border border-gray-200 bg-white px-2 py-3 sm:px-3"
+            />
           )}
         </>
       )}

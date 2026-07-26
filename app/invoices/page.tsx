@@ -23,6 +23,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Badge } from '@/components/ui/badge';
+import { Pagination } from '@/components/ui/pagination';
 import {
   Select,
   SelectContent,
@@ -205,22 +206,6 @@ export default function InvoicesPage() {
       toast.error(error instanceof Error ? error.message : 'Failed to download invoice');
     } finally {
       setDownloadingInvoiceId(null);
-    }
-  };
-
-  const handlePageClick = (page: number) => {
-    setCurrentPage(page);
-  };
-
-  const handlePreviousPage = () => {
-    if (currentPage > 1) {
-      setCurrentPage(currentPage - 1);
-    }
-  };
-
-  const handleNextPage = () => {
-    if (data?.pagination && currentPage < data.pagination.totalPages) {
-      setCurrentPage(currentPage + 1);
     }
   };
 
@@ -432,51 +417,12 @@ export default function InvoicesPage() {
 
         {/* Pagination */}
         {data?.pagination && data.pagination.totalPages > 1 && (
-          <div className="mt-6 flex items-center justify-between">
-            <Button
-              onClick={handlePreviousPage}
-              disabled={currentPage === 1}
-              variant="outline"
-              size="sm"
-              className="border-gray-300"
-            >
-              Previous
-            </Button>
-            <div className="flex items-center gap-1.5">
-              {Array.from({ length: Math.min(data.pagination.totalPages, 5) }, (_, i) => {
-                let page: number;
-                if (data.pagination.totalPages <= 5) {
-                  page = i + 1;
-                } else if (currentPage <= 3) {
-                  page = i + 1;
-                } else if (currentPage >= data.pagination.totalPages - 2) {
-                  page = data.pagination.totalPages - 4 + i;
-                } else {
-                  page = currentPage - 2 + i;
-                }
-                return (
-                  <Button
-                    key={page}
-                    onClick={() => handlePageClick(page)}
-                    variant={currentPage === page ? 'default' : 'outline'}
-                    size="sm"
-                    className={`min-w-[36px] ${currentPage !== page ? 'border-gray-300' : ''}`}
-                  >
-                    {page}
-                  </Button>
-                );
-              })}
-            </div>
-            <Button
-              onClick={handleNextPage}
-              disabled={currentPage >= (data.pagination?.totalPages ?? 1)}
-              variant="outline"
-              size="sm"
-              className="border-gray-300"
-            >
-              Next
-            </Button>
-          </div>
+          <Pagination
+            currentPage={currentPage}
+            totalPages={data.pagination.totalPages}
+            onPageChange={setCurrentPage}
+            className="mt-6"
+          />
         )}
 
         {/* Delete Confirmation Dialog */}
