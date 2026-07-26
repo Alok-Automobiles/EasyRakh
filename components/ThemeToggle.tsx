@@ -34,7 +34,7 @@ export default function ThemeToggle({ className, surface = 'default' }: ThemeTog
         duration={500}
         variant="circle"
         className={cn(
-          'inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-full border border-white/20 bg-white/10 text-white transition-colors hover:bg-white/20 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/70 [&_svg]:h-4 [&_svg]:w-4',
+          'auth-theme-toggle inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-full border transition-colors focus-visible:outline-none focus-visible:ring-2 [&_svg]:h-4 [&_svg]:w-4',
           className,
         )}
       />

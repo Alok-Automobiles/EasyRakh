@@ -10,14 +10,12 @@ type MainContentProps = {
 export default function MainContent({ children, sidebarCollapsed = false }: MainContentProps) {
   const pathname = usePathname();
   
-  const isAuthPage = pathname === '/login' || pathname === '/register' || pathname === '/';
+  const isAuthPage = pathname === '/login' || pathname === '/register';
   
   if (isAuthPage) {
     return (
       <main className="min-h-screen bg-background text-foreground overflow-x-hidden w-full">
-        <div className="mx-auto w-full max-w-7xl px-4 py-6 sm:px-6 lg:px-8">
-          {children}
-        </div>
+        {children}
       </main>
     );
   }

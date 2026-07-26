@@ -308,6 +308,241 @@
   pointer-events: none;
 }
 
+/* Authentication product-preview background */
+.auth-visual-grid {
+  background-image:
+    linear-gradient(rgb(255 255 255 / 0.045) 1px, transparent 1px),
+    linear-gradient(90deg, rgb(255 255 255 / 0.045) 1px, transparent 1px);
+  background-size: 44px 44px;
+  mask-image: linear-gradient(to bottom, black, transparent 92%);
+}
+
+.app-ui .auth-visual-panel {
+  background: #073b31 !important;
+  color: #ffffff;
+}
+
+.app-ui .auth-visual-panel h2 {
+  color: #ffffff !important;
+}
+
+.auth-visual-serif {
+  font-family: Georgia, 'Times New Roman', serif;
+  font-style: italic;
+  font-weight: 400;
+  letter-spacing: -0.055em;
+}
+
+@keyframes auth-live-pulse {
+  0%, 100% {
+    box-shadow: 0 0 0 0 rgb(185 255 133 / 0.34);
+    opacity: 1;
+  }
+  50% {
+    box-shadow: 0 0 0 7px rgb(185 255 133 / 0);
+    opacity: 0.66;
+  }
+}
+
+@keyframes auth-growth-ribbon {
+  from {
+    stroke-dashoffset: 0;
+  }
+  to {
+    stroke-dashoffset: -160;
+  }
+}
+
+@keyframes auth-growth-ribbon-breathe {
+  0%, 100% {
+    opacity: 0.35;
+    stroke-width: 28;
+  }
+  50% {
+    opacity: 0.78;
+    stroke-width: 42;
+  }
+}
+
+@keyframes auth-growth-glow {
+  0%, 100% {
+    opacity: 0.42;
+    transform: translate(-12px, 12px) scale(0.9);
+  }
+  50% {
+    opacity: 0.88;
+    transform: translate(48px, -20px) scale(1.18);
+  }
+}
+
+@keyframes auth-growth-disc {
+  0%, 100% {
+    filter: hue-rotate(0deg);
+    opacity: 0.42;
+    transform: translate(-8px, -50%) rotate(62deg) scale(0.74);
+  }
+  50% {
+    filter: hue-rotate(20deg);
+    opacity: 0.95;
+    transform: translate(10px, -58%) rotate(78deg) scale(1.06);
+  }
+}
+
+@keyframes auth-ecosystem-goal {
+  0%, 100% {
+    transform: translate3d(0, 0, 0) rotate(-1deg);
+  }
+  50% {
+    transform: translate3d(4px, -8px, 0) rotate(1deg);
+  }
+}
+
+@keyframes auth-ecosystem-invoice {
+  0%, 100% {
+    transform: translate3d(0, 0, 0) rotate(0.5deg);
+  }
+  50% {
+    transform: translate3d(-7px, 8px, 0) rotate(-0.8deg);
+  }
+}
+
+@keyframes auth-ecosystem-stock {
+  0%, 100% {
+    transform: translate3d(0, 0, 0);
+  }
+  50% {
+    transform: translate3d(7px, -6px, 0);
+  }
+}
+
+@keyframes auth-ecosystem-customer {
+  0%, 100% {
+    transform: translate3d(0, 0, 0) rotate(1deg);
+  }
+  50% {
+    transform: translate3d(-4px, -9px, 0) rotate(-1deg);
+  }
+}
+
+@keyframes auth-goal-orbit {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+@keyframes auth-invoice-feed {
+  0%, 12% {
+    transform: translateY(0);
+  }
+  88%, 100% {
+    transform: translateY(-50%);
+  }
+}
+
+@keyframes auth-stock-bar {
+  0%, 100% {
+    opacity: 0.32;
+    transform: scaleY(0.38);
+  }
+  50% {
+    opacity: 1;
+    transform: scaleY(1);
+  }
+}
+
+@keyframes auth-growth-ticker {
+  from {
+    transform: translateX(0);
+  }
+  to {
+    transform: translateX(-50%);
+  }
+}
+
+@keyframes auth-growth-mode {
+  0%, 100% {
+    border-color: rgb(255 255 255 / 0.1);
+    transform: translateY(0);
+  }
+  50% {
+    border-color: rgb(185 255 133 / 0.35);
+    transform: translateY(2px);
+  }
+}
+
+.auth-live-dot {
+  animation: auth-live-pulse 1.8s ease-out infinite;
+}
+
+.auth-growth-ribbon {
+  stroke-dasharray: 12 18;
+  animation: auth-growth-ribbon 8s linear infinite;
+}
+
+.auth-growth-ribbon-back {
+  stroke-dasharray: none;
+  animation: auth-growth-ribbon-breathe 7s ease-in-out infinite;
+}
+
+.auth-growth-glow {
+  animation: auth-growth-glow 8s ease-in-out infinite;
+}
+
+.auth-growth-disc {
+  animation: auth-growth-disc 4.8s ease-in-out infinite;
+  will-change: transform, opacity;
+}
+
+.auth-goal-card {
+  animation: auth-ecosystem-goal 6.2s ease-in-out infinite;
+}
+
+.auth-invoice-card {
+  animation: auth-ecosystem-invoice 7.4s ease-in-out infinite;
+}
+
+.auth-stock-card {
+  animation: auth-ecosystem-stock 5.6s ease-in-out infinite;
+}
+
+.auth-customer-card {
+  animation: auth-ecosystem-customer 6.8s ease-in-out infinite;
+}
+
+.auth-goal-orbit::before {
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  background: conic-gradient(#b9ff85 0 68%, rgb(255 255 255 / 0.1) 68% 100%);
+  content: '';
+  animation: auth-goal-orbit 8s linear infinite;
+}
+
+.auth-goal-orbit::after {
+  position: absolute;
+  inset: 3px;
+  border-radius: inherit;
+  background: #0b4236;
+  content: '';
+}
+
+.auth-invoice-feed {
+  animation: auth-invoice-feed 10s ease-in-out infinite;
+}
+
+.auth-stock-bar {
+  transform-origin: bottom;
+  animation: auth-stock-bar 2.2s ease-in-out infinite;
+}
+
+.auth-growth-ticker {
+  animation: auth-growth-ticker 22s linear infinite;
+}
+
+.auth-growth-mode {
+  animation: auth-growth-mode 3s ease-in-out infinite;
+}
+
 /* Animated Gradient Orbs */
 @keyframes float-slow {
   0%, 100% {
@@ -2649,6 +2884,221 @@
 
 [data-slot="calendar"] .rdp-chevron {
   fill: currentColor;
+}
+
+/* Kinetic authentication stage, inspired by editorial ASCII motion systems. */
+.app-ui .auth-kinetic-page {
+  --auth-accent: #087a52;
+  --auth-accent-hover: #056642;
+  --auth-bg: #e9f1eb;
+  --auth-border: rgb(18 52 39 / 0.16);
+  --auth-board: rgb(255 255 255 / 0.36);
+  --auth-button-text: #f7fff9;
+  --auth-faint: rgb(18 43 33 / 0.38);
+  --auth-input: rgb(255 255 255 / 0.72);
+  --auth-input-border: rgb(18 52 39 / 0.24);
+  --auth-muted: rgb(18 43 33 / 0.58);
+  --auth-panel: rgb(248 251 248 / 0.9);
+  --auth-particle-primary: 8 122 82;
+  --auth-particle-secondary: 34 91 69;
+  --auth-stage: #e3ede6;
+  --auth-text: #10271e;
+  --auth-vignette-edge: #e3ede6;
+  --auth-vignette-soft: rgb(227 237 230 / 0.2);
+  background: var(--auth-bg) !important;
+  color: var(--auth-text) !important;
+  transition: background-color 300ms ease, color 300ms ease;
+}
+
+.dark .app-ui .auth-kinetic-page {
+  --auth-accent: #59dea7;
+  --auth-accent-hover: #84ebc0;
+  --auth-bg: #050505;
+  --auth-border: rgb(255 255 255 / 0.12);
+  --auth-board: rgb(0 0 0 / 0.2);
+  --auth-button-text: #03150e;
+  --auth-faint: rgb(255 255 255 / 0.34);
+  --auth-input: rgb(12 12 12 / 0.88);
+  --auth-input-border: #333333;
+  --auth-muted: rgb(255 255 255 / 0.48);
+  --auth-panel: rgb(0 0 0 / 0.78);
+  --auth-particle-primary: 89 222 167;
+  --auth-particle-secondary: 220 255 238;
+  --auth-stage: #050505;
+  --auth-text: #ffffff;
+  --auth-vignette-edge: #050505;
+  --auth-vignette-soft: rgb(5 5 5 / 0.16);
+}
+
+.auth-particle-vignette {
+  background:
+    radial-gradient(circle at 45% 50%, transparent 0 22%, var(--auth-vignette-soft) 58%, var(--auth-vignette-edge) 100%),
+    linear-gradient(90deg, transparent 55%, var(--auth-vignette-soft) 78%, var(--auth-vignette-edge) 100%);
+}
+
+.app-ui .auth-kinetic-stage {
+  background: var(--auth-stage) !important;
+  border-color: var(--auth-border) !important;
+  transition: background-color 300ms ease, border-color 300ms ease;
+}
+
+.app-ui .auth-kinetic-stage h2,
+.app-ui .auth-kinetic-form h1 {
+  color: var(--auth-text) !important;
+}
+
+.app-ui .auth-kinetic-brand {
+  color: var(--auth-text) !important;
+}
+
+.app-ui .auth-form-meta {
+  color: var(--auth-faint) !important;
+}
+
+.app-ui .auth-accent-link,
+.app-ui .auth-form-eyebrow {
+  color: var(--auth-accent) !important;
+}
+
+.app-ui .auth-eyebrow-line {
+  background: var(--auth-accent) !important;
+}
+
+.app-ui .auth-kinetic-form {
+  background: var(--auth-panel) !important;
+  border-color: var(--auth-border) !important;
+  color: var(--auth-text) !important;
+  transition: background-color 300ms ease, border-color 300ms ease, color 300ms ease;
+}
+
+.app-ui .auth-form-topline,
+.app-ui .auth-form-footer {
+  border-color: var(--auth-border) !important;
+}
+
+.app-ui .auth-form-alternate,
+.app-ui .auth-form-description {
+  color: var(--auth-muted) !important;
+}
+
+.app-ui .auth-form-footer {
+  color: var(--auth-faint) !important;
+}
+
+.app-ui .auth-footer-link:hover {
+  color: var(--auth-text) !important;
+}
+
+.app-ui .auth-home-link {
+  border-color: var(--auth-border) !important;
+  color: var(--auth-muted) !important;
+}
+
+.app-ui .auth-home-link:hover {
+  border-color: var(--auth-accent) !important;
+  color: var(--auth-accent) !important;
+}
+
+.app-ui .auth-kinetic-form input,
+.app-ui .auth-kinetic-form textarea {
+  background-color: var(--auth-input) !important;
+  border: 1px solid var(--auth-input-border) !important;
+  border-radius: 0 !important;
+  color-scheme: light !important;
+  color: var(--auth-text) !important;
+}
+
+.app-ui .auth-kinetic-form input::placeholder,
+.app-ui .auth-kinetic-form textarea::placeholder {
+  color: var(--auth-faint) !important;
+}
+
+.dark .app-ui .auth-kinetic-form input,
+.dark .app-ui .auth-kinetic-form textarea {
+  color-scheme: dark !important;
+}
+
+.app-ui .auth-kinetic-form input:focus,
+.app-ui .auth-kinetic-form textarea:focus {
+  border-color: var(--auth-accent) !important;
+  box-shadow: 0 0 0 1px var(--auth-accent) !important;
+}
+
+.app-ui .auth-kinetic-form [data-slot="button"][data-variant="default"] {
+  background: var(--auth-accent) !important;
+  border-radius: 0 !important;
+  color: var(--auth-button-text) !important;
+}
+
+.app-ui .auth-kinetic-form [data-slot="button"][data-variant="default"]:hover {
+  background: var(--auth-accent-hover) !important;
+}
+
+.app-ui .auth-kinetic-form label {
+  color: var(--auth-text) !important;
+}
+
+.app-ui .auth-kinetic-form .text-muted-foreground {
+  color: var(--auth-muted) !important;
+}
+
+.app-ui .auth-kinetic-form .text-foreground {
+  color: var(--auth-text) !important;
+}
+
+.app-ui .auth-kinetic-form .text-primary {
+  color: var(--auth-accent) !important;
+}
+
+.app-ui .auth-kinetic-form .border-primary {
+  border-color: var(--auth-accent) !important;
+}
+
+.app-ui .auth-kinetic-form .bg-primary {
+  background: var(--auth-accent) !important;
+}
+
+.app-ui .auth-kinetic-form details {
+  background: var(--auth-board) !important;
+  border-color: var(--auth-border) !important;
+  border-radius: 0 !important;
+}
+
+.app-ui .auth-kinetic-form details summary:hover {
+  background: color-mix(in srgb, var(--auth-accent) 8%, transparent) !important;
+}
+
+.app-ui .auth-kinetic-form details .bg-secondary {
+  background: color-mix(in srgb, var(--auth-accent) 15%, transparent) !important;
+  color: var(--auth-accent) !important;
+}
+
+.app-ui .auth-theme-toggle {
+  background: rgb(255 255 255 / 0.72) !important;
+  border-color: rgb(18 52 39 / 0.18) !important;
+  color: #10271e !important;
+}
+
+.app-ui .auth-theme-toggle:hover {
+  background: #ffffff !important;
+}
+
+.dark .app-ui .auth-theme-toggle {
+  background: rgb(255 255 255 / 0.1) !important;
+  border-color: rgb(255 255 255 / 0.2) !important;
+  color: #ffffff !important;
+}
+
+.dark .app-ui .auth-theme-toggle:hover {
+  background: rgb(255 255 255 / 0.2) !important;
+}
+
+@media (max-width: 1023px) {
+  .auth-particle-vignette {
+    background:
+      radial-gradient(circle at 50% 52%, transparent 0 18%, var(--auth-vignette-soft) 58%, var(--auth-vignette-edge) 100%),
+      linear-gradient(to bottom, transparent 58%, var(--auth-vignette-edge) 100%);
+  }
 }
 
 @media (prefers-reduced-motion: reduce) {

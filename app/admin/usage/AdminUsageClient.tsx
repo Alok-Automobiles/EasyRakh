@@ -5,8 +5,6 @@ import { useRouter } from 'next/navigation';
 import {
   Activity,
   BarChart3,
-  ChevronLeft,
-  ChevronRight,
   Clock3,
   Search,
   ShieldAlert,
@@ -17,9 +15,9 @@ import {
   Users,
 } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
-import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
+import { Pagination } from '@/components/ui/pagination';
 import {
   Table,
   TableBody,
@@ -563,36 +561,13 @@ export default function AdminUsageClient() {
             </Table>
           </div>
           {pagination.totalPages > 1 && (
-            <div className="flex flex-col gap-3 border-t border-gray-100 px-4 py-4 sm:flex-row sm:items-center sm:justify-between sm:px-6">
-              <p className="text-sm text-gray-500">
-                Page {pagination.page.toLocaleString('en-IN')} of{' '}
-                {pagination.totalPages.toLocaleString('en-IN')}
-              </p>
-              <div className="flex gap-2">
-                <Button
-                  type="button"
-                  variant="outline"
-                  size="sm"
-                  onClick={() => setPage(Math.max(1, pagination.page - 1))}
-                  disabled={loading || !pagination.hasPreviousPage}
-                >
-                  <ChevronLeft className="h-4 w-4" />
-                  Previous
-                </Button>
-                <Button
-                  type="button"
-                  variant="outline"
-                  size="sm"
-                  onClick={() =>
-                    setPage(Math.min(pagination.totalPages, pagination.page + 1))
-                  }
-                  disabled={loading || !pagination.hasNextPage}
-                >
-                  Next
-                  <ChevronRight className="h-4 w-4" />
-                </Button>
-              </div>
-            </div>
+            <Pagination
+              currentPage={pagination.page}
+              totalPages={pagination.totalPages}
+              onPageChange={setPage}
+              disabled={loading}
+              className="border-t border-gray-100 px-4 py-4 sm:px-6"
+            />
           )}
         </CardContent>
       </Card>

@@ -27,7 +27,9 @@ export default function AppShell({ children }: AppShellProps) {
     return (
       <div className="app-ui min-h-screen bg-background text-foreground">
         <div className="fixed right-4 top-4 z-50">
-          <ThemeToggle />
+          <ThemeToggle
+            surface={pathname === '/login' || pathname === '/register' ? 'nav' : 'default'}
+          />
         </div>
         <MainContent sidebarCollapsed={false}>{children}</MainContent>
       </div>
