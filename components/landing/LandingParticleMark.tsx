@@ -16,6 +16,8 @@ type Particle = Point & {
 
 const DESKTOP_PARTICLES = 3600;
 const MOBILE_PARTICLES = 2400;
+const LIGHT_HERO_DESKTOP_PARTICLES = 5400;
+const LIGHT_HERO_MOBILE_PARTICLES = 3400;
 const LANGUAGE_DESKTOP_PARTICLES = 6800;
 const LANGUAGE_MOBILE_PARTICLES = 4400;
 const HERO_LOOP_DURATION = 15_800;
@@ -333,6 +335,9 @@ export default function LandingParticleMark({
     let startTime = performance.now();
     let targetSets = {} as Record<ShapeName, Point[]>;
     let width = 0;
+    let isLightTheme =
+      document.documentElement.dataset.theme !== 'dark' &&
+      !document.documentElement.classList.contains('dark');
 
     const readColors = () => {
       const styles = getComputedStyle(canvas);
@@ -357,14 +362,19 @@ export default function LandingParticleMark({
         styles.getPropertyValue('--font-geist-sans').trim() ||
         styles.fontFamily ||
         'system-ui, sans-serif';
+      const mobile = width < 720;
       const count =
         variant === 'language'
-          ? window.innerWidth < 720
+          ? mobile
             ? LANGUAGE_MOBILE_PARTICLES
             : LANGUAGE_DESKTOP_PARTICLES
-          : width < 720
-            ? MOBILE_PARTICLES
-            : DESKTOP_PARTICLES;
+          : isLightTheme
+            ? mobile
+              ? LIGHT_HERO_MOBILE_PARTICLES
+              : LIGHT_HERO_DESKTOP_PARTICLES
+            : mobile
+              ? MOBILE_PARTICLES
+              : DESKTOP_PARTICLES;
       const fallback = {
         x:
           variant === 'hero'
@@ -404,7 +414,9 @@ export default function LandingParticleMark({
           size:
             variant === 'language'
               ? 1.05 + (((index * 29) % 7) / 7) * 1.85
-              : 0.8 + (((index * 29) % 7) / 7) * 1.5,
+              : (isLightTheme ? 0.9 : 0.8) +
+                (((index * 29) % 7) / 7) *
+                  (isLightTheme ? 1.65 : 1.5),
           vx: 0,
           vy: 0,
           x: reducedMotion.matches
@@ -417,6 +429,7 @@ export default function LandingParticleMark({
       });
 
       canvas.dataset.particleCount = String(count);
+      canvas.dataset.particleTheme = isLightTheme ? 'light' : 'dark';
       canvas.dataset.pointerActive = 'false';
       canvas.dataset.particleVariant = variant;
       canvas.dataset.particleTargets = String(activeShapes.length);
@@ -492,14 +505,15 @@ export default function LandingParticleMark({
         particle.x += particle.vx;
         particle.y += particle.vy;
 
+        const lightHero = variant === 'hero' && isLightTheme;
         const shimmer =
-          (variant === 'language' ? 0.58 : 0.44) +
+          (variant === 'language' ? 0.58 : lightHero ? 0.5 : 0.44) +
           Math.sin(time * 2 + particle.seed * Math.PI * 9) *
-            (variant === 'language' ? 0.16 : 0.22);
+            (variant === 'language' ? 0.16 : lightHero ? 0.18 : 0.22);
         const size = particle.size + influence * 1.4;
         context.globalAlpha = Math.max(
-          variant === 'language' ? 0.48 : 0.25,
-          Math.min(1, shimmer + 0.34),
+          variant === 'language' ? 0.48 : lightHero ? 0.4 : 0.25,
+          Math.min(1, shimmer + (lightHero ? 0.38 : 0.34)),
         );
         context.fillStyle = index % 19 === 0 ? secondary : primary;
 
@@ -532,11 +546,19 @@ export default function LandingParticleMark({
       }
     };
 
-    const redraw = () => {
+    const syncTheme = () => {
+      const nextIsLightTheme =
+        document.documentElement.dataset.theme !== 'dark' &&
+        !document.documentElement.classList.contains('dark');
       readColors();
-      if (reducedMotion.matches) draw(performance.now());
+      if (nextIsLightTheme !== isLightTheme) {
+        isLightTheme = nextIsLightTheme;
+        resize();
+      } else if (reducedMotion.matches) {
+        draw(performance.now());
+      }
     };
-    const themeObserver = new MutationObserver(redraw);
+    const themeObserver = new MutationObserver(syncTheme);
     const visibilityObserver = new IntersectionObserver(
       ([entry]) => {
         isVisible = entry.isIntersecting;
