@@ -156,7 +156,7 @@ const features = [
   {
     number: '06',
     icon: Package,
-    title: 'Inventory',
+    title: 'Inventory & stock tracking',
     copy: 'Track quantities, value, low stock, inactive items, and restock work.',
   },
   {
