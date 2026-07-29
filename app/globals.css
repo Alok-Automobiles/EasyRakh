@@ -4387,6 +4387,37 @@ body:has(.kinetic-landing) {
   }
 }
 
+@keyframes kinetic-mobile-inset-float {
+  0%,
+  100% {
+    transform: translate3d(0, 0, 0);
+  }
+  50% {
+    transform: translate3d(-5px, -7px, 0);
+  }
+}
+
+@keyframes kinetic-mobile-glow-breathe {
+  0%,
+  100% {
+    opacity: 0.5;
+    transform: scale(0.96);
+  }
+  50% {
+    opacity: 0.82;
+    transform: scale(1.08);
+  }
+}
+
+@keyframes kinetic-mobile-card-glow {
+  from {
+    transform: translate3d(8%, 8%, 0) scale(0.92);
+  }
+  to {
+    transform: translate3d(-14%, -12%, 0) scale(1.16);
+  }
+}
+
 @media (min-width: 1024px) and (max-width: 1180px) {
   .kinetic-product-sticky {
     padding: 4.75rem 1.5rem 1.25rem;
@@ -4642,6 +4673,63 @@ body:has(.kinetic-landing) {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 
+  .kinetic-mobile-motion-ready [data-mobile-reveal] {
+    opacity: 0;
+    filter: blur(5px);
+    transform: translate3d(0, 24px, 0) scale(0.985);
+    transition:
+      opacity 580ms cubic-bezier(0.22, 1, 0.36, 1),
+      filter 580ms cubic-bezier(0.22, 1, 0.36, 1),
+      transform 620ms cubic-bezier(0.22, 1, 0.36, 1);
+    transition-delay: var(--mobile-reveal-delay, 0ms);
+    will-change: opacity, filter, transform;
+  }
+
+  .kinetic-mobile-motion-ready [data-mobile-reveal='left'] {
+    transform: translate3d(-20px, 20px, 0) scale(0.99);
+  }
+
+  .kinetic-mobile-motion-ready [data-mobile-reveal='scale'] {
+    transform: translate3d(0, 18px, 0) scale(0.96);
+  }
+
+  .kinetic-mobile-motion-ready
+    [data-mobile-reveal].is-mobile-visible {
+    opacity: 1;
+    filter: blur(0);
+    transform: translate3d(0, 0, 0) scale(1);
+  }
+
+  .kinetic-product-mobile-visual-wrap {
+    position: relative;
+    border-radius: 1.85rem;
+    -webkit-tap-highlight-color: transparent;
+  }
+
+  .kinetic-product-mobile-visual-wrap > .kinetic-product-visual {
+    width: 100%;
+  }
+
+  .kinetic-faq-item summary {
+    transition:
+      color 220ms ease,
+      padding-left 220ms ease;
+  }
+
+  @media (prefers-reduced-motion: no-preference) {
+    .kinetic-product-mobile .kinetic-product-glow {
+      animation: kinetic-mobile-glow-breathe 5.8s ease-in-out infinite;
+    }
+
+    .kinetic-product-mobile .kinetic-product-inset {
+      animation: kinetic-mobile-inset-float 4.8s ease-in-out infinite;
+    }
+
+    .kinetic-feature-index-card::after {
+      animation: kinetic-mobile-card-glow 5.4s ease-in-out infinite alternate;
+    }
+  }
+
 }
 
 @media (max-width: 719px) {
@@ -4665,6 +4753,20 @@ body:has(.kinetic-landing) {
 
   .kinetic-closing-title {
     line-height: 0.86;
+  }
+
+  .kinetic-landing .kinetic-button-primary,
+  .kinetic-landing .kinetic-button-ghost {
+    width: 100%;
+    min-height: 3.35rem;
+    justify-content: space-between;
+    padding-inline: 1.15rem;
+    text-align: left;
+  }
+
+  .kinetic-landing .kinetic-button-primary svg,
+  .kinetic-landing .kinetic-button-ghost svg {
+    flex-shrink: 0;
   }
 
   .kinetic-product-mobile {
@@ -4786,6 +4888,43 @@ body:has(.kinetic-landing) {
   }
 }
 
+@media (max-width: 1023px) and (hover: none) {
+  .kinetic-mobile-motion-ready
+    .kinetic-feature-index-card.is-mobile-visible:active {
+    border-color: color-mix(
+      in srgb,
+      var(--kinetic-accent) 58%,
+      var(--kinetic-ink)
+    );
+    box-shadow: 0 12px 34px rgb(0 0 0 / 0.12);
+    transform: scale(0.985);
+  }
+
+  .kinetic-mobile-motion-ready
+    .kinetic-product-mobile-visual-wrap.is-mobile-visible:active {
+    transform: scale(0.985);
+  }
+
+  .kinetic-problem-card:active {
+    border-color: color-mix(
+      in srgb,
+      var(--problem-from) 62%,
+      var(--kinetic-ink)
+    );
+    transform: scale(0.985);
+  }
+
+  .kinetic-faq-item summary:active {
+    color: var(--kinetic-accent);
+    padding-left: 0.35rem;
+  }
+
+  .kinetic-button-primary:active,
+  .kinetic-button-ghost:active {
+    transform: scale(0.985);
+  }
+}
+
 @media (prefers-reduced-motion: reduce) {
   .kinetic-gradient-text,
   .kinetic-hero-wordmark,
@@ -4815,6 +4954,19 @@ body:has(.kinetic-landing) {
   .kinetic-ledger-slot,
   .kinetic-ledger-slot .kinetic-ledger-slip {
     transform: none;
+  }
+
+  .kinetic-mobile-motion-ready [data-mobile-reveal] {
+    opacity: 1;
+    filter: none;
+    transform: none;
+    transition: none;
+  }
+
+  .kinetic-product-mobile .kinetic-product-glow,
+  .kinetic-product-mobile .kinetic-product-inset,
+  .kinetic-feature-index-card::after {
+    animation: none;
   }
 }
 

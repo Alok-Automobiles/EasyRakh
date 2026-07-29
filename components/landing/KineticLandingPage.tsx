@@ -35,7 +35,7 @@ import {
 } from 'motion/react';
 import type { MotionValue } from 'motion/react';
 import type { CSSProperties } from 'react';
-import { useRef, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import LandingNavbar from '@/components/landing/LandingNavbar';
 import LandingParticleMark from '@/components/landing/LandingParticleMark';
 
@@ -316,6 +316,71 @@ const faqs = [
 const manifestoPixelHeights = [
   0, 0, 24, 24, 10, 10, 0, 36, 58, 28, 28, 28, 0, 14, 0, 0,
 ];
+
+function useMobileReveal() {
+  useEffect(() => {
+    const elements = Array.from(
+      document.querySelectorAll<HTMLElement>('[data-mobile-reveal]'),
+    );
+    if (!elements.length) return;
+
+    const mobileQuery = window.matchMedia('(max-width: 1023px)');
+    const reducedMotionQuery = window.matchMedia(
+      '(prefers-reduced-motion: reduce)',
+    );
+    let observer: IntersectionObserver | null = null;
+
+    const revealAll = () => {
+      elements.forEach((element) =>
+        element.classList.add('is-mobile-visible'),
+      );
+    };
+
+    const setupObserver = () => {
+      observer?.disconnect();
+      elements.forEach((element) =>
+        element.classList.remove('is-mobile-visible'),
+      );
+
+      if (
+        !mobileQuery.matches ||
+        reducedMotionQuery.matches ||
+        !('IntersectionObserver' in window)
+      ) {
+        revealAll();
+        return;
+      }
+
+      observer = new IntersectionObserver(
+        (entries) => {
+          entries.forEach((entry) => {
+            if (!entry.isIntersecting) return;
+            entry.target.classList.add('is-mobile-visible');
+            observer?.unobserve(entry.target);
+          });
+        },
+        { rootMargin: '0px 0px -8% 0px', threshold: 0.14 },
+      );
+
+      elements.forEach((element) => observer?.observe(element));
+    };
+
+    document.documentElement.classList.add('kinetic-mobile-motion-ready');
+    setupObserver();
+    mobileQuery.addEventListener('change', setupObserver);
+    reducedMotionQuery.addEventListener('change', setupObserver);
+
+    return () => {
+      observer?.disconnect();
+      mobileQuery.removeEventListener('change', setupObserver);
+      reducedMotionQuery.removeEventListener('change', setupObserver);
+      document.documentElement.classList.remove(
+        'kinetic-mobile-motion-ready',
+      );
+      revealAll();
+    };
+  }, []);
+}
 
 function ManifestoFillColumn({
   index,
@@ -902,7 +967,10 @@ function FeatureRail() {
       </div>
 
       <div className="kinetic-product-mobile">
-        <div className="kinetic-product-mobile-header">
+        <div
+          className="kinetic-product-mobile-header"
+          data-mobile-reveal="up"
+        >
           <p className="kinetic-kicker">The EasyRakh system</p>
           <h2>Five business moments. One continuous view.</h2>
           <p className="kinetic-body">
@@ -912,7 +980,10 @@ function FeatureRail() {
         <div className="kinetic-product-mobile-list">
           {productScenes.map((scene, index) => (
             <article key={scene.number} className="kinetic-product-mobile-scene">
-              <div className="kinetic-product-mobile-copy">
+              <div
+                className="kinetic-product-mobile-copy"
+                data-mobile-reveal="left"
+              >
                 <div className="flex items-center justify-between">
                   <span className="kinetic-kicker">
                     {scene.number} / {scene.label}
@@ -927,14 +998,27 @@ function FeatureRail() {
                   ))}
                 </ul>
               </div>
-              <ProductSceneVisual scene={scene} priority={index === 0} />
+              <div
+                className="kinetic-product-mobile-visual-wrap"
+                data-mobile-reveal="scale"
+                style={
+                  {
+                    '--mobile-reveal-delay': '90ms',
+                  } as CSSProperties
+                }
+              >
+                <ProductSceneVisual scene={scene} priority={index === 0} />
+              </div>
             </article>
           ))}
         </div>
       </div>
 
       <div className="kinetic-feature-index">
-        <div className="kinetic-feature-index-heading">
+        <div
+          className="kinetic-feature-index-heading"
+          data-mobile-reveal="up"
+        >
           <div>
             <p className="kinetic-kicker">Everything connected</p>
             <h3>All twelve tools, still one system.</h3>
@@ -945,8 +1029,17 @@ function FeatureRail() {
           </p>
         </div>
         <div className="kinetic-feature-index-grid">
-          {features.map((feature) => (
-            <article key={feature.number} className="kinetic-feature-index-card">
+          {features.map((feature, index) => (
+            <article
+              key={feature.number}
+              className="kinetic-feature-index-card"
+              data-mobile-reveal="up"
+              style={
+                {
+                  '--mobile-reveal-delay': `${(index % 2) * 70}ms`,
+                } as CSSProperties
+              }
+            >
               <div className="kinetic-feature-index-top">
                 <span>{feature.number}</span>
                 <feature.icon className="h-5 w-5" />
@@ -978,7 +1071,10 @@ function ProofAndPricing() {
             <LandingParticleMark variant="language" />
           </div>
 
-          <div className="kinetic-price-card lg:mt-20">
+          <div
+            className="kinetic-price-card lg:mt-20"
+            data-mobile-reveal="scale"
+          >
             <div className="flex items-start justify-between">
               <div>
                 <p className="kinetic-kicker">Everything included</p>
@@ -1019,7 +1115,7 @@ function FaqAndContact() {
   return (
     <section id="faq" className="kinetic-faq relative py-24 sm:py-32">
       <div className="mx-auto grid max-w-[1500px] gap-14 px-5 sm:px-8 lg:grid-cols-[0.72fr_1.28fr] lg:px-14">
-        <div>
+        <div data-mobile-reveal="left">
           <p className="kinetic-kicker">Questions, made simple</p>
           <h2 className="mt-5 text-5xl font-semibold tracking-[-0.05em] sm:text-7xl">
             Before you begin.
@@ -1038,7 +1134,16 @@ function FaqAndContact() {
         </div>
         <div className="divide-y divide-current/15 border-y border-current/15">
           {faqs.map((faq, index) => (
-            <details key={faq.question} className="kinetic-faq-item group">
+            <details
+              key={faq.question}
+              className="kinetic-faq-item group"
+              data-mobile-reveal="up"
+              style={
+                {
+                  '--mobile-reveal-delay': `${index * 55}ms`,
+                } as CSSProperties
+              }
+            >
               <summary className="flex cursor-pointer list-none items-center justify-between gap-6 py-7 text-xl font-medium sm:text-2xl">
                 <span className="flex items-center gap-5">
                   <span className="kinetic-kicker">0{index + 1}</span>
@@ -1107,7 +1212,10 @@ function ClosingScene() {
       <div className="kinetic-grid absolute inset-0 opacity-40" />
       <div className="kinetic-closing-glow absolute inset-0" />
       <RupeeFloatField />
-      <div className="relative z-10 mx-auto w-full max-w-[1500px] px-5 text-center sm:px-8 lg:px-14">
+      <div
+        className="relative z-10 mx-auto w-full max-w-[1500px] px-5 text-center sm:px-8 lg:px-14"
+        data-mobile-reveal="scale"
+      >
         <Image
           src="/logo.png"
           alt="EasyRakh logo"
@@ -1157,6 +1265,8 @@ function KineticFooter() {
 }
 
 export default function KineticLandingPage() {
+  useMobileReveal();
+
   return (
     <div className="kinetic-landing">
       <LandingNavbar />
