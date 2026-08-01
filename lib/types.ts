@@ -189,6 +189,8 @@ export interface Invoice {
   pdfStatus?: 'ready' | 'missing' | 'failed';
   pdfUpdatedAt?: Date;
   searchTokens?: string[];
+  /** Business date shown on the invoice. Legacy invoices fall back to createdAt. */
+  invoiceDate?: Date;
   createdAt: Date;
   updatedAt: Date;
 }

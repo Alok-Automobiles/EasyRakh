@@ -54,6 +54,7 @@ export async function initializeIndexes(db: Db): Promise<void> {
       customEntities.createIndex({ userId: 1, searchTokens: 1 }),
 
       invoices.createIndex({ userId: 1, createdAt: -1 }),
+      invoices.createIndex({ userId: 1, invoiceDate: -1 }),
       invoices.createIndex({ userId: 1, invoiceNumber: 1 }, { unique: true }),
       invoices.createIndex(
         { userId: 1, clientRequestId: 1 },

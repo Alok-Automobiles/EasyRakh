@@ -14,6 +14,7 @@ export type InvoicePdfInput = {
   paidAmount: number;
   status: 'paid' | 'unpaid' | 'partial';
   notes?: string;
+  invoiceDate?: Date | string;
   createdAt: Date | string;
   sellerSnapshot: InvoiceSellerSnapshot;
 };
@@ -77,9 +78,9 @@ export function buildInvoicePdfBuffer(invoice: InvoicePdfInput): Buffer {
     customerY += addressLines.length * 4;
   }
 
-  const createdAt = new Date(invoice.createdAt);
-  const dateLabel = Number.isFinite(createdAt.getTime())
-    ? createdAt.toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric', timeZone: 'Asia/Kolkata' })
+  const invoiceDate = new Date(invoice.invoiceDate || invoice.createdAt);
+  const dateLabel = Number.isFinite(invoiceDate.getTime())
+    ? invoiceDate.toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric', timeZone: 'Asia/Kolkata' })
     : '';
   doc.setFont('helvetica', 'bold');
   doc.text('Invoice No.', width - 68, 52);

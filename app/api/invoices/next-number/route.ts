@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getDb } from '@/lib/mongodb';
 import { getUserIdFromRequest } from '@/lib/auth';
+import { parseInvoiceDate } from '@/lib/invoice-payments';
 
 export async function GET(request: NextRequest) {
   try {
@@ -13,9 +14,20 @@ export async function GET(request: NextRequest) {
     const db = await getDb();
     const invoicesCollection = db.collection('invoices');
 
-    const now = new Date();
-    const year = now.getFullYear();
-    const month = String(now.getMonth() + 1).padStart(2, '0');
+    let invoiceDate: Date;
+    try {
+      invoiceDate = parseInvoiceDate(
+        new URL(request.url).searchParams.get('invoiceDate') || undefined
+      );
+    } catch (error) {
+      return NextResponse.json(
+        { error: error instanceof Error ? error.message : 'Invalid invoice date' },
+        { status: 400 }
+      );
+    }
+
+    const year = invoiceDate.getUTCFullYear();
+    const month = String(invoiceDate.getUTCMonth() + 1).padStart(2, '0');
     const prefix = `INV-${year}-${month}-`;
 
     const latestInvoice = await invoicesCollection

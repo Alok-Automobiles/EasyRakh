@@ -335,6 +335,55 @@ describe('/api/invoices stock sync', () => {
     );
   });
 
+  it('stores a backdated invoice date and uses its month for the invoice number', async () => {
+    const invoiceFind = invoiceFindChain();
+    const insertOne = vi.fn().mockResolvedValue({
+      insertedId: objectIdLike('507f1f77bcf86cd799439099'),
+    });
+    const inventoryLookup = inventoryFindChain();
+    mocks.getDb.mockResolvedValue(
+      dbWithCollections({
+        invoices: { find: invoiceFind.find, insertOne },
+        customers: {},
+        transactions: {},
+        inventory: {
+          find: inventoryLookup.find,
+          findOne: vi.fn(),
+          findOneAndUpdate: vi.fn(),
+        },
+      })
+    );
+
+    const { POST } = await import('@/app/api/invoices/route');
+    const response = await POST(jsonRequest(
+      'http://localhost/api/invoices',
+      createBody([manualItem()], { invoiceDate: '2026-06-15' })
+    ));
+
+    expect(response.status).toBe(201);
+    expect(invoiceFind.find).toHaveBeenCalledWith(
+      {
+        userId: ids.user,
+        invoiceNumber: { $regex: '^INV-2026-06-' },
+      },
+      { session: mocks.session }
+    );
+    expect(insertOne).toHaveBeenCalledWith(
+      expect.objectContaining({
+        invoiceNumber: 'INV-2026-06-0001',
+        invoiceDate: new Date('2026-06-15T00:00:00.000Z'),
+        createdAt: expect.any(Date),
+      }),
+      { session: mocks.session }
+    );
+    expect(mocks.uploadInvoicePdf).toHaveBeenCalledWith(
+      ids.user,
+      expect.objectContaining({
+        invoiceDate: new Date('2026-06-15T00:00:00.000Z'),
+      })
+    );
+  });
+
   it('creates an invoice with linked stock and a manual item that has a part number', async () => {
     const linkedInventoryItem = {
       _id: objectIdLike(ids.inventory),
@@ -890,6 +939,77 @@ describe('/api/invoices stock sync', () => {
       { returnDocument: 'after', session: mocks.session }
     );
     expect(invoices.updateOne).toHaveBeenCalled();
+  });
+
+  it('updates the invoice date, PDF, and linked ledger debit together', async () => {
+    const previousInvoice = {
+      _id: objectIdLike(ids.transaction),
+      invoiceNumber: 'INV-2026-06-0001',
+      customerId: ids.customer,
+      customerName: 'Raj Traders',
+      items: [manualItem()],
+      totalAmount: 250,
+      paidAmount: 0,
+      status: 'unpaid',
+      addedToLedger: true,
+      transactionId: ids.inventory,
+      invoiceDate: new Date('2026-06-01T00:00:00.000Z'),
+      createdAt: new Date('2026-06-10T08:30:00.000Z'),
+      updatedAt: new Date('2026-06-10T08:30:00.000Z'),
+    };
+    const updatedInvoice = {
+      ...previousInvoice,
+      invoiceDate: new Date('2026-05-15T00:00:00.000Z'),
+    };
+    const invoices = {
+      findOne: vi.fn().mockResolvedValueOnce(previousInvoice).mockResolvedValueOnce(updatedInvoice),
+      updateOne: vi.fn().mockResolvedValue({ matchedCount: 1 }),
+    };
+    const ledgerUpdate = vi.fn().mockResolvedValue({ matchedCount: 1 });
+    mocks.getDb.mockResolvedValue(
+      dbWithCollections({
+        invoices,
+        transactions: { updateOne: ledgerUpdate },
+        inventory: {},
+      })
+    );
+
+    const { PUT } = await import('@/app/api/invoices/[id]/route');
+    const response = await PUT(
+      jsonRequest(
+        `http://localhost/api/invoices/${ids.transaction}`,
+        { invoiceDate: '2026-05-15' },
+        { method: 'PUT' }
+      ),
+      routeParams({ id: ids.transaction })
+    );
+
+    expect(response.status).toBe(200);
+    expect(ledgerUpdate).toHaveBeenCalledWith(
+      { _id: expect.any(Object), userId: ids.user },
+      {
+        $set: {
+          amount: 250,
+          date: new Date('2026-05-15T00:00:00.000Z'),
+        },
+      },
+      { session: mocks.session }
+    );
+    expect(invoices.updateOne).toHaveBeenCalledWith(
+      { _id: expect.any(Object), userId: ids.user },
+      {
+        $set: expect.objectContaining({
+          invoiceDate: new Date('2026-05-15T00:00:00.000Z'),
+        }),
+      },
+      { session: mocks.session }
+    );
+    expect(mocks.uploadInvoicePdf).toHaveBeenCalledWith(
+      ids.user,
+      expect.objectContaining({
+        invoiceDate: new Date('2026-05-15T00:00:00.000Z'),
+      })
+    );
   });
 
   it('rejects direct paid-amount edits and keeps historical inventory untouched', async () => {

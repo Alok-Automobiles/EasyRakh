@@ -93,6 +93,7 @@ export async function GET(
         paidAmount: invoice.paidAmount,
         status: invoice.status,
         notes: invoice.notes,
+        invoiceDate: invoice.invoiceDate || invoice.createdAt,
         createdAt: invoice.createdAt,
         sellerSnapshot,
       });

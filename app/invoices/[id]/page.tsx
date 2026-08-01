@@ -154,6 +154,7 @@ export default function InvoiceDetailPage() {
   });
 
   const [editItems, setEditItems] = useState<EditableInvoiceItem[]>([]);
+  const [editInvoiceDate, setEditInvoiceDate] = useState(format(new Date(), 'yyyy-MM-dd'));
   const [editPaidAmount, setEditPaidAmount] = useState(0);
   const [editNotes, setEditNotes] = useState('');
   const [editAddToLedger, setEditAddToLedger] = useState(false);
@@ -193,6 +194,10 @@ export default function InvoiceDetailPage() {
             toEditableInvoiceItem(item, idx)
           )
         );
+        setEditInvoiceDate(format(
+          new Date(invoiceData.invoice.invoiceDate || invoiceData.invoice.createdAt),
+          'yyyy-MM-dd'
+        ));
         setEditPaidAmount(invoiceData.invoice.paidAmount);
         setEditNotes(invoiceData.invoice.notes || '');
 
@@ -335,7 +340,7 @@ export default function InvoiceDetailPage() {
       doc.text('Invoice Date :', labelX, invoiceMetaY + 7);
       doc.setFont('helvetica', 'bold');
       const dateLabelWidth = doc.getTextWidth('Invoice Date :');
-      doc.text(format(new Date(invoice.createdAt), 'MMMM dd, yyyy'), labelX + dateLabelWidth + 5, invoiceMetaY + 7);
+      doc.text(format(new Date(invoice.invoiceDate || invoice.createdAt), 'MMMM dd, yyyy'), labelX + dateLabelWidth + 5, invoiceMetaY + 7);
 
       yPos = Math.max(yPos, invoiceMetaY + 15) + 10;
 
@@ -465,7 +470,7 @@ export default function InvoiceDetailPage() {
 
       doc.setFont('helvetica', 'normal');
       doc.setFontSize(8);
-      doc.text(`Date: ${format(new Date(invoice.createdAt), 'MMMM dd, yyyy')}`, pageWidth - margin, finalFooterY, { align: 'right' });
+      doc.text(`Date: ${format(new Date(invoice.invoiceDate || invoice.createdAt), 'MMMM dd, yyyy')}`, pageWidth - margin, finalFooterY, { align: 'right' });
 
       const fileName = `${invoice.invoiceNumber.replace(/[^a-z0-9]/gi, '_')}.pdf`;
 
@@ -549,6 +554,15 @@ export default function InvoiceDetailPage() {
   );
 
   const handleSave = async () => {
+    if (!editInvoiceDate) {
+      toast.error('Invoice date is required');
+      return;
+    }
+    if (editInvoiceDate > format(new Date(), 'yyyy-MM-dd')) {
+      toast.error('Invoice date cannot be in the future');
+      return;
+    }
+
     const enteredItems = editItems.filter((item) => !isBlankInvoiceItem(item));
     if (enteredItems.length === 0) {
       toast.error('At least one complete item with selling price and cost price is required');
@@ -565,6 +579,7 @@ export default function InvoiceDetailPage() {
 
     try {
       const payload = {
+        invoiceDate: editInvoiceDate,
         items: enteredItems.map((item) => ({
           inventoryItemId: item.inventoryItemId,
           itemNumber: item.itemNumber.trim(),
@@ -664,6 +679,7 @@ export default function InvoiceDetailPage() {
         invoice.items.map((item, idx) => toEditableInvoiceItem(item, idx))
       );
       setEditPaidAmount(invoice.paidAmount);
+      setEditInvoiceDate(format(new Date(invoice.invoiceDate || invoice.createdAt), 'yyyy-MM-dd'));
       setEditNotes(invoice.notes || '');
     }
     setIsEditing(false);
@@ -832,6 +848,23 @@ export default function InvoiceDetailPage() {
               <User className="w-5 h-5 text-gray-500" />
               <h2 className="text-lg font-semibold text-gray-900">Customer</h2>
             </div>
+            {isEditing && (
+              <div className="max-w-sm mb-4 pb-4 border-b border-gray-100">
+                <Label htmlFor="editInvoiceDate">Invoice Date *</Label>
+                <Input
+                  id="editInvoiceDate"
+                  type="date"
+                  max={format(new Date(), 'yyyy-MM-dd')}
+                  value={editInvoiceDate}
+                  onChange={(event) => setEditInvoiceDate(event.target.value)}
+                  className="mt-1"
+                  required
+                />
+                <p className="mt-1.5 text-xs text-gray-500">
+                  The customer PDF and linked ledger entry will use this date.
+                </p>
+              </div>
+            )}
             <div className="space-y-2">
               <p className="font-medium text-gray-900">{invoice.customerName}</p>
               {invoice.customerPhone && (
@@ -848,7 +881,8 @@ export default function InvoiceDetailPage() {
               )}
             </div>
             <p className="text-xs text-gray-400 mt-3">
-              Created on {format(new Date(invoice.createdAt), 'MMMM dd, yyyy \'at\' h:mm a')}
+              Invoice date {format(new Date(invoice.invoiceDate || invoice.createdAt), 'MMMM dd, yyyy')}
+              {' · '}Record created {format(new Date(invoice.createdAt), 'MMMM dd, yyyy \'at\' h:mm a')}
             </p>
           </div>
 

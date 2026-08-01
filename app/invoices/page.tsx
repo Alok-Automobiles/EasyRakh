@@ -353,7 +353,7 @@ export default function InvoicesPage() {
                       </div>
                       <p className="text-sm text-gray-600 truncate">{invoice.customerName}</p>
                       <p className="text-xs text-gray-400 mt-1">
-                        {format(new Date(invoice.createdAt), 'MMM dd, yyyy \'at\' h:mm a')}
+                        Invoice date {format(new Date(invoice.invoiceDate || invoice.createdAt), 'MMM dd, yyyy')}
                       </p>
                     </div>
 
