@@ -20,7 +20,7 @@ import {
   INVOICE_PRICING_VERSION,
   roundMoney,
 } from '@/lib/invoice-calculations';
-import { addInvoicePaymentCashEntry, parsePaymentDate } from '@/lib/invoice-payments';
+import { addInvoicePaymentCashEntry, parseInvoiceDate, parsePaymentDate } from '@/lib/invoice-payments';
 import {
   isSellerSnapshotComplete,
   sellerSnapshotFromUser,
@@ -52,6 +52,7 @@ const createInvoiceSchema = z.object({
   customerAddress: z.string().optional(),
   items: z.array(invoiceItemSchema).min(1, 'At least one item is required'),
   paidAmount: z.number().min(0).default(0),
+  invoiceDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, 'Invoice date must use YYYY-MM-DD').optional(),
   paymentDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, 'Payment date must use YYYY-MM-DD').optional(),
   status: z.enum(['paid', 'unpaid', 'partial']),
   notes: z.string().optional(),
@@ -82,11 +83,11 @@ function isDuplicateInvoiceNumberError(error: unknown) {
 async function generateInvoiceNumber(
   db: Db,
   userId: string,
+  invoiceDate: Date,
   session?: ClientSession
 ): Promise<string> {
-  const now = new Date();
-  const year = now.getFullYear();
-  const month = String(now.getMonth() + 1).padStart(2, '0');
+  const year = invoiceDate.getUTCFullYear();
+  const month = String(invoiceDate.getUTCMonth() + 1).padStart(2, '0');
   const prefix = `INV-${year}-${month}-`;
 
   const invoicesCollection = db.collection('invoices');
@@ -233,6 +234,7 @@ export async function GET(request: NextRequest) {
         pdfUrl: inv.pdfUrl,
         pdfPublicId: inv.pdfPublicId,
         pdfStatus: inv.pdfStatus,
+        invoiceDate: inv.invoiceDate || inv.createdAt,
         createdAt: inv.createdAt,
         updatedAt: inv.updatedAt,
       })),
@@ -293,12 +295,16 @@ export async function POST(request: NextRequest) {
       );
     }
 
+    let invoiceDate: Date;
     let paymentDate: Date;
     try {
-      paymentDate = parsePaymentDate(validatedData.paymentDate);
+      invoiceDate = parseInvoiceDate(validatedData.invoiceDate);
+      paymentDate = validatedData.paymentDate
+        ? parsePaymentDate(validatedData.paymentDate)
+        : invoiceDate;
     } catch (error) {
       return NextResponse.json(
-        { error: error instanceof Error ? error.message : 'Invalid payment date' },
+        { error: error instanceof Error ? error.message : 'Invalid invoice date' },
         { status: 400 }
       );
     }
@@ -375,7 +381,7 @@ export async function POST(request: NextRequest) {
           }
 
           savedCustomerId = customerId;
-          const invoiceNumber = await generateInvoiceNumber(db, userId, session);
+          const invoiceNumber = await generateInvoiceNumber(db, userId, invoiceDate, session);
           const now = new Date();
           const invoiceObjectId = new ObjectId();
           const paymentId = initialPaidAmount > 0 ? new ObjectId().toString() : undefined;
@@ -407,6 +413,7 @@ export async function POST(request: NextRequest) {
               customerName: validatedData.customerName,
               customerPhone: validatedData.customerPhone,
             }),
+            invoiceDate,
             createdAt: now,
             updatedAt: now,
           };
@@ -430,7 +437,7 @@ export async function POST(request: NextRequest) {
                 type: 'debit',
                 amount: totalAmount,
                 description: `Invoice ${invoiceNumber} - Amount due`,
-                date: paymentDate,
+                date: invoiceDate,
                 createdAt: now,
               },
               { session }
@@ -468,6 +475,7 @@ export async function POST(request: NextRequest) {
             paidAmount: initialPaidAmount,
             status,
             notes: validatedData.notes,
+            invoiceDate,
             createdAt: now,
             sellerSnapshot: sellerSnapshot!,
           });

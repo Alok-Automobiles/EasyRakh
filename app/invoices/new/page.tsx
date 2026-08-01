@@ -14,6 +14,7 @@ import {
   Clock,
   AlertCircle,
   BookOpen,
+  CalendarDays,
   X,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
@@ -82,6 +83,7 @@ export default function NewInvoicePage() {
   const createRequestIdRef = useRef<string | null>(null);
 
   const [nextInvoiceNumber, setNextInvoiceNumber] = useState('');
+  const [invoiceDate, setInvoiceDate] = useState(() => format(new Date(), 'yyyy-MM-dd'));
 
   const [customers, setCustomers] = useState<CustomerWithId[]>([]);
   const [customerSearch, setCustomerSearch] = useState('');
@@ -116,20 +118,14 @@ export default function NewInvoicePage() {
 
     const fetchData = async () => {
       try {
-        const [customersRes, invoiceNumRes, userRes] = await Promise.all([
+        const [customersRes, userRes] = await Promise.all([
           fetch('/api/customers'),
-          fetch('/api/invoices/next-number'),
           fetch('/api/auth/me'),
         ]);
 
         if (customersRes.ok) {
           const data = await customersRes.json();
           setCustomers(data.customers || []);
-        }
-
-        if (invoiceNumRes.ok) {
-          const data = await invoiceNumRes.json();
-          setNextInvoiceNumber(data.nextInvoiceNumber);
         }
 
         if (userRes.ok) {
@@ -149,6 +145,33 @@ export default function NewInvoicePage() {
 
     fetchData();
   }, []);
+
+  useEffect(() => {
+    if (!invoiceDate) {
+      setNextInvoiceNumber('');
+      return;
+    }
+
+    const controller = new AbortController();
+    const loadNextInvoiceNumber = async () => {
+      try {
+        const response = await fetch(
+          `/api/invoices/next-number?invoiceDate=${encodeURIComponent(invoiceDate)}`,
+          { signal: controller.signal }
+        );
+        if (!response.ok) return;
+        const data = await response.json();
+        setNextInvoiceNumber(data.nextInvoiceNumber || '');
+      } catch (error) {
+        if ((error as DOMException)?.name !== 'AbortError') {
+          console.error('Failed to fetch the next invoice number:', error);
+        }
+      }
+    };
+
+    loadNextInvoiceNumber();
+    return () => controller.abort();
+  }, [invoiceDate]);
 
   const filteredCustomers = customers.filter(
     (c) =>
@@ -248,6 +271,15 @@ export default function NewInvoicePage() {
   };
 
   const handleSubmit = useCallback(async () => {
+    if (!invoiceDate) {
+      toast.error('Invoice date is required');
+      return;
+    }
+    if (invoiceDate > format(new Date(), 'yyyy-MM-dd')) {
+      toast.error('Invoice date cannot be in the future');
+      return;
+    }
+
     if (!customerName.trim()) {
       toast.error('Customer name is required');
       return;
@@ -294,7 +326,8 @@ export default function NewInvoicePage() {
           unitCost: item.unitCost,
         })),
         paidAmount,
-        paymentDate: format(new Date(), 'yyyy-MM-dd'),
+        invoiceDate,
+        paymentDate: invoiceDate,
         status,
         notes: notes.trim(),
         addToLedger,
@@ -326,6 +359,7 @@ export default function NewInvoicePage() {
     customerPhone,
     customerAddress,
     items,
+    invoiceDate,
     paidAmount,
     status,
     notes,
@@ -399,6 +433,29 @@ export default function NewInvoicePage() {
         </div>
 
         <div className="space-y-6">
+          {/* Invoice Details */}
+          <div className="bg-white rounded-xl border border-gray-200 shadow-sm p-5">
+            <div className="flex items-center gap-2 mb-4">
+              <CalendarDays className="w-5 h-5 text-gray-500" />
+              <h2 className="text-lg font-semibold text-gray-900">Invoice Details</h2>
+            </div>
+            <div className="max-w-sm">
+              <Label htmlFor="invoiceDate">Invoice Date *</Label>
+              <Input
+                id="invoiceDate"
+                type="date"
+                max={format(new Date(), 'yyyy-MM-dd')}
+                value={invoiceDate}
+                onChange={(event) => setInvoiceDate(event.target.value)}
+                className="mt-1"
+                required
+              />
+              <p className="mt-1.5 text-xs text-gray-500">
+                Select today or an earlier date. The invoice number and PDF will use this date.
+              </p>
+            </div>
+          </div>
+
           {/* Customer Section */}
           <div className="bg-white rounded-xl border border-gray-200 shadow-sm p-5">
             <div className="flex items-center gap-2 mb-4">

@@ -23,19 +23,45 @@ export function normalizeCashDate(date: Date) {
   ));
 }
 
-export function parsePaymentDate(value?: string) {
+export function parseDateOnly(value?: string, label = 'Date') {
   if (!value) return normalizeCashDate(new Date());
   const match = /^(\d{4})-(\d{2})-(\d{2})$/.exec(value);
-  if (!match) throw new Error('Payment date must use YYYY-MM-DD format');
+  if (!match) throw new Error(`${label} must use YYYY-MM-DD format`);
   const date = new Date(Date.UTC(Number(match[1]), Number(match[2]) - 1, Number(match[3])));
   if (
     date.getUTCFullYear() !== Number(match[1]) ||
     date.getUTCMonth() !== Number(match[2]) - 1 ||
     date.getUTCDate() !== Number(match[3])
   ) {
-    throw new Error('Payment date is invalid');
+    throw new Error(`${label} is invalid`);
   }
   return date;
+}
+
+function dateInputValueInTimeZone(date: Date, timeZone: string) {
+  const parts = new Intl.DateTimeFormat('en-US', {
+    timeZone,
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+  }).formatToParts(date);
+  const part = (type: Intl.DateTimeFormatPartTypes) =>
+    parts.find((candidate) => candidate.type === type)?.value || '';
+  return `${part('year')}-${part('month')}-${part('day')}`;
+}
+
+export function parseInvoiceDate(value?: string, now = new Date()) {
+  const today = dateInputValueInTimeZone(now, 'Asia/Kolkata');
+  const dateValue = value || today;
+  const date = parseDateOnly(dateValue, 'Invoice date');
+  if (dateValue > today) {
+    throw new Error('Invoice date cannot be in the future');
+  }
+  return date;
+}
+
+export function parsePaymentDate(value?: string) {
+  return parseDateOnly(value, 'Payment date');
 }
 
 export function reconcileInvoicePaymentHistory(invoice: Record<string, unknown>) {

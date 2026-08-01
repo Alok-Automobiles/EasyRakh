@@ -169,7 +169,16 @@ export async function GET(request: NextRequest) {
         .toArray(),
       invoicesCollection
         .find(
-          { userId, createdAt: { $gte: periodStart, $lt: periodEnd } },
+          {
+            userId,
+            $or: [
+              { invoiceDate: { $gte: periodStart, $lt: periodEnd } },
+              {
+                invoiceDate: { $exists: false },
+                createdAt: { $gte: periodStart, $lt: periodEnd },
+              },
+            ],
+          },
           {
             projection: {
               totalAmount: 1,

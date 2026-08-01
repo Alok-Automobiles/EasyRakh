@@ -116,6 +116,7 @@ export async function POST(
           paidAmount,
           status,
           notes: invoice.notes,
+          invoiceDate: invoice.invoiceDate || invoice.createdAt,
           createdAt: invoice.createdAt,
           sellerSnapshot,
         });

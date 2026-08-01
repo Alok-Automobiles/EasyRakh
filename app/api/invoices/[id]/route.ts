@@ -23,6 +23,7 @@ import {
   INVOICE_PRICING_VERSION,
 } from '@/lib/invoice-calculations';
 import {
+  parseInvoiceDate,
   reconcileInvoicePaymentHistory,
   removeInvoiceCashEntries,
   updateInvoiceCashEntryBills,
@@ -59,6 +60,7 @@ const updateInvoiceSchema = z.object({
   status: z.enum(['paid', 'unpaid', 'partial']).optional(),
   notes: z.string().optional(),
   addToLedger: z.boolean().optional(),
+  invoiceDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, 'Invoice date must use YYYY-MM-DD').optional(),
 });
 
 type InvoiceRecord = {
@@ -88,6 +90,7 @@ type InvoiceRecord = {
   pdfPublicId?: string;
   pdfStatus?: string;
   pdfUpdatedAt?: Date;
+  invoiceDate?: Date;
   createdAt: Date;
   updatedAt: Date;
 };
@@ -173,6 +176,7 @@ export async function GET(
         pdfUrl: invoice.pdfUrl,
         pdfPublicId: invoice.pdfPublicId,
         pdfStatus: invoice.pdfStatus,
+        invoiceDate: invoice.invoiceDate || invoice.createdAt,
         createdAt: invoice.createdAt,
         updatedAt: invoice.updatedAt,
       },
@@ -236,6 +240,21 @@ export async function PUT(
         const updateFields: Record<string, unknown> = {
           updatedAt: new Date(),
         };
+        const existingInvoiceDate = new Date(existingInvoice.invoiceDate || existingInvoice.createdAt);
+        let invoiceDate = existingInvoiceDate;
+        if (validatedData.invoiceDate !== undefined) {
+          try {
+            invoiceDate = parseInvoiceDate(validatedData.invoiceDate);
+          } catch (error) {
+            throw new InvoiceStockError(
+              'INVALID_INVOICE_DATE',
+              error instanceof Error ? error.message : 'Invalid invoice date',
+              400
+            );
+          }
+          updateFields.invoiceDate = invoiceDate;
+        }
+        const invoiceDateChanged = invoiceDate.getTime() !== existingInvoiceDate.getTime();
 
         if (validatedData.customerName !== undefined) {
           updateFields.customerName = validatedData.customerName;
@@ -325,7 +344,7 @@ export async function PUT(
               type: 'debit',
               amount: totalAmount,
               description: `Invoice ${existingInvoice.invoiceNumber} - Amount due`,
-              date: now,
+              date: invoiceDate,
               createdAt: now,
             },
             { session }
@@ -367,12 +386,12 @@ export async function PUT(
         }
 
         if (existingInvoice.addedToLedger && existingInvoice.customerId) {
-          if (existingInvoice.totalAmount !== totalAmount) {
+          if (existingInvoice.totalAmount !== totalAmount || invoiceDateChanged) {
             const transactionId = existingInvoice.transactionId;
             const result = transactionId && ObjectId.isValid(transactionId)
               ? await transactionsCollection.updateOne(
                   { _id: new ObjectId(transactionId), userId },
-                  { $set: { amount: totalAmount } },
+                  { $set: { amount: totalAmount, date: invoiceDate } },
                   { session }
                 )
               : { matchedCount: 0 };
@@ -385,7 +404,7 @@ export async function PUT(
                 type: 'debit',
                 amount: totalAmount,
                 description: `Invoice ${existingInvoice.invoiceNumber} - Amount due`,
-                date: existingInvoice.createdAt || now,
+                date: invoiceDate,
                 createdAt: now,
               }, { session });
               updateFields.transactionId = debitTx.insertedId.toString();
@@ -421,6 +440,7 @@ export async function PUT(
           paidAmount,
           status,
           notes: nextNotes,
+          invoiceDate,
           createdAt: existingInvoice.createdAt,
           sellerSnapshot,
         });
@@ -506,6 +526,7 @@ export async function PUT(
         pdfUrl: invoiceForResponse.pdfUrl,
         pdfPublicId: invoiceForResponse.pdfPublicId,
         pdfStatus: invoiceForResponse.pdfStatus,
+        invoiceDate: invoiceForResponse.invoiceDate || invoiceForResponse.createdAt,
         createdAt: invoiceForResponse.createdAt,
         updatedAt: invoiceForResponse.updatedAt,
       },

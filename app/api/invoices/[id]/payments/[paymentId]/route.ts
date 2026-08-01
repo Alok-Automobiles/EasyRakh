@@ -120,6 +120,7 @@ export async function PUT(
           paidAmount,
           status,
           notes: invoice.notes,
+          invoiceDate: invoice.invoiceDate || invoice.createdAt,
           createdAt: invoice.createdAt,
           sellerSnapshot,
         });
@@ -254,6 +255,7 @@ export async function DELETE(
           paidAmount,
           status,
           notes: invoice.notes,
+          invoiceDate: invoice.invoiceDate || invoice.createdAt,
           createdAt: invoice.createdAt,
           sellerSnapshot,
         });
