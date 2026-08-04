@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import {
   getDailyCashBillViewUrl,
+  getTransactionBillViewUrl,
   isPdfBillAttachment,
 } from '@/lib/bill-attachments';
 
@@ -27,6 +28,18 @@ describe('bill attachment view URLs', () => {
 
     expect(isPdfBillAttachment(attachment)).toBe(false);
     expect(getDailyCashBillViewUrl('record', attachment)).toBe(attachment.billUrl);
+    expect(getTransactionBillViewUrl('transaction', attachment)).toBe(attachment.billUrl);
+  });
+
+  it('routes ledger transaction PDFs through the authenticated transaction endpoint', () => {
+    const attachment = {
+      billUrl: 'https://res.cloudinary.com/demo/raw/upload/invoice',
+      billPublicId: 'ledger-bills/invoice.pdf',
+    };
+
+    expect(getTransactionBillViewUrl('transaction/id', attachment)).toBe(
+      '/api/transactions/transaction%2Fid/bill'
+    );
   });
 
   it('returns an empty URL when no attachment is present', () => {

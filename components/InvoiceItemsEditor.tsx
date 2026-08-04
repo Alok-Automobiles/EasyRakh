@@ -4,7 +4,7 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import type { KeyboardEvent } from 'react';
 import { createPortal } from 'react-dom';
 import toast from 'react-hot-toast';
-import { CheckCircle2, Plus, Trash2, X } from 'lucide-react';
+import { AlertTriangle, CheckCircle2, Plus, Trash2, X } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 
@@ -400,6 +400,13 @@ export default function InvoiceItemsEditor({
           </thead>
           <tbody>
             {items.map((item, index) => {
+              const isBelowCost =
+                item.amount > 0 &&
+                item.unitCost !== undefined &&
+                item.unitCost > item.amount;
+              const belowCostWarningId = `invoice-item-${item.id}-below-cost`;
+              const lossPerUnit = isBelowCost ? item.unitCost! - item.amount : 0;
+
               return (
                 <tr key={item.id} className="border-b border-gray-100 last:border-0">
                   <td className="px-3 py-3 align-middle text-sm font-semibold text-gray-600">
@@ -498,28 +505,59 @@ export default function InvoiceItemsEditor({
                       onKeyDown={(event) => handleKeyDown(item.id, 'amount', event)}
                       placeholder="0"
                       aria-label={`Row ${index + 1} amount`}
+                      aria-describedby={isBelowCost ? belowCostWarningId : undefined}
                       className="h-9 bg-white text-right shadow-none"
                     />
                   </td>
                   <td className="px-3 py-3 align-middle">
-                    <Input
-                      ref={(node) => setInputRef(item.id, 'unitCost', node)}
-                      type="number"
-                      inputMode="decimal"
-                      min="0"
-                      step="0.01"
-                      value={item.unitCostInput !== undefined ? item.unitCostInput : item.unitCost ?? ''}
-                      onChange={(event) =>
-                        updateItem(item.id, {
-                          unitCostInput: event.target.value,
-                          unitCost: event.target.value.trim() === '' ? undefined : parseNumberInput(event.target.value),
-                        })
-                      }
-                      onKeyDown={(event) => handleKeyDown(item.id, 'unitCost', event)}
-                      placeholder="Required"
-                      aria-label={`Row ${index + 1} cost price`}
-                      className={`h-9 bg-white text-right shadow-none ${item.unitCost === undefined ? 'border-amber-300' : ''}`}
-                    />
+                    <div className="relative">
+                      <Input
+                        ref={(node) => setInputRef(item.id, 'unitCost', node)}
+                        type="number"
+                        inputMode="decimal"
+                        min="0"
+                        step="0.01"
+                        value={item.unitCostInput !== undefined ? item.unitCostInput : item.unitCost ?? ''}
+                        onChange={(event) =>
+                          updateItem(item.id, {
+                            unitCostInput: event.target.value,
+                            unitCost: event.target.value.trim() === '' ? undefined : parseNumberInput(event.target.value),
+                          })
+                        }
+                        onKeyDown={(event) => handleKeyDown(item.id, 'unitCost', event)}
+                        placeholder="Required"
+                        aria-label={`Row ${index + 1} cost price`}
+                        aria-invalid={isBelowCost || undefined}
+                        aria-describedby={isBelowCost ? belowCostWarningId : undefined}
+                        className={`h-9 bg-white text-right shadow-none ${
+                          isBelowCost
+                            ? 'border-rose-300 pr-8 focus-visible:border-rose-400 focus-visible:ring-rose-100'
+                            : item.unitCost === undefined
+                              ? 'border-amber-300'
+                              : ''
+                        }`}
+                      />
+                      {isBelowCost && (
+                        <AlertTriangle
+                          className="pointer-events-none absolute right-2.5 top-1/2 h-4 w-4 -translate-y-1/2 text-rose-500"
+                          aria-hidden="true"
+                        />
+                      )}
+                    </div>
+                    {isBelowCost && (
+                      <p
+                        id={belowCostWarningId}
+                        role="status"
+                        className="mt-1 text-right text-[10px] font-semibold leading-tight text-rose-600"
+                        title="Cost price is greater than selling price"
+                      >
+                        {lossPerUnit.toLocaleString('en-IN', {
+                          style: 'currency',
+                          currency: 'INR',
+                          maximumFractionDigits: 2,
+                        })} above sale
+                      </p>
+                    )}
                   </td>
                   <td className="px-3 py-3 text-right align-middle font-semibold text-gray-900">
                     {(item.quantity * item.amount).toLocaleString('en-IN', {

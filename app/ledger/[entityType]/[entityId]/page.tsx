@@ -32,6 +32,11 @@ import PrintLedgerOverlay from '@/components/PrintLedgerOverlay';
 import { ASSISTANT_DATA_UPDATED_EVENT } from '@/lib/assistant-events';
 import { compressImage, isCompressibleImage, formatFileSize } from '@/lib/imageCompression';
 import { parseNumberInput } from '@/lib/number-input';
+import {
+  getTransactionBillViewUrl,
+  isPdfBillAttachment,
+} from '@/lib/bill-attachments';
+import PdfDocumentViewer from '@/components/PdfDocumentViewer';
 
 interface LedgerEntry {
   date: Date;
@@ -755,6 +760,13 @@ export default function LedgerPage() {
     backLink = `/custom-entities/${entityType}`;
   }
 
+  const selectedBillIsPdf = selectedTransaction
+    ? isPdfBillAttachment(selectedTransaction)
+    : false;
+  const selectedBillViewUrl = selectedTransaction
+    ? getTransactionBillViewUrl(selectedTransaction.id, selectedTransaction)
+    : '';
+
   return (
     <motion.div
       initial={{ opacity: 0 }}
@@ -988,7 +1000,7 @@ export default function LedgerPage() {
         </div>
 
         <Dialog open={billModalOpen} onOpenChange={handleBillModalOpenChange}>
-          <DialogContent className="sm:max-w-xl">
+          <DialogContent className="max-h-[92dvh] max-w-[95vw] overflow-hidden sm:max-w-4xl">
             <DialogHeader>
               <DialogTitle>Bill Attachment</DialogTitle>
               <DialogDescription>
@@ -1002,30 +1014,22 @@ export default function LedgerPage() {
               {billModalLoading ? (
                 <p className="text-sm text-muted-foreground">Loading bill...</p>
               ) : selectedTransaction?.billUrl ? (
-                <>
-                  {selectedTransaction.billUrl.toLowerCase().includes('.pdf') ? (
-                    <div className="rounded border border-dashed p-4 text-sm text-gray-700">
-                      Bill is a PDF document.
-                    </div>
-                  ) : (
-                    <Image
-                      src={selectedTransaction.billUrl}
-                      alt="Bill preview"
-                      width={800}
-                      height={600}
-                      unoptimized
-                      className="w-full max-h-96 rounded-md object-contain border"
-                    />
-                  )}
-                  {/* <a
-                  href={selectedTransaction.billUrl}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="text-sm text-blue-600 hover:underline"
-                >
-                  Open in new tab
-                </a> */}
-                </>
+                selectedBillIsPdf ? (
+                  <PdfDocumentViewer
+                    url={selectedBillViewUrl}
+                    title="Bill PDF"
+                    className="max-h-[72dvh]"
+                  />
+                ) : (
+                  <Image
+                    src={selectedBillViewUrl}
+                    alt="Bill preview"
+                    width={800}
+                    height={600}
+                    unoptimized
+                    className="w-full max-h-[60vh] rounded-md object-contain border"
+                  />
+                )
               ) : (
                 <p className="text-sm text-muted-foreground">No bill attached to this transaction.</p>
               )}

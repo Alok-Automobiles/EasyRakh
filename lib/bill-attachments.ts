@@ -24,3 +24,13 @@ export function getDailyCashBillViewUrl(recordId: string, attachment: BillAttach
     'bill',
   ].join('/');
 }
+
+export function getTransactionBillViewUrl(
+  transactionId: string,
+  attachment: Pick<BillAttachment, 'billUrl' | 'billPublicId'>
+) {
+  if (!attachment.billUrl) return '';
+  if (!isPdfBillAttachment(attachment)) return attachment.billUrl;
+
+  return `/api/transactions/${encodeURIComponent(transactionId)}/bill`;
+}

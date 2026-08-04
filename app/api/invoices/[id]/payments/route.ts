@@ -19,6 +19,7 @@ import { InvoiceStockError } from '@/lib/invoice-stock';
 import { bumpCacheVersions } from '@/lib/cache-version';
 import { refreshUserReadModels } from '@/lib/read-models';
 import redis from '@/lib/redis';
+import { updateInvoiceLedgerBillAttachments } from '@/lib/invoice-ledger';
 
 const paymentSchema = z.object({
   idempotencyKey: z.string().trim().min(8).max(100).optional(),
@@ -121,6 +122,14 @@ export async function POST(
           sellerSnapshot,
         });
         uploadedPdfs.push(uploadedPdf);
+        await updateInvoiceLedgerBillAttachments(
+          db,
+          userId,
+          invoice,
+          uploadedPdf.url,
+          uploadedPdf.publicId,
+          session
+        );
 
         const paymentId = new ObjectId().toString();
         const cashEntryId = new ObjectId().toString();
@@ -132,9 +141,15 @@ export async function POST(
             entityType: 'customer',
             entityId: invoice.customerId,
             customerId: invoice.customerId,
+            invoiceId: id,
+            invoiceNumber: invoice.invoiceNumber,
+            invoicePaymentId: paymentId,
+            source: 'invoice_payment',
             type: 'credit',
             amount,
             description: `Invoice ${invoice.invoiceNumber} - Payment received`,
+            billUrl: uploadedPdf.url,
+            billPublicId: uploadedPdf.publicId,
             date: paymentDate,
             createdAt: now,
           }, { session });

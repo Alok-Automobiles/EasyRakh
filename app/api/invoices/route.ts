@@ -426,45 +426,6 @@ export async function POST(request: NextRequest) {
           );
           adjustedIds.forEach((itemId) => changedInventoryIds.add(itemId));
 
-          let paymentLedgerTransactionId: string | undefined;
-          if (validatedData.addToLedger && customerId) {
-            const debitTx = await transactionsCollection.insertOne(
-              {
-                userId,
-                entityType: 'customer',
-                entityId: customerId,
-                customerId,
-                type: 'debit',
-                amount: totalAmount,
-                description: `Invoice ${invoiceNumber} - Amount due`,
-                date: invoiceDate,
-                createdAt: now,
-              },
-              { session }
-            );
-            invoiceDoc.transactionId = debitTx.insertedId.toString();
-
-            if (initialPaidAmount > 0) {
-              const paymentTx = await transactionsCollection.insertOne(
-                {
-                  userId,
-                  entityType: 'customer',
-                  entityId: customerId,
-                  customerId,
-                  type: 'credit',
-                  amount: initialPaidAmount,
-                  description: `Invoice ${invoiceNumber} - Payment received`,
-                  date: paymentDate,
-                  createdAt: now,
-                },
-                { session }
-              );
-              paymentLedgerTransactionId = paymentTx.insertedId.toString();
-            }
-
-            invoiceDoc.addedToLedger = true;
-          }
-
           uploadedPdfForAttempt = await uploadInvoicePdf(userId, {
             invoiceNumber,
             customerName: validatedData.customerName,
@@ -484,6 +445,58 @@ export async function POST(request: NextRequest) {
           invoiceDoc.pdfPublicId = uploadedPdfForAttempt.publicId;
           invoiceDoc.pdfStatus = 'ready';
           invoiceDoc.pdfUpdatedAt = now;
+
+          let paymentLedgerTransactionId: string | undefined;
+          if (validatedData.addToLedger && customerId) {
+            const attachment = {
+              billUrl: uploadedPdfForAttempt.url,
+              billPublicId: uploadedPdfForAttempt.publicId,
+            };
+            const debitTx = await transactionsCollection.insertOne(
+              {
+                userId,
+                entityType: 'customer',
+                entityId: customerId,
+                customerId,
+                invoiceId: invoiceObjectId.toString(),
+                invoiceNumber,
+                source: 'invoice',
+                type: 'debit',
+                amount: totalAmount,
+                description: `Invoice ${invoiceNumber} - Amount due`,
+                ...attachment,
+                date: invoiceDate,
+                createdAt: now,
+              },
+              { session }
+            );
+            invoiceDoc.transactionId = debitTx.insertedId.toString();
+
+            if (initialPaidAmount > 0) {
+              const paymentTx = await transactionsCollection.insertOne(
+                {
+                  userId,
+                  entityType: 'customer',
+                  entityId: customerId,
+                  customerId,
+                  invoiceId: invoiceObjectId.toString(),
+                  invoiceNumber,
+                  invoicePaymentId: paymentId,
+                  source: 'invoice_payment',
+                  type: 'credit',
+                  amount: initialPaidAmount,
+                  description: `Invoice ${invoiceNumber} - Payment received`,
+                  ...attachment,
+                  date: paymentDate,
+                  createdAt: now,
+                },
+                { session }
+              );
+              paymentLedgerTransactionId = paymentTx.insertedId.toString();
+            }
+
+            invoiceDoc.addedToLedger = true;
+          }
 
           if (paymentId && cashEntryId) {
             await addInvoicePaymentCashEntry(db, userId, {

@@ -32,6 +32,7 @@ import {
   getDailyCashBillViewUrl,
   isPdfBillAttachment,
 } from '@/lib/bill-attachments';
+import PdfDocumentViewer from '@/components/PdfDocumentViewer';
 
 const MAX_BILL_SIZE_BYTES = 5 * 1024 * 1024; // 5MB
 const ACCEPTED_BILL_TYPES = [
@@ -1605,17 +1606,17 @@ export default function DailyCashRecordPage() {
             }
           }}
         >
-          <DialogContent className="max-w-[95vw] sm:max-w-4xl">
+          <DialogContent className="max-h-[92dvh] max-w-[95vw] overflow-hidden sm:max-w-4xl">
             <DialogHeader>
               <DialogTitle>Bill Attachment</DialogTitle>
             </DialogHeader>
             <div className="space-y-4">
               {billViewUrl ? (
                 billViewIsPdf ? (
-                  <iframe
-                    src={billViewUrl}
+                  <PdfDocumentViewer
+                    url={billViewUrl}
                     title="Bill PDF"
-                    className="h-[70vh] w-full rounded-md border bg-white"
+                    className="max-h-[72dvh]"
                   />
                 ) : (
                   <Image

@@ -20,6 +20,7 @@ import { InvoiceStockError } from '@/lib/invoice-stock';
 import { bumpCacheVersions } from '@/lib/cache-version';
 import { refreshUserReadModels } from '@/lib/read-models';
 import redis from '@/lib/redis';
+import { updateInvoiceLedgerBillAttachments } from '@/lib/invoice-ledger';
 
 const updatePaymentSchema = z.object({
   amount: z.number().finite().positive('Payment must be greater than zero'),
@@ -125,12 +126,27 @@ export async function PUT(
           sellerSnapshot,
         });
         uploadedPdfs.push(uploadedPdf);
+        await updateInvoiceLedgerBillAttachments(
+          db,
+          userId,
+          invoice,
+          uploadedPdf.url,
+          uploadedPdf.publicId,
+          session
+        );
 
         let ledgerTransactionId = payment.ledgerTransactionId;
         if (ledgerTransactionId && ObjectId.isValid(ledgerTransactionId)) {
           await db.collection('transactions').updateOne(
             { _id: new ObjectId(ledgerTransactionId), userId },
-            { $set: { amount, date: paymentDate } },
+            {
+              $set: {
+                amount,
+                date: paymentDate,
+                billUrl: uploadedPdf.url,
+                billPublicId: uploadedPdf.publicId,
+              },
+            },
             { session }
           );
         } else if (invoice.addedToLedger && invoice.customerId) {
@@ -139,9 +155,15 @@ export async function PUT(
             entityType: 'customer',
             entityId: invoice.customerId,
             customerId: invoice.customerId,
+            invoiceId: id,
+            invoiceNumber: invoice.invoiceNumber,
+            invoicePaymentId: paymentId,
+            source: 'invoice_payment',
             type: 'credit',
             amount,
             description: `Invoice ${invoice.invoiceNumber} - Payment received`,
+            billUrl: uploadedPdf.url,
+            billPublicId: uploadedPdf.publicId,
             date: paymentDate,
             createdAt: new Date(),
           }, { session });
@@ -260,6 +282,14 @@ export async function DELETE(
           sellerSnapshot,
         });
         uploadedPdfs.push(uploadedPdf);
+        await updateInvoiceLedgerBillAttachments(
+          db,
+          userId,
+          invoice,
+          uploadedPdf.url,
+          uploadedPdf.publicId,
+          session
+        );
 
         await removeInvoicePaymentCashEntry(db, userId, paymentId, session);
         if (payment.ledgerTransactionId && ObjectId.isValid(payment.ledgerTransactionId)) {
