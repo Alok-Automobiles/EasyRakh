@@ -242,4 +242,31 @@ describe('InvoiceItemsEditor', () => {
       expect(screen.getByLabelText('Row 2 part number')).toHaveFocus();
     });
   });
+
+  it('warns when the cost price is greater than the selling price', async () => {
+    const user = userEvent.setup();
+    render(<EditorHarness initialItems={[{
+      id: '1',
+      itemNumber: '',
+      itemName: 'Below-cost item',
+      quantity: 1,
+      amount: 100,
+      amountInput: '100',
+      unitCost: 125,
+      unitCostInput: '125',
+    }]} />);
+
+    expect(screen.getByTitle('Cost price is greater than selling price')).toHaveTextContent(
+      '₹25.00 above sale'
+    );
+    expect(screen.getByLabelText('Row 1 amount')).not.toHaveAttribute('aria-invalid');
+    expect(screen.getByLabelText('Row 1 cost price')).toHaveAttribute('aria-invalid', 'true');
+
+    const sellingPrice = screen.getByLabelText('Row 1 amount');
+    await user.clear(sellingPrice);
+    await user.type(sellingPrice, '150');
+
+    expect(screen.queryByText(/above sale/)).not.toBeInTheDocument();
+    expect(sellingPrice).not.toHaveAttribute('aria-invalid');
+  });
 });

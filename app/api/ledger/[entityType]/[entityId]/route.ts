@@ -164,12 +164,65 @@ export async function GET(
       ? transactionsForBalance.slice(offsetCursor, offsetCursor + limit)
       : transactionsForBalance.slice(0, limit);
 
+    const legacyInvoiceTransactionIds = pageTransactions
+      .filter((transaction) => (
+        !transaction.billUrl &&
+        (transaction.invoiceId || /^Invoice\s+/i.test(transaction.description || ''))
+      ))
+      .map((transaction) => transaction._id.toString());
+    const invoiceAttachmentsByTransactionId = new Map<
+      string,
+      { billUrl: string; billPublicId?: string }
+    >();
+
+    if (legacyInvoiceTransactionIds.length > 0) {
+      const linkedInvoices = await db.collection('invoices')
+        .find(
+          {
+            userId,
+            $or: [
+              { transactionId: { $in: legacyInvoiceTransactionIds } },
+              { 'payments.ledgerTransactionId': { $in: legacyInvoiceTransactionIds } },
+            ],
+          },
+          {
+            projection: {
+              transactionId: 1,
+              payments: 1,
+              pdfUrl: 1,
+              pdfPublicId: 1,
+            },
+          }
+        )
+        .toArray();
+
+      for (const invoice of linkedInvoices) {
+        if (!invoice.pdfUrl) continue;
+        const attachment = {
+          billUrl: invoice.pdfUrl as string,
+          billPublicId: invoice.pdfPublicId as string | undefined,
+        };
+        if (invoice.transactionId) {
+          invoiceAttachmentsByTransactionId.set(invoice.transactionId, attachment);
+        }
+        for (const payment of invoice.payments || []) {
+          if (payment.ledgerTransactionId) {
+            invoiceAttachmentsByTransactionId.set(payment.ledgerTransactionId, attachment);
+          }
+        }
+      }
+    }
+
     const pageEntries = pageTransactions.map((transaction) => {
       if (transaction.type === 'credit') {
         runningBalance -= transaction.amount;
       } else {
         runningBalance += transaction.amount;
       }
+
+      const invoiceAttachment = invoiceAttachmentsByTransactionId.get(
+        transaction._id.toString()
+      );
 
       return {
         transactionId: transaction._id.toString(),
@@ -178,8 +231,8 @@ export async function GET(
         credit: transaction.type === 'credit' ? transaction.amount : 0,
         debit: transaction.type === 'debit' ? transaction.amount : 0,
         balance: runningBalance,
-        billUrl: transaction.billUrl,
-        billPublicId: transaction.billPublicId,
+        billUrl: transaction.billUrl || invoiceAttachment?.billUrl,
+        billPublicId: transaction.billPublicId || invoiceAttachment?.billPublicId,
       };
     });
 

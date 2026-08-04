@@ -40,6 +40,7 @@ import {
   DialogTitle,
 } from '@/components/ui/dialog';
 import { Invoice } from '@/lib/types';
+import { useDebounce } from '@/lib/hooks/useDebounce';
 
 const currencyFormatter = new Intl.NumberFormat('en-IN', {
   style: 'currency',
@@ -83,6 +84,11 @@ export default function InvoicesPage() {
   const router = useRouter();
   const queryClient = useQueryClient();
   const [searchQuery, setSearchQuery] = useState('');
+  const debouncedSearchQuery = useDebounce(searchQuery, 350);
+  const normalizedSearchQuery = debouncedSearchQuery.trim();
+  const effectiveSearchQuery = normalizedSearchQuery.length >= 2
+    ? normalizedSearchQuery
+    : '';
   const [statusFilter, setStatusFilter] = useState<string>('all');
   const [currentPage, setCurrentPage] = useState(1);
   const [downloadingInvoiceId, setDownloadingInvoiceId] = useState<string | null>(null);
@@ -92,7 +98,7 @@ export default function InvoicesPage() {
 
   useEffect(() => {
     setCurrentPage(1);
-  }, [searchQuery, statusFilter]);
+  }, [effectiveSearchQuery, statusFilter]);
 
   useEffect(() => {
     const onKeyDown = (e: KeyboardEvent) => {
@@ -110,10 +116,10 @@ export default function InvoicesPage() {
   }, [router]);
 
   const { data, isLoading } = useQuery<InvoicesResponse>({
-    queryKey: ['invoices', searchQuery, statusFilter, currentPage],
+    queryKey: ['invoices', effectiveSearchQuery, statusFilter, currentPage],
     queryFn: async () => {
       const params = new URLSearchParams();
-      if (searchQuery) params.set('search', searchQuery);
+      if (effectiveSearchQuery) params.set('search', effectiveSearchQuery);
       if (statusFilter && statusFilter !== 'all') params.set('status', statusFilter);
       params.set('page', currentPage.toString());
       params.set('limit', '20');
@@ -126,6 +132,7 @@ export default function InvoicesPage() {
       if (!response.ok) throw new Error('Failed to fetch invoices');
       return response.json();
     },
+    placeholderData: (previousData) => previousData,
   });
 
   const invoices = data?.invoices ?? [];
@@ -271,6 +278,7 @@ export default function InvoicesPage() {
               placeholder="Search by customer name or invoice number..."
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
+              aria-label="Search invoices"
               className="pl-10"
             />
           </div>

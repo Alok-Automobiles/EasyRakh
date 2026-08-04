@@ -254,8 +254,6 @@ export async function PUT(
           }
           updateFields.invoiceDate = invoiceDate;
         }
-        const invoiceDateChanged = invoiceDate.getTime() !== existingInvoiceDate.getTime();
-
         if (validatedData.customerName !== undefined) {
           updateFields.customerName = validatedData.customerName;
         }
@@ -332,86 +330,6 @@ export async function PUT(
         });
 
         const now = new Date();
-        let nextPayments = payments;
-
-        if (validatedData.addToLedger && !existingInvoice.addedToLedger && existingInvoice.customerId) {
-          const debitTx = await transactionsCollection.insertOne(
-            {
-              userId,
-              entityType: 'customer',
-              entityId: existingInvoice.customerId,
-              customerId: existingInvoice.customerId,
-              type: 'debit',
-              amount: totalAmount,
-              description: `Invoice ${existingInvoice.invoiceNumber} - Amount due`,
-              date: invoiceDate,
-              createdAt: now,
-            },
-            { session }
-          );
-          updateFields.transactionId = debitTx.insertedId.toString();
-
-          if (payments.length > 0) {
-            nextPayments = [];
-            for (const payment of payments) {
-              const paymentTx = await transactionsCollection.insertOne({
-                userId,
-                entityType: 'customer',
-                entityId: existingInvoice.customerId,
-                customerId: existingInvoice.customerId,
-                type: 'credit',
-                amount: payment.amount,
-                description: `Invoice ${existingInvoice.invoiceNumber} - Payment received`,
-                date: payment.date || now,
-                createdAt: now,
-              }, { session });
-              nextPayments.push({ ...payment, ledgerTransactionId: paymentTx.insertedId.toString() });
-            }
-            updateFields.payments = nextPayments;
-          } else if (paidAmount > 0) {
-            await transactionsCollection.insertOne({
-              userId,
-              entityType: 'customer',
-              entityId: existingInvoice.customerId,
-              customerId: existingInvoice.customerId,
-              type: 'credit',
-              amount: paidAmount,
-              description: `Invoice ${existingInvoice.invoiceNumber} - Payment received`,
-              date: now,
-              createdAt: now,
-            }, { session });
-          }
-
-          updateFields.addedToLedger = true;
-        }
-
-        if (existingInvoice.addedToLedger && existingInvoice.customerId) {
-          if (existingInvoice.totalAmount !== totalAmount || invoiceDateChanged) {
-            const transactionId = existingInvoice.transactionId;
-            const result = transactionId && ObjectId.isValid(transactionId)
-              ? await transactionsCollection.updateOne(
-                  { _id: new ObjectId(transactionId), userId },
-                  { $set: { amount: totalAmount, date: invoiceDate } },
-                  { session }
-                )
-              : { matchedCount: 0 };
-            if (!result.matchedCount) {
-              const debitTx = await transactionsCollection.insertOne({
-                userId,
-                entityType: 'customer',
-                entityId: existingInvoice.customerId,
-                customerId: existingInvoice.customerId,
-                type: 'debit',
-                amount: totalAmount,
-                description: `Invoice ${existingInvoice.invoiceNumber} - Amount due`,
-                date: invoiceDate,
-                createdAt: now,
-              }, { session });
-              updateFields.transactionId = debitTx.insertedId.toString();
-            }
-          }
-        }
-
         let sellerSnapshot = existingInvoice.sellerSnapshot;
         if (!isSellerSnapshotComplete(sellerSnapshot)) {
           const user = await usersCollection.findOne({ _id: new ObjectId(userId) }, { session });
@@ -449,6 +367,123 @@ export async function PUT(
         updateFields.pdfPublicId = uploadedPdf.publicId;
         updateFields.pdfStatus = 'ready';
         updateFields.pdfUpdatedAt = now;
+        const ledgerAttachment = {
+          billUrl: uploadedPdf.url,
+          billPublicId: uploadedPdf.publicId,
+        };
+
+        let nextPayments = payments;
+
+        if (validatedData.addToLedger && !existingInvoice.addedToLedger && existingInvoice.customerId) {
+          const debitTx = await transactionsCollection.insertOne(
+            {
+              userId,
+              entityType: 'customer',
+              entityId: existingInvoice.customerId,
+              customerId: existingInvoice.customerId,
+              invoiceId: id,
+              invoiceNumber: existingInvoice.invoiceNumber,
+              source: 'invoice',
+              type: 'debit',
+              amount: totalAmount,
+              description: `Invoice ${existingInvoice.invoiceNumber} - Amount due`,
+              ...ledgerAttachment,
+              date: invoiceDate,
+              createdAt: now,
+            },
+            { session }
+          );
+          updateFields.transactionId = debitTx.insertedId.toString();
+
+          if (payments.length > 0) {
+            nextPayments = [];
+            for (const payment of payments) {
+              const paymentTx = await transactionsCollection.insertOne({
+                userId,
+                entityType: 'customer',
+                entityId: existingInvoice.customerId,
+                customerId: existingInvoice.customerId,
+                invoiceId: id,
+                invoiceNumber: existingInvoice.invoiceNumber,
+                invoicePaymentId: payment.id,
+                source: 'invoice_payment',
+                type: 'credit',
+                amount: payment.amount,
+                description: `Invoice ${existingInvoice.invoiceNumber} - Payment received`,
+                ...ledgerAttachment,
+                date: payment.date || now,
+                createdAt: now,
+              }, { session });
+              nextPayments.push({ ...payment, ledgerTransactionId: paymentTx.insertedId.toString() });
+            }
+            updateFields.payments = nextPayments;
+          } else if (paidAmount > 0) {
+            await transactionsCollection.insertOne({
+              userId,
+              entityType: 'customer',
+              entityId: existingInvoice.customerId,
+              customerId: existingInvoice.customerId,
+              invoiceId: id,
+              invoiceNumber: existingInvoice.invoiceNumber,
+              source: 'invoice_payment',
+              type: 'credit',
+              amount: paidAmount,
+              description: `Invoice ${existingInvoice.invoiceNumber} - Payment received`,
+              ...ledgerAttachment,
+              date: now,
+              createdAt: now,
+            }, { session });
+          }
+
+          updateFields.addedToLedger = true;
+        }
+
+        if (existingInvoice.addedToLedger && existingInvoice.customerId) {
+          const transactionId = existingInvoice.transactionId;
+          const result = transactionId && ObjectId.isValid(transactionId)
+            ? await transactionsCollection.updateOne(
+                { _id: new ObjectId(transactionId), userId },
+                {
+                  $set: {
+                    amount: totalAmount,
+                    date: invoiceDate,
+                    ...ledgerAttachment,
+                  },
+                },
+                { session }
+              )
+            : { matchedCount: 0 };
+          if (!result.matchedCount) {
+            const debitTx = await transactionsCollection.insertOne({
+              userId,
+              entityType: 'customer',
+              entityId: existingInvoice.customerId,
+              customerId: existingInvoice.customerId,
+              invoiceId: id,
+              invoiceNumber: existingInvoice.invoiceNumber,
+              source: 'invoice',
+              type: 'debit',
+              amount: totalAmount,
+              description: `Invoice ${existingInvoice.invoiceNumber} - Amount due`,
+              ...ledgerAttachment,
+              date: invoiceDate,
+              createdAt: now,
+            }, { session });
+            updateFields.transactionId = debitTx.insertedId.toString();
+          }
+
+          for (const payment of nextPayments) {
+            if (!payment.ledgerTransactionId || !ObjectId.isValid(payment.ledgerTransactionId)) {
+              continue;
+            }
+            await transactionsCollection.updateOne(
+              { _id: new ObjectId(payment.ledgerTransactionId), userId },
+              { $set: ledgerAttachment },
+              { session }
+            );
+          }
+        }
+
         await updateInvoiceCashEntryBills(
           db,
           userId,

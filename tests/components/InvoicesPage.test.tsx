@@ -1,4 +1,4 @@
-import { fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { act, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import InvoicesPage from '@/app/invoices/page';
@@ -7,6 +7,7 @@ import { ids } from '@/tests/helpers/api';
 const mocks = vi.hoisted(() => ({
   push: vi.fn(),
   invalidateQueries: vi.fn(),
+  queryOptions: vi.fn(),
 }));
 
 vi.mock('next/navigation', () => ({
@@ -22,30 +23,33 @@ vi.mock('next/link', () => ({
 }));
 
 vi.mock('@tanstack/react-query', () => ({
-  useQuery: () => ({
-    data: {
-      invoices: [{
-        id: ids.transaction,
-        userId: ids.user,
-        invoiceNumber: 'INV-2026-07-0001',
-        customerName: 'Raj Traders',
-        items: [],
-        totalAmount: 900,
-        paidAmount: 0,
-        status: 'unpaid',
-        addedToLedger: false,
-        createdAt: new Date('2026-07-25T10:00:00.000Z'),
-        updatedAt: new Date('2026-07-25T10:00:00.000Z'),
-      }],
-      pagination: {
-        total: 1,
-        page: 1,
-        pageSize: 20,
-        totalPages: 1,
+  useQuery: (options: unknown) => {
+    mocks.queryOptions(options);
+    return {
+      data: {
+        invoices: [{
+          id: ids.transaction,
+          userId: ids.user,
+          invoiceNumber: 'INV-2026-07-0001',
+          customerName: 'Raj Traders',
+          items: [],
+          totalAmount: 900,
+          paidAmount: 0,
+          status: 'unpaid',
+          addedToLedger: false,
+          createdAt: new Date('2026-07-25T10:00:00.000Z'),
+          updatedAt: new Date('2026-07-25T10:00:00.000Z'),
+        }],
+        pagination: {
+          total: 1,
+          page: 1,
+          pageSize: 20,
+          totalPages: 1,
+        },
       },
-    },
-    isLoading: false,
-  }),
+      isLoading: false,
+    };
+  },
   useMutation: () => ({
     mutate: vi.fn(),
   }),
@@ -58,6 +62,32 @@ describe('InvoicesPage invoice downloads', () => {
   beforeEach(() => {
     mocks.push.mockReset();
     mocks.invalidateQueries.mockReset();
+    mocks.queryOptions.mockReset();
+  });
+
+  it('waits for two characters and debounces invoice searches', () => {
+    vi.useFakeTimers();
+    render(<InvoicesPage />);
+
+    const searchInput = screen.getByRole('textbox', { name: 'Search invoices' });
+    fireEvent.change(searchInput, { target: { value: 'R' } });
+
+    act(() => vi.advanceTimersByTime(350));
+    expect(mocks.queryOptions.mock.calls.at(-1)?.[0]).toMatchObject({
+      queryKey: ['invoices', '', 'all', 1],
+    });
+
+    fireEvent.change(searchInput, { target: { value: 'Ra' } });
+    act(() => vi.advanceTimersByTime(349));
+    expect(mocks.queryOptions.mock.calls.at(-1)?.[0]).toMatchObject({
+      queryKey: ['invoices', '', 'all', 1],
+    });
+
+    act(() => vi.advanceTimersByTime(1));
+    expect(mocks.queryOptions.mock.calls.at(-1)?.[0]).toMatchObject({
+      queryKey: ['invoices', 'Ra', 'all', 1],
+    });
+    vi.useRealTimers();
   });
 
   it('downloads the PDF without opening the invoice page', async () => {

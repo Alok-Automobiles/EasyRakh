@@ -107,4 +107,69 @@ describe('/api/ledger/[entityType]/[entityId]', () => {
       },
     });
   });
+
+  it('shows the invoice PDF on legacy ledger entries that predate bill fields', async () => {
+    const customer = {
+      _id: objectIdLike(ids.customer),
+      name: 'Raj Traders',
+      openingBalance: 0,
+      balanceType: 'debit',
+    };
+    const transactions = transactionCursor([{
+      _id: objectIdLike(ids.transaction),
+      type: 'debit',
+      amount: 900,
+      description: 'Invoice INV-2026-07-0001 - Amount due',
+      date: new Date('2026-07-01T00:00:00.000Z'),
+    }]);
+    const invoiceFind = vi.fn(() => ({
+      toArray: vi.fn().mockResolvedValue([{
+        transactionId: ids.transaction,
+        payments: [],
+        pdfUrl: 'https://example.com/invoice.pdf',
+        pdfPublicId: 'invoice.pdf',
+      }]),
+    }));
+    const collection = vi.fn((name: string) => {
+      if (name === 'customers') return { findOne: vi.fn().mockResolvedValue(customer) };
+      if (name === 'transactions') return { find: transactions.find };
+      if (name === 'invoices') return { find: invoiceFind };
+      if (name === 'entityBalances') {
+        return {
+          findOne: vi.fn().mockResolvedValue({
+            totalCredit: 0,
+            totalDebit: 900,
+            totalBalance: 900,
+          }),
+        };
+      }
+      return { findOne: vi.fn().mockResolvedValue(null) };
+    });
+    mocks.getDb.mockResolvedValue({ collection });
+
+    const { GET } = await import('@/app/api/ledger/[entityType]/[entityId]/route');
+    const response = await GET(
+      jsonRequest('http://localhost/api/ledger/customer/customer-1'),
+      routeParams({ entityType: 'customer', entityId: ids.customer })
+    );
+
+    expect(response.status).toBe(200);
+    await expect(response.json()).resolves.toMatchObject({
+      entries: [{
+        transactionId: ids.transaction,
+        billUrl: 'https://example.com/invoice.pdf',
+        billPublicId: 'invoice.pdf',
+      }],
+    });
+    expect(invoiceFind).toHaveBeenCalledWith(
+      {
+        userId: ids.user,
+        $or: [
+          { transactionId: { $in: [ids.transaction] } },
+          { 'payments.ledgerTransactionId': { $in: [ids.transaction] } },
+        ],
+      },
+      expect.objectContaining({ projection: expect.any(Object) })
+    );
+  });
 });

@@ -563,6 +563,51 @@ describe('/api/invoices stock sync', () => {
     );
   });
 
+  it('attaches the generated invoice PDF to its ledger transaction', async () => {
+    const invoiceFind = invoiceFindChain();
+    const invoiceInsert = vi.fn().mockResolvedValue({
+      insertedId: objectIdLike('507f1f77bcf86cd799439099'),
+    });
+    const transactionInsert = vi.fn().mockResolvedValue({
+      insertedId: objectIdLike(ids.supplier),
+    });
+    mocks.getDb.mockResolvedValue(dbWithCollections({
+      invoices: { find: invoiceFind.find, insertOne: invoiceInsert },
+      customers: { findOne: vi.fn().mockResolvedValue({ _id: objectIdLike(ids.customer) }) },
+      transactions: { insertOne: transactionInsert },
+      inventory: {},
+    }));
+
+    const { POST } = await import('@/app/api/invoices/route');
+    const response = await POST(jsonRequest(
+      'http://localhost/api/invoices',
+      createBody([manualItem()], {
+        customerId: ids.customer,
+        addToLedger: true,
+      })
+    ));
+
+    expect(response.status).toBe(201);
+    expect(transactionInsert).toHaveBeenCalledWith(
+      expect.objectContaining({
+        entityType: 'customer',
+        entityId: ids.customer,
+        type: 'debit',
+        source: 'invoice',
+        billUrl: 'https://example.com/invoice.pdf',
+        billPublicId: 'invoice.pdf',
+      }),
+      { session: mocks.session }
+    );
+    expect(invoiceInsert).toHaveBeenCalledWith(
+      expect.objectContaining({
+        addedToLedger: true,
+        transactionId: ids.supplier,
+      }),
+      { session: mocks.session }
+    );
+  });
+
   it('adds a later partial payment to Daily Cash and the invoice payment history', async () => {
     const invoice = {
       _id: objectIdLike(ids.transaction),
@@ -991,6 +1036,8 @@ describe('/api/invoices stock sync', () => {
         $set: {
           amount: 250,
           date: new Date('2026-05-15T00:00:00.000Z'),
+          billUrl: 'https://example.com/invoice.pdf',
+          billPublicId: 'invoice.pdf',
         },
       },
       { session: mocks.session }
