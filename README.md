@@ -28,7 +28,6 @@ Optional integrations:
 
 - A [Google Gemini API key](https://aistudio.google.com/app/apikey) for the voice assistant
 - SMTP credentials for password-reset emails
-- Docker Desktop, if you want to run MongoDB and Redis in containers
 
 ## Quick Start
 
@@ -48,29 +47,34 @@ corepack enable
 pnpm install --frozen-lockfile
 ```
 
-### 3. Start MongoDB and Redis
+### 3. Install and start MongoDB and Redis
 
-If MongoDB and Redis are already installed or hosted, skip to the next step and use their connection details.
+The Next.js development server runs directly on your machine and connects to MongoDB and Redis. If both services are already installed or hosted, skip to the connection settings below.
 
-To start both services with Docker:
-
-```bash
-docker run -d --name easyrakh-mongodb \
-  -p 27017:27017 \
-  -v easyrakh-mongodb-data:/data/db \
-  mongo:8
-
-docker run -d --name easyrakh-redis \
-  -p 6379:6379 \
-  -v easyrakh-redis-data:/data \
-  redis:7-alpine
-```
-
-After restarting your computer, resume existing containers with:
+On macOS with Homebrew, install and start the local services with:
 
 ```bash
-docker start easyrakh-mongodb easyrakh-redis
+brew tap mongodb/brew
+brew install mongodb-community@8.0
+brew services start mongodb-community@8.0
+
+brew tap redis/redis
+brew install --cask redis
+redis-server "$(brew --prefix)/etc/redis.conf"
 ```
+
+The Redis server stays attached to that terminal. Keep it open while developing, or configure Redis as a background service for your operating system.
+
+For other operating systems, follow the official [MongoDB Community installation guide](https://www.mongodb.com/docs/manual/administration/install-community/) and [Redis Open Source installation guide](https://redis.io/docs/latest/operate/oss_and_stack/install/install-redis/).
+
+Verify locally installed services before starting EasyRakh:
+
+```bash
+mongosh --quiet --eval 'db.runCommand({ ping: 1 }).ok'
+redis-cli ping
+```
+
+The commands should print `1` for MongoDB and `PONG` for Redis.
 
 When using hosted services:
 
