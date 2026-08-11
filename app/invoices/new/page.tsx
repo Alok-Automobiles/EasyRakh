@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import toast from 'react-hot-toast';
 import { motion } from 'motion/react';
+import { useQueryClient } from '@tanstack/react-query';
 import {
   ArrowLeft,
   Plus,
@@ -77,6 +78,7 @@ function isValidInvoiceItem(item: EditableInvoiceItem) {
 
 export default function NewInvoicePage() {
   const router = useRouter();
+  const queryClient = useQueryClient();
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
   const hasFetchedRef = useRef(false);
@@ -347,6 +349,7 @@ export default function NewInvoicePage() {
 
       const data = await response.json();
       createRequestIdRef.current = null;
+      await queryClient.invalidateQueries({ queryKey: ['invoices'] });
       toast.success('Invoice created successfully!');
       router.push(`/invoices/${data.invoice.id}`);
     } catch (error) {
@@ -367,6 +370,7 @@ export default function NewInvoicePage() {
     selectedCustomer,
     createNewCustomer,
     firmDetailsComplete,
+    queryClient,
     router,
   ]);
 
