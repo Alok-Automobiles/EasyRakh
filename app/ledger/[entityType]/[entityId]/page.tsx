@@ -1091,7 +1091,7 @@ export default function LedgerPage() {
             ) : editingTransaction ? (
               <div className="space-y-4">
                 <div className="space-y-2">
-                  <label className="text-sm font-medium text-gray-700">Type</label>
+                  <label className="text-sm font-medium text-foreground">Type</label>
                   <Select
                     value={editingTransaction.type}
                     onValueChange={(value: 'credit' | 'debit') => 
@@ -1109,7 +1109,7 @@ export default function LedgerPage() {
                 </div>
 
                 <div className="space-y-2">
-                  <label className="text-sm font-medium text-gray-700">Amount (₹)</label>
+                  <label className="text-sm font-medium text-foreground">Amount (₹)</label>
                   <Input
                     type="number"
                     inputMode="decimal"
@@ -1126,7 +1126,7 @@ export default function LedgerPage() {
                 </div>
 
                 <div className="space-y-2">
-                  <label className="text-sm font-medium text-gray-700">Description</label>
+                  <label className="text-sm font-medium text-foreground">Description</label>
                   <Textarea
                     value={editingTransaction.description}
                     onChange={(e) => 
@@ -1141,7 +1141,7 @@ export default function LedgerPage() {
                 </div>
 
                 <div className="space-y-2">
-                  <label className="text-sm font-medium text-gray-700">Date</label>
+                  <label className="text-sm font-medium text-foreground">Date</label>
                   <Input
                     type="date"
                     value={editingTransaction.date}
@@ -1209,7 +1209,7 @@ export default function LedgerPage() {
             <div className="space-y-4 py-4">
               <div className="grid grid-cols-2 gap-4">
                 <div className="space-y-2">
-                  <label className="text-sm font-medium text-gray-700">Amount (₹)</label>
+                  <label className="text-sm font-medium text-foreground">Amount (₹)</label>
                   <Input
                     type="number"
                     inputMode="decimal"
@@ -1226,7 +1226,7 @@ export default function LedgerPage() {
                   />
                 </div>
                 <div className="space-y-2">
-                  <label className="text-sm font-medium text-gray-700">Balance Type</label>
+                  <label className="text-sm font-medium text-foreground">Balance Type</label>
                   <select
                     value={openingBalanceEditData.balanceType}
                     onChange={(e) =>
@@ -1244,7 +1244,7 @@ export default function LedgerPage() {
               </div>
 
               <div className="space-y-2">
-                <label className="text-sm font-medium text-gray-700">Description (Optional)</label>
+                <label className="text-sm font-medium text-foreground">Description (Optional)</label>
                 <textarea
                   value={openingBalanceEditData.description}
                   onChange={(e) =>
@@ -1260,7 +1260,7 @@ export default function LedgerPage() {
               </div>
 
               <div className="space-y-2">
-                <label className="text-sm font-medium text-gray-700">Bill Image (Optional)</label>
+                <label className="text-sm font-medium text-foreground">Bill Image (Optional)</label>
                 {openingBalanceEditData.billUrl ? (
                   <div className="space-y-3">
                     <div className="relative inline-block">
@@ -1304,13 +1304,13 @@ export default function LedgerPage() {
                   </div>
                 ) : (
                   <div className="flex items-center justify-center w-full">
-                    <label className="flex flex-col items-center justify-center w-full h-32 border-2 border-gray-300 border-dashed rounded-lg cursor-pointer bg-gray-50 hover:bg-gray-100">
+                    <label className="flex h-32 w-full cursor-pointer flex-col items-center justify-center rounded-lg border-2 border-dashed border-border bg-muted/40 transition-colors hover:bg-muted/70">
                       <div className="flex flex-col items-center justify-center pt-5 pb-6">
-                        <Upload className="w-8 h-8 mb-2 text-gray-400" />
-                        <p className="mb-2 text-sm text-gray-500">
+                        <Upload className="mb-2 h-8 w-8 text-muted-foreground" />
+                        <p className="mb-2 text-sm text-muted-foreground">
                           <span className="font-semibold">{openingBalanceUploading ? 'Uploading...' : 'Click to upload'}</span>
                         </p>
-                        <p className="text-xs text-gray-500">PNG, JPG up to 10MB</p>
+                        <p className="text-xs text-muted-foreground">PNG, JPG up to 10MB</p>
                       </div>
                       <input
                         type="file"
