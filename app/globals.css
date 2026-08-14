@@ -4888,6 +4888,30 @@ body:has(.kinetic-landing) {
   }
 }
 
+/* On phones the particles live in a dedicated band above the hero copy. */
+@media (max-width: 767px) {
+  .kinetic-hero {
+    --kinetic-mobile-particle-end: clamp(20rem, 68vw, 25rem);
+    height: max(138svh, 58rem);
+  }
+
+  .kinetic-hero-stage {
+    position: relative;
+    top: auto;
+    height: 100%;
+  }
+
+  .kinetic-particle-hero {
+    display: block;
+    clip-path: none;
+    pointer-events: none;
+  }
+
+  .kinetic-hero-copy {
+    padding-top: calc(var(--kinetic-mobile-particle-end) + 2rem);
+  }
+}
+
 @media (max-width: 1023px) and (hover: none) {
   .kinetic-mobile-motion-ready
     .kinetic-feature-index-card.is-mobile-visible:active {

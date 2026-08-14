@@ -427,7 +427,7 @@ function HeroScene() {
 
   return (
     <section ref={sectionRef} className="kinetic-hero relative h-[155svh]">
-      <div className="sticky top-0 h-svh overflow-hidden">
+      <div className="kinetic-hero-stage sticky top-0 h-svh overflow-hidden">
         <div className="kinetic-grid absolute inset-0" />
         <div className="kinetic-hero-glow absolute inset-0" />
         <LandingParticleMark />
@@ -438,7 +438,7 @@ function HeroScene() {
               ? undefined
               : { opacity: copyOpacity, y: copyY }
           }
-          className="kinetic-hero-copy relative z-10 mx-auto flex h-full w-full max-w-[1600px] flex-col justify-end px-5 pb-16 pt-32 sm:px-8 md:justify-start md:px-12 md:pb-10 md:pt-28 lg:px-16"
+          className="kinetic-hero-copy relative z-10 mx-auto flex h-full w-full max-w-[1600px] flex-col justify-start px-5 pb-8 pt-28 sm:px-8 sm:pb-12 sm:pt-32 md:px-12 md:pb-10 md:pt-28 lg:px-16"
         >
           <div className="kinetic-hero-copy-inner max-w-[820px] md:flex md:h-[calc(100svh-10rem)] md:max-w-[48%] md:flex-col md:justify-between">
             <motion.p
@@ -453,7 +453,7 @@ function HeroScene() {
               initial={{ opacity: 0, y: 28 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ duration: 0.85, delay: 0.18 }}
-              className="kinetic-display kinetic-hero-heading mt-5 max-w-[800px] text-[clamp(3.35rem,6.2vw,7rem)] md:mt-0"
+              className="kinetic-display kinetic-hero-heading mt-3 max-w-[800px] text-[clamp(2.5rem,11.5vw,3.1rem)] sm:mt-5 sm:text-[clamp(3.35rem,6.2vw,7rem)] md:mt-0"
             >
               See your entire business at a glance with{' '}
               <span className="kinetic-gradient-text kinetic-hero-wordmark inline-block">
@@ -464,7 +464,7 @@ function HeroScene() {
               initial={{ opacity: 0, y: 20 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ duration: 0.7, delay: 0.34 }}
-              className="mt-7 flex max-w-xl flex-col gap-6 md:mt-0"
+              className="mt-5 flex max-w-xl flex-col gap-4 sm:mt-7 sm:gap-6 md:mt-0"
             >
               <p className="kinetic-body text-base sm:text-lg">
                 Khata, daily cash, invoices, stock, and answers—moving
