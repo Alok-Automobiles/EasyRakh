@@ -20,6 +20,10 @@ const LIGHT_HERO_DESKTOP_PARTICLES = 7200;
 const LIGHT_HERO_MOBILE_PARTICLES = 4600;
 const LANGUAGE_DESKTOP_PARTICLES = 6800;
 const LANGUAGE_MOBILE_PARTICLES = 4400;
+const MOBILE_LAYOUT_BREAKPOINT = 768;
+const MOBILE_HERO_BAND_TOP = 80;
+const MOBILE_HERO_BAND_END_MIN = 320;
+const MOBILE_HERO_BAND_END_MAX = 400;
 const HERO_LOOP_DURATION = 15_800;
 const LANGUAGE_SEGMENT_DURATION = 3_900;
 const HERO_DESKTOP_CENTER_X = 0.75;
@@ -60,6 +64,13 @@ const languageShapes: ShapeName[] = [
   'simple',
   'human-portrait',
 ];
+
+function getMobileHeroBandEnd(width: number) {
+  return Math.min(
+    MOBILE_HERO_BAND_END_MAX,
+    Math.max(MOBILE_HERO_BAND_END_MIN, width * 0.68),
+  );
+}
 
 function createMask(width: number, height: number) {
   const canvas = document.createElement('canvas');
@@ -114,12 +125,19 @@ function sampleShape({
   const context = mask.getContext('2d');
   if (!context) return [];
 
-  const mobile = width < 720;
+  const mobile = width < MOBILE_LAYOUT_BREAKPOINT;
   const isHero = variant === 'hero';
+  const mobileHeroBandEnd = getMobileHeroBandEnd(width);
+  const mobileHeroBandHeight =
+    mobileHeroBandEnd - MOBILE_HERO_BAND_TOP;
   const centerX = isHero
     ? width * (mobile ? HERO_MOBILE_CENTER_X : HERO_DESKTOP_CENTER_X)
     : width * 0.5;
-  const centerY = isHero ? (mobile ? height * 0.19 : height * 0.48) : height * 0.47;
+  const centerY = isHero
+    ? mobile
+      ? MOBILE_HERO_BAND_TOP + mobileHeroBandHeight / 2
+      : height * 0.48
+    : height * 0.47;
 
   if (shape === 'brand-logo') {
     if (!logoImage.complete || !logoImage.naturalWidth) return [];
@@ -127,13 +145,15 @@ function sampleShape({
     const logoAspectRatio =
       logoImage.naturalWidth / logoImage.naturalHeight;
     const maxLogoWidth = width * (mobile ? 0.76 : 0.4);
-    const maxLogoHeight = height * (mobile ? 0.3 : 0.52);
+    const maxLogoHeight = mobile
+      ? mobileHeroBandHeight * 0.72
+      : height * 0.52;
     const logoWidth = Math.min(
       maxLogoWidth,
       maxLogoHeight * logoAspectRatio,
     );
     const logoHeight = logoWidth / logoAspectRatio;
-    const logoCenterY = height * (mobile ? 0.16 : 0.48);
+    const logoCenterY = centerY;
 
     context.drawImage(
       logoImage,
@@ -176,7 +196,9 @@ function sampleShape({
     ? width * (mobile ? 0.78 : 0.38)
     : width * (mobile ? 0.9 : 0.84);
   const availableHeight = isHero
-    ? height * (mobile ? 0.34 : 0.58)
+    ? mobile
+      ? mobileHeroBandHeight - 2.5 * 16
+      : height * 0.58
     : height * (mobile ? 0.5 : 0.56);
   const lineHeightRatio = lines.length > 1 ? (mobile ? 0.94 : 1.02) : 0.92;
   let fontSize = Math.min(
@@ -362,7 +384,7 @@ export default function LandingParticleMark({
         styles.getPropertyValue('--font-geist-sans').trim() ||
         styles.fontFamily ||
         'system-ui, sans-serif';
-      const mobile = width < 720;
+      const mobile = width < MOBILE_LAYOUT_BREAKPOINT;
       const count =
         variant === 'language'
           ? mobile
@@ -379,11 +401,15 @@ export default function LandingParticleMark({
         x:
           variant === 'hero'
             ? width *
-              (width < 720
+              (width < MOBILE_LAYOUT_BREAKPOINT
                 ? HERO_MOBILE_CENTER_X
                 : HERO_DESKTOP_CENTER_X)
             : width * 0.5,
-        y: height * (variant === 'hero' && width < 720 ? 0.19 : 0.47),
+        y:
+          variant === 'hero' && width < MOBILE_LAYOUT_BREAKPOINT
+            ? MOBILE_HERO_BAND_TOP +
+              (getMobileHeroBandEnd(width) - MOBILE_HERO_BAND_TOP) / 2
+            : height * 0.47,
       };
       const activeShapes = variant === 'hero' ? heroShapes : languageShapes;
       targetSets = Object.fromEntries(
@@ -408,7 +434,7 @@ export default function LandingParticleMark({
       particles = Array.from({ length: count }, (_, index) => {
         const target = targetSets[activeShapes[0]][index];
         const seed = ((index * 73) % 997) / 997;
-        const scatter = width < 720 ? 18 : 42;
+        const scatter = width < MOBILE_LAYOUT_BREAKPOINT ? 18 : 42;
         return {
           seed,
           size:
@@ -598,6 +624,7 @@ export default function LandingParticleMark({
     <canvas
       ref={canvasRef}
       className={`kinetic-particle-canvas kinetic-particle-${variant} absolute inset-0 h-full w-full`}
+      style={variant === 'hero' ? { clipPath: 'none' } : undefined}
       aria-hidden="true"
     />
   );
