@@ -46,6 +46,7 @@ function findChain(items: unknown[]) {
 
 describe('/api/search', () => {
   beforeEach(() => {
+    delete process.env.MONGODB_SEARCH_ENABLED;
     mocks.getDb.mockReset();
     mocks.getUserIdFromRequest.mockReset();
     mocks.checkRateLimit.mockReset();
@@ -160,6 +161,22 @@ describe('/api/search', () => {
       `search:${ids.user}:v0:raj`,
       60,
       JSON.stringify(body)
+    );
+    expect(customers.find).toHaveBeenCalledWith({
+      userId: ids.user,
+      $or: expect.arrayContaining([
+        { searchTokens: { $all: ['raj'] } },
+        { name: { $regex: 'raj', $options: 'i' } },
+        { phone: { $regex: 'raj', $options: 'i' } },
+      ]),
+    });
+    expect(inventory.chain.project).toHaveBeenCalledWith(
+      expect.objectContaining({
+        uniqueCode: 1,
+        brand: 1,
+        description: 1,
+        supplier: 1,
+      })
     );
   });
 });

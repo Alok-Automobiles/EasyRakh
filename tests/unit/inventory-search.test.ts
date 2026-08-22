@@ -40,4 +40,12 @@ describe('inventory fuzzy search', () => {
     const indexed = new Set(inventoryFuzzyTokens(tataBrake));
     expect(fuzzyCandidateTokens('brkae').some((token) => indexed.has(token))).toBe(true);
   });
+
+  it('shares candidates when searching by the last digits of a long item number', () => {
+    const indexed = new Set(inventoryFuzzyTokens({ itemNumber: '1234530145' }));
+    const shared = fuzzyCandidateTokens('0145').filter((token) => indexed.has(token));
+
+    expect(shared).toEqual(expect.arrayContaining(['~014', '~145']));
+    expect(scoreInventorySearch({ itemNumber: '1234530145' }, '30145')).toBeGreaterThan(0.42);
+  });
 });

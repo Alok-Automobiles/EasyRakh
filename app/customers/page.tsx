@@ -117,6 +117,7 @@ export default function CustomersPage() {
   const customers = useMemo(() => data?.customers ?? [], [data?.customers]);
   const normalizedSearchQuery = searchQuery.trim().toLowerCase();
   const debouncedSearchQuery = useDebounce(searchQuery, 300).trim();
+  const normalizedDebouncedSearchQuery = debouncedSearchQuery.toLowerCase();
   const { data: searchData } = useQuery<{
     customers: (Customer & { id: string; totalBalance: number })[];
   }>({
@@ -129,18 +130,23 @@ export default function CustomersPage() {
       return response.json();
     },
     enabled: debouncedSearchQuery.length >= 2,
-    placeholderData: (previous) => previous,
   });
   const filteredCustomers = useMemo(() => {
     if (!normalizedSearchQuery) return customers;
-    if (normalizedSearchQuery.length >= 2 && searchData) return searchData.customers;
+    if (
+      normalizedSearchQuery.length >= 2 &&
+      normalizedSearchQuery === normalizedDebouncedSearchQuery &&
+      searchData
+    ) {
+      return searchData.customers;
+    }
 
     return customers.filter((customer) =>
       [customer.name, customer.phone, customer.email, customer.address].some((value) =>
         (value || '').toLowerCase().includes(normalizedSearchQuery)
       )
     );
-  }, [customers, normalizedSearchQuery, searchData]);
+  }, [customers, normalizedDebouncedSearchQuery, normalizedSearchQuery, searchData]);
   const customerBalances = useMemo(() => customers.reduce(
     (totals, customer) => ({
       receivable: totals.receivable + Math.max(customer.totalBalance, 0),

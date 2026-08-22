@@ -137,14 +137,15 @@ export function buildInventorySearchStage(userId: string, query: string): Docume
 export function buildEntitySearchStage(
   userId: string,
   query: string,
-  collectionType?: string
+  collectionType?: string,
+  includeCollectionType = false
 ): Document {
   const filter = [tenantFilter(userId)];
   if (collectionType) {
     filter.push({ equals: { path: 'collectionType', value: collectionType } });
   }
 
-  return searchStage(filter, [
+  const should = [
     phrase('phone', query, 22),
     autocomplete('searchIdentifiers', query, 18, { compact: true }),
     autocomplete('phone', query, 16),
@@ -152,7 +153,15 @@ export function buildEntitySearchStage(
     autocomplete('email', query, 8),
     autocomplete('address', query, 5, { fuzzy: true }),
     text(['name', 'phone', 'email', 'address'], query, 4, true),
-  ]);
+  ];
+  if (includeCollectionType) {
+    should.push(
+      autocomplete('collectionType', query, 6, { fuzzy: true }),
+      text('collectionType', query, 4, true)
+    );
+  }
+
+  return searchStage(filter, should);
 }
 
 export function buildInvoiceSearchStage(userId: string, query: string): Document {

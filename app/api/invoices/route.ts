@@ -69,6 +69,23 @@ type CreatedInvoiceResponse = { id: string } & Record<string, any>;
 
 const INVOICE_NUMBER_RETRY_ATTEMPTS = 3;
 
+function escapeRegex(value: string) {
+  return value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+}
+
+function invoiceFallbackFilter(baseQuery: Document, search: string, tokens: string[]): Document {
+  const regex = { $regex: escapeRegex(search), $options: 'i' };
+  return {
+    ...baseQuery,
+    $or: [
+      ...(tokens.length > 0 ? [{ searchTokens: { $all: tokens } }] : []),
+      { invoiceNumber: regex },
+      { customerName: regex },
+      { customerPhone: regex },
+    ],
+  };
+}
+
 function isDuplicateInvoiceNumberError(error: unknown) {
   if (error instanceof MongoServerError) {
     return error.code === 11000;
@@ -158,7 +175,7 @@ export async function GET(request: NextRequest) {
     const { searchParams } = new URL(request.url);
     const customerId = searchParams.get('customerId');
     const status = searchParams.get('status');
-    const search = searchParams.get('search');
+    const search = searchParams.get('search')?.trim() || '';
     const pageParam = Number(searchParams.get('page') || '1');
     const limitParam = Number(searchParams.get('limit') || '20');
     const page = Number.isNaN(pageParam) || pageParam < 1 ? 1 : pageParam;
@@ -179,14 +196,7 @@ export async function GET(request: NextRequest) {
     const db = await getDb();
     const invoicesCollection = db.collection('invoices');
 
-    type InvoiceQuery = {
-      userId: string;
-      customerId?: string;
-      status?: string;
-      searchTokens?: { $all: string[] };
-    };
-
-    const query: InvoiceQuery = { userId };
+    const query: Document = { userId };
     
     if (customerId) {
       query.customerId = customerId;
@@ -195,9 +205,23 @@ export async function GET(request: NextRequest) {
       query.status = status;
     }
     const tokens = search ? queryTokens(search) : [];
+    const runInvoiceQuery = async (filter: Document) => {
+      const [queryTotal, queryInvoices] = await Promise.all([
+        invoicesCollection.countDocuments(filter),
+        invoicesCollection
+          .find(filter)
+          .sort({ createdAt: -1 })
+          .skip(skip)
+          .limit(limit)
+          .toArray(),
+      ]);
+      return { total: queryTotal, invoices: queryInvoices };
+    };
+    const fallbackQuery = search ? invoiceFallbackFilter(query, search, tokens) : query;
     const { total, invoices } =
-      search && tokens.length > 0
-        ? await withMongoSearchFallback(
+      search
+        ? tokens.length > 0
+          ? await withMongoSearchFallback(
             'invoice list',
             async () => {
               const [result] = await invoicesCollection
@@ -221,36 +245,11 @@ export async function GET(request: NextRequest) {
                 invoices: result?.invoices || [],
               };
             },
-            async () => {
-              const fallbackQuery: InvoiceQuery = {
-                ...query,
-                searchTokens: { $all: tokens },
-              };
-              const [fallbackTotal, fallbackInvoices] = await Promise.all([
-                invoicesCollection.countDocuments(fallbackQuery),
-                invoicesCollection
-                  .find(fallbackQuery)
-                  .sort({ createdAt: -1 })
-                  .skip(skip)
-                  .limit(limit)
-                  .toArray(),
-              ]);
-              return { total: fallbackTotal, invoices: fallbackInvoices };
-            },
+            () => runInvoiceQuery(fallbackQuery),
             'invoices'
           )
-        : await (async () => {
-            const [unfilteredTotal, unfilteredInvoices] = await Promise.all([
-              invoicesCollection.countDocuments(query),
-              invoicesCollection
-                .find(query)
-                .sort({ createdAt: -1 })
-                .skip(skip)
-                .limit(limit)
-                .toArray(),
-            ]);
-            return { total: unfilteredTotal, invoices: unfilteredInvoices };
-          })();
+          : await runInvoiceQuery(fallbackQuery)
+        : await runInvoiceQuery(query);
 
     const totalPages = Math.max(1, Math.ceil(total / limit));
 

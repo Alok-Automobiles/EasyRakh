@@ -72,6 +72,9 @@ describe('MongoDB Search configuration', () => {
         },
       },
     });
+    expect(
+      JSON.stringify(buildEntitySearchStage('user-1', 'transporters', undefined, true))
+    ).toContain('collectionType');
     expect(JSON.stringify(buildInvoiceSearchStage('user-1', 'inv-100'))).toContain('INV-100');
   });
 
@@ -89,6 +92,20 @@ describe('MongoDB Search configuration', () => {
           tokenization: 'nGram',
           minGrams: 2,
         }),
+      ])
+    );
+  });
+
+  it('maps custom entity types for both equality filters and text search', () => {
+    const customEntityIndex = MONGODB_SEARCH_INDEXES.find(
+      (index) => index.collection === 'customEntities'
+    );
+    const fields = customEntityIndex?.definition.mappings.fields as Record<string, unknown>;
+
+    expect(fields.collectionType).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ type: 'token' }),
+        expect.objectContaining({ type: 'autocomplete', tokenization: 'edgeGram' }),
       ])
     );
   });

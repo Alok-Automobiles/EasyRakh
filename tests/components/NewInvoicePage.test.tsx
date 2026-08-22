@@ -1,6 +1,6 @@
 import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
-import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import NewInvoicePage from '@/app/invoices/new/page';
 
 const mocks = vi.hoisted(() => ({
@@ -59,6 +59,47 @@ describe('NewInvoicePage', () => {
   beforeEach(() => {
     mocks.invalidateQueries.mockReset().mockResolvedValue(undefined);
     mocks.push.mockReset();
+  });
+
+  afterEach(() => {
+    vi.restoreAllMocks();
+  });
+
+  it('keeps local customer suggestions when remote search fails', async () => {
+    const fetchMock = vi.spyOn(globalThis, 'fetch').mockImplementation(async (input) => {
+      const url = String(input);
+
+      if (url === '/api/customers') {
+        return Response.json({
+          customers: [{ id: 'customer-1', name: 'Raj Traders', phone: '9876543210' }],
+        });
+      }
+      if (url === '/api/auth/me') {
+        return Response.json({ user: {} });
+      }
+      if (url.startsWith('/api/invoices/next-number')) {
+        return Response.json({ nextInvoiceNumber: 'INV-2026-08-0001' });
+      }
+      if (url === '/api/customers?search=Raj') {
+        return new Response(null, { status: 503 });
+      }
+
+      throw new Error(`Unexpected fetch: ${url}`);
+    });
+
+    render(<NewInvoicePage />);
+
+    const input = await screen.findByLabelText('Customer Name *');
+    fireEvent.focus(input);
+    fireEvent.change(input, { target: { value: 'Raj' } });
+
+    await waitFor(() => {
+      expect(fetchMock).toHaveBeenCalledWith(
+        '/api/customers?search=Raj',
+        expect.objectContaining({ signal: expect.any(Object) })
+      );
+    });
+    expect(screen.getByText('Raj Traders')).toBeInTheDocument();
   });
 
   it('invalidates the invoice list before navigating to the created invoice', async () => {

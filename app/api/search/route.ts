@@ -25,6 +25,26 @@ interface SearchResult {
   balance?: number;
 }
 
+function escapeRegex(value: string) {
+  return value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+}
+
+function legacySearchFilter(
+  userId: string,
+  query: string,
+  tokens: string[],
+  fields: string[]
+): Document {
+  const regex = { $regex: escapeRegex(query), $options: 'i' };
+  return {
+    userId,
+    $or: [
+      ...(tokens.length > 0 ? [{ searchTokens: { $all: tokens } }] : []),
+      ...fields.map((field) => ({ [field]: regex })),
+    ],
+  };
+}
+
 async function searchCollection(
   db: Db,
   collectionName: MongoSearchCollection,
@@ -80,6 +100,7 @@ export async function GET(request: NextRequest) {
 
     const db = await getDb();
     const tokenQuery = { $all: tokens };
+    const entityFallbackFields = ['name', 'phone', 'email', 'address'];
 
     const [customers, suppliers, customEntities, invoices, inventory] = await Promise.all([
       searchCollection(
@@ -87,7 +108,7 @@ export async function GET(request: NextRequest) {
         'customers',
         'global customer search',
         buildEntitySearchStage(userId, query),
-        { userId, searchTokens: tokenQuery },
+        legacySearchFilter(userId, query, tokens, entityFallbackFields),
         { _id: 1, name: 1, phone: 1, email: 1 }
       ),
       searchCollection(
@@ -95,15 +116,18 @@ export async function GET(request: NextRequest) {
         'suppliers',
         'global supplier search',
         buildEntitySearchStage(userId, query),
-        { userId, searchTokens: tokenQuery },
+        legacySearchFilter(userId, query, tokens, entityFallbackFields),
         { _id: 1, name: 1, phone: 1, email: 1 }
       ),
       searchCollection(
         db,
         'customEntities',
         'global custom entity search',
-        buildEntitySearchStage(userId, query),
-        { userId, searchTokens: tokenQuery },
+        buildEntitySearchStage(userId, query, undefined, true),
+        legacySearchFilter(userId, query, tokens, [
+          ...entityFallbackFields,
+          'collectionType',
+        ]),
         { _id: 1, name: 1, phone: 1, collectionType: 1 }
       ),
       searchCollection(
@@ -111,7 +135,11 @@ export async function GET(request: NextRequest) {
         'invoices',
         'global invoice search',
         buildInvoiceSearchStage(userId, query),
-        { userId, searchTokens: tokenQuery },
+        legacySearchFilter(userId, query, tokens, [
+          'invoiceNumber',
+          'customerName',
+          'customerPhone',
+        ]),
         { _id: 1, invoiceNumber: 1, customerName: 1, totalAmount: 1, status: 1 }
       ),
       withMongoSearchFallback<Document[]>(
@@ -128,6 +156,10 @@ export async function GET(request: NextRequest) {
                   _id: 1,
                   itemName: 1,
                   itemNumber: 1,
+                  uniqueCode: 1,
+                  brand: 1,
+                  description: 1,
+                  supplier: 1,
                   quantity: 1,
                   unitOfMeasure: 1,
                   location: 1,
@@ -137,6 +169,7 @@ export async function GET(request: NextRequest) {
             .toArray(),
         async () => {
           const fuzzyTokens = fuzzyCandidateTokens(query);
+          const regex = { $regex: escapeRegex(query), $options: 'i' };
           const candidates = await db
             .collection('inventory')
             .find({
@@ -144,12 +177,23 @@ export async function GET(request: NextRequest) {
               $or: [
                 { searchTokens: tokenQuery },
                 ...(fuzzyTokens.length ? [{ fuzzySearchTokens: { $in: fuzzyTokens } }] : []),
+                { itemName: regex },
+                { itemNumber: regex },
+                { uniqueCode: regex },
+                { brand: regex },
+                { location: regex },
+                { supplier: regex },
+                { description: regex },
               ],
             })
             .project({
               _id: 1,
               itemName: 1,
               itemNumber: 1,
+              uniqueCode: 1,
+              brand: 1,
+              description: 1,
+              supplier: 1,
               quantity: 1,
               unitOfMeasure: 1,
               location: 1,

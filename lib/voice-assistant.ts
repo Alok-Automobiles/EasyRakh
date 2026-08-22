@@ -1144,6 +1144,7 @@ async function findEntities(
   entityOrConditions.push({ name: originalRegex });
 
   const fetchLimit = limit * 3; // Fetch more to allow in-memory scoring
+  const searchFetchLimit = Math.max(fetchLimit * 4, 100);
 
   const [customers, suppliers, customEntities] = await Promise.all([
     withMongoSearchFallback(
@@ -1152,7 +1153,7 @@ async function findEntities(
         .aggregate([
           buildEntitySearchStage(userId, cleanedQuery),
           ...searchScoreStages(),
-          { $limit: fetchLimit },
+          { $limit: searchFetchLimit },
           { $project: { _id: 1, name: 1, phone: 1, email: 1 } },
         ])
         .toArray(),
@@ -1169,7 +1170,7 @@ async function findEntities(
         .aggregate([
           buildEntitySearchStage(userId, cleanedQuery),
           ...searchScoreStages(),
-          { $limit: fetchLimit },
+          { $limit: searchFetchLimit },
           { $project: { _id: 1, name: 1, phone: 1, email: 1 } },
         ])
         .toArray(),
@@ -1184,9 +1185,9 @@ async function findEntities(
       'voice custom entity lookup',
       () => db.collection('customEntities')
         .aggregate([
-          buildEntitySearchStage(userId, cleanedQuery),
+          buildEntitySearchStage(userId, cleanedQuery, undefined, true),
           ...searchScoreStages(),
-          { $limit: fetchLimit },
+          { $limit: searchFetchLimit },
           { $project: { _id: 1, name: 1, phone: 1, email: 1, collectionType: 1 } },
         ])
         .toArray(),
@@ -1541,6 +1542,7 @@ async function searchInventory(
 
   // Fetch candidates (cast a wide net, score in memory)
   const fetchLimit = Math.max(limit * 10, 50);
+  const searchFetchLimit = Math.max(fetchLimit * 2, 100);
   const candidates = await withMongoSearchFallback(
     'voice inventory lookup',
     () => db
@@ -1548,7 +1550,7 @@ async function searchInventory(
       .aggregate([
         buildInventorySearchStage(userId, queryTokens.join(' ')),
         ...searchScoreStages(),
-        { $limit: fetchLimit },
+        { $limit: searchFetchLimit },
         { $project: projection },
       ])
       .toArray(),

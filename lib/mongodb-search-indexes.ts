@@ -70,7 +70,7 @@ export const MONGODB_SEARCH_INDEXES = [
         dynamic: false,
         fields: {
           ...entityFields,
-          collectionType: { type: 'token' },
+          collectionType: [{ type: 'token' }, ...textField('edgeGram')],
         },
       },
     },

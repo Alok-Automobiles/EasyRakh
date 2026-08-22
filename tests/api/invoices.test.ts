@@ -79,6 +79,16 @@ function invoiceFindChain(items: unknown[] = []) {
   return { find, sort, limit, toArray };
 }
 
+function invoiceListFindChain(items: unknown[] = []) {
+  const chain = {
+    sort: vi.fn(() => chain),
+    skip: vi.fn(() => chain),
+    limit: vi.fn(() => chain),
+    toArray: vi.fn().mockResolvedValue(items),
+  };
+  return { find: vi.fn(() => chain), chain };
+}
+
 function dbWithCollections(collections: Record<string, unknown>) {
   return {
     collection: vi.fn((name: string) => {
@@ -143,6 +153,7 @@ function createBody(items: unknown[], overrides: Record<string, unknown> = {}) {
 
 describe('/api/invoices stock sync', () => {
   beforeEach(() => {
+    delete process.env.MONGODB_SEARCH_ENABLED;
     mocks.getDb.mockReset();
     mocks.getUserIdFromRequest.mockReset();
     mocks.redisGet.mockReset();
@@ -171,6 +182,49 @@ describe('/api/invoices stock sync', () => {
       await callback();
     });
     mocks.session.endSession.mockResolvedValue(undefined);
+  });
+
+  it('keeps one-character invoice searches scoped to matching source fields', async () => {
+    const invoiceList = invoiceListFindChain();
+    const countDocuments = vi.fn().mockResolvedValue(0);
+    mocks.getDb.mockResolvedValue(
+      dbWithCollections({ invoices: { find: invoiceList.find, countDocuments } })
+    );
+
+    const { GET } = await import('@/app/api/invoices/route');
+    const response = await GET(jsonRequest('http://localhost/api/invoices?search=A'));
+
+    expect(response.status).toBe(200);
+    const expectedFilter = {
+      userId: ids.user,
+      $or: [
+        { invoiceNumber: { $regex: 'A', $options: 'i' } },
+        { customerName: { $regex: 'A', $options: 'i' } },
+        { customerPhone: { $regex: 'A', $options: 'i' } },
+      ],
+    };
+    expect(invoiceList.find).toHaveBeenCalledWith(expectedFilter);
+    expect(countDocuments).toHaveBeenCalledWith(expectedFilter);
+  });
+
+  it('searches legacy invoices that do not have normalized search tokens', async () => {
+    const invoiceList = invoiceListFindChain();
+    const countDocuments = vi.fn().mockResolvedValue(0);
+    mocks.getDb.mockResolvedValue(
+      dbWithCollections({ invoices: { find: invoiceList.find, countDocuments } })
+    );
+
+    const { GET } = await import('@/app/api/invoices/route');
+    const response = await GET(jsonRequest('http://localhost/api/invoices?search=Raj'));
+
+    expect(response.status).toBe(200);
+    expect(invoiceList.find).toHaveBeenCalledWith({
+      userId: ids.user,
+      $or: expect.arrayContaining([
+        { searchTokens: { $all: ['raj'] } },
+        { customerName: { $regex: 'Raj', $options: 'i' } },
+      ]),
+    });
   });
 
   it('deducts linked inventory when creating an invoice', async () => {

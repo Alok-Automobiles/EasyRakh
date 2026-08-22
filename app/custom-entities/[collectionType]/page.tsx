@@ -95,9 +95,11 @@ export default function CustomEntitiesPage() {
   const [isUploading, setIsUploading] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
-  const [searchedEntities, setSearchedEntities] = useState<
-    (CustomEntity & { id: string; totalBalance: number })[] | null
-  >(null);
+  const [searchedEntities, setSearchedEntities] = useState<{
+    query: string;
+    collectionType: string;
+    entities: (CustomEntity & { id: string; totalBalance: number })[];
+  } | null>(null);
   const hasFetchedRef = useRef(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const form = useForm<CustomEntityForm>({
@@ -118,14 +120,20 @@ export default function CustomEntitiesPage() {
   const debouncedSearchQuery = useDebounce(searchQuery, 300).trim();
   const filteredEntities = useMemo(() => {
     if (!normalizedSearchQuery) return entities;
-    if (normalizedSearchQuery.length >= 2 && searchedEntities) return searchedEntities;
+    if (
+      normalizedSearchQuery.length >= 2 &&
+      searchedEntities?.query === normalizedSearchQuery &&
+      searchedEntities.collectionType === collectionTypeSlug
+    ) {
+      return searchedEntities.entities;
+    }
 
     return entities.filter((entity) =>
       [entity.name, entity.phone, entity.email, entity.address].some((value) =>
         (value || '').toLowerCase().includes(normalizedSearchQuery)
       )
     );
-  }, [entities, normalizedSearchQuery, searchedEntities]);
+  }, [collectionTypeSlug, entities, normalizedSearchQuery, searchedEntities]);
   const entityBalances = useMemo(() => entities.reduce(
     (totals, entity) => ({
       receivable: totals.receivable + Math.max(entity.totalBalance, 0),
@@ -157,13 +165,19 @@ export default function CustomEntitiesPage() {
         const response = await fetch(`/api/custom-entities?${searchParams.toString()}`, {
           signal: controller.signal,
         });
-        if (response.ok) {
-          const data = await response.json();
-          setSearchedEntities(data.entities || []);
+        if (!response.ok) {
+          setSearchedEntities(null);
+          return;
         }
+        const data = await response.json();
+        setSearchedEntities({
+          query: debouncedSearchQuery.toLowerCase(),
+          collectionType: collectionTypeSlug,
+          entities: data.entities || [],
+        });
       } catch (error) {
         if (!(error instanceof DOMException && error.name === 'AbortError')) {
-          setSearchedEntities([]);
+          setSearchedEntities(null);
         }
       }
     };

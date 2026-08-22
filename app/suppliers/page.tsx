@@ -117,6 +117,7 @@ export default function SuppliersPage() {
   const suppliers = useMemo(() => data?.suppliers ?? [], [data?.suppliers]);
   const normalizedSearchQuery = searchQuery.trim().toLowerCase();
   const debouncedSearchQuery = useDebounce(searchQuery, 300).trim();
+  const normalizedDebouncedSearchQuery = debouncedSearchQuery.toLowerCase();
   const { data: searchData } = useQuery<{
     suppliers: (Supplier & { id: string; totalBalance: number })[];
   }>({
@@ -129,18 +130,23 @@ export default function SuppliersPage() {
       return response.json();
     },
     enabled: debouncedSearchQuery.length >= 2,
-    placeholderData: (previous) => previous,
   });
   const filteredSuppliers = useMemo(() => {
     if (!normalizedSearchQuery) return suppliers;
-    if (normalizedSearchQuery.length >= 2 && searchData) return searchData.suppliers;
+    if (
+      normalizedSearchQuery.length >= 2 &&
+      normalizedSearchQuery === normalizedDebouncedSearchQuery &&
+      searchData
+    ) {
+      return searchData.suppliers;
+    }
 
     return suppliers.filter((supplier) =>
       [supplier.name, supplier.phone, supplier.email, supplier.address].some((value) =>
         (value || '').toLowerCase().includes(normalizedSearchQuery)
       )
     );
-  }, [suppliers, normalizedSearchQuery, searchData]);
+  }, [normalizedDebouncedSearchQuery, normalizedSearchQuery, searchData, suppliers]);
   const supplierBalances = useMemo(() => suppliers.reduce(
     (totals, supplier) => ({
       receivable: totals.receivable + Math.max(supplier.totalBalance, 0),

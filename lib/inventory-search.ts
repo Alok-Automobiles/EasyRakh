@@ -92,9 +92,10 @@ function ngrams(value: string): string[] {
   if (normalized.length < 2) return normalized ? [`~${normalized}`] : [];
 
   const grams = new Set<string>();
-  const size = normalized.length <= 5 ? 2 : 3;
-  for (let index = 0; index <= normalized.length - size; index += 1) {
-    grams.add(`~${normalized.slice(index, index + size)}`);
+  for (const size of normalized.length >= 3 ? [2, 3] : [2]) {
+    for (let index = 0; index <= normalized.length - size; index += 1) {
+      grams.add(`~${normalized.slice(index, index + size)}`);
+    }
   }
   return Array.from(grams);
 }

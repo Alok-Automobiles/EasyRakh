@@ -85,7 +85,7 @@ export async function GET(request: NextRequest) {
           'custom entity directory',
           () => customEntitiesCollection
             .aggregate([
-              buildEntitySearchStage(userId, search, collectionType),
+              buildEntitySearchStage(userId, search, collectionType, true),
               ...searchScoreStages(),
               { $limit: 100 },
             ])

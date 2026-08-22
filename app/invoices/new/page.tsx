@@ -90,7 +90,10 @@ export default function NewInvoicePage() {
 
   const [customers, setCustomers] = useState<CustomerWithId[]>([]);
   const [customerSearch, setCustomerSearch] = useState('');
-  const [customerMatches, setCustomerMatches] = useState<CustomerWithId[] | null>(null);
+  const [customerMatches, setCustomerMatches] = useState<{
+    query: string;
+    customers: CustomerWithId[];
+  } | null>(null);
   const [selectedCustomer, setSelectedCustomer] = useState<CustomerWithId | null>(null);
   const [showCustomerDropdown, setShowCustomerDropdown] = useState(false);
   const [customerName, setCustomerName] = useState('');
@@ -191,12 +194,18 @@ export default function NewInvoicePage() {
           `/api/customers?search=${encodeURIComponent(debouncedCustomerSearch)}`,
           { signal: controller.signal }
         );
-        if (!response.ok) return;
+        if (!response.ok) {
+          setCustomerMatches(null);
+          return;
+        }
         const data = await response.json();
-        setCustomerMatches(data.customers || []);
+        setCustomerMatches({
+          query: debouncedCustomerSearch.toLowerCase(),
+          customers: data.customers || [],
+        });
       } catch (error) {
         if ((error as DOMException)?.name !== 'AbortError') {
-          setCustomerMatches([]);
+          setCustomerMatches(null);
         }
       }
     };
@@ -205,9 +214,13 @@ export default function NewInvoicePage() {
     return () => controller.abort();
   }, [debouncedCustomerSearch]);
 
-  const filteredCustomers = customerMatches ?? customers.filter(
+  const normalizedCustomerSearch = customerSearch.trim().toLowerCase();
+  const remoteCustomerMatches = customerMatches?.query === normalizedCustomerSearch
+    ? customerMatches.customers
+    : null;
+  const filteredCustomers = remoteCustomerMatches ?? customers.filter(
     (c) =>
-      c.name.toLowerCase().includes(customerSearch.toLowerCase()) ||
+      c.name.toLowerCase().includes(normalizedCustomerSearch) ||
       (c.phone && c.phone.includes(customerSearch))
   );
 
