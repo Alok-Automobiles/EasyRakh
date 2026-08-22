@@ -943,6 +943,11 @@ export default function InventoryItemsPage() {
   const [debouncedSearchQuery, setDebouncedSearchQuery] = useState('');
 
   useEffect(() => {
+    const linkedSearch = new URLSearchParams(window.location.search).get('search')?.trim();
+    if (linkedSearch) setSearchQuery(linkedSearch);
+  }, []);
+
+  useEffect(() => {
     if (searchQuery === '') {
       setDebouncedSearchQuery('');
       return;

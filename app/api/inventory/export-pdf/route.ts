@@ -9,6 +9,11 @@ import { z } from 'zod';
 import type { InventoryItem } from '@/lib/types';
 import { getInventoryStatusFilter, normalizeIdentifier } from '@/lib/search-normalization';
 import { scoreInventorySearch } from '@/lib/inventory-search';
+import {
+  buildInventorySearchStage,
+  searchScoreStages,
+  withMongoSearchFallback,
+} from '@/lib/mongodb-search';
 
 const STATUS_LABELS: Record<string, string> = {
   all: 'All Items',
@@ -33,10 +38,6 @@ const supplierOrderSchema = z.object({
     .min(1, 'Select at least one inventory item')
     .max(300, 'Supplier orders can include up to 300 items'),
 });
-
-function escapeRegex(value: string) {
-  return value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-}
 
 async function getFirmDetails(db: Awaited<ReturnType<typeof getDb>>, userId: string) {
   const usersCollection = db.collection('users');
@@ -88,18 +89,31 @@ export async function GET(request: NextRequest) {
     if (location) query.location = location;
     if (supplier) query.supplier = supplier;
 
-    let items = await inventoryCollection
-      .find(query)
-      .sort({ itemName: 1 })
-      .toArray();
-
-    if (search) {
-      items = items
-        .map((item) => ({ item, score: scoreInventorySearch(item, search) }))
-        .filter(({ score }) => score >= 0.42)
-        .sort((left, right) => right.score - left.score)
-        .map(({ item }) => item);
-    }
+    const items = search
+      ? await withMongoSearchFallback(
+          'inventory PDF export',
+          async () =>
+            inventoryCollection
+              .aggregate<InventoryItem>([
+                buildInventorySearchStage(userId, search),
+                { $match: query },
+                ...searchScoreStages(),
+              ])
+              .toArray(),
+          async () => {
+            const candidates = await inventoryCollection
+              .find(query)
+              .sort({ itemName: 1 })
+              .toArray();
+            return candidates
+              .map((item) => ({ item, score: scoreInventorySearch(item, search) }))
+              .filter(({ score }) => score >= 0.42)
+              .sort((left, right) => right.score - left.score)
+              .map(({ item }) => item);
+          },
+          'inventory'
+        )
+      : await inventoryCollection.find(query).sort({ itemName: 1 }).toArray();
 
     const {
       firmTitle,

@@ -37,6 +37,7 @@ import type { EditableInvoiceItem } from '@/components/InvoiceItemsEditor';
 import { Customer } from '@/lib/types';
 import { parseNumberInputOrZero } from '@/lib/number-input';
 import { format } from 'date-fns';
+import { useDebounce } from '@/lib/hooks/useDebounce';
 
 interface CustomerWithId extends Customer {
   id: string;
@@ -89,6 +90,7 @@ export default function NewInvoicePage() {
 
   const [customers, setCustomers] = useState<CustomerWithId[]>([]);
   const [customerSearch, setCustomerSearch] = useState('');
+  const [customerMatches, setCustomerMatches] = useState<CustomerWithId[] | null>(null);
   const [selectedCustomer, setSelectedCustomer] = useState<CustomerWithId | null>(null);
   const [showCustomerDropdown, setShowCustomerDropdown] = useState(false);
   const [customerName, setCustomerName] = useState('');
@@ -175,7 +177,35 @@ export default function NewInvoicePage() {
     return () => controller.abort();
   }, [invoiceDate]);
 
-  const filteredCustomers = customers.filter(
+  const debouncedCustomerSearch = useDebounce(customerSearch, 300).trim();
+  useEffect(() => {
+    if (debouncedCustomerSearch.length < 2) {
+      setCustomerMatches(null);
+      return;
+    }
+
+    const controller = new AbortController();
+    const loadCustomerMatches = async () => {
+      try {
+        const response = await fetch(
+          `/api/customers?search=${encodeURIComponent(debouncedCustomerSearch)}`,
+          { signal: controller.signal }
+        );
+        if (!response.ok) return;
+        const data = await response.json();
+        setCustomerMatches(data.customers || []);
+      } catch (error) {
+        if ((error as DOMException)?.name !== 'AbortError') {
+          setCustomerMatches([]);
+        }
+      }
+    };
+
+    void loadCustomerMatches();
+    return () => controller.abort();
+  }, [debouncedCustomerSearch]);
+
+  const filteredCustomers = customerMatches ?? customers.filter(
     (c) =>
       c.name.toLowerCase().includes(customerSearch.toLowerCase()) ||
       (c.phone && c.phone.includes(customerSearch))

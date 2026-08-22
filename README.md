@@ -103,6 +103,9 @@ The variables are grouped by purpose in `.env.example`:
 | Variable | Required | Purpose |
 | --- | --- | --- |
 | `MONGODB_URI` | Yes | MongoDB connection string |
+| `MONGODB_SEARCH_ENABLED` | No | Set to `true` only after MongoDB Search indexes are ready; otherwise the app uses its MongoDB fallback search |
+| `MONGODB_SEARCH_INDEX` | No | Search index name shared across the indexed collections; defaults to `easyrakh_search` |
+| `MONGODB_SEARCH_COLLECTIONS` | No | Comma-separated collections that have a ready Search index; empty means all five |
 | `REDIS_HOST`, `REDIS_PORT` | Yes | Redis connection details |
 | `REDIS_PASSWORD` | When applicable | Password for authenticated Redis instances |
 | `JWT_SECRET` | Yes | Signs authentication tokens |
@@ -174,6 +177,47 @@ These commands are intended for existing databases, not fresh installations. Bac
 | `pnpm migrate:invoice-profit` | Populate invoice profit data |
 | `pnpm backfill:read-models` | Rebuild cached read-model collections |
 | `pnpm check:query-shapes` | Inspect frequently used MongoDB query shapes |
+| `pnpm search:indexes -- --dry-run` | Show the MongoDB Search indexes the setup command would manage |
+| `pnpm search:indexes` | Create or update the configured MongoDB Search indexes after explicit safety flags are set |
+
+## MongoDB Search
+
+MongoDB Search is optional and requires no Docker installation. When it is disabled or unavailable, EasyRakh automatically uses its existing MongoDB search implementation.
+
+The complete search experience uses one search index on each of `inventory`, `customers`, `suppliers`, `customEntities`, and `invoices`. Atlas Free clusters allow only three Search/Vector Search indexes. The recommended Free configuration uses `inventory`, `customers`, and `invoices`; supplier and custom-ledger searches automatically keep using the MongoDB fallback.
+
+1. Point `MONGODB_URI` at the intended Atlas development or staging database through the process environment. The setup and backfill scripts deliberately never load `.env.local`.
+2. Preview the target without connecting or changing indexes:
+
+   ```bash
+   pnpm search:indexes -- --dry-run
+   ```
+
+3. For a remote non-production Atlas cluster, intentionally create or update the indexes:
+
+   ```bash
+   ALLOW_SEARCH_INDEX_SETUP=true \
+   ALLOW_REMOTE_SEARCH_INDEX_SETUP=true \
+   pnpm search:indexes
+   ```
+
+   On a Free cluster, create only the recommended three indexes:
+
+   ```bash
+   ALLOW_SEARCH_INDEX_SETUP=true \
+   ALLOW_REMOTE_SEARCH_INDEX_SETUP=true \
+   pnpm search:indexes -- --collections=inventory,customers,invoices
+   ```
+
+4. Existing records need normalized identifier fields for punctuation-insensitive suffix matching. Back up the target first and run the guarded read-model backfill only after confirming the exact database:
+
+   ```bash
+   ALLOW_READ_MODEL_BACKFILL=true \
+   ALLOW_REMOTE_READ_MODEL_BACKFILL=true \
+   pnpm backfill:read-models
+   ```
+
+5. Wait until every created Search index reports `READY` in Atlas. For Atlas Free, set `MONGODB_SEARCH_ENABLED=true` and `MONGODB_SEARCH_COLLECTIONS=inventory,customers,invoices`, then restart the application. Leave the collection list empty only when all five indexes exist. Set the enabled flag to `false` to roll back immediately.
 
 ## Troubleshooting
 

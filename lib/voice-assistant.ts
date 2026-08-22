@@ -4,6 +4,12 @@ import { ObjectId } from 'mongodb';
 import { z } from 'zod';
 import type { AssistantHindiScript, AssistantLanguage } from '@/lib/assistant-language';
 import { getDb } from '@/lib/mongodb';
+import {
+  buildEntitySearchStage,
+  buildInventorySearchStage,
+  searchScoreStages,
+  withMongoSearchFallback,
+} from '@/lib/mongodb-search';
 
 const INDIA_TIMEZONE = 'Asia/Kolkata';
 const DEFAULT_TOOL_LIMIT = 6;
@@ -1140,30 +1146,57 @@ async function findEntities(
   const fetchLimit = limit * 3; // Fetch more to allow in-memory scoring
 
   const [customers, suppliers, customEntities] = await Promise.all([
-    db.collection('customers')
-      .find({
-        userId,
-        $or: orConditions,
-      })
-      .project({ _id: 1, name: 1, phone: 1, email: 1 })
-      .limit(fetchLimit)
-      .toArray(),
-    db.collection('suppliers')
-      .find({
-        userId,
-        $or: orConditions,
-      })
-      .project({ _id: 1, name: 1, phone: 1, email: 1 })
-      .limit(fetchLimit)
-      .toArray(),
-    db.collection('customEntities')
-      .find({
-        userId,
-        $or: entityOrConditions,
-      })
-      .project({ _id: 1, name: 1, phone: 1, email: 1, collectionType: 1 })
-      .limit(fetchLimit)
-      .toArray(),
+    withMongoSearchFallback(
+      'voice customer lookup',
+      () => db.collection('customers')
+        .aggregate([
+          buildEntitySearchStage(userId, cleanedQuery),
+          ...searchScoreStages(),
+          { $limit: fetchLimit },
+          { $project: { _id: 1, name: 1, phone: 1, email: 1 } },
+        ])
+        .toArray(),
+      () => db.collection('customers')
+        .find({ userId, $or: orConditions })
+        .project({ _id: 1, name: 1, phone: 1, email: 1 })
+        .limit(fetchLimit)
+        .toArray(),
+      'customers'
+    ),
+    withMongoSearchFallback(
+      'voice supplier lookup',
+      () => db.collection('suppliers')
+        .aggregate([
+          buildEntitySearchStage(userId, cleanedQuery),
+          ...searchScoreStages(),
+          { $limit: fetchLimit },
+          { $project: { _id: 1, name: 1, phone: 1, email: 1 } },
+        ])
+        .toArray(),
+      () => db.collection('suppliers')
+        .find({ userId, $or: orConditions })
+        .project({ _id: 1, name: 1, phone: 1, email: 1 })
+        .limit(fetchLimit)
+        .toArray(),
+      'suppliers'
+    ),
+    withMongoSearchFallback(
+      'voice custom entity lookup',
+      () => db.collection('customEntities')
+        .aggregate([
+          buildEntitySearchStage(userId, cleanedQuery),
+          ...searchScoreStages(),
+          { $limit: fetchLimit },
+          { $project: { _id: 1, name: 1, phone: 1, email: 1, collectionType: 1 } },
+        ])
+        .toArray(),
+      () => db.collection('customEntities')
+        .find({ userId, $or: entityOrConditions })
+        .project({ _id: 1, name: 1, phone: 1, email: 1, collectionType: 1 })
+        .limit(fetchLimit)
+        .toArray(),
+      'customEntities'
+    ),
   ]);
 
   const scoreMatch = (name: string): number => {
@@ -1508,15 +1541,25 @@ async function searchInventory(
 
   // Fetch candidates (cast a wide net, score in memory)
   const fetchLimit = Math.max(limit * 10, 50);
-  const candidates = await db
-    .collection('inventory')
-    .find({
-      userId,
-      $or: orConditions,
-    })
-    .project(projection)
-    .limit(fetchLimit)
-    .toArray();
+  const candidates = await withMongoSearchFallback(
+    'voice inventory lookup',
+    () => db
+      .collection('inventory')
+      .aggregate([
+        buildInventorySearchStage(userId, queryTokens.join(' ')),
+        ...searchScoreStages(),
+        { $limit: fetchLimit },
+        { $project: projection },
+      ])
+      .toArray(),
+    () => db
+      .collection('inventory')
+      .find({ userId, $or: orConditions })
+      .project(projection)
+      .limit(fetchLimit)
+      .toArray(),
+    'inventory'
+  );
 
   // Score each candidate with fuzzy matching
   const scored = candidates

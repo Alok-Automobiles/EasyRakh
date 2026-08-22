@@ -1,17 +1,40 @@
-import { config } from 'dotenv';
 import { MongoClient, type AnyBulkWriteOperation, type Filter } from 'mongodb';
-import path from 'node:path';
-import { entitySearchTokens, invoiceSearchTokens } from '../lib/search-normalization';
+import { entitySearchFields, invoiceSearchFields } from '../lib/search-normalization';
 import { inventoryDerivedFields, rebuildUserReadModels } from '../lib/read-models';
 import type { CustomEntity, Customer, InventoryItem, Invoice, Supplier } from '../lib/types';
-
-config({ path: path.resolve(process.cwd(), '.env.local') });
-config();
 
 const uri = process.env.MONGODB_URI;
 
 if (!uri) {
-  console.error('MONGODB_URI is required. Add it to .env.local before running this script.');
+  console.error('MONGODB_URI must be provided explicitly. This script never loads .env.local.');
+  process.exit(1);
+}
+
+function mongoHostname(mongoUri: string): string {
+  const withoutProtocol = mongoUri.replace(/^mongodb(?:\+srv)?:\/\//, '');
+  const authority = withoutProtocol.split('/')[0] || '';
+  const hostList = authority.includes('@') ? authority.split('@').pop() || '' : authority;
+  return (hostList.split(',')[0] || '').split(':')[0].toLowerCase();
+}
+
+function safeErrorMessage(error: unknown): string {
+  const message = error instanceof Error ? error.message : 'Unknown error';
+  return message.replace(/mongodb(?:\+srv)?:\/\/[^@\s]+@/gi, 'mongodb://<redacted>@');
+}
+
+const hostname = mongoHostname(uri);
+const isLocal = ['mongo', 'localhost', '127.0.0.1'].includes(hostname);
+
+if (process.env.ALLOW_READ_MODEL_BACKFILL !== 'true') {
+  console.error('Refusing to backfill data. Set ALLOW_READ_MODEL_BACKFILL=true intentionally.');
+  process.exit(1);
+}
+
+if (!isLocal && process.env.ALLOW_REMOTE_READ_MODEL_BACKFILL !== 'true') {
+  console.error(
+    `Refusing to backfill remote MongoDB host "${hostname}". ` +
+      'Set ALLOW_REMOTE_READ_MODEL_BACKFILL=true only after confirming the exact target.'
+  );
   process.exit(1);
 }
 
@@ -59,15 +82,9 @@ async function main() {
 
   const [customerUpdates, supplierUpdates, customEntityUpdates, inventoryUpdates, invoiceUpdates] =
     await Promise.all([
-      bulkUpdate('customers', customers, (customer) => ({
-        searchTokens: entitySearchTokens(customer),
-      })),
-      bulkUpdate('suppliers', suppliers, (supplier) => ({
-        searchTokens: entitySearchTokens(supplier),
-      })),
-      bulkUpdate('customEntities', customEntities, (entity) => ({
-        searchTokens: entitySearchTokens(entity),
-      })),
+      bulkUpdate('customers', customers, (customer) => entitySearchFields(customer)),
+      bulkUpdate('suppliers', suppliers, (supplier) => entitySearchFields(supplier)),
+      bulkUpdate('customEntities', customEntities, (entity) => entitySearchFields(entity)),
       bulkUpdate('inventory', inventoryItems, (item) =>
         inventoryDerivedFields({
           ...item,
@@ -75,9 +92,7 @@ async function main() {
           updatedAt: item.updatedAt || item.createdAt || new Date(0),
         })
       ),
-      bulkUpdate('invoices', invoices, (invoice) => ({
-        searchTokens: invoiceSearchTokens(invoice),
-      })),
+      bulkUpdate('invoices', invoices, (invoice) => invoiceSearchFields(invoice)),
     ]);
 
   const userIds = new Set<string>();
@@ -101,7 +116,7 @@ async function main() {
 
 main()
   .catch((error) => {
-    console.error('Failed to backfill read models:', error);
+    console.error(`Failed to backfill read models: ${safeErrorMessage(error)}`);
     process.exitCode = 1;
   })
   .finally(async () => {

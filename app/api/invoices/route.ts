@@ -2,11 +2,16 @@ import { NextRequest, NextResponse } from 'next/server';
 import clientPromise, { getDb } from '@/lib/mongodb';
 import { getUserIdFromRequest } from '@/lib/auth';
 import { z } from 'zod';
-import { ClientSession, Db, MongoServerError, ObjectId } from 'mongodb';
+import { ClientSession, Db, type Document, MongoServerError, ObjectId } from 'mongodb';
 import redis from '@/lib/redis';
 import { invalidateInventoryCache } from '@/lib/cache';
 import { bumpCacheVersions, getCachedJson, requestCacheKey, setCachedJson } from '@/lib/cache-version';
-import { entitySearchTokens, invoiceSearchTokens, queryTokens } from '@/lib/search-normalization';
+import { entitySearchFields, invoiceSearchFields, queryTokens } from '@/lib/search-normalization';
+import {
+  buildInvoiceSearchStage,
+  searchScoreStages,
+  withMongoSearchFallback,
+} from '@/lib/mongodb-search';
 import { refreshUserReadModels } from '@/lib/read-models';
 import {
   applyInventoryAdjustments,
@@ -189,22 +194,63 @@ export async function GET(request: NextRequest) {
     if (status && ['paid', 'unpaid', 'partial'].includes(status)) {
       query.status = status;
     }
-    if (search) {
-      const tokens = queryTokens(search);
-      if (tokens.length > 0) {
-        query.searchTokens = { $all: tokens };
-      }
-    }
-
-    const [total, invoices] = await Promise.all([
-      invoicesCollection.countDocuments(query),
-      invoicesCollection
-        .find(query)
-        .sort({ createdAt: -1 })
-        .skip(skip)
-        .limit(limit)
-        .toArray(),
-    ]);
+    const tokens = search ? queryTokens(search) : [];
+    const { total, invoices } =
+      search && tokens.length > 0
+        ? await withMongoSearchFallback(
+            'invoice list',
+            async () => {
+              const [result] = await invoicesCollection
+                .aggregate<{
+                  invoices: Document[];
+                  total: Array<{ count: number }>;
+                }>([
+                  buildInvoiceSearchStage(userId, search),
+                  { $match: query },
+                  ...searchScoreStages(),
+                  {
+                    $facet: {
+                      invoices: [{ $skip: skip }, { $limit: limit }],
+                      total: [{ $count: 'count' }],
+                    },
+                  },
+                ])
+                .toArray();
+              return {
+                total: result?.total[0]?.count || 0,
+                invoices: result?.invoices || [],
+              };
+            },
+            async () => {
+              const fallbackQuery: InvoiceQuery = {
+                ...query,
+                searchTokens: { $all: tokens },
+              };
+              const [fallbackTotal, fallbackInvoices] = await Promise.all([
+                invoicesCollection.countDocuments(fallbackQuery),
+                invoicesCollection
+                  .find(fallbackQuery)
+                  .sort({ createdAt: -1 })
+                  .skip(skip)
+                  .limit(limit)
+                  .toArray(),
+              ]);
+              return { total: fallbackTotal, invoices: fallbackInvoices };
+            },
+            'invoices'
+          )
+        : await (async () => {
+            const [unfilteredTotal, unfilteredInvoices] = await Promise.all([
+              invoicesCollection.countDocuments(query),
+              invoicesCollection
+                .find(query)
+                .sort({ createdAt: -1 })
+                .skip(skip)
+                .limit(limit)
+                .toArray(),
+            ]);
+            return { total: unfilteredTotal, invoices: unfilteredInvoices };
+          })();
 
     const totalPages = Math.max(1, Math.ceil(total / limit));
 
@@ -368,7 +414,7 @@ export async function POST(request: NextRequest) {
                 address: validatedData.customerAddress || '',
                 openingBalance: 0,
                 balanceType: 'debit',
-                searchTokens: entitySearchTokens({
+                ...entitySearchFields({
                   name: validatedData.customerName,
                   phone: validatedData.customerPhone,
                   email: '',
@@ -408,7 +454,7 @@ export async function POST(request: NextRequest) {
             pdfUrl: '',
             pdfPublicId: '',
             pdfStatus: 'missing',
-            searchTokens: invoiceSearchTokens({
+            ...invoiceSearchFields({
               invoiceNumber,
               customerName: validatedData.customerName,
               customerPhone: validatedData.customerPhone,

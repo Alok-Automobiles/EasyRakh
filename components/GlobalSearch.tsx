@@ -10,6 +10,7 @@ import {
   Truck,
   FileText,
   FolderOpen,
+  PackageSearch,
   Clock,
   X,
   Loader2,
@@ -23,7 +24,7 @@ const MAX_RECENT = 5;
 interface SearchResult {
   id: string;
   name: string;
-  type: 'customer' | 'supplier' | 'custom_entity' | 'invoice';
+  type: 'customer' | 'supplier' | 'custom_entity' | 'invoice' | 'inventory';
   subtitle?: string;
   badge?: string;
   href: string;
@@ -35,6 +36,7 @@ const typeConfig: Record<SearchResult['type'], { icon: typeof Users; color: stri
   supplier: { icon: Truck, color: 'text-purple-700', bgColor: 'bg-purple-100' },
   custom_entity: { icon: FolderOpen, color: 'text-emerald-700', bgColor: 'bg-emerald-100' },
   invoice: { icon: FileText, color: 'text-amber-700', bgColor: 'bg-amber-100' },
+  inventory: { icon: PackageSearch, color: 'text-cyan-700', bgColor: 'bg-cyan-100' },
 };
 
 function getRecentSearches(): string[] {
@@ -118,6 +120,7 @@ export default function GlobalSearch() {
     supplier: 'Suppliers',
     custom_entity: 'Custom Entities',
     invoice: 'Invoices',
+    inventory: 'Inventory',
   };
 
   const handleSelect = useCallback((result: SearchResult) => {
@@ -209,7 +212,7 @@ export default function GlobalSearch() {
           }}
           onFocus={() => setIsOpen(true)}
           onKeyDown={handleKeyDown}
-          placeholder="Search customers, suppliers, invoices..."
+          placeholder="Search inventory, customers, suppliers, invoices..."
           className="flex-1 bg-transparent text-sm text-gray-900 placeholder:text-gray-400 outline-none min-w-0"
         />
         {showSpinner && (

@@ -110,11 +110,13 @@ describe('/api/search', () => {
     const invoices = findChain([
       { _id: objectIdLike('507f1f77bcf86cd799439099'), invoiceNumber: 'INV-001', customerName: 'Raj Traders', totalAmount: 4500, status: 'partial' },
     ]);
+    const inventory = findChain([]);
     const collections: Record<string, ReturnType<typeof findChain>> = {
       customers,
       suppliers,
       customEntities,
       invoices,
+      inventory,
     };
     mocks.getDb.mockResolvedValue({
       collection: vi.fn((name: string) => collections[name]),

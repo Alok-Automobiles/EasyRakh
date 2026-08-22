@@ -1,4 +1,4 @@
-import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { ids, jsonRequest, objectIdLike } from '@/tests/helpers/api';
 
 const mocks = vi.hoisted(() => ({
@@ -23,10 +23,15 @@ function findChain(items: unknown[]) {
 }
 
 describe('/api/inventory/suggestions', () => {
+  afterEach(() => {
+    delete process.env.MONGODB_SEARCH_ENABLED;
+  });
+
   beforeEach(() => {
     mocks.getDb.mockReset();
     mocks.getUserIdFromRequest.mockReset();
     mocks.getUserIdFromRequest.mockReturnValue(ids.user);
+    delete process.env.MONGODB_SEARCH_ENABLED;
   });
 
   it('requires authentication', async () => {
@@ -159,6 +164,45 @@ describe('/api/inventory/suggestions', () => {
         brand: 'BOSCH',
         location: 'RACK B',
       }],
+    });
+  });
+
+  it('uses MongoDB Search for trailing item-number digits when enabled', async () => {
+    process.env.MONGODB_SEARCH_ENABLED = 'true';
+    const toArray = vi.fn().mockResolvedValue([
+      {
+        _id: objectIdLike(ids.inventory),
+        itemNumber: 'BP-1234567',
+        itemName: 'BRAKE PAD',
+        quantity: 4,
+        unitOfMeasure: 'PCS',
+        updatedAt: new Date(),
+      },
+    ]);
+    const aggregate = vi.fn(() => ({ toArray }));
+    mocks.getDb.mockResolvedValue({
+      collection: vi.fn(() => ({ aggregate })),
+    });
+
+    const { GET } = await import('@/app/api/inventory/suggestions/route');
+    const response = await GET(
+      jsonRequest('http://localhost/api/inventory/suggestions?query=4567')
+    );
+
+    expect(response.status).toBe(200);
+    expect(aggregate).toHaveBeenCalledWith(
+      expect.arrayContaining([
+        expect.objectContaining({
+          $search: expect.objectContaining({
+            compound: expect.objectContaining({
+              filter: [{ equals: { path: 'userId', value: ids.user } }],
+            }),
+          }),
+        }),
+      ])
+    );
+    await expect(response.json()).resolves.toMatchObject({
+      items: [expect.objectContaining({ itemNumber: 'BP-1234567' })],
     });
   });
 });

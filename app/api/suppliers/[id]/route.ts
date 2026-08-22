@@ -5,7 +5,7 @@ import { z } from 'zod';
 import { ObjectId } from 'mongodb';
 import redis from '@/lib/redis';
 import { bumpCacheVersions } from '@/lib/cache-version';
-import { entitySearchTokens } from '@/lib/search-normalization';
+import { entitySearchFields } from '@/lib/search-normalization';
 import { refreshUserReadModels } from '@/lib/read-models';
 import {
   cloudinaryAssetsFromFields,
@@ -115,7 +115,7 @@ export async function PUT(
           openingBalanceDescription: validatedData.openingBalanceDescription || '',
           openingBalanceBillUrl: validatedData.openingBalanceBillUrl || '',
           openingBalanceBillPublicId: validatedData.openingBalanceBillPublicId || '',
-          searchTokens: entitySearchTokens(validatedData),
+          ...entitySearchFields(validatedData),
         },
       }
     );

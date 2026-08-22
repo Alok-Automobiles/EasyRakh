@@ -42,6 +42,7 @@ import { motion } from 'motion/react'
 import { compressImage, isCompressibleImage, formatFileSize } from '@/lib/imageCompression';
 import { parseNumberInput } from '@/lib/number-input';
 import { Users } from 'lucide-react';
+import { useDebounce } from '@/lib/hooks/useDebounce';
 
 const MAX_BILL_SIZE_BYTES = 5 * 1024 * 1024; // 5MB
 const ACCEPTED_BILL_TYPES = [
@@ -115,15 +116,31 @@ export default function CustomersPage() {
 
   const customers = useMemo(() => data?.customers ?? [], [data?.customers]);
   const normalizedSearchQuery = searchQuery.trim().toLowerCase();
+  const debouncedSearchQuery = useDebounce(searchQuery, 300).trim();
+  const { data: searchData } = useQuery<{
+    customers: (Customer & { id: string; totalBalance: number })[];
+  }>({
+    queryKey: ['customers', 'search', debouncedSearchQuery],
+    queryFn: async () => {
+      const response = await fetch(
+        `/api/customers?search=${encodeURIComponent(debouncedSearchQuery)}`
+      );
+      if (!response.ok) throw new Error('Failed to search customers');
+      return response.json();
+    },
+    enabled: debouncedSearchQuery.length >= 2,
+    placeholderData: (previous) => previous,
+  });
   const filteredCustomers = useMemo(() => {
     if (!normalizedSearchQuery) return customers;
+    if (normalizedSearchQuery.length >= 2 && searchData) return searchData.customers;
 
     return customers.filter((customer) =>
       [customer.name, customer.phone, customer.email, customer.address].some((value) =>
         (value || '').toLowerCase().includes(normalizedSearchQuery)
       )
     );
-  }, [customers, normalizedSearchQuery]);
+  }, [customers, normalizedSearchQuery, searchData]);
   const customerBalances = useMemo(() => customers.reduce(
     (totals, customer) => ({
       receivable: totals.receivable + Math.max(customer.totalBalance, 0),

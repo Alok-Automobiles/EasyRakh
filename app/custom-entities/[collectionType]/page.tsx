@@ -42,6 +42,7 @@ import Link from 'next/link';
 import { compressImage, isCompressibleImage, formatFileSize } from '@/lib/imageCompression';
 import { parseNumberInput } from '@/lib/number-input';
 import { ArrowLeft, Layers3 } from 'lucide-react';
+import { useDebounce } from '@/lib/hooks/useDebounce';
 
 const MAX_BILL_SIZE_BYTES = 5 * 1024 * 1024; // 5MB
 const ACCEPTED_BILL_TYPES = [
@@ -94,6 +95,9 @@ export default function CustomEntitiesPage() {
   const [isUploading, setIsUploading] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
+  const [searchedEntities, setSearchedEntities] = useState<
+    (CustomEntity & { id: string; totalBalance: number })[] | null
+  >(null);
   const hasFetchedRef = useRef(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const form = useForm<CustomEntityForm>({
@@ -111,15 +115,17 @@ export default function CustomEntitiesPage() {
     },
   });
   const normalizedSearchQuery = searchQuery.trim().toLowerCase();
+  const debouncedSearchQuery = useDebounce(searchQuery, 300).trim();
   const filteredEntities = useMemo(() => {
     if (!normalizedSearchQuery) return entities;
+    if (normalizedSearchQuery.length >= 2 && searchedEntities) return searchedEntities;
 
     return entities.filter((entity) =>
       [entity.name, entity.phone, entity.email, entity.address].some((value) =>
         (value || '').toLowerCase().includes(normalizedSearchQuery)
       )
     );
-  }, [entities, normalizedSearchQuery]);
+  }, [entities, normalizedSearchQuery, searchedEntities]);
   const entityBalances = useMemo(() => entities.reduce(
     (totals, entity) => ({
       receivable: totals.receivable + Math.max(entity.totalBalance, 0),
@@ -134,6 +140,37 @@ export default function CustomEntitiesPage() {
     fetchCollectionType();
     fetchEntities();
   }, [collectionTypeSlug]);
+
+  useEffect(() => {
+    if (debouncedSearchQuery.length < 2) {
+      setSearchedEntities(null);
+      return;
+    }
+
+    const controller = new AbortController();
+    const searchEntities = async () => {
+      try {
+        const searchParams = new URLSearchParams({
+          collectionType: collectionTypeSlug,
+          search: debouncedSearchQuery,
+        });
+        const response = await fetch(`/api/custom-entities?${searchParams.toString()}`, {
+          signal: controller.signal,
+        });
+        if (response.ok) {
+          const data = await response.json();
+          setSearchedEntities(data.entities || []);
+        }
+      } catch (error) {
+        if (!(error instanceof DOMException && error.name === 'AbortError')) {
+          setSearchedEntities([]);
+        }
+      }
+    };
+
+    void searchEntities();
+    return () => controller.abort();
+  }, [collectionTypeSlug, debouncedSearchQuery]);
 
   const fetchCollectionType = async () => {
     try {
