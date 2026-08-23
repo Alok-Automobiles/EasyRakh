@@ -53,7 +53,7 @@ describe('GlobalSearch', () => {
     localStorage.setItem('global-search-recent', JSON.stringify(['brake pad', 'raj']));
 
     render(<GlobalSearch />);
-    const input = screen.getByPlaceholderText('Search customers, suppliers, invoices...');
+    const input = screen.getByPlaceholderText('Search inventory, customers, suppliers, invoices...');
 
     await user.click(input);
 
@@ -85,7 +85,7 @@ describe('GlobalSearch', () => {
     ];
 
     render(<GlobalSearch />);
-    const input = screen.getByPlaceholderText('Search customers, suppliers, invoices...');
+    const input = screen.getByPlaceholderText('Search inventory, customers, suppliers, invoices...');
 
     await user.type(input, 'raj');
 

@@ -2,11 +2,16 @@ import { NextRequest, NextResponse } from 'next/server';
 import clientPromise, { getDb } from '@/lib/mongodb';
 import { getUserIdFromRequest } from '@/lib/auth';
 import { z } from 'zod';
-import { ClientSession, Db, MongoServerError, ObjectId } from 'mongodb';
+import { ClientSession, Db, type Document, MongoServerError, ObjectId } from 'mongodb';
 import redis from '@/lib/redis';
 import { invalidateInventoryCache } from '@/lib/cache';
 import { bumpCacheVersions, getCachedJson, requestCacheKey, setCachedJson } from '@/lib/cache-version';
-import { entitySearchTokens, invoiceSearchTokens, queryTokens } from '@/lib/search-normalization';
+import { entitySearchFields, invoiceSearchFields, queryTokens } from '@/lib/search-normalization';
+import {
+  buildInvoiceSearchStage,
+  searchScoreStages,
+  withMongoSearchFallback,
+} from '@/lib/mongodb-search';
 import { refreshUserReadModels } from '@/lib/read-models';
 import {
   applyInventoryAdjustments,
@@ -63,6 +68,23 @@ const createInvoiceSchema = z.object({
 type CreatedInvoiceResponse = { id: string } & Record<string, any>;
 
 const INVOICE_NUMBER_RETRY_ATTEMPTS = 3;
+
+function escapeRegex(value: string) {
+  return value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+}
+
+function invoiceFallbackFilter(baseQuery: Document, search: string, tokens: string[]): Document {
+  const regex = { $regex: escapeRegex(search), $options: 'i' };
+  return {
+    ...baseQuery,
+    $or: [
+      ...(tokens.length > 0 ? [{ searchTokens: { $all: tokens } }] : []),
+      { invoiceNumber: regex },
+      { customerName: regex },
+      { customerPhone: regex },
+    ],
+  };
+}
 
 function isDuplicateInvoiceNumberError(error: unknown) {
   if (error instanceof MongoServerError) {
@@ -153,7 +175,7 @@ export async function GET(request: NextRequest) {
     const { searchParams } = new URL(request.url);
     const customerId = searchParams.get('customerId');
     const status = searchParams.get('status');
-    const search = searchParams.get('search');
+    const search = searchParams.get('search')?.trim() || '';
     const pageParam = Number(searchParams.get('page') || '1');
     const limitParam = Number(searchParams.get('limit') || '20');
     const page = Number.isNaN(pageParam) || pageParam < 1 ? 1 : pageParam;
@@ -174,14 +196,7 @@ export async function GET(request: NextRequest) {
     const db = await getDb();
     const invoicesCollection = db.collection('invoices');
 
-    type InvoiceQuery = {
-      userId: string;
-      customerId?: string;
-      status?: string;
-      searchTokens?: { $all: string[] };
-    };
-
-    const query: InvoiceQuery = { userId };
+    const query: Document = { userId };
     
     if (customerId) {
       query.customerId = customerId;
@@ -189,22 +204,52 @@ export async function GET(request: NextRequest) {
     if (status && ['paid', 'unpaid', 'partial'].includes(status)) {
       query.status = status;
     }
-    if (search) {
-      const tokens = queryTokens(search);
-      if (tokens.length > 0) {
-        query.searchTokens = { $all: tokens };
-      }
-    }
-
-    const [total, invoices] = await Promise.all([
-      invoicesCollection.countDocuments(query),
-      invoicesCollection
-        .find(query)
-        .sort({ createdAt: -1 })
-        .skip(skip)
-        .limit(limit)
-        .toArray(),
-    ]);
+    const tokens = search ? queryTokens(search) : [];
+    const runInvoiceQuery = async (filter: Document) => {
+      const [queryTotal, queryInvoices] = await Promise.all([
+        invoicesCollection.countDocuments(filter),
+        invoicesCollection
+          .find(filter)
+          .sort({ createdAt: -1 })
+          .skip(skip)
+          .limit(limit)
+          .toArray(),
+      ]);
+      return { total: queryTotal, invoices: queryInvoices };
+    };
+    const fallbackQuery = search ? invoiceFallbackFilter(query, search, tokens) : query;
+    const { total, invoices } =
+      search
+        ? tokens.length > 0
+          ? await withMongoSearchFallback(
+            'invoice list',
+            async () => {
+              const [result] = await invoicesCollection
+                .aggregate<{
+                  invoices: Document[];
+                  total: Array<{ count: number }>;
+                }>([
+                  buildInvoiceSearchStage(userId, search),
+                  { $match: query },
+                  ...searchScoreStages(),
+                  {
+                    $facet: {
+                      invoices: [{ $skip: skip }, { $limit: limit }],
+                      total: [{ $count: 'count' }],
+                    },
+                  },
+                ])
+                .toArray();
+              return {
+                total: result?.total[0]?.count || 0,
+                invoices: result?.invoices || [],
+              };
+            },
+            () => runInvoiceQuery(fallbackQuery),
+            'invoices'
+          )
+          : await runInvoiceQuery(fallbackQuery)
+        : await runInvoiceQuery(query);
 
     const totalPages = Math.max(1, Math.ceil(total / limit));
 
@@ -368,7 +413,7 @@ export async function POST(request: NextRequest) {
                 address: validatedData.customerAddress || '',
                 openingBalance: 0,
                 balanceType: 'debit',
-                searchTokens: entitySearchTokens({
+                ...entitySearchFields({
                   name: validatedData.customerName,
                   phone: validatedData.customerPhone,
                   email: '',
@@ -408,7 +453,7 @@ export async function POST(request: NextRequest) {
             pdfUrl: '',
             pdfPublicId: '',
             pdfStatus: 'missing',
-            searchTokens: invoiceSearchTokens({
+            ...invoiceSearchFields({
               invoiceNumber,
               customerName: validatedData.customerName,
               customerPhone: validatedData.customerPhone,

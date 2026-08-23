@@ -3,8 +3,17 @@ import { getDb } from '@/lib/mongodb';
 import { getUserIdFromRequest } from '@/lib/auth';
 import { z } from 'zod';
 import { bumpCacheVersions, getCachedJson, requestCacheKey, setCachedJson } from '@/lib/cache-version';
-import { entitySearchTokens } from '@/lib/search-normalization';
+import { entitySearchFields } from '@/lib/search-normalization';
 import { ensureUserReadModels, refreshUserReadModels, type EntityBalance } from '@/lib/read-models';
+import {
+  buildEntitySearchStage,
+  searchScoreStages,
+  withMongoSearchFallback,
+} from '@/lib/mongodb-search';
+
+function escapeRegex(value: string) {
+  return value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+}
 
 const customEntitySchema = z.object({
   collectionType: z.string().min(1, 'Collection type is required'),
@@ -32,6 +41,7 @@ export async function GET(request: NextRequest) {
 
     const { searchParams } = new URL(request.url);
     const collectionType = searchParams.get('collectionType');
+    const search = searchParams.get('search')?.trim().slice(0, 100) || '';
 
     if (!collectionType) {
       return NextResponse.json(
@@ -40,7 +50,12 @@ export async function GET(request: NextRequest) {
       );
     }
 
-    const cacheKey = await requestCacheKey(request, 'customEntities', userId, collectionType);
+    const cacheKey = await requestCacheKey(
+      request,
+      'customEntities',
+      userId,
+      `${collectionType}:${search.toLowerCase()}`
+    );
     const cached = await getCachedJson<{ entities: unknown[] }>(cacheKey);
     if (cached) {
       return NextResponse.json(cached);
@@ -65,8 +80,37 @@ export async function GET(request: NextRequest) {
 
     await ensureUserReadModels(db, userId);
 
+    const entitiesPromise = search.length >= 2
+      ? withMongoSearchFallback(
+          'custom entity directory',
+          () => customEntitiesCollection
+            .aggregate([
+              buildEntitySearchStage(userId, search, collectionType, true),
+              ...searchScoreStages(),
+              { $limit: 100 },
+            ])
+            .toArray(),
+          () => {
+            const regex = { $regex: escapeRegex(search), $options: 'i' };
+            return customEntitiesCollection
+              .find({
+                userId,
+                collectionType,
+                $or: [{ name: regex }, { phone: regex }, { email: regex }, { address: regex }],
+              })
+              .sort({ createdAt: -1 })
+              .limit(100)
+              .toArray();
+          },
+          'customEntities'
+        )
+      : customEntitiesCollection
+          .find({ userId, collectionType })
+          .sort({ createdAt: -1 })
+          .toArray();
+
     const [entities, balances] = await Promise.all([
-      customEntitiesCollection.find({ userId, collectionType }).sort({ createdAt: -1 }).toArray(),
+      entitiesPromise,
       entityBalancesCollection.find({ userId, entityType: collectionType }).toArray(),
     ]);
 
@@ -149,7 +193,7 @@ export async function POST(request: NextRequest) {
       openingBalanceDescription: validatedData.openingBalanceDescription || '',
       openingBalanceBillUrl: validatedData.openingBalanceBillUrl || '',
       openingBalanceBillPublicId: validatedData.openingBalanceBillPublicId || '',
-      searchTokens: entitySearchTokens(validatedData),
+      ...entitySearchFields(validatedData),
       createdAt: new Date(),
     });
 

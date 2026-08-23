@@ -1,8 +1,19 @@
 import { describe, expect, it } from 'vitest';
 import {
+  compactSearchIdentifier,
+  entitySearchFields,
   getInventoryStatusFilter,
   getInventoryStockStatus,
 } from '@/lib/search-normalization';
+
+describe('search identifiers', () => {
+  it('removes formatting so codes and phone suffixes can be indexed consistently', () => {
+    expect(compactSearchIdentifier(' BP-12 34 ')).toBe('bp1234');
+    expect(entitySearchFields({ name: 'Raj', phone: '+91 98765-43210' })).toMatchObject({
+      searchIdentifiers: ['919876543210'],
+    });
+  });
+});
 
 describe('inventory stock status', () => {
   const now = new Date('2026-07-21T12:00:00.000Z');

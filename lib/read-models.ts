@@ -6,6 +6,7 @@ import {
   getInventoryStockStatus,
   inventorySearchTokens,
   normalizeIdentifier,
+  searchIdentifierValues,
 } from './search-normalization';
 import { inventoryFuzzyTokens } from './inventory-search';
 
@@ -267,6 +268,7 @@ export function inventoryDerivedFields(item: Partial<InventoryItem>) {
     itemNumberKey: normalizeIdentifier(item.itemNumber || ''),
     searchTokens: inventorySearchTokens(item),
     fuzzySearchTokens: inventoryFuzzyTokens(item),
+    searchIdentifiers: searchIdentifierValues(item.itemNumber, item.uniqueCode),
     stockStatus: getInventoryStockStatus({
       quantity: item.quantity || 0,
       lastQuantityUpdatedAt: item.lastQuantityUpdatedAt,

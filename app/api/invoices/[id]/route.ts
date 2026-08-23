@@ -6,7 +6,7 @@ import { Db, ObjectId } from 'mongodb';
 import redis from '@/lib/redis';
 import { invalidateInventoryCache } from '@/lib/cache';
 import { bumpCacheVersions } from '@/lib/cache-version';
-import { invoiceSearchTokens } from '@/lib/search-normalization';
+import { invoiceSearchFields } from '@/lib/search-normalization';
 import { refreshUserReadModels } from '@/lib/read-models';
 import {
   applyInventoryAdjustments,
@@ -323,11 +323,11 @@ export async function PUT(
         });
         updateFields.paidAmount = paidAmount;
         updateFields.status = status;
-        updateFields.searchTokens = invoiceSearchTokens({
+        Object.assign(updateFields, invoiceSearchFields({
           invoiceNumber: existingInvoice.invoiceNumber,
           customerName: String(updateFields.customerName || existingInvoice.customerName || ''),
           customerPhone: String(updateFields.customerPhone || existingInvoice.customerPhone || ''),
-        });
+        }));
 
         const now = new Date();
         let sellerSnapshot = existingInvoice.sellerSnapshot;

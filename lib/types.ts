@@ -27,6 +27,7 @@ export interface Customer {
   openingBalanceBillUrl?: string;
   openingBalanceBillPublicId?: string;
   searchTokens?: string[];
+  searchIdentifiers?: string[];
   createdAt: Date;
 }
 
@@ -43,6 +44,7 @@ export interface Supplier {
   openingBalanceBillUrl?: string;
   openingBalanceBillPublicId?: string;
   searchTokens?: string[];
+  searchIdentifiers?: string[];
   createdAt: Date;
 }
 
@@ -68,6 +70,7 @@ export interface CustomEntity {
   openingBalanceBillUrl?: string;
   openingBalanceBillPublicId?: string;
   searchTokens?: string[];
+  searchIdentifiers?: string[];
   createdAt: Date;
 }
 
@@ -189,6 +192,7 @@ export interface Invoice {
   pdfStatus?: 'ready' | 'missing' | 'failed';
   pdfUpdatedAt?: Date;
   searchTokens?: string[];
+  searchIdentifiers?: string[];
   /** Business date shown on the invoice. Legacy invoices fall back to createdAt. */
   invoiceDate?: Date;
   createdAt: Date;
@@ -217,6 +221,7 @@ export interface InventoryItem {
   itemNumberKey?: string;
   searchTokens?: string[];
   fuzzySearchTokens?: string[];
+  searchIdentifiers?: string[];
   stockStatus?: 'in-stock' | 'low-stock' | 'out-of-stock' | 'inactive';
   lastQuantityUpdatedAt?: Date;
   createdAt: Date;

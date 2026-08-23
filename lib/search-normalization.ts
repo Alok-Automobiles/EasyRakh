@@ -22,6 +22,16 @@ export function normalizeIdentifier(value: unknown): string {
     .toUpperCase();
 }
 
+export function compactSearchIdentifier(value: unknown): string {
+  return normalizeSearchText(value).replace(/\s+/g, '');
+}
+
+export function searchIdentifierValues(...values: unknown[]): string[] {
+  return Array.from(
+    new Set(values.map(compactSearchIdentifier).filter((value) => value.length >= 2))
+  );
+}
+
 function prefixes(token: string) {
   const values: string[] = [];
   const max = Math.min(token.length, 24);
@@ -140,10 +150,33 @@ export function entitySearchTokens(entity: {
   return buildSearchTokens(entity.name, entity.phone, entity.email, entity.collectionType);
 }
 
+export function entitySearchFields(entity: {
+  name?: string;
+  phone?: string;
+  email?: string;
+  collectionType?: string;
+}) {
+  return {
+    searchTokens: entitySearchTokens(entity),
+    searchIdentifiers: searchIdentifierValues(entity.phone, entity.email),
+  };
+}
+
 export function invoiceSearchTokens(invoice: {
   invoiceNumber?: string;
   customerName?: string;
   customerPhone?: string;
 }) {
   return buildSearchTokens(invoice.invoiceNumber, invoice.customerName, invoice.customerPhone);
+}
+
+export function invoiceSearchFields(invoice: {
+  invoiceNumber?: string;
+  customerName?: string;
+  customerPhone?: string;
+}) {
+  return {
+    searchTokens: invoiceSearchTokens(invoice),
+    searchIdentifiers: searchIdentifierValues(invoice.invoiceNumber, invoice.customerPhone),
+  };
 }

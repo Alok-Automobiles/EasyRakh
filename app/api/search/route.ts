@@ -4,15 +4,70 @@ import { getUserIdFromRequest } from '@/lib/auth';
 import { checkRateLimit, rateLimitConfigs } from '@/lib/rateLimit';
 import { getCachedJson, requestCacheKey, setCachedJson } from '@/lib/cache-version';
 import { queryTokens } from '@/lib/search-normalization';
+import type { Db, Document } from 'mongodb';
+import {
+  buildEntitySearchStage,
+  buildInventorySearchStage,
+  buildInvoiceSearchStage,
+  searchScoreStages,
+  type MongoSearchCollection,
+  withMongoSearchFallback,
+} from '@/lib/mongodb-search';
+import { fuzzyCandidateTokens, scoreInventorySearch } from '@/lib/inventory-search';
 
 interface SearchResult {
   id: string;
   name: string;
-  type: 'customer' | 'supplier' | 'custom_entity' | 'invoice';
+  type: 'customer' | 'supplier' | 'custom_entity' | 'invoice' | 'inventory';
   subtitle?: string;
   badge?: string;
   href: string;
   balance?: number;
+}
+
+function escapeRegex(value: string) {
+  return value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+}
+
+function legacySearchFilter(
+  userId: string,
+  query: string,
+  tokens: string[],
+  fields: string[]
+): Document {
+  const regex = { $regex: escapeRegex(query), $options: 'i' };
+  return {
+    userId,
+    $or: [
+      ...(tokens.length > 0 ? [{ searchTokens: { $all: tokens } }] : []),
+      ...fields.map((field) => ({ [field]: regex })),
+    ],
+  };
+}
+
+async function searchCollection(
+  db: Db,
+  collectionName: MongoSearchCollection,
+  label: string,
+  searchStage: Document,
+  fallbackFilter: Document,
+  projection: Document
+) {
+  const collection = db.collection(collectionName);
+  return withMongoSearchFallback<Document[]>(
+    label,
+    () =>
+      collection
+        .aggregate([
+          searchStage,
+          ...searchScoreStages(),
+          { $limit: 5 },
+          { $project: projection },
+        ])
+        .toArray(),
+    () => collection.find(fallbackFilter).project(projection).limit(5).toArray(),
+    collectionName
+  );
 }
 
 export async function GET(request: NextRequest) {
@@ -45,43 +100,115 @@ export async function GET(request: NextRequest) {
 
     const db = await getDb();
     const tokenQuery = { $all: tokens };
+    const entityFallbackFields = ['name', 'phone', 'email', 'address'];
 
-    const [customers, suppliers, customEntities, invoices] = await Promise.all([
-      db.collection('customers')
-        .find({
-          userId,
-          searchTokens: tokenQuery,
-        })
-        .project({ _id: 1, name: 1, phone: 1, email: 1 })
-        .limit(5)
-        .toArray(),
-
-      db.collection('suppliers')
-        .find({
-          userId,
-          searchTokens: tokenQuery,
-        })
-        .project({ _id: 1, name: 1, phone: 1, email: 1 })
-        .limit(5)
-        .toArray(),
-
-      db.collection('customEntities')
-        .find({
-          userId,
-          searchTokens: tokenQuery,
-        })
-        .project({ _id: 1, name: 1, phone: 1, collectionType: 1 })
-        .limit(5)
-        .toArray(),
-
-      db.collection('invoices')
-        .find({
-          userId,
-          searchTokens: tokenQuery,
-        })
-        .project({ _id: 1, invoiceNumber: 1, customerName: 1, totalAmount: 1, status: 1 })
-        .limit(5)
-        .toArray(),
+    const [customers, suppliers, customEntities, invoices, inventory] = await Promise.all([
+      searchCollection(
+        db,
+        'customers',
+        'global customer search',
+        buildEntitySearchStage(userId, query),
+        legacySearchFilter(userId, query, tokens, entityFallbackFields),
+        { _id: 1, name: 1, phone: 1, email: 1 }
+      ),
+      searchCollection(
+        db,
+        'suppliers',
+        'global supplier search',
+        buildEntitySearchStage(userId, query),
+        legacySearchFilter(userId, query, tokens, entityFallbackFields),
+        { _id: 1, name: 1, phone: 1, email: 1 }
+      ),
+      searchCollection(
+        db,
+        'customEntities',
+        'global custom entity search',
+        buildEntitySearchStage(userId, query, undefined, true),
+        legacySearchFilter(userId, query, tokens, [
+          ...entityFallbackFields,
+          'collectionType',
+        ]),
+        { _id: 1, name: 1, phone: 1, collectionType: 1 }
+      ),
+      searchCollection(
+        db,
+        'invoices',
+        'global invoice search',
+        buildInvoiceSearchStage(userId, query),
+        legacySearchFilter(userId, query, tokens, [
+          'invoiceNumber',
+          'customerName',
+          'customerPhone',
+        ]),
+        { _id: 1, invoiceNumber: 1, customerName: 1, totalAmount: 1, status: 1 }
+      ),
+      withMongoSearchFallback<Document[]>(
+        'global inventory search',
+        () =>
+          db
+            .collection('inventory')
+            .aggregate([
+              buildInventorySearchStage(userId, query),
+              ...searchScoreStages(),
+              { $limit: 5 },
+              {
+                $project: {
+                  _id: 1,
+                  itemName: 1,
+                  itemNumber: 1,
+                  uniqueCode: 1,
+                  brand: 1,
+                  description: 1,
+                  supplier: 1,
+                  quantity: 1,
+                  unitOfMeasure: 1,
+                  location: 1,
+                },
+              },
+            ])
+            .toArray(),
+        async () => {
+          const fuzzyTokens = fuzzyCandidateTokens(query);
+          const regex = { $regex: escapeRegex(query), $options: 'i' };
+          const candidates = await db
+            .collection('inventory')
+            .find({
+              userId,
+              $or: [
+                { searchTokens: tokenQuery },
+                ...(fuzzyTokens.length ? [{ fuzzySearchTokens: { $in: fuzzyTokens } }] : []),
+                { itemName: regex },
+                { itemNumber: regex },
+                { uniqueCode: regex },
+                { brand: regex },
+                { location: regex },
+                { supplier: regex },
+                { description: regex },
+              ],
+            })
+            .project({
+              _id: 1,
+              itemName: 1,
+              itemNumber: 1,
+              uniqueCode: 1,
+              brand: 1,
+              description: 1,
+              supplier: 1,
+              quantity: 1,
+              unitOfMeasure: 1,
+              location: 1,
+            })
+            .limit(100)
+            .toArray();
+          return candidates
+            .map((item) => ({ item, score: scoreInventorySearch(item, query) }))
+            .filter(({ score }) => score >= 0.42)
+            .sort((left, right) => right.score - left.score)
+            .slice(0, 5)
+            .map(({ item }) => item);
+        },
+        'inventory'
+      ),
     ]);
 
     const results: SearchResult[] = [];
@@ -128,6 +255,19 @@ export async function GET(request: NextRequest) {
         subtitle: `${inv.customerName} — ₹${(inv.totalAmount || 0).toLocaleString('en-IN')}`,
         badge: statusLabel,
         href: `/invoices/${inv._id.toString()}`,
+      });
+    }
+
+    for (const item of inventory) {
+      const itemNumber = String(item.itemNumber || '');
+      const itemName = String(item.itemName || 'Inventory item');
+      results.push({
+        id: item._id.toString(),
+        name: itemNumber || itemName,
+        type: 'inventory',
+        subtitle: `${itemName}${item.location ? ` — ${item.location}` : ''}`,
+        badge: `${Number(item.quantity || 0)} ${item.unitOfMeasure || ''}`.trim(),
+        href: `/inventory-items?search=${encodeURIComponent(itemNumber || itemName)}`,
       });
     }
 

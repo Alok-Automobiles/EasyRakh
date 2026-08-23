@@ -3,8 +3,17 @@ import { getDb } from "@/lib/mongodb";
 import { getUserIdFromRequest } from "@/lib/auth";
 import { z } from "zod";
 import { bumpCacheVersions, getCachedJson, requestCacheKey, setCachedJson } from "@/lib/cache-version";
-import { entitySearchTokens } from "@/lib/search-normalization";
+import { entitySearchFields } from "@/lib/search-normalization";
 import { ensureUserReadModels, refreshUserReadModels, type EntityBalance } from "@/lib/read-models";
+import {
+  buildEntitySearchStage,
+  searchScoreStages,
+  withMongoSearchFallback,
+} from '@/lib/mongodb-search';
+
+function escapeRegex(value: string) {
+  return value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+}
 
 const customerSchema = z.object({
   name: z.string().min(1, "Name is required"),
@@ -26,7 +35,8 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
     
-    const cacheKey = await requestCacheKey(request, 'customers', userId);
+    const search = request.nextUrl.searchParams.get('search')?.trim().slice(0, 100) || '';
+    const cacheKey = await requestCacheKey(request, 'customers', userId, search.toLowerCase());
     const cachedCustomers = await getCachedJson<{ customers: unknown[] }>(cacheKey);
     if (cachedCustomers) {
       return NextResponse.json(cachedCustomers, { status: 200 });
@@ -37,8 +47,30 @@ export async function GET(request: NextRequest) {
     const entityBalancesCollection = db.collection<EntityBalance>('entityBalances');
     await ensureUserReadModels(db, userId);
 
+    const customersPromise = search.length >= 2
+      ? withMongoSearchFallback(
+          'customer directory',
+          () => customersCollection
+            .aggregate([
+              buildEntitySearchStage(userId, search),
+              ...searchScoreStages(),
+              { $limit: 100 },
+            ])
+            .toArray(),
+          () => {
+            const regex = { $regex: escapeRegex(search), $options: 'i' };
+            return customersCollection
+              .find({ userId, $or: [{ name: regex }, { phone: regex }, { email: regex }, { address: regex }] })
+              .sort({ createdAt: -1 })
+              .limit(100)
+              .toArray();
+          },
+          'customers'
+        )
+      : customersCollection.find({ userId }).sort({ createdAt: -1 }).toArray();
+
     const [customers, balances] = await Promise.all([
-      customersCollection.find({ userId }).sort({ createdAt: -1 }).toArray(),
+      customersPromise,
       entityBalancesCollection.find({ userId, entityType: 'customer' }).toArray(),
     ]);
 
@@ -100,7 +132,7 @@ export async function POST(request: NextRequest) {
       openingBalanceDescription: validatedData.openingBalanceDescription || "",
       openingBalanceBillUrl: validatedData.openingBalanceBillUrl || "",
       openingBalanceBillPublicId: validatedData.openingBalanceBillPublicId || "",
-      searchTokens: entitySearchTokens(validatedData),
+      ...entitySearchFields(validatedData),
       createdAt: new Date(),
     });
 

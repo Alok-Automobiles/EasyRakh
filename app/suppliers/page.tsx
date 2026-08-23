@@ -42,6 +42,7 @@ import { motion } from 'motion/react'
 import { compressImage, isCompressibleImage, formatFileSize } from '@/lib/imageCompression';
 import { parseNumberInput } from '@/lib/number-input';
 import { Truck } from 'lucide-react';
+import { useDebounce } from '@/lib/hooks/useDebounce';
 
 const MAX_BILL_SIZE_BYTES = 5 * 1024 * 1024; // 5MB
 const ACCEPTED_BILL_TYPES = [
@@ -115,15 +116,37 @@ export default function SuppliersPage() {
 
   const suppliers = useMemo(() => data?.suppliers ?? [], [data?.suppliers]);
   const normalizedSearchQuery = searchQuery.trim().toLowerCase();
+  const debouncedSearchQuery = useDebounce(searchQuery, 300).trim();
+  const normalizedDebouncedSearchQuery = debouncedSearchQuery.toLowerCase();
+  const { data: searchData } = useQuery<{
+    suppliers: (Supplier & { id: string; totalBalance: number })[];
+  }>({
+    queryKey: ['suppliers', 'search', debouncedSearchQuery],
+    queryFn: async () => {
+      const response = await fetch(
+        `/api/suppliers?search=${encodeURIComponent(debouncedSearchQuery)}`
+      );
+      if (!response.ok) throw new Error('Failed to search suppliers');
+      return response.json();
+    },
+    enabled: debouncedSearchQuery.length >= 2,
+  });
   const filteredSuppliers = useMemo(() => {
     if (!normalizedSearchQuery) return suppliers;
+    if (
+      normalizedSearchQuery.length >= 2 &&
+      normalizedSearchQuery === normalizedDebouncedSearchQuery &&
+      searchData
+    ) {
+      return searchData.suppliers;
+    }
 
     return suppliers.filter((supplier) =>
       [supplier.name, supplier.phone, supplier.email, supplier.address].some((value) =>
         (value || '').toLowerCase().includes(normalizedSearchQuery)
       )
     );
-  }, [suppliers, normalizedSearchQuery]);
+  }, [normalizedDebouncedSearchQuery, normalizedSearchQuery, searchData, suppliers]);
   const supplierBalances = useMemo(() => suppliers.reduce(
     (totals, supplier) => ({
       receivable: totals.receivable + Math.max(supplier.totalBalance, 0),

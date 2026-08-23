@@ -20,6 +20,11 @@ import {
   inventoryQueryTokens,
   scoreInventorySearch,
 } from '@/lib/inventory-search';
+import {
+  buildInventorySearchStage,
+  searchScoreStages,
+  withMongoSearchFallback,
+} from '@/lib/mongodb-search';
 
 const optionalDateSchema = z.preprocess(
   (value) => {
@@ -192,56 +197,93 @@ export async function GET(request: NextRequest) {
         const tokens = search ? inventoryQueryTokens(search) : [];
 
         if (tokens.length > 0) {
-          const fuzzyTokens = fuzzyCandidateTokens(search);
-          const candidateQuery: Record<string, unknown> = {
-            ...query,
-            $or: [
-              { searchTokens: { $all: tokens } },
-              ...(fuzzyTokens.length > 0
-                ? [{ fuzzySearchTokens: { $in: fuzzyTokens } }]
-                : []),
-            ],
-          };
+          return withMongoSearchFallback(
+            'inventory list',
+            async () => {
+              const [result] = await inventoryCollection
+                .aggregate<{
+                  items: Array<InventoryItem & { _id: { toString(): string } }>;
+                  total: Array<{ count: number }>;
+                }>([
+                  buildInventorySearchStage(userId, search),
+                  { $match: query },
+                  ...searchScoreStages(),
+                  {
+                    $facet: {
+                      items: [{ $skip: skip }, { $limit: limit }],
+                      total: [{ $count: 'count' }],
+                    },
+                  },
+                ])
+                .toArray();
+              const total = result?.total[0]?.count || 0;
 
-          // Indexed prefix/n-gram retrieval keeps the candidate set small;
-          // the ranker then handles spelling mistakes and cross-field terms.
-          let candidates = await inventoryCollection
-            .find(candidateQuery)
-            .sort({ updatedAt: -1, createdAt: -1 })
-            .toArray();
-
-          // Existing installations may not have fuzzySearchTokens until the
-          // read-model backfill runs. This fallback makes typo search work
-          // immediately instead of requiring a deployment-time migration.
-          if (candidates.length === 0) {
-            candidates = await inventoryCollection
-              .find(query)
-              .sort({ updatedAt: -1, createdAt: -1 })
-              .toArray();
-          }
-
-          const scored = candidates
-            .map((item) => ({
-              item,
-              score: scoreInventorySearch(item, search),
-            }))
-            .filter(({ score }) => score >= 0.42)
-            .sort((a, b) => b.score - a.score || b.item.updatedAt.getTime() - a.item.updatedAt.getTime());
-
-          const total = scored.length;
-          const paginatedItems = scored
-            .slice(skip, skip + limit)
-            .map(({ item }) => item);
-
-          return {
-            items: paginatedItems.map(serializeInventoryItem),
-            pagination: {
-              total,
-              page,
-              pageSize: limit,
-              totalPages: Math.max(Math.ceil(total / limit), 1),
+              return {
+                items: (result?.items || []).map(serializeInventoryItem),
+                pagination: {
+                  total,
+                  page,
+                  pageSize: limit,
+                  totalPages: Math.max(Math.ceil(total / limit), 1),
+                },
+              };
             },
-          };
+            async () => {
+              const fuzzyTokens = fuzzyCandidateTokens(search);
+              const candidateQuery: Record<string, unknown> = {
+                ...query,
+                $or: [
+                  { searchTokens: { $all: tokens } },
+                  ...(fuzzyTokens.length > 0
+                    ? [{ fuzzySearchTokens: { $in: fuzzyTokens } }]
+                    : []),
+                ],
+              };
+
+              // The unindexed legacy subset is merged in until the read-model
+              // backfill has populated fuzzySearchTokens for every item.
+              const [indexedCandidates, legacyCandidates] = await Promise.all([
+                inventoryCollection
+                  .find(candidateQuery)
+                  .sort({ updatedAt: -1, createdAt: -1 })
+                  .toArray(),
+                inventoryCollection
+                  .find({ ...query, fuzzySearchTokens: { $exists: false } })
+                  .sort({ updatedAt: -1, createdAt: -1 })
+                  .toArray(),
+              ]);
+              const candidates = Array.from(
+                new Map(
+                  [...indexedCandidates, ...legacyCandidates].map((item) => [
+                    item._id?.toString(),
+                    item,
+                  ])
+                ).values()
+              );
+
+              const scored = candidates
+                .map((item) => ({ item, score: scoreInventorySearch(item, search) }))
+                .filter(({ score }) => score >= 0.42)
+                .sort(
+                  (a, b) =>
+                    b.score - a.score || b.item.updatedAt.getTime() - a.item.updatedAt.getTime()
+                );
+              const total = scored.length;
+
+              return {
+                items: scored
+                  .slice(skip, skip + limit)
+                  .map(({ item }) => serializeInventoryItem(item)),
+                pagination: {
+                  total,
+                  page,
+                  pageSize: limit,
+                  totalPages: Math.max(Math.ceil(total / limit), 1),
+                },
+              };
+            },
+            'inventory'
+          );
         } else {
           const [items, total] = await Promise.all([
             inventoryCollection

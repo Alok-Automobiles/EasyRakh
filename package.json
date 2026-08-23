@@ -14,7 +14,8 @@
     "migrate:quantity-date": "tsx scripts/migrate-last-quantity-updated.ts",
     "migrate:invoice-profit": "tsx scripts/migrate-invoice-profit-data.ts",
     "backfill:read-models": "tsx scripts/backfill-read-models.ts",
-    "check:query-shapes": "tsx scripts/check-hot-query-shapes.ts"
+    "check:query-shapes": "tsx scripts/check-hot-query-shapes.ts",
+    "search:indexes": "tsx scripts/setup-mongodb-search.ts"
   },
   "dependencies": {
     "@google/generative-ai": "^0.24.1",
