@@ -64,6 +64,48 @@ describe('Input number handling', () => {
     expect(fireEvent.keyDown(input, { key: '4' })).toBe(true);
   });
 
+  it('blocks arrow keys from stepping number inputs', () => {
+    const onKeyDown = vi.fn();
+    render(
+      <Input
+        aria-label="Quantity"
+        type="number"
+        inputMode="numeric"
+        min="0"
+        step="1"
+        onKeyDown={onKeyDown}
+      />
+    );
+
+    const input = screen.getByLabelText('Quantity');
+
+    expect(fireEvent.keyDown(input, { key: 'ArrowUp' })).toBe(false);
+    expect(fireEvent.keyDown(input, { key: 'ArrowDown' })).toBe(false);
+    expect(onKeyDown).not.toHaveBeenCalled();
+  });
+
+  it('blurs a focused number input before the browser handles a wheel event', () => {
+    const onWheel = vi.fn();
+    render(
+      <Input
+        aria-label="Quantity"
+        type="number"
+        defaultValue="5"
+        onWheel={onWheel}
+      />
+    );
+
+    const input = screen.getByLabelText('Quantity');
+    input.focus();
+    expect(input).toHaveFocus();
+
+    fireEvent.wheel(input, { deltaY: 100 });
+
+    expect(input).not.toHaveFocus();
+    expect(input).toHaveValue(5);
+    expect(onWheel).toHaveBeenCalledTimes(1);
+  });
+
   it('blocks invalid pasted number values', () => {
     const onPaste = vi.fn();
     render(

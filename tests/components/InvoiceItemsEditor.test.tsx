@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { render, screen, waitFor } from '@testing-library/react';
+import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import InvoiceItemsEditor, {
@@ -70,6 +70,25 @@ describe('InvoiceItemsEditor', () => {
     expect(screen.getByText('Selling Price')).toBeInTheDocument();
     expect(screen.getByText('Cost Price')).toBeInTheDocument();
     expect(screen.getByText('Line Total')).toBeInTheDocument();
+
+    for (const label of ['Row 1 quantity', 'Row 1 amount', 'Row 1 cost price']) {
+      expect(screen.getByLabelText(label)).toHaveAttribute('inputmode', 'numeric');
+      expect(screen.getByLabelText(label)).toHaveAttribute('step', '1');
+    }
+  });
+
+  it('rejects decimal entry in invoice quantity and price fields', () => {
+    render(<EditorHarness />);
+
+    for (const label of ['Row 1 quantity', 'Row 1 amount', 'Row 1 cost price']) {
+      const input = screen.getByLabelText(label);
+      expect(fireEvent.keyDown(input, { key: '.' })).toBe(false);
+      expect(
+        fireEvent.paste(input, {
+          clipboardData: { getData: () => '12.5' },
+        })
+      ).toBe(false);
+    }
   });
 
   it('autofills item name by selecting an inventory suggestion with the keyboard', async () => {
@@ -257,7 +276,7 @@ describe('InvoiceItemsEditor', () => {
     }]} />);
 
     expect(screen.getByTitle('Cost price is greater than selling price')).toHaveTextContent(
-      '₹25.00 above sale'
+      '₹25 above sale'
     );
     expect(screen.getByLabelText('Row 1 amount')).not.toHaveAttribute('aria-invalid');
     expect(screen.getByLabelText('Row 1 cost price')).toHaveAttribute('aria-invalid', 'true');

@@ -64,9 +64,18 @@ function isBlankInvoiceItem(item: EditableInvoiceItem) {
   );
 }
 
+function hasWholeNumberValues(item: EditableInvoiceItem) {
+  return (
+    Number.isInteger(item.quantity) &&
+    Number.isInteger(item.amount) &&
+    (item.unitCost === undefined || Number.isInteger(item.unitCost))
+  );
+}
+
 function isValidInvoiceItem(item: EditableInvoiceItem) {
   return (
     item.itemName.trim().length > 0 &&
+    hasWholeNumberValues(item) &&
     Number.isFinite(item.quantity) &&
     item.quantity > 0 &&
     Number.isFinite(item.amount) &&
@@ -341,10 +350,21 @@ export default function NewInvoicePage() {
       toast.error('At least one complete item with selling price and cost price is required');
       return;
     }
+    const decimalItem = enteredItems.find((item) => !hasWholeNumberValues(item));
+    if (decimalItem) {
+      const rowNumber = items.findIndex((item) => item.id === decimalItem.id) + 1;
+      toast.error(`Use whole numbers only for quantity and prices in item row ${rowNumber}`);
+      return;
+    }
     const invalidItem = enteredItems.find((item) => !isValidInvoiceItem(item));
     if (invalidItem) {
       const rowNumber = items.findIndex((item) => item.id === invalidItem.id) + 1;
       toast.error(`Complete item row ${rowNumber}, including selling price and cost price`);
+      return;
+    }
+
+    if (!Number.isInteger(paidAmount)) {
+      toast.error('Amount paid must be a whole number');
       return;
     }
 
@@ -696,9 +716,9 @@ export default function NewInvoicePage() {
                 <Input
                   id="paidAmount"
                   type="number"
-                  inputMode="decimal"
+                  inputMode="numeric"
                   min="0"
-                  step="0.01"
+                  step="1"
                   value={paidAmount || ''}
                   onChange={(e) => setPaidAmount(parseNumberInputOrZero(e.target.value))}
                   placeholder="0"
