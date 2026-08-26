@@ -5,6 +5,7 @@ import { cn } from "@/lib/utils"
 type InputProps = React.ComponentProps<"input">
 
 const blockedNumberCharacters = new Set(["e", "E", "+"])
+const blockedNumberStepKeys = new Set(["ArrowUp", "ArrowDown"])
 
 function allowsNegativeNumber(min: InputProps["min"]) {
   if (min === undefined || min === null || min === "") return true
@@ -88,6 +89,7 @@ function Input({
   type,
   onKeyDown,
   onPaste,
+  onWheel,
   min,
   step,
   inputMode,
@@ -96,6 +98,11 @@ function Input({
   const isNumberInput = type === "number"
 
   const handleKeyDown = (event: React.KeyboardEvent<HTMLInputElement>) => {
+    if (isNumberInput && blockedNumberStepKeys.has(event.key)) {
+      event.preventDefault()
+      return
+    }
+
     if (isNumberInput && shouldBlockNumberKey(event, { min, step, inputMode })) {
       event.preventDefault()
       return
@@ -119,6 +126,16 @@ function Input({
     onPaste?.(event)
   }
 
+  const handleWheel = (event: React.WheelEvent<HTMLInputElement>) => {
+    if (isNumberInput && document.activeElement === event.currentTarget) {
+      // Blurring before the browser's default wheel action prevents native
+      // number stepping while still allowing the page to keep scrolling.
+      event.currentTarget.blur()
+    }
+
+    onWheel?.(event)
+  }
+
   return (
     <input
       type={type}
@@ -134,6 +151,7 @@ function Input({
       )}
       onKeyDown={handleKeyDown}
       onPaste={handlePaste}
+      onWheel={handleWheel}
       {...props}
     />
   )

@@ -472,9 +472,9 @@ export default function InvoiceItemsEditor({
                     <Input
                       ref={(node) => setInputRef(item.id, 'quantity', node)}
                       type="number"
-                      inputMode="decimal"
+                      inputMode="numeric"
                       min="0"
-                      step="0.01"
+                      step="1"
                       value={getNumberInputValue(item.quantity, item.quantityInput)}
                       onChange={(event) =>
                         updateItem(item.id, {
@@ -492,9 +492,9 @@ export default function InvoiceItemsEditor({
                     <Input
                       ref={(node) => setInputRef(item.id, 'amount', node)}
                       type="number"
-                      inputMode="decimal"
+                      inputMode="numeric"
                       min="0"
-                      step="0.01"
+                      step="1"
                       value={getNumberInputValue(item.amount, item.amountInput)}
                       onChange={(event) =>
                         updateItem(item.id, {
@@ -514,9 +514,9 @@ export default function InvoiceItemsEditor({
                       <Input
                         ref={(node) => setInputRef(item.id, 'unitCost', node)}
                         type="number"
-                        inputMode="decimal"
+                        inputMode="numeric"
                         min="0"
-                        step="0.01"
+                        step="1"
                         value={item.unitCostInput !== undefined ? item.unitCostInput : item.unitCost ?? ''}
                         onChange={(event) =>
                           updateItem(item.id, {
@@ -554,7 +554,7 @@ export default function InvoiceItemsEditor({
                         {lossPerUnit.toLocaleString('en-IN', {
                           style: 'currency',
                           currency: 'INR',
-                          maximumFractionDigits: 2,
+                          maximumFractionDigits: 0,
                         })} above sale
                       </p>
                     )}
@@ -563,7 +563,7 @@ export default function InvoiceItemsEditor({
                     {(item.quantity * item.amount).toLocaleString('en-IN', {
                       style: 'currency',
                       currency: 'INR',
-                      maximumFractionDigits: 2,
+                      maximumFractionDigits: 0,
                     })}
                   </td>
                   <td className="px-3 py-3 align-middle">

@@ -41,10 +41,10 @@ const invoiceItemSchema = z.object({
   inventoryItemId: z.string().trim().optional(),
   itemNumber: z.string().trim().optional(),
   itemName: z.string().trim().min(1, 'Item name is required'),
-  quantity: z.number().finite().positive('Quantity must be greater than zero'),
-  amount: z.number().finite().positive('Amount must be greater than zero').optional(),
-  unitPrice: z.number().finite().positive('Selling price must be greater than zero').optional(),
-  unitCost: z.number().finite().min(0, 'Cost price cannot be negative').optional(),
+  quantity: z.number().finite().int('Quantity must be a whole number').positive('Quantity must be greater than zero'),
+  amount: z.number().finite().int('Amount must be a whole number').positive('Amount must be greater than zero').optional(),
+  unitPrice: z.number().finite().int('Selling price must be a whole number').positive('Selling price must be greater than zero').optional(),
+  unitCost: z.number().finite().int('Cost price must be a whole number').min(0, 'Cost price cannot be negative').optional(),
 }).refine((item) => item.unitPrice !== undefined || item.amount !== undefined, {
   message: 'Selling price is required',
 });
@@ -56,7 +56,7 @@ const createInvoiceSchema = z.object({
   customerPhone: z.string().optional(),
   customerAddress: z.string().optional(),
   items: z.array(invoiceItemSchema).min(1, 'At least one item is required'),
-  paidAmount: z.number().min(0).default(0),
+  paidAmount: z.number().int('Paid amount must be a whole number').min(0).default(0),
   invoiceDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, 'Invoice date must use YYYY-MM-DD').optional(),
   paymentDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, 'Payment date must use YYYY-MM-DD').optional(),
   status: z.enum(['paid', 'unpaid', 'partial']),

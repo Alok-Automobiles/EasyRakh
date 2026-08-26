@@ -112,9 +112,18 @@ function isBlankInvoiceItem(item: EditableInvoiceItem) {
   );
 }
 
+function hasWholeNumberValues(item: EditableInvoiceItem) {
+  return (
+    Number.isInteger(item.quantity) &&
+    Number.isInteger(item.amount) &&
+    (item.unitCost === undefined || Number.isInteger(item.unitCost))
+  );
+}
+
 function isValidInvoiceItem(item: EditableInvoiceItem) {
   return (
     item.itemName.trim().length > 0 &&
+    hasWholeNumberValues(item) &&
     Number.isFinite(item.quantity) &&
     item.quantity > 0 &&
     Number.isFinite(item.amount) &&
@@ -568,6 +577,12 @@ export default function InvoiceDetailPage() {
       toast.error('At least one complete item with selling price and cost price is required');
       return;
     }
+    const decimalItem = enteredItems.find((item) => !hasWholeNumberValues(item));
+    if (decimalItem) {
+      const rowNumber = editItems.findIndex((item) => item.id === decimalItem.id) + 1;
+      toast.error(`Use whole numbers only for quantity and prices in item row ${rowNumber}`);
+      return;
+    }
     const invalidItem = enteredItems.find((item) => !isValidInvoiceItem(item));
     if (invalidItem) {
       const rowNumber = editItems.findIndex((item) => item.id === invalidItem.id) + 1;
@@ -626,6 +641,10 @@ export default function InvoiceDetailPage() {
     const amount = Number(paymentAmount);
     if (!Number.isFinite(amount) || amount <= 0) {
       toast.error('Enter a valid payment amount');
+      return;
+    }
+    if (!Number.isInteger(amount)) {
+      toast.error('Payment amount must be a whole number');
       return;
     }
     if (!invoice || amount > invoice.totalAmount - invoice.paidAmount) {
@@ -1007,7 +1026,7 @@ export default function InvoiceDetailPage() {
               <div className="grid grid-cols-1 sm:grid-cols-[1fr_1fr_auto] gap-3 rounded-lg border border-blue-100 bg-blue-50 p-3 mb-4">
                 <div>
                   <Label htmlFor="paymentAmount">Amount received</Label>
-                  <Input id="paymentAmount" type="number" min="0" step="0.01" value={paymentAmount} onChange={(event) => setPaymentAmount(event.target.value)} className="mt-1 bg-white" />
+                  <Input id="paymentAmount" type="number" inputMode="numeric" min="0" step="1" value={paymentAmount} onChange={(event) => setPaymentAmount(event.target.value)} className="mt-1 bg-white" />
                 </div>
                 <div>
                   <Label htmlFor="paymentDate">Payment date</Label>

@@ -184,6 +184,36 @@ describe('/api/invoices stock sync', () => {
     mocks.session.endSession.mockResolvedValue(undefined);
   });
 
+  it.each([
+    [
+      'quantity',
+      createBody([{ itemName: 'LABOUR', quantity: 1.5, unitPrice: 500, unitCost: 100 }]),
+      'Quantity must be a whole number',
+    ],
+    [
+      'selling price',
+      createBody([{ itemName: 'LABOUR', quantity: 1, unitPrice: 500.5, unitCost: 100 }]),
+      'Selling price must be a whole number',
+    ],
+    [
+      'cost price',
+      createBody([{ itemName: 'LABOUR', quantity: 1, unitPrice: 500, unitCost: 100.5 }]),
+      'Cost price must be a whole number',
+    ],
+    [
+      'paid amount',
+      createBody([manualItem()], { paidAmount: 100.5 }),
+      'Paid amount must be a whole number',
+    ],
+  ])('rejects a decimal invoice %s', async (_field, body, message) => {
+    const { POST } = await import('@/app/api/invoices/route');
+    const response = await POST(jsonRequest('http://localhost/api/invoices', body));
+
+    expect(response.status).toBe(400);
+    await expect(response.json()).resolves.toEqual({ error: message });
+    expect(mocks.getDb).not.toHaveBeenCalled();
+  });
+
   it('keeps one-character invoice searches scoped to matching source fields', async () => {
     const invoiceList = invoiceListFindChain();
     const countDocuments = vi.fn().mockResolvedValue(0);
@@ -725,6 +755,23 @@ describe('/api/invoices stock sync', () => {
       }),
       { session: mocks.session }
     );
+  });
+
+  it('rejects a decimal invoice payment', async () => {
+    const { POST } = await import('@/app/api/invoices/[id]/payments/route');
+    const response = await POST(
+      jsonRequest(
+        `http://localhost/api/invoices/${ids.transaction}/payments`,
+        { amount: 200.5, date: '2026-07-23' }
+      ),
+      routeParams({ id: ids.transaction })
+    );
+
+    expect(response.status).toBe(400);
+    await expect(response.json()).resolves.toEqual({
+      error: 'Payment must be a whole number',
+    });
+    expect(mocks.getDb).not.toHaveBeenCalled();
   });
 
   it('returns the existing payment when the same payment request is retried', async () => {

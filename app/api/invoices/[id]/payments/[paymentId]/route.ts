@@ -23,7 +23,7 @@ import redis from '@/lib/redis';
 import { updateInvoiceLedgerBillAttachments } from '@/lib/invoice-ledger';
 
 const updatePaymentSchema = z.object({
-  amount: z.number().finite().positive('Payment must be greater than zero'),
+  amount: z.number().finite().int('Payment must be a whole number').positive('Payment must be greater than zero'),
   date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, 'Payment date must use YYYY-MM-DD'),
 });
 
