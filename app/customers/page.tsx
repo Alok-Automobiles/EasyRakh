@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useRef, useMemo, ChangeEvent } from 'react';
+import { useEffect, useState, useRef, ChangeEvent } from 'react';
 import { useRouter } from 'next/navigation';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
@@ -37,6 +37,7 @@ import {
   FormMessage,
 } from '@/components/ui/form';
 import { Skeleton } from '@/components/ui/skeleton';
+import { Pagination } from '@/components/ui/pagination';
 import { Customer } from '@/lib/types';
 import { motion } from 'motion/react'
 import { compressImage, isCompressibleImage, formatFileSize } from '@/lib/imageCompression';
@@ -45,6 +46,7 @@ import { Users } from 'lucide-react';
 import { useDebounce } from '@/lib/hooks/useDebounce';
 
 const MAX_BILL_SIZE_BYTES = 5 * 1024 * 1024; // 5MB
+const DIRECTORY_PAGE_SIZE = 20;
 const ACCEPTED_BILL_TYPES = [
   'image/jpeg',
   'image/png',
@@ -74,6 +76,23 @@ interface BillUploadResult {
   resourceType: 'image' | 'raw';
 }
 
+type CustomerWithBalance = Customer & { id: string; totalBalance: number };
+
+interface CustomersDirectoryResponse {
+  customers: CustomerWithBalance[];
+  pagination: {
+    total: number;
+    page: number;
+    pageSize: number;
+    totalPages: number;
+  };
+  summary: {
+    total: number;
+    receivable: number;
+    payable: number;
+  };
+}
+
 export default function CustomersPage() {
   const router = useRouter();
   const queryClient = useQueryClient();
@@ -84,6 +103,7 @@ export default function CustomersPage() {
   const [billUploadResult, setBillUploadResult] = useState<BillUploadResult | null>(null);
   const [isUploading, setIsUploading] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
+  const [currentPage, setCurrentPage] = useState(1);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const form = useForm<CustomerForm>({
@@ -101,10 +121,18 @@ export default function CustomersPage() {
     },
   });
 
-  const { data, isLoading } = useQuery<{ customers: (Customer & { id: string; totalBalance: number })[] }>({
-    queryKey: ['customers'],
+  const debouncedSearchQuery = useDebounce(searchQuery, 300).trim();
+  const normalizedSearchQuery = searchQuery.trim().toLowerCase();
+  const normalizedDebouncedSearchQuery = debouncedSearchQuery.toLowerCase();
+  const { data, isLoading, isFetching } = useQuery<CustomersDirectoryResponse>({
+    queryKey: ['customers', 'directory', normalizedDebouncedSearchQuery, currentPage],
     queryFn: async () => {
-      const response = await fetch('/api/customers');
+      const params = new URLSearchParams({
+        page: currentPage.toString(),
+        limit: DIRECTORY_PAGE_SIZE.toString(),
+      });
+      if (debouncedSearchQuery) params.set('search', debouncedSearchQuery);
+      const response = await fetch(`/api/customers?${params.toString()}`);
       if (response.status === 401) {
         router.push('/login');
         throw new Error('Unauthorized');
@@ -112,48 +140,28 @@ export default function CustomersPage() {
       if (!response.ok) throw new Error('Failed to fetch customers');
       return response.json();
     },
+    placeholderData: (previousData) => previousData,
   });
 
-  const customers = useMemo(() => data?.customers ?? [], [data?.customers]);
-  const normalizedSearchQuery = searchQuery.trim().toLowerCase();
-  const debouncedSearchQuery = useDebounce(searchQuery, 300).trim();
-  const normalizedDebouncedSearchQuery = debouncedSearchQuery.toLowerCase();
-  const { data: searchData } = useQuery<{
-    customers: (Customer & { id: string; totalBalance: number })[];
-  }>({
-    queryKey: ['customers', 'search', debouncedSearchQuery],
-    queryFn: async () => {
-      const response = await fetch(
-        `/api/customers?search=${encodeURIComponent(debouncedSearchQuery)}`
-      );
-      if (!response.ok) throw new Error('Failed to search customers');
-      return response.json();
-    },
-    enabled: debouncedSearchQuery.length >= 2,
-  });
-  const filteredCustomers = useMemo(() => {
-    if (!normalizedSearchQuery) return customers;
-    if (
-      normalizedSearchQuery.length >= 2 &&
-      normalizedSearchQuery === normalizedDebouncedSearchQuery &&
-      searchData
-    ) {
-      return searchData.customers;
+  const customers = data?.customers ?? [];
+  const pagination = data?.pagination;
+  const totalPages = pagination?.totalPages ?? 1;
+  const summary = data?.summary ?? { total: 0, receivable: 0, payable: 0 };
+  const settledSearch = normalizedSearchQuery.length > 0 &&
+    normalizedSearchQuery === normalizedDebouncedSearchQuery;
+  const resultCount = settledSearch && !isFetching ? pagination?.total : undefined;
+  const hasNoSearchResults = settledSearch && !isFetching && pagination?.total === 0;
+
+  useEffect(() => {
+    if (currentPage > totalPages) {
+      setCurrentPage(totalPages);
     }
+  }, [currentPage, totalPages]);
 
-    return customers.filter((customer) =>
-      [customer.name, customer.phone, customer.email, customer.address].some((value) =>
-        (value || '').toLowerCase().includes(normalizedSearchQuery)
-      )
-    );
-  }, [customers, normalizedDebouncedSearchQuery, normalizedSearchQuery, searchData]);
-  const customerBalances = useMemo(() => customers.reduce(
-    (totals, customer) => ({
-      receivable: totals.receivable + Math.max(customer.totalBalance, 0),
-      payable: totals.payable + Math.abs(Math.min(customer.totalBalance, 0)),
-    }),
-    { receivable: 0, payable: 0 }
-  ), [customers]);
+  const handleSearchChange = (value: string) => {
+    setSearchQuery(value);
+    setCurrentPage(1);
+  };
 
   const handleBillUpload = async (event: ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
@@ -273,6 +281,9 @@ export default function CustomersPage() {
       toast.success('Customer deleted successfully!');
       setDeleteDialogOpen(false);
       setDeletingCustomer(null);
+      if (customers.length === 1 && currentPage > 1) {
+        setCurrentPage((page) => page - 1);
+      }
       queryClient.invalidateQueries({ queryKey: ['customers'] });
       queryClient.invalidateQueries({ queryKey: ['dashboard'] });
     },
@@ -286,7 +297,7 @@ export default function CustomersPage() {
   };
 
   const openDeleteDialog = (id: string) => {
-    const customer = customers.find((c: Customer & { id: string }) => c.id === id);
+    const customer = customers.find((c) => c.id === id);
     if (customer) {
       setDeletingCustomer({ id: customer.id, name: customer.name });
       setDeleteDialogOpen(true);
@@ -298,7 +309,7 @@ export default function CustomersPage() {
     deleteMutation.mutate(deletingCustomer.id);
   };
 
-  const handleEdit = (customer: Customer & { id: string }) => {
+  const handleEdit = (customer: CustomerWithBalance) => {
     setEditingCustomer(customer.id);
     form.reset({
       name: customer.name,
@@ -355,14 +366,14 @@ export default function CustomersPage() {
           title="Customers"
           description="Review customer ledgers, contact details, and outstanding balances."
           singularLabel="Customer"
-          count={customers.length}
-          receivable={customerBalances.receivable}
-          payable={customerBalances.payable}
+          count={summary.total}
+          receivable={summary.receivable}
+          payable={summary.payable}
           icon={<Users className="h-5 w-5" />}
           searchQuery={searchQuery}
           searchPlaceholder="Search customers by name, phone, email or address"
-          resultCount={normalizedSearchQuery ? filteredCustomers.length : undefined}
-          onSearchChange={setSearchQuery}
+          resultCount={resultCount}
+          onSearchChange={handleSearchChange}
           onAdd={() => {
               form.reset();
               setEditingCustomer(null);
@@ -372,19 +383,19 @@ export default function CustomersPage() {
         />
 
         <div className="mt-6">
-        {customers.length === 0 ? (
+        {summary.total === 0 ? (
           <div className="rounded-2xl border border-dashed border-border bg-card px-6 py-16 text-center">
             <p className="text-muted-foreground text-lg">No customers yet.</p>
             <p className="text-muted-foreground mt-2">Add your first customer to get started.</p>
           </div>
-        ) : filteredCustomers.length === 0 ? (
+        ) : hasNoSearchResults ? (
           <div className="rounded-2xl border border-dashed border-border bg-card px-6 py-16 text-center">
             <p className="text-muted-foreground text-lg">No customers match your search.</p>
             <p className="text-muted-foreground mt-2">Try another name, phone, email, or address.</p>
           </div>
         ) : (
           <div className="space-y-3 sm:divide-y sm:divide-border sm:space-y-0 sm:overflow-hidden sm:rounded-2xl sm:border sm:border-border sm:bg-card">
-            {filteredCustomers.map((customer) => (
+            {customers.map((customer) => (
               <EntityCard
                 key={customer.id}
                 entity={{
@@ -401,6 +412,15 @@ export default function CustomersPage() {
               />
             ))}
           </div>
+        )}
+        {pagination && pagination.totalPages > 1 && (
+          <Pagination
+            currentPage={currentPage}
+            totalPages={pagination.totalPages}
+            onPageChange={setCurrentPage}
+            disabled={isFetching}
+            className="mt-6"
+          />
         )}
         </div>
 
