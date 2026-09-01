@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useRef, useMemo, ChangeEvent } from 'react';
+import { useEffect, useState, useRef, ChangeEvent } from 'react';
 import { useRouter } from 'next/navigation';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
@@ -37,6 +37,7 @@ import {
   FormMessage,
 } from '@/components/ui/form';
 import { Skeleton } from '@/components/ui/skeleton';
+import { Pagination } from '@/components/ui/pagination';
 import { Supplier } from '@/lib/types';
 import { motion } from 'motion/react'
 import { compressImage, isCompressibleImage, formatFileSize } from '@/lib/imageCompression';
@@ -45,6 +46,7 @@ import { Truck } from 'lucide-react';
 import { useDebounce } from '@/lib/hooks/useDebounce';
 
 const MAX_BILL_SIZE_BYTES = 5 * 1024 * 1024; // 5MB
+const DIRECTORY_PAGE_SIZE = 20;
 const ACCEPTED_BILL_TYPES = [
   'image/jpeg',
   'image/png',
@@ -74,6 +76,23 @@ interface BillUploadResult {
   resourceType: 'image' | 'raw';
 }
 
+type SupplierWithBalance = Supplier & { id: string; totalBalance: number };
+
+interface SuppliersDirectoryResponse {
+  suppliers: SupplierWithBalance[];
+  pagination: {
+    total: number;
+    page: number;
+    pageSize: number;
+    totalPages: number;
+  };
+  summary: {
+    total: number;
+    receivable: number;
+    payable: number;
+  };
+}
+
 export default function SuppliersPage() {
   const router = useRouter();
   const queryClient = useQueryClient();
@@ -84,6 +103,7 @@ export default function SuppliersPage() {
   const [billUploadResult, setBillUploadResult] = useState<BillUploadResult | null>(null);
   const [isUploading, setIsUploading] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
+  const [currentPage, setCurrentPage] = useState(1);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const form = useForm<SupplierForm>({
@@ -101,10 +121,18 @@ export default function SuppliersPage() {
     },
   });
 
-  const { data, isLoading } = useQuery<{ suppliers: (Supplier & { id: string; totalBalance: number })[] }>({
-    queryKey: ['suppliers'],
+  const debouncedSearchQuery = useDebounce(searchQuery, 300).trim();
+  const normalizedSearchQuery = searchQuery.trim().toLowerCase();
+  const normalizedDebouncedSearchQuery = debouncedSearchQuery.toLowerCase();
+  const { data, isLoading, isFetching } = useQuery<SuppliersDirectoryResponse>({
+    queryKey: ['suppliers', 'directory', normalizedDebouncedSearchQuery, currentPage],
     queryFn: async () => {
-      const response = await fetch('/api/suppliers');
+      const params = new URLSearchParams({
+        page: currentPage.toString(),
+        limit: DIRECTORY_PAGE_SIZE.toString(),
+      });
+      if (debouncedSearchQuery) params.set('search', debouncedSearchQuery);
+      const response = await fetch(`/api/suppliers?${params.toString()}`);
       if (response.status === 401) {
         router.push('/login');
         throw new Error('Unauthorized');
@@ -112,48 +140,28 @@ export default function SuppliersPage() {
       if (!response.ok) throw new Error('Failed to fetch suppliers');
       return response.json();
     },
+    placeholderData: (previousData) => previousData,
   });
 
-  const suppliers = useMemo(() => data?.suppliers ?? [], [data?.suppliers]);
-  const normalizedSearchQuery = searchQuery.trim().toLowerCase();
-  const debouncedSearchQuery = useDebounce(searchQuery, 300).trim();
-  const normalizedDebouncedSearchQuery = debouncedSearchQuery.toLowerCase();
-  const { data: searchData } = useQuery<{
-    suppliers: (Supplier & { id: string; totalBalance: number })[];
-  }>({
-    queryKey: ['suppliers', 'search', debouncedSearchQuery],
-    queryFn: async () => {
-      const response = await fetch(
-        `/api/suppliers?search=${encodeURIComponent(debouncedSearchQuery)}`
-      );
-      if (!response.ok) throw new Error('Failed to search suppliers');
-      return response.json();
-    },
-    enabled: debouncedSearchQuery.length >= 2,
-  });
-  const filteredSuppliers = useMemo(() => {
-    if (!normalizedSearchQuery) return suppliers;
-    if (
-      normalizedSearchQuery.length >= 2 &&
-      normalizedSearchQuery === normalizedDebouncedSearchQuery &&
-      searchData
-    ) {
-      return searchData.suppliers;
+  const suppliers = data?.suppliers ?? [];
+  const pagination = data?.pagination;
+  const totalPages = pagination?.totalPages ?? 1;
+  const summary = data?.summary ?? { total: 0, receivable: 0, payable: 0 };
+  const settledSearch = normalizedSearchQuery.length > 0 &&
+    normalizedSearchQuery === normalizedDebouncedSearchQuery;
+  const resultCount = settledSearch && !isFetching ? pagination?.total : undefined;
+  const hasNoSearchResults = settledSearch && !isFetching && pagination?.total === 0;
+
+  useEffect(() => {
+    if (currentPage > totalPages) {
+      setCurrentPage(totalPages);
     }
+  }, [currentPage, totalPages]);
 
-    return suppliers.filter((supplier) =>
-      [supplier.name, supplier.phone, supplier.email, supplier.address].some((value) =>
-        (value || '').toLowerCase().includes(normalizedSearchQuery)
-      )
-    );
-  }, [normalizedDebouncedSearchQuery, normalizedSearchQuery, searchData, suppliers]);
-  const supplierBalances = useMemo(() => suppliers.reduce(
-    (totals, supplier) => ({
-      receivable: totals.receivable + Math.max(supplier.totalBalance, 0),
-      payable: totals.payable + Math.abs(Math.min(supplier.totalBalance, 0)),
-    }),
-    { receivable: 0, payable: 0 }
-  ), [suppliers]);
+  const handleSearchChange = (value: string) => {
+    setSearchQuery(value);
+    setCurrentPage(1);
+  };
 
   const handleBillUpload = async (event: ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
@@ -273,6 +281,9 @@ export default function SuppliersPage() {
       toast.success('Supplier deleted successfully!');
       setDeleteDialogOpen(false);
       setDeletingSupplier(null);
+      if (suppliers.length === 1 && currentPage > 1) {
+        setCurrentPage((page) => page - 1);
+      }
       queryClient.invalidateQueries({ queryKey: ['suppliers'] });
       queryClient.invalidateQueries({ queryKey: ['dashboard'] });
     },
@@ -286,7 +297,7 @@ export default function SuppliersPage() {
   };
 
   const openDeleteDialog = (id: string) => {
-    const supplier = suppliers.find((s: Supplier & { id: string }) => s.id === id);
+    const supplier = suppliers.find((s) => s.id === id);
     if (supplier) {
       setDeletingSupplier({ id: supplier.id, name: supplier.name });
       setDeleteDialogOpen(true);
@@ -298,7 +309,7 @@ export default function SuppliersPage() {
     deleteMutation.mutate(deletingSupplier.id);
   };
 
-  const handleEdit = (supplier: Supplier & { id: string }) => {
+  const handleEdit = (supplier: SupplierWithBalance) => {
     setEditingSupplier(supplier.id);
     form.reset({
       name: supplier.name,
@@ -355,14 +366,14 @@ export default function SuppliersPage() {
           title="Suppliers"
           description="Keep supplier accounts, payment details, and balances in one place."
           singularLabel="Supplier"
-          count={suppliers.length}
-          receivable={supplierBalances.receivable}
-          payable={supplierBalances.payable}
+          count={summary.total}
+          receivable={summary.receivable}
+          payable={summary.payable}
           icon={<Truck className="h-5 w-5" />}
           searchQuery={searchQuery}
           searchPlaceholder="Search suppliers by name, phone, email or address"
-          resultCount={normalizedSearchQuery ? filteredSuppliers.length : undefined}
-          onSearchChange={setSearchQuery}
+          resultCount={resultCount}
+          onSearchChange={handleSearchChange}
           onAdd={() => {
               form.reset();
               setEditingSupplier(null);
@@ -372,19 +383,19 @@ export default function SuppliersPage() {
         />
 
         <div className="mt-6">
-        {suppliers.length === 0 ? (
+        {summary.total === 0 ? (
           <div className="rounded-2xl border border-dashed border-border bg-card px-6 py-16 text-center">
             <p className="text-muted-foreground text-lg">No suppliers yet.</p>
             <p className="text-muted-foreground mt-2">Add your first supplier to get started.</p>
           </div>
-        ) : filteredSuppliers.length === 0 ? (
+        ) : hasNoSearchResults ? (
           <div className="rounded-2xl border border-dashed border-border bg-card px-6 py-16 text-center">
             <p className="text-muted-foreground text-lg">No suppliers match your search.</p>
             <p className="text-muted-foreground mt-2">Try another name, phone, email, or address.</p>
           </div>
         ) : (
           <div className="space-y-3 sm:divide-y sm:divide-border sm:space-y-0 sm:overflow-hidden sm:rounded-2xl sm:border sm:border-border sm:bg-card">
-            {filteredSuppliers.map((supplier) => (
+            {suppliers.map((supplier) => (
               <EntityCard
                 key={supplier.id}
                 entity={{
@@ -401,6 +412,15 @@ export default function SuppliersPage() {
               />
             ))}
           </div>
+        )}
+        {pagination && pagination.totalPages > 1 && (
+          <Pagination
+            currentPage={currentPage}
+            totalPages={pagination.totalPages}
+            onPageChange={setCurrentPage}
+            disabled={isFetching}
+            className="mt-6"
+          />
         )}
         </div>
 
