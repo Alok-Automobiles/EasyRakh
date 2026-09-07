@@ -2,11 +2,11 @@ import { NextRequest, NextResponse } from 'next/server';
 import { getDb } from '@/lib/mongodb';
 import { getUserIdFromRequest } from '@/lib/auth';
 import { format } from 'date-fns';
-import type { RecentActivity, Transaction } from '@/lib/types';
+import type { Invoice, RecentActivity, Transaction } from '@/lib/types';
 import { ObjectId } from 'mongodb';
 import { ensureUserReadModels, type EntityBalance } from '@/lib/read-models';
 import { getCachedJson, requestCacheKey, setCachedJson } from '@/lib/cache-version';
-import { calculateInvoiceTotals } from '@/lib/invoice-calculations';
+import { calculateInvoiceProfitViews } from '@/lib/invoice-calculations';
 
 const MONTH_REGEX = /^\d{4}-(0[1-9]|1[0-2])$/;
 const DATE_REGEX = /^\d{4}-(0[1-9]|1[0-2])-(0[1-9]|[12]\d|3[01])$/;
@@ -82,7 +82,8 @@ export async function GET(request: NextRequest) {
     }
 
     const hasDateFilter = rangeStart !== null && rangeEnd !== null;
-    const cacheSuffix = hasDateFilter ? monthParam || `${fromParam}-${toParam}` : 'current';
+    const periodCacheSuffix = hasDateFilter ? monthParam || `${fromParam}-${toParam}` : 'current';
+    const cacheSuffix = `paid-profit-v1:${periodCacheSuffix}`;
     const cacheKey = await requestCacheKey(request, 'dashboard', userId, cacheSuffix);
     const cached = await getCachedJson<Record<string, unknown>>(cacheKey);
     if (cached) {
@@ -95,7 +96,7 @@ export async function GET(request: NextRequest) {
     const customEntitiesCollection = db.collection('customEntities');
     const transactionsCollection = db.collection<Transaction>('transactions');
     const dailyCashRecordsCollection = db.collection('dailyCashRecords');
-    const invoicesCollection = db.collection('invoices');
+    const invoicesCollection = db.collection<Invoice>('invoices');
     const notesCollection = db.collection('notes');
     const entityBalancesCollection = db.collection<EntityBalance>('entityBalances');
 
@@ -187,6 +188,7 @@ export async function GET(request: NextRequest) {
               uncostedSales: 1,
               missingCostItemCount: 1,
               grossProfit: 1,
+              status: 1,
               items: 1,
             },
           }
@@ -238,40 +240,7 @@ export async function GET(request: NextRequest) {
       totalLeft: todayRecord?.totalLeft || 0,
     };
 
-    const salesProfit = periodInvoices.reduce(
-      (acc, invoice) => {
-        const calculated = calculateInvoiceTotals(invoice.items || []);
-        const totalSales = Number(invoice.totalAmount ?? calculated.totalAmount ?? 0);
-        const totalCogs = Number(invoice.totalCogs ?? calculated.totalCogs ?? 0);
-        const costedSales = Number(invoice.costedSales ?? calculated.costedSales ?? 0);
-        const uncostedSales = Number(invoice.uncostedSales ?? calculated.uncostedSales ?? 0);
-        acc.totalSales += totalSales;
-        acc.totalCogs += totalCogs;
-        acc.costedSales += costedSales;
-        acc.uncostedSales += uncostedSales;
-        acc.missingCostItemCount += Number(
-          invoice.missingCostItemCount ?? calculated.missingCostItemCount ?? 0
-        );
-        return acc;
-      },
-      {
-        totalSales: 0,
-        totalCogs: 0,
-        costedSales: 0,
-        uncostedSales: 0,
-        missingCostItemCount: 0,
-        grossProfit: 0,
-        grossMargin: 0,
-      }
-    );
-    salesProfit.totalSales = Math.round(salesProfit.totalSales * 100) / 100;
-    salesProfit.totalCogs = Math.round(salesProfit.totalCogs * 100) / 100;
-    salesProfit.costedSales = Math.round(salesProfit.costedSales * 100) / 100;
-    salesProfit.uncostedSales = Math.round(salesProfit.uncostedSales * 100) / 100;
-    salesProfit.grossProfit = Math.round((salesProfit.costedSales - salesProfit.totalCogs) * 100) / 100;
-    salesProfit.grossMargin = salesProfit.costedSales > 0
-      ? Math.round((salesProfit.grossProfit / salesProfit.costedSales) * 10000) / 100
-      : 0;
+    const { salesProfit, paidSalesProfit } = calculateInvoiceProfitViews(periodInvoices);
 
     let monthlyRecords: typeof recentDailyCashRecords;
     let monthlyTotals: { totalIn: number; totalOut: number; totalLeft: number };
@@ -472,6 +441,7 @@ export async function GET(request: NextRequest) {
         monthlyTotals,
         monthlySeries,
         salesProfit,
+        paidSalesProfit,
         inventory: inventorySummary,
       },
       activities: topActivities,

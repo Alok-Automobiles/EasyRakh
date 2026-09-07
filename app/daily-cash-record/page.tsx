@@ -1131,9 +1131,6 @@ export default function DailyCashRecordPage() {
                 <>
                   <div className="block space-y-3 lg:hidden">
                     {viewingRecord.entries.map((entry, idx) => {
-                      const entryDate = entry.createdAt
-                        ? format(new Date(entry.createdAt), 'dd-MM-yyyy')
-                        : viewingRecord.date;
                       return (
                         <motion.div
                           key={entry.id}
@@ -1151,7 +1148,7 @@ export default function DailyCashRecordPage() {
                               }`}>
                                 {entry.type === 'in' ? 'IN' : 'OUT'}
                               </span>
-                              <p className="cash-record-entry-date truncate text-xs font-medium">{entryDate}</p>
+                              <p className="cash-record-entry-date truncate text-xs font-medium">{viewingRecord.date}</p>
                             </div>
                             <div className="flex shrink-0 items-center gap-1.5">
                               {entry.billUrl && (
@@ -1196,7 +1193,7 @@ export default function DailyCashRecordPage() {
                     <Table className="min-w-[920px]">
                       <TableHeader className="cash-record-table-header [&_tr]:border-b">
                         <TableRow>
-                          <TableHead className="cash-record-table-head-cell h-10 px-4 py-2 text-[11px] font-semibold uppercase">Date</TableHead>
+                          <TableHead className="cash-record-table-head-cell h-10 px-4 py-2 text-[11px] font-semibold uppercase">Cash Date</TableHead>
                           <TableHead className="cash-record-table-head-cell h-10 px-4 py-2 text-[11px] font-semibold uppercase">Description</TableHead>
                           <TableHead className="cash-record-table-head-cell h-10 px-4 py-2 text-right text-[11px] font-semibold uppercase">Money Out</TableHead>
                           <TableHead className="cash-record-table-head-cell h-10 px-4 py-2 text-right text-[11px] font-semibold uppercase">Money In</TableHead>
@@ -1207,12 +1204,9 @@ export default function DailyCashRecordPage() {
                       </TableHeader>
                       <TableBody className="[&_tr]:border-b [&_tr:last-child]:border-b-0">
                         {viewingRecord.entries.map((entry) => {
-                          const entryDate = entry.createdAt
-                            ? format(new Date(entry.createdAt), 'dd-MM-yyyy')
-                            : viewingRecord.date;
                           return (
                             <TableRow key={entry.id} className="cash-record-table-row">
-                              <TableCell className="cash-record-table-cell px-4 py-3 text-sm">{entryDate}</TableCell>
+                              <TableCell className="cash-record-table-cell px-4 py-3 text-sm">{viewingRecord.date}</TableCell>
                               <TableCell className="cash-record-table-cell max-w-[320px] px-4 py-3 text-sm font-bold">
                                 <span className="block truncate" title={entry.description}>{entry.description}</span>
                               </TableCell>

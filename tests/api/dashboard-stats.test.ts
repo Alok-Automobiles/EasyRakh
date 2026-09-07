@@ -89,7 +89,9 @@ describe('/api/dashboard/stats', () => {
 
     expect(response.status).toBe(200);
     expect(mocks.redisGet).toHaveBeenCalledWith(`cache:v:dashboard:${ids.user}`);
-    expect(mocks.redisGet).toHaveBeenCalledWith(`dashboard:${ids.user}:v0:2026-06`);
+    expect(mocks.redisGet).toHaveBeenCalledWith(
+      `dashboard:${ids.user}:v0:paid-profit-v1:2026-06`
+    );
     expect(mocks.getDb).not.toHaveBeenCalled();
     await expect(response.json()).resolves.toEqual(cached);
   });
