@@ -59,6 +59,8 @@ import {
 } from 'lucide-react';
 import { compressImage, isCompressibleImage, formatFileSize } from '@/lib/imageCompression';
 import GlobalSearch from '@/components/GlobalSearch';
+import SalesProfitSummary from './SalesProfitSummary';
+import type { InvoiceProfitSummary } from '@/lib/invoice-calculations';
 
 const MAX_BILL_SIZE_BYTES = 5 * 1024 * 1024;
 const ACCEPTED_BILL_TYPES = [
@@ -119,15 +121,8 @@ interface DashboardStats {
   todayCash: CashSummary;
   monthlyTotals: CashSummary;
   monthlySeries: MonthlyPoint[];
-  salesProfit: {
-    totalSales: number;
-    totalCogs: number;
-    costedSales: number;
-    uncostedSales: number;
-    missingCostItemCount: number;
-    grossProfit: number;
-    grossMargin: number;
-  };
+  salesProfit: InvoiceProfitSummary;
+  paidSalesProfit: InvoiceProfitSummary;
 }
 
 type DashboardResponse = {
@@ -159,6 +154,15 @@ const defaultStats: DashboardStats = {
   monthlyTotals: { totalIn: 0, totalOut: 0, totalLeft: 0 },
   monthlySeries: [],
   salesProfit: {
+    totalSales: 0,
+    totalCogs: 0,
+    costedSales: 0,
+    uncostedSales: 0,
+    missingCostItemCount: 0,
+    grossProfit: 0,
+    grossMargin: 0,
+  },
+  paidSalesProfit: {
     totalSales: 0,
     totalCogs: 0,
     costedSales: 0,
@@ -1281,41 +1285,12 @@ export default function DashboardClient() {
           </div>
 
           <motion.div variants={itemVariants}>
-            <Card className="p-3 sm:p-4 lg:p-5">
-            <div className="flex flex-col gap-1 sm:flex-row sm:items-center sm:justify-between mb-4">
-              <div>
-                <p className="text-[10px] sm:text-xs font-medium text-gray-500 uppercase tracking-wider">Sales and Profit</p>
-                <h3 className="text-base sm:text-lg lg:text-xl font-bold text-gray-900">
-                  {periodLabel ? `Profit Summary - ${periodLabel}` : 'Profit Summary - This Month'}
-                </h3>
-              </div>
-              <p className="text-xs text-gray-500">Invoice sales are separate from cash received.</p>
-            </div>
-            <div className="grid grid-cols-2 xl:grid-cols-4 gap-2 sm:gap-3">
-              <div className="rounded-lg border border-blue-100 bg-blue-50 p-3">
-                <p className="text-[10px] sm:text-xs font-semibold uppercase text-blue-700">Total Sales</p>
-                <p className="mt-1 text-lg sm:text-xl font-bold text-gray-900">{formatCurrency(displayStats.salesProfit?.totalSales || 0)}</p>
-              </div>
-              <div className="rounded-lg border border-amber-100 bg-amber-50 p-3">
-                <p className="text-[10px] sm:text-xs font-semibold uppercase text-amber-700">Total COGS</p>
-                <p className="mt-1 text-lg sm:text-xl font-bold text-gray-900">{formatCurrency(displayStats.salesProfit?.totalCogs || 0)}</p>
-              </div>
-              <div className="rounded-lg border border-emerald-100 bg-emerald-50 p-3">
-                <p className="text-[10px] sm:text-xs font-semibold uppercase text-emerald-700">Gross Profit</p>
-                <p className="mt-1 text-lg sm:text-xl font-bold text-gray-900">{formatCurrency(displayStats.salesProfit?.grossProfit || 0)}</p>
-              </div>
-              <div className="rounded-lg border border-purple-100 bg-purple-50 p-3">
-                <p className="text-[10px] sm:text-xs font-semibold uppercase text-purple-700">Gross Margin</p>
-                <p className="mt-1 text-lg sm:text-xl font-bold text-gray-900">{(displayStats.salesProfit?.grossMargin || 0).toFixed(2)}%</p>
-              </div>
-            </div>
-            {(displayStats.salesProfit?.missingCostItemCount || 0) > 0 && (
-              <div className="mt-3 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-800">
-                {displayStats.salesProfit.missingCostItemCount} historical item(s) are missing a cost price. Profit excludes {formatCurrency(displayStats.salesProfit.uncostedSales)} of sales until those costs are filled.
-              </div>
-            )}
-          </Card>
-        </motion.div>
+            <SalesProfitSummary
+              allInvoices={displayStats.salesProfit || defaultStats.salesProfit}
+              paidOnly={displayStats.paidSalesProfit || defaultStats.paidSalesProfit}
+              periodLabel={periodLabel}
+            />
+          </motion.div>
 
         <div className="grid gap-3 sm:gap-4 lg:gap-6 lg:grid-cols-5 lg:items-stretch lg:grid-rows-[auto] min-w-0 overflow-hidden">
           <motion.div variants={itemVariants} className="lg:col-span-3 flex flex-col min-h-[320px] sm:min-h-[360px] min-w-0">

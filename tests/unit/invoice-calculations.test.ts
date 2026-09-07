@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import {
   calculateInvoiceLine,
+  calculateInvoiceProfitViews,
   calculateInvoiceTotals,
   deriveInvoiceStatus,
   legacyUnitPrice,
@@ -41,5 +42,61 @@ describe('invoice calculations', () => {
     expect(deriveInvoiceStatus(0, 0)).toBe('unpaid');
     expect(deriveInvoiceStatus(900, 400)).toBe('partial');
     expect(deriveInvoiceStatus(900, 900)).toBe('paid');
+  });
+
+  it('builds separate all-invoice and fully-paid profit summaries', () => {
+    const paidItems = [
+      {
+        itemName: 'Brake Pad',
+        quantity: 2,
+        amount: 900,
+        lineTotal: 900,
+        cogs: 590,
+        costStatus: 'complete' as const,
+      },
+    ];
+    const partialLegacyItems = [
+      {
+        itemName: 'Legacy item',
+        quantity: 2,
+        amount: 200,
+        costStatus: 'missing' as const,
+      },
+    ];
+    const unpaidItems = [
+      {
+        itemName: 'Oil Filter',
+        quantity: 1,
+        amount: 500,
+        lineTotal: 500,
+        cogs: 350,
+        costStatus: 'complete' as const,
+      },
+    ];
+
+    const views = calculateInvoiceProfitViews([
+      { items: paidItems, status: 'paid' },
+      { items: partialLegacyItems, status: 'partial' },
+      { items: unpaidItems, status: 'unpaid' },
+    ]);
+
+    expect(views.salesProfit).toEqual({
+      totalSales: 1600,
+      totalCogs: 940,
+      costedSales: 1400,
+      uncostedSales: 200,
+      missingCostItemCount: 1,
+      grossProfit: 460,
+      grossMargin: 32.86,
+    });
+    expect(views.paidSalesProfit).toEqual({
+      totalSales: 900,
+      totalCogs: 590,
+      costedSales: 900,
+      uncostedSales: 0,
+      missingCostItemCount: 0,
+      grossProfit: 310,
+      grossMargin: 34.44,
+    });
   });
 });
