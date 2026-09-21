@@ -10,6 +10,7 @@ import toast from 'react-hot-toast';
 import { motion } from 'motion/react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { stableDatedRequest, type StableDatedRequest } from '@/lib/idempotent-client-request';
+import { businessToday } from '@/lib/hooks/useSupplierPayments';
 import { RecentActivity } from '@/lib/types';
 import { Button } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
@@ -553,7 +554,7 @@ export default function DashboardClient() {
       quickCashRequest.current = stableDatedRequest(
         quickCashRequest.current,
         JSON.stringify(fields),
-        format(new Date(), 'dd-MM-yyyy'),
+        businessToday(),
         () => crypto.randomUUID(),
       );
       const payload = { ...fields, date: quickCashRequest.current.date };
