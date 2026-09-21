@@ -6,6 +6,7 @@ import { useRouter, usePathname } from 'next/navigation';
 import { useEffect, useState, useRef } from 'react';
 import { Button } from '@/components/ui/button';
 import { Menu, X, ChevronDown } from 'lucide-react';
+import { useBusinessCash } from '@/lib/hooks/useSupplierPayments';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -24,6 +25,7 @@ export default function Header() {
   const [customCollectionTypes, setCustomCollectionTypes] = useState<Array<{ id: string; name: string; slug: string; lastTransactionDate?: Date }>>([]);
 
   const isAuthPage = pathname === '/login' || pathname === '/register' || pathname === '/';
+  const { data: supplierFeature } = useBusinessCash(!isAuthPage);
 
   useEffect(() => {
     if (isAuthPage) {
@@ -98,7 +100,7 @@ export default function Header() {
         setLoading(false);
       })
       .catch(() => setLoading(false));
-  }, [pathname, router]);
+  }, [pathname, router, isAuthPage]);
 
   useEffect(() => {
     setIsMobileMenuOpen(false);
@@ -124,6 +126,7 @@ export default function Header() {
     { href: '/dashboard', label: 'Dashboard' },
     { href: '/customers', label: 'Customers' },
     { href: '/suppliers', label: 'Suppliers' },
+    ...(supplierFeature?.enabled ? [{ href: '/supplier-payments', label: 'Supplier Payments' }] : []),
     { href: '/transactions/new', label: 'Transaction' },
     { href: '/daily-cash-record', label: 'Cash Record' },
     { href: '/notes', label: 'Notes' },

@@ -5,6 +5,8 @@ import { z } from 'zod';
 import { ObjectId } from 'mongodb';
 import { format } from 'date-fns';
 import { bumpCacheVersions, getCachedJson, requestCacheKey, setCachedJson } from '@/lib/cache-version';
+import { supplierPaymentsEnabled } from '@/lib/supplier-payment-settings';
+import { mutateDailyBusinessCash } from '@/lib/daily-business-cash';
 
 const BILL_URL_MAX_LENGTH = 2048;
 const ALLOWED_BILL_URL_SCHEMES = ['https:'];
@@ -199,6 +201,8 @@ export async function POST(request: NextRequest) {
         { status: 401 }
       );
     }
+
+    if (supplierPaymentsEnabled()) return mutateDailyBusinessCash(request, userId, 'POST');
 
     const body = await request.json();
     const validatedData = entrySchema.parse(body);

@@ -16,6 +16,8 @@ vi.mock('@tanstack/react-query', () => ({
   useQueryClient: () => ({ invalidateQueries: mocks.invalidateQueries }),
 }));
 
+vi.mock('@/components/DailyBusinessBalance', () => ({ default: () => null }));
+
 describe('DailyCashRecordPage entry dates', () => {
   beforeEach(() => {
     mocks.push.mockReset();

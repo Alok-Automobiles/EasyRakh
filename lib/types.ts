@@ -1,3 +1,31 @@
+export interface BusinessCash {
+  currentBalance: number;
+  protectedAmount: number;
+  initializedAt: Date;
+  updatedAt: Date;
+  lastReconciledAt?: Date;
+  needsReconciliation: boolean;
+  anchorVersion: number;
+  version: number;
+  featureEpoch: string;
+}
+
+export interface SupplierReservation {
+  id: string;
+  amount: number;
+  status: 'active' | 'cancelled' | 'expired' | 'paid';
+  recommendedPaymentDate: string;
+  reason?: string;
+  expiresAt: string | Date;
+}
+
+export interface SupplierPaymentAllocation {
+  billTransactionId: string;
+  cashAmount: number;
+  discountAmount: number;
+  settledAmount: number;
+}
+
 export interface User {
   _id?: string;
   email: string;
@@ -11,6 +39,7 @@ export interface User {
   lastLoginAt?: Date;
   lastActiveAt?: Date;
   loginCount?: number;
+  businessCash?: BusinessCash;
   createdAt: Date;
 }
 
@@ -40,6 +69,10 @@ export interface Supplier {
   address?: string;
   openingBalance: number;
   balanceType: 'credit' | 'debit';
+  creditLimit?: number | null;
+  criticality?: 'normal' | 'important' | 'business_stopping';
+  partialPaymentAllowed?: boolean;
+  previousBalanceReservation?: SupplierReservation;
   openingBalanceDescription?: string;
   openingBalanceBillUrl?: string;
   openingBalanceBillPublicId?: string;
@@ -83,6 +116,31 @@ export interface Transaction {
   entityId: string;
   type: 'credit' | 'debit';
   amount: number;
+  invoiceNumber?: string;
+  invoiceDate?: string;
+  dueDate?: string;
+  cashDiscountPercentage?: number;
+  cashDiscountLastDate?: string;
+  cashDiscountRequiresFullPayment?: true;
+  partialPaymentAllowed?: boolean;
+  paidAmount?: number;
+  discountReceived?: number;
+  pendingAmount?: number;
+  billStatus?: 'unpaid' | 'partial' | 'paid';
+  reservedAmount?: number;
+  reservationId?: string;
+  reservationStatus?: 'active' | 'cancelled' | 'expired' | 'paid';
+  recommendedPaymentDate?: string;
+  recommendationReason?: string;
+  reservationExpiresAt?: string | Date;
+  cashPaidAmount?: number;
+  cashDiscountAmount?: number;
+  paymentAllocations?: SupplierPaymentAllocation[];
+  previousBalanceCashAmount?: number;
+  previousBalanceSettledAmount?: number;
+  businessCashApplied?: boolean;
+  businessCashAnchorVersion?: number;
+  requestId?: string;
   description?: string;
   billUrl?: string;
   billPublicId?: string;

@@ -6,6 +6,9 @@ import type { Document } from 'mongodb';
 import { bumpCacheVersions, getCachedJson, requestCacheKey, setCachedJson } from '@/lib/cache-version';
 import { entitySearchFields } from '@/lib/search-normalization';
 import { ensureUserReadModels, refreshUserReadModels, type EntityBalance } from '@/lib/read-models';
+import { supplierTermsFields, supplierTermsSchema } from '@/lib/supplier-payments';
+import { supplierPaymentsEnabled } from '@/lib/supplier-payment-settings';
+import { applyBusinessCashDelta, withBusinessCashTransaction } from '@/lib/business-cash';
 import {
   buildEntitySearchStage,
   searchScoreStages,
@@ -36,6 +39,7 @@ function serializeSupplier(supplier: Document, balance?: EntityBalance) {
     openingBalance,
     balanceType: supplier.balanceType,
     createdAt: supplier.createdAt,
+    ...supplierTermsFields(supplier),
     totalBalance: balance?.totalBalance ?? signedOpening,
   };
 }
@@ -50,6 +54,7 @@ const supplierSchema = z.object({
   openingBalanceDescription: z.string().optional(),
   openingBalanceBillUrl: z.union([z.string().url('Invalid bill URL'), z.literal('')]).optional(),
   openingBalanceBillPublicId: z.string().optional(),
+  ...supplierTermsSchema.shape,
 });
 
 export async function GET(request: NextRequest) {
@@ -262,7 +267,7 @@ export async function POST(request: NextRequest) {
     const db = await getDb();
     const suppliersCollection = db.collection('suppliers');
 
-    const result = await suppliersCollection.insertOne({
+    const document = {
       userId,
       name: validatedData.name,
       phone: validatedData.phone || '',
@@ -273,9 +278,17 @@ export async function POST(request: NextRequest) {
       openingBalanceDescription: validatedData.openingBalanceDescription || '',
       openingBalanceBillUrl: validatedData.openingBalanceBillUrl || '',
       openingBalanceBillPublicId: validatedData.openingBalanceBillPublicId || '',
+      ...supplierTermsFields(validatedData),
       ...entitySearchFields(validatedData),
       createdAt: new Date(),
-    });
+    };
+    const result = supplierPaymentsEnabled()
+      ? await withBusinessCashTransaction(userId, async (transactionDb, session) => {
+        const inserted = await transactionDb.collection('suppliers').insertOne(document, { session });
+        await applyBusinessCashDelta(transactionDb, userId, 0, session);
+        return inserted;
+      })
+      : await suppliersCollection.insertOne(document);
 
     await Promise.all([
       refreshUserReadModels(db, userId),

@@ -6,6 +6,10 @@ import { ObjectId } from 'mongodb';
 import redis from '@/lib/redis';
 import { bumpCacheVersions } from '@/lib/cache-version';
 import { refreshUserReadModels } from '@/lib/read-models';
+import { createSupplierPayment, deleteSupplierTransaction, enhancedSupplierTransaction, requireSupplierPayments, saveSupplierBill, saveUntrackedSupplierCredit, supplierTransactionFields } from '@/lib/supplier-payments';
+import { supplierPaymentsEnabled } from '@/lib/supplier-payment-settings';
+import { supplierPaymentError } from '@/app/api/supplier-payments/shared';
+import { BusinessCashError } from '@/lib/business-cash';
 import {
   cloudinaryAssetsFromFields,
   deleteCloudinaryAssets,
@@ -79,6 +83,7 @@ export async function GET(
         billPublicId: transaction.billPublicId,
         date: transaction.date,
         createdAt: transaction.createdAt,
+        ...supplierTransactionFields(transaction),
       },
     });
   } catch (error) {
@@ -124,6 +129,31 @@ export async function PUT(
         { status: 404 }
       );
     }
+
+    if (enhancedSupplierTransaction(existingTransaction)) requireSupplierPayments();
+    if (supplierPaymentsEnabled() && validatedData.entityType === 'supplier' && existingTransaction.entityType !== 'supplier') {
+      throw new BusinessCashError('Create a supplier bill or payment from the supplier ledger instead of moving a customer transaction', 400);
+    }
+    if (existingTransaction.entityType === 'supplier' && supplierPaymentsEnabled()) {
+      if (validatedData.entityType !== 'supplier' || validatedData.entityId !== (existingTransaction.entityId ?? existingTransaction.supplierId) || validatedData.type !== existingTransaction.type) {
+        throw new BusinessCashError('Supplier bills and payments cannot be moved to another entity or transaction type', 400);
+      }
+      let transaction;
+      if (existingTransaction.type === 'credit' && (existingTransaction.billStatus !== undefined || body.invoiceNumber !== undefined)) {
+        transaction = await saveSupplierBill(userId, { ...existingTransaction, ...body, ...validatedData }, id);
+      } else if (existingTransaction.type === 'credit') {
+        transaction = await saveUntrackedSupplierCredit(userId, { ...body, ...validatedData }, id);
+      } else if (existingTransaction.type === 'debit') {
+        transaction = await createSupplierPayment(userId, {
+          ...existingTransaction, ...body, supplierId: validatedData.entityId,
+          date: new Date(validatedData.date).toISOString().slice(0, 10),
+          paymentAllocations: body.paymentAllocations ?? existingTransaction.paymentAllocations ?? [],
+          previousBalanceCashAmount: body.previousBalanceCashAmount ?? existingTransaction.previousBalanceCashAmount ?? validatedData.amount,
+        }, id);
+      }
+      if (transaction) return NextResponse.json({ message: 'Transaction updated successfully', transaction });
+    }
+    if (validatedData.entityType === 'supplier' && (body.invoiceNumber !== undefined || body.paymentAllocations !== undefined)) requireSupplierPayments();
 
     const oldTransaction = await transactionsCollection.findOne({
       _id: new ObjectId(id),
@@ -273,6 +303,7 @@ export async function PUT(
       },
     });
   } catch (error) {
+    if (error instanceof BusinessCashError || (typeof error === 'object' && error && 'code' in error && error.code === 11000)) return supplierPaymentError(error);
     if (error instanceof z.ZodError) {
       return NextResponse.json(
         { error: error.issues[0].message },
@@ -316,6 +347,16 @@ export async function DELETE(
         { error: 'Transaction not found' },
         { status: 404 }
       );
+    }
+
+    if (enhancedSupplierTransaction(transaction)) requireSupplierPayments();
+    if (transaction.entityType === 'supplier' && supplierPaymentsEnabled()) {
+      await deleteSupplierTransaction(userId, id);
+      // Uploaded evidence is removed only after the accounting transaction commits.
+      try {
+        await deleteCloudinaryAssets(cloudinaryAssetsFromFields({ publicIds: [transaction.billPublicId], urls: [transaction.billUrl] }));
+      } catch (error) { console.error('Supplier transaction removed; attachment cleanup requires retry:', error); }
+      return NextResponse.json({ message: 'Transaction deleted successfully' });
     }
 
     try {
@@ -363,6 +404,7 @@ export async function DELETE(
       message: 'Transaction deleted successfully',
     });
   } catch (error) {
+    if (error instanceof BusinessCashError) return supplierPaymentError(error);
     console.error('Delete transaction error:', error);
     return NextResponse.json(
       { error: 'Internal server error' },

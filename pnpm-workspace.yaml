@@ -1,6 +1,7 @@
 allowBuilds:
   core-js: true
   esbuild: true
+  mongodb-memory-server: false
   sharp: true
   unrs-resolver: true
 

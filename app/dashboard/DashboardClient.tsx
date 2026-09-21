@@ -374,6 +374,7 @@ export default function DashboardClient() {
   const [entryType, setEntryType] = useState<'in' | 'out'>('in');
   const [amount, setAmount] = useState('');
   const [description, setDescription] = useState('');
+  const quickCashRequest = useRef<{ fingerprint: string; key: string } | null>(null);
   const activitiesPerPage = 5;
 
   const currentMonthKey = format(new Date(), 'yyyy-MM');
@@ -548,17 +549,26 @@ export default function DashboardClient() {
   const addTransactionMutation = useMutation({
     mutationFn: async ({ amountNum, type, desc, billUrl, billPublicId }: { amountNum: number; type: 'in' | 'out'; desc: string; billUrl?: string; billPublicId?: string }) => {
       const dateString = format(new Date(), 'dd-MM-yyyy');
+      const payload = { amount: amountNum, type, description: desc, date: dateString, billUrl, billPublicId };
+      const fingerprint = JSON.stringify(payload);
+      if (quickCashRequest.current?.fingerprint !== fingerprint) {
+        quickCashRequest.current = { fingerprint, key: crypto.randomUUID() };
+      }
       const response = await fetch('/api/daily-cash-records', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ amount: amountNum, type, description: desc, date: dateString, billUrl, billPublicId }),
+        body: JSON.stringify({ ...payload, idempotencyKey: quickCashRequest.current.key }),
       });
       if (response.status === 401) {
         router.push('/login');
         throw new Error('Unauthorized');
       }
       const result = await response.json();
-      if (!response.ok) throw new Error(result.error || 'Failed to add transaction');
+      if (!response.ok) {
+        if (response.status < 500) quickCashRequest.current = null;
+        throw new Error(result.error || 'Failed to add transaction');
+      }
+      quickCashRequest.current = null;
       return result;
     },
     onMutate: async ({ amountNum, type }) => {
@@ -587,6 +597,8 @@ export default function DashboardClient() {
     },
     onSuccess: (_data, variables) => {
       toast.success(`Money ${variables.type === 'in' ? 'added' : 'deducted'} successfully`);
+      resetAddTransactionForm();
+      setAddTransactionOpen(false);
       queryClient.invalidateQueries({ queryKey: ['dashboard'] });
     },
   });
@@ -626,9 +638,6 @@ export default function DashboardClient() {
     const currentDesc = description;
     const currentBillUrl = billUploadedUrl || undefined;
     const currentBillPublicId = billUploadedPublicId || undefined;
-    resetAddTransactionForm();
-    setAddTransactionOpen(false);
-
     addTransactionMutation.mutate({ amountNum, type: currentType, desc: currentDesc, billUrl: currentBillUrl, billPublicId: currentBillPublicId });
   };
 

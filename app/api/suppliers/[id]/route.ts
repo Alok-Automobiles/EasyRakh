@@ -7,6 +7,10 @@ import redis from '@/lib/redis';
 import { bumpCacheVersions } from '@/lib/cache-version';
 import { entitySearchFields } from '@/lib/search-normalization';
 import { refreshUserReadModels } from '@/lib/read-models';
+import { supplierSnapshot, supplierTermsFields, supplierTermsSchema } from '@/lib/supplier-payments';
+import { supplierPaymentsEnabled } from '@/lib/supplier-payment-settings';
+import { applyBusinessCashDelta, BusinessCashError, withBusinessCashTransaction } from '@/lib/business-cash';
+import { supplierPaymentError } from '@/app/api/supplier-payments/shared';
 import {
   cloudinaryAssetsFromFields,
   deleteCloudinaryAssets,
@@ -22,6 +26,7 @@ const supplierSchema = z.object({
   openingBalanceDescription: z.string().optional(),
   openingBalanceBillUrl: z.union([z.string().url('Invalid bill URL'), z.literal('')]).optional(),
   openingBalanceBillPublicId: z.string().optional(),
+  ...supplierTermsSchema.shape,
 });
 
 export async function GET(
@@ -67,6 +72,7 @@ export async function GET(
         openingBalanceBillUrl: supplier.openingBalanceBillUrl,
         openingBalanceBillPublicId: supplier.openingBalanceBillPublicId,
         createdAt: supplier.createdAt,
+        ...supplierTermsFields(supplier),
       },
     });
   } catch (error) {
@@ -99,13 +105,7 @@ export async function PUT(
     const db = await getDb();
     const suppliersCollection = db.collection('suppliers');
 
-    const result = await suppliersCollection.updateOne(
-      {
-        _id: new ObjectId(id),
-        userId,
-      },
-      {
-        $set: {
+    const changes = {
           name: validatedData.name,
           phone: validatedData.phone || '',
           email: validatedData.email || '',
@@ -115,10 +115,24 @@ export async function PUT(
           openingBalanceDescription: validatedData.openingBalanceDescription || '',
           openingBalanceBillUrl: validatedData.openingBalanceBillUrl || '',
           openingBalanceBillPublicId: validatedData.openingBalanceBillPublicId || '',
+          ...(validatedData.creditLimit !== undefined ? { creditLimit: validatedData.creditLimit } : {}),
+          ...(validatedData.criticality !== undefined ? { criticality: validatedData.criticality } : {}),
+          ...(validatedData.partialPaymentAllowed !== undefined ? { partialPaymentAllowed: validatedData.partialPaymentAllowed } : {}),
           ...entitySearchFields(validatedData),
-        },
-      }
-    );
+        };
+    const filter = { _id: new ObjectId(id), userId };
+    const result = supplierPaymentsEnabled()
+      ? await withBusinessCashTransaction(userId, async (transactionDb, session) => {
+        const updated = await transactionDb.collection('suppliers').updateOne(filter, { $set: changes, $unset: { previousBalanceReservation: '' } }, { session });
+        if (updated.matchedCount) {
+          const snapshot = await supplierSnapshot(transactionDb, userId, session);
+          if (snapshot.issues.length) throw new BusinessCashError(snapshot.issues[0]);
+          await transactionDb.collection('transactions').updateMany({ userId, entityType: 'supplier', entityId: id, reservationStatus: 'active' }, { $set: { reservationStatus: 'cancelled', reservedAmount: 0 } }, { session });
+          await applyBusinessCashDelta(transactionDb, userId, 0, session);
+        }
+        return updated;
+      })
+      : await suppliersCollection.updateOne(filter, { $set: changes });
 
     if (result.matchedCount === 0) {
       return NextResponse.json(
@@ -141,6 +155,7 @@ export async function PUT(
       },
     });
   } catch (error) {
+    if (error instanceof BusinessCashError) return supplierPaymentError(error);
     if (error instanceof z.ZodError) {
       return NextResponse.json(
         { error: error.issues[0].message },
@@ -192,9 +207,28 @@ export async function DELETE(
         { entityId: id, entityType: 'supplier', userId }
       ]
     };
+    if (supplierPaymentsEnabled()) {
+      const removed = await withBusinessCashTransaction(userId, async (transactionDb, session) => {
+        const current = await transactionDb.collection('suppliers').findOne({ _id: new ObjectId(id), userId }, { session });
+        if (!current) throw new BusinessCashError('Supplier not found', 404);
+        const hasTransactions = await transactionDb.collection('transactions').findOne(transactionDeleteFilter, { session });
+        if (hasTransactions || current.previousBalanceReservation?.status === 'active') throw new BusinessCashError('Delete or reallocate this supplier’s transactions individually before removing the supplier. This preserves bill allocations and business cash.');
+        await transactionDb.collection('suppliers').deleteOne({ _id: current._id, userId }, { session });
+        // Serialize deletion with concurrent bill/payment creation for this user.
+        await applyBusinessCashDelta(transactionDb, userId, 0, session);
+        return current;
+      });
+      try { await deleteCloudinaryAssets(cloudinaryAssetsFromFields({ publicIds: [removed.openingBalanceBillPublicId], urls: [removed.openingBalanceBillUrl] })); }
+      catch (error) { console.error('Supplier removed; attachment cleanup requires retry:', error); }
+      await Promise.all([refreshUserReadModels(db, userId), bumpCacheVersions(userId, ['suppliers', 'dashboard', 'bootstrap', 'search']), redis.del(`ledger:supplier:${id}:${userId}`)]);
+      return NextResponse.json({ message: 'Supplier deleted successfully' });
+    }
     const transactionsToDelete = await transactionsCollection
-      .find(transactionDeleteFilter, { projection: { billPublicId: 1, billUrl: 1 } })
+      .find(transactionDeleteFilter, { projection: { billPublicId: 1, billUrl: 1, billStatus: 1, paymentAllocations: 1, businessCashApplied: 1, type: 1 } })
       .toArray();
+    if (transactionsToDelete.some(tx => tx.billStatus !== undefined || tx.paymentAllocations !== undefined || tx.businessCashApplied) || supplier.previousBalanceReservation?.status === 'active') {
+      return NextResponse.json({ error: 'Delete or reallocate this supplier’s transactions individually before removing the supplier. This preserves bill allocations and business cash.' }, { status: 409 });
+    }
     const assetRefs = [
       ...cloudinaryAssetsFromFields({
         publicIds: [supplier.openingBalanceBillPublicId],
@@ -242,6 +276,7 @@ export async function DELETE(
       message: 'Supplier and all associated transactions deleted successfully',
     });
   } catch (error) {
+    if (error instanceof BusinessCashError) return supplierPaymentError(error);
     console.error('Delete supplier error:', error);
     return NextResponse.json(
       { error: 'Internal server error' },

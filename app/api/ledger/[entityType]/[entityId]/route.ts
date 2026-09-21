@@ -3,6 +3,7 @@ import { getDb } from '@/lib/mongodb';
 import { getUserIdFromRequest } from '@/lib/auth';
 import { ObjectId } from 'mongodb';
 import { type EntityBalance } from '@/lib/read-models';
+import { supplierTransactionFields } from '@/lib/supplier-payments';
 
 const LEDGER_PAGE_INDEX_HINT = {
   userId: 1,
@@ -226,6 +227,7 @@ export async function GET(
 
       return {
         transactionId: transaction._id.toString(),
+        ...supplierTransactionFields(transaction),
         date: transaction.date,
         description: transaction.description || '',
         credit: transaction.type === 'credit' ? transaction.amount : 0,
