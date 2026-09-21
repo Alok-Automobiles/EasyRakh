@@ -32,6 +32,14 @@ export async function initializeIndexes(db: Db): Promise<void> {
       transactions.createIndex({ userId: 1, entityType: 1, type: 1, date: -1, createdAt: -1 }),
       transactions.createIndex({ userId: 1, entityType: 1 }),
       transactions.createIndex({ userId: 1, createdAt: -1 }),
+      transactions.createIndex(
+        { userId: 1, transactionRequestId: 1 },
+        {
+          name: 'transaction_request_unique',
+          unique: true,
+          partialFilterExpression: { transactionRequestId: { $type: 'string' } },
+        }
+      ),
 
       dailyCashRecords.createIndex({ userId: 1, date: -1 }),
       dailyCashRecords.createIndex({ userId: 1, date: 1 }),

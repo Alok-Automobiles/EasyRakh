@@ -123,8 +123,21 @@ export async function PUT(
     const filter = { _id: new ObjectId(id), userId };
     const result = supplierPaymentsEnabled()
       ? await withBusinessCashTransaction(userId, async (transactionDb, session) => {
-        const updated = await transactionDb.collection('suppliers').updateOne(filter, { $set: changes, $unset: { previousBalanceReservation: '' } }, { session });
-        if (updated.matchedCount) {
+        const collection = transactionDb.collection('suppliers');
+        const current = await collection.findOne(filter, { session });
+        if (!current) return { matchedCount: 0, modifiedCount: 0 };
+        const paymentPlanningChanged =
+          Number(current.openingBalance || 0) !== validatedData.openingBalance
+          || (current.balanceType ?? 'debit') !== validatedData.balanceType
+          || (validatedData.creditLimit !== undefined && (current.creditLimit ?? null) !== validatedData.creditLimit)
+          || (validatedData.criticality !== undefined && (current.criticality ?? 'normal') !== validatedData.criticality)
+          || (validatedData.partialPaymentAllowed !== undefined && (current.partialPaymentAllowed ?? true) !== validatedData.partialPaymentAllowed);
+        const updated = await collection.updateOne(
+          filter,
+          { $set: changes, ...(paymentPlanningChanged ? { $unset: { previousBalanceReservation: '' } } : {}) },
+          { session },
+        );
+        if (updated.matchedCount && paymentPlanningChanged) {
           const snapshot = await supplierSnapshot(transactionDb, userId, session);
           if (snapshot.issues.length) throw new BusinessCashError(snapshot.issues[0]);
           await transactionDb.collection('transactions').updateMany({ userId, entityType: 'supplier', entityId: id, reservationStatus: 'active' }, { $set: { reservationStatus: 'cancelled', reservedAmount: 0 } }, { session });

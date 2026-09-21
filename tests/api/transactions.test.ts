@@ -185,4 +185,50 @@ describe('/api/transactions', () => {
       },
     });
   });
+
+  it('replays a generic transaction with the same idempotency key', async () => {
+    const stored = {
+      _id: objectIdLike(ids.transaction),
+      userId: ids.user,
+      entityType: 'customer',
+      entityId: ids.customer,
+      type: 'credit',
+      amount: 500,
+      description: 'Voice payment',
+      date: new Date('2026-06-21'),
+      transactionRequestId: 'voice-request-123',
+      transactionRequestHash: '',
+    };
+    let inserted = false;
+    const createIndex = vi.fn().mockResolvedValue('transaction_request_unique');
+    const findOne = vi.fn(async (filter: Record<string, unknown>) => {
+      if ('transactionRequestId' in filter) return inserted ? stored : null;
+      return { _id: objectIdLike(ids.customer), userId: ids.user };
+    });
+    const insertOne = vi.fn(async (document: Record<string, unknown>) => {
+      Object.assign(stored, document);
+      inserted = true;
+      return { insertedId: objectIdLike(ids.transaction) };
+    });
+    mocks.getDb.mockResolvedValue({
+      collection: vi.fn((name: string) => name === 'transactions'
+        ? { createIndex, findOne, insertOne }
+        : { findOne }),
+    });
+    const body = {
+      entityType: 'customer', entityId: ids.customer, type: 'credit', amount: 500,
+      description: 'Voice payment', date: '2026-06-21', idempotencyKey: 'voice-request-123',
+    };
+
+    const { POST } = await import('@/app/api/transactions/route');
+    const first = await POST(jsonRequest('http://localhost/api/transactions', body));
+    const replay = await POST(jsonRequest('http://localhost/api/transactions', body));
+
+    expect(first.status).toBe(201);
+    expect(replay.status).toBe(200);
+    expect(insertOne).toHaveBeenCalledOnce();
+    await expect(replay.json()).resolves.toMatchObject({
+      message: 'Transaction already created', transaction: { id: ids.transaction, amount: 500 },
+    });
+  });
 });
