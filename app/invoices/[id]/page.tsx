@@ -666,8 +666,12 @@ export default function InvoiceDetailPage() {
         if (response.status < 500) paymentRequestIdRef.current = null;
         throw new Error(data.error || 'Failed to add payment');
       }
-      await Promise.all([refreshInvoice(), refreshCashPlanning()]);
       paymentRequestIdRef.current = null;
+      try {
+        await Promise.all([refreshInvoice(), refreshCashPlanning()]);
+      } catch (refreshError) {
+        console.warn('Payment saved but invoice view refresh failed', refreshError);
+      }
       setPaymentAmount('');
       setPaymentFormOpen(false);
       toast.success('Payment added to invoice and Daily Cash');
@@ -685,7 +689,11 @@ export default function InvoiceDetailPage() {
       const response = await fetch(`/api/invoices/${id}/payments/${paymentId}`, { method: 'DELETE' });
       const data = await response.json();
       if (!response.ok) throw new Error(data.error || 'Failed to delete payment');
-      await Promise.all([refreshInvoice(), refreshCashPlanning()]);
+      try {
+        await Promise.all([refreshInvoice(), refreshCashPlanning()]);
+      } catch (refreshError) {
+        console.warn('Payment deleted but invoice view refresh failed', refreshError);
+      }
       toast.success('Payment deleted');
     } catch (error) {
       toast.error(error instanceof Error ? error.message : 'Failed to delete payment');
