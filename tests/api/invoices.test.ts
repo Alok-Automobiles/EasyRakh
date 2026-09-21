@@ -774,6 +774,21 @@ describe('/api/invoices stock sync', () => {
     expect(mocks.getDb).not.toHaveBeenCalled();
   });
 
+  it('rejects a future customer payment before it can enter Daily Cash', async () => {
+    const { POST } = await import('@/app/api/invoices/[id]/payments/route');
+    const response = await POST(
+      jsonRequest(
+        `http://localhost/api/invoices/${ids.transaction}/payments`,
+        { amount: 200, date: '2999-01-01', idempotencyKey: 'future-payment-request' }
+      ),
+      routeParams({ id: ids.transaction })
+    );
+
+    expect(response.status).toBe(400);
+    await expect(response.json()).resolves.toEqual({ error: 'Payment date cannot be in the future' });
+    expect(mocks.getDb).not.toHaveBeenCalled();
+  });
+
   it('returns the existing payment when the same payment request is retried', async () => {
     const existingPayment = {
       id: ids.supplier,

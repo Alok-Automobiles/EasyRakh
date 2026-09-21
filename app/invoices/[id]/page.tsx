@@ -1030,7 +1030,7 @@ export default function InvoiceDetailPage() {
                 </div>
                 <div>
                   <Label htmlFor="paymentDate">Payment date</Label>
-                  <Input id="paymentDate" type="date" value={paymentDate} onChange={(event) => setPaymentDate(event.target.value)} className="mt-1 bg-white" />
+                  <Input id="paymentDate" type="date" max={format(new Date(), 'yyyy-MM-dd')} value={paymentDate} onChange={(event) => setPaymentDate(event.target.value)} className="mt-1 bg-white" />
                 </div>
                 <Button onClick={handleAddPayment} disabled={paymentSaving} className="self-end">
                   {paymentSaving ? 'Saving...' : 'Save Payment'}

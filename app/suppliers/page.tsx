@@ -44,6 +44,8 @@ import { compressImage, isCompressibleImage, formatFileSize } from '@/lib/imageC
 import { parseNumberInput } from '@/lib/number-input';
 import { Truck } from 'lucide-react';
 import { useDebounce } from '@/lib/hooks/useDebounce';
+import { useBusinessCash, useRefreshSupplierPayments } from '@/lib/hooks/useSupplierPayments';
+import { SupplierTermsFields, defaultSupplierTerms } from '@/components/SupplierPaymentFields';
 
 const MAX_BILL_SIZE_BYTES = 5 * 1024 * 1024; // 5MB
 const DIRECTORY_PAGE_SIZE = 20;
@@ -95,6 +97,10 @@ interface SuppliersDirectoryResponse {
 
 export default function SuppliersPage() {
   const router = useRouter();
+  const supplierFeatureQuery = useBusinessCash();
+  const supplierFeature = supplierFeatureQuery.data;
+  const refreshSupplierPayments = useRefreshSupplierPayments();
+  const [supplierTerms, setSupplierTerms] = useState(defaultSupplierTerms);
   const queryClient = useQueryClient();
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingSupplier, setEditingSupplier] = useState<string | null>(null);
@@ -258,6 +264,7 @@ export default function SuppliersPage() {
       setBillUploadResult(null);
       queryClient.invalidateQueries({ queryKey: ['suppliers'] });
       queryClient.invalidateQueries({ queryKey: ['dashboard'] });
+      void refreshSupplierPayments();
       
       if (!variables.id && result.supplier?.id) {
         router.push(`/ledger/supplier/${result.supplier.id}`);
@@ -293,7 +300,11 @@ export default function SuppliersPage() {
   });
 
   const onSubmit = (data: SupplierForm) => {
-    saveMutation.mutate({ ...data, id: editingSupplier || undefined });
+    if (supplierFeatureQuery.isPending || supplierFeatureQuery.isError) {
+      toast.error('Wait for supplier payment settings to load, then try again.');
+      return;
+    }
+    saveMutation.mutate({ ...data, ...(supplierFeature?.enabled ? { creditLimit: supplierTerms.creditLimit === '' ? null : Number(supplierTerms.creditLimit), criticality: supplierTerms.criticality, partialPaymentAllowed: supplierTerms.partialPaymentAllowed } : {}), id: editingSupplier || undefined });
   };
 
   const openDeleteDialog = (id: string) => {
@@ -310,6 +321,7 @@ export default function SuppliersPage() {
   };
 
   const handleEdit = (supplier: SupplierWithBalance) => {
+    setSupplierTerms({ creditLimit: supplier.creditLimit == null ? '' : String(supplier.creditLimit), criticality: supplier.criticality ?? 'normal', partialPaymentAllowed: supplier.partialPaymentAllowed ?? true });
     setEditingSupplier(supplier.id);
     form.reset({
       name: supplier.name,
@@ -375,6 +387,7 @@ export default function SuppliersPage() {
           resultCount={resultCount}
           onSearchChange={handleSearchChange}
           onAdd={() => {
+              setSupplierTerms(defaultSupplierTerms());
               form.reset();
               setEditingSupplier(null);
               setBillUploadResult(null);
@@ -529,6 +542,7 @@ export default function SuppliersPage() {
                   )}
                 />
                 
+                {supplierFeature?.enabled && <SupplierTermsFields value={supplierTerms} onChange={setSupplierTerms} />}
                 {/* Opening Balance Transaction Details */}
                 {(form.watch('openingBalance') ?? 0) > 0 && (
                   <>
@@ -646,7 +660,7 @@ export default function SuppliersPage() {
                   >
                     Cancel
                   </Button>
-                  <Button type="submit" disabled={saveMutation.isPending || isUploading}>
+                  <Button type="submit" disabled={saveMutation.isPending || isUploading || supplierFeatureQuery.isPending || supplierFeatureQuery.isError}>
                     {saveMutation.isPending ? 'Saving...' : editingSupplier ? 'Update' : 'Create'}
                   </Button>
                 </DialogFooter>

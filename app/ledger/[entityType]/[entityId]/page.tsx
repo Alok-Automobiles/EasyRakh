@@ -1,5 +1,9 @@
 'use client';
 
+import SupplierLedgerPayments from '@/components/SupplierLedgerPayments';
+import { AllocationDraft, SupplierBillDraft, SupplierBillFields, SupplierPaymentFields, allocationCashTotal, allocationPayload, emptyAllocation, supplierBillPayload } from '@/components/SupplierPaymentFields';
+import { paymentRequestFingerprint, useBusinessCash, useRefreshSupplierPayments, useSupplierPayments } from '@/lib/hooks/useSupplierPayments';
+
 import { useState, useEffect, useRef, ChangeEvent, useCallback } from 'react';
 import { useRouter, useParams } from 'next/navigation';
 import { format } from 'date-fns';
@@ -95,6 +99,13 @@ export default function LedgerPage() {
   const params = useParams();
   const entityType = params.entityType as string;
   const entityId = params.entityId as string;
+  const { data: supplierFeature } = useBusinessCash(entityType === 'supplier');
+  const supplierPayments = useSupplierPayments(entityType === 'supplier' && !!supplierFeature?.enabled, entityId);
+  const refreshSupplierPayments = useRefreshSupplierPayments();
+  const [editingBill, setEditingBill] = useState<SupplierBillDraft | null>(null);
+  const [editingAllocation, setEditingAllocation] = useState<AllocationDraft>(emptyAllocation);
+  const editRequestRef = useRef<{ fingerprint: string; key: string } | null>(null);
+  const editInFlight = useRef(false);
   const [ledgerData, setLedgerData] = useState<LedgerData | null>(null);
   const [loading, setLoading] = useState(true);
   const lastFetchedRef = useRef<string>('');
@@ -136,6 +147,11 @@ export default function LedgerPage() {
     date: string;
     billUrl?: string;
     billPublicId?: string;
+    supplierPayment?: boolean;
+    structuredSupplierRecord?: boolean;
+    originalSettlement?: number;
+    originalPreviousCash?: number;
+    originalAllocations?: Array<{ billTransactionId: string; cashAmount: number; discountAmount: number }>;
   } | null>(null);
   const [editLoading, setEditLoading] = useState(false);
   const [editSaving, setEditSaving] = useState(false);
@@ -295,12 +311,19 @@ export default function LedgerPage() {
         entityType: tx.entityType,
         entityId: tx.entityId,
         type: tx.type,
-        amount: tx.amount,
+        amount: supplierFeature?.enabled && tx.entityType === 'supplier' && tx.type === 'debit' ? (tx.cashPaidAmount ?? tx.amount) : tx.amount,
         description: tx.description || '',
         date: format(new Date(tx.date), 'yyyy-MM-dd'),
         billUrl: tx.billUrl,
         billPublicId: tx.billPublicId,
+        supplierPayment: supplierFeature?.enabled && tx.entityType === 'supplier' && tx.type === 'debit',
+        structuredSupplierRecord: tx.billStatus !== undefined || tx.paymentAllocations !== undefined,
+        originalSettlement: tx.amount,
+        originalPreviousCash: tx.previousBalanceCashAmount ?? 0,
+        originalAllocations: tx.paymentAllocations ?? [],
       });
+      setEditingBill(supplierFeature?.enabled && tx.billStatus !== undefined ? { invoiceNumber: tx.invoiceNumber, invoiceDate: tx.invoiceDate, dueDate: tx.dueDate, cashDiscountPercentage: String(tx.cashDiscountPercentage ?? ''), cashDiscountLastDate: tx.cashDiscountLastDate ?? '', partialPaymentAllowed: tx.partialPaymentAllowed ?? true } : null);
+      setEditingAllocation({ bills: Object.fromEntries((tx.paymentAllocations ?? []).map((row: { billTransactionId: string; cashAmount: number; discountAmount: number }) => [row.billTransactionId, { cash: String(row.cashAmount), discount: String(row.discountAmount) }])), previous: String(tx.previousBalanceCashAmount ?? '') });
     } catch (error) {
       console.error('Failed to load transaction', error);
       toast.error(error instanceof Error ? error.message : 'Failed to load transaction');
@@ -313,17 +336,26 @@ export default function LedgerPage() {
   const handleEditModalClose = () => {
     setEditModalOpen(false);
     setEditingTransaction(null);
+    setEditingBill(null);
+    setEditingAllocation(emptyAllocation());
   };
 
   const handleEditSave = async () => {
+    if (editInFlight.current) return;
     if (!editingTransaction) return;
     if (editingTransaction.amount === '' || editingTransaction.amount <= 0) {
       toast.error('Enter an amount greater than zero');
       return;
     }
+    if (editingTransaction.supplierPayment && Math.round(allocationCashTotal(editingAllocation) * 100) !== Math.round(editingTransaction.amount * 100)) { toast.error('The cash allocated to bills must equal the money actually paid'); return; }
+    if (editingBill && (!editingBill.invoiceNumber.trim() || !editingBill.invoiceDate || !editingBill.dueDate)) { toast.error('Enter the invoice number, invoice date and payment due date'); return; }
     
+    editInFlight.current = true;
     setEditSaving(true);
     try {
+      const supplierPayload = editingTransaction.supplierPayment ? { ...allocationPayload(editingAllocation), supplierId: entityId, expectedVersion: supplierPayments.data?.version } : editingBill ? supplierBillPayload(editingBill) : {};
+      const fingerprint = paymentRequestFingerprint({ ...editingTransaction, ...supplierPayload });
+      if (editRequestRef.current?.fingerprint !== fingerprint) editRequestRef.current = { fingerprint, key: crypto.randomUUID() };
       const response = await fetch(`/api/transactions/${editingTransaction.id}`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
@@ -336,6 +368,8 @@ export default function LedgerPage() {
           date: editingTransaction.date,
           billUrl: editingTransaction.billUrl || '',
           billPublicId: editingTransaction.billPublicId || '',
+          ...supplierPayload,
+          requestId: editRequestRef.current.key,
         }),
       });
 
@@ -345,6 +379,8 @@ export default function LedgerPage() {
       }
 
       toast.success('Transaction updated successfully');
+      editRequestRef.current = null;
+      void refreshSupplierPayments();
       handleEditModalClose();
       // Refresh ledger data
       lastFetchedRef.current = '';
@@ -352,7 +388,9 @@ export default function LedgerPage() {
     } catch (error) {
       console.error('Failed to update transaction', error);
       toast.error(error instanceof Error ? error.message : 'Failed to update transaction');
+      void refreshSupplierPayments();
     } finally {
+      editInFlight.current = false;
       setEditSaving(false);
     }
   };
@@ -387,6 +425,7 @@ export default function LedgerPage() {
       }
 
       toast.success('Transaction deleted successfully');
+      void refreshSupplierPayments();
       handleDeleteModalClose();
       // Refresh ledger data
       lastFetchedRef.current = '';
@@ -406,7 +445,7 @@ export default function LedgerPage() {
     if (!selectedTransaction) return;
     setBillModalUploading(true);
     try {
-      const payload = {
+      const payload: Record<string, unknown> = {
         entityType: selectedTransaction.entityType,
         entityId: selectedTransaction.entityId,
         type: selectedTransaction.type,
@@ -416,6 +455,12 @@ export default function LedgerPage() {
         billUrl: update.billUrl,
         billPublicId: update.billPublicId,
       };
+      if (supplierFeature?.enabled && selectedTransaction.entityType === 'supplier') {
+        const latestResponse = await fetch(`/api/transactions/${selectedTransaction.id}`);
+        if (!latestResponse.ok) throw new Error('Unable to refresh transaction before replacing the attachment');
+        const { transaction: latest } = await latestResponse.json();
+        Object.assign(payload, latest, update, { date: selectedTransaction.date, supplierId: selectedTransaction.entityId, expectedVersion: supplierPayments.data?.version, requestId: crypto.randomUUID() });
+      }
 
       const response = await fetch(`/api/transactions/${selectedTransaction.id}`, {
         method: 'PUT',
@@ -462,6 +507,7 @@ export default function LedgerPage() {
         };
       });
       toast.success(successMessage);
+      void refreshSupplierPayments();
     } catch (error) {
       console.error('Failed to update bill', error);
       toast.error(error instanceof Error ? error.message : 'Failed to update bill');
@@ -766,6 +812,12 @@ export default function LedgerPage() {
   const selectedBillViewUrl = selectedTransaction
     ? getTransactionBillViewUrl(selectedTransaction.id, selectedTransaction)
     : '';
+  const editingSupplier = supplierPayments.data?.suppliers.find((supplier) => supplier.id === entityId);
+  const restoredBills = editingSupplier?.bills.map((bill) => {
+    const oldAllocation = editingTransaction?.originalAllocations?.find((row) => row.billTransactionId === bill.id);
+    return oldAllocation ? { ...bill, pendingAmount: Math.round((bill.pendingAmount + oldAllocation.cashAmount + oldAllocation.discountAmount) * 100) / 100, paidAmount: bill.paidAmount - oldAllocation.cashAmount, discountReceived: bill.discountReceived - oldAllocation.discountAmount } : bill;
+  });
+  const editingPaymentSupplier = editingSupplier && restoredBills ? { ...editingSupplier, bills: restoredBills, totalDue: editingSupplier.totalDue + (editingTransaction?.originalSettlement ?? 0), previousBalance: Math.max(0, Math.round((editingSupplier.totalDue + (editingTransaction?.originalSettlement ?? 0) - restoredBills.reduce((sum, bill) => sum + bill.pendingAmount, 0)) * 100) / 100) } : null;
 
   return (
     <motion.div
@@ -794,6 +846,7 @@ export default function LedgerPage() {
           )}
         </div>
 
+        {entityType === 'supplier' && <SupplierLedgerPayments supplierId={entityId} />}
         <Card className="mb-6">
           <CardHeader>
             <CardTitle>Opening Balance</CardTitle>
@@ -1078,7 +1131,7 @@ export default function LedgerPage() {
 
         {/* Edit Transaction Dialog */}
         <Dialog open={editModalOpen} onOpenChange={(open) => !open && handleEditModalClose()}>
-          <DialogContent className="sm:max-w-md">
+          <DialogContent className="sm:max-w-xl max-h-[90vh] overflow-y-auto">
             <DialogHeader>
               <DialogTitle>Edit Transaction</DialogTitle>
               <DialogDescription>
@@ -1093,6 +1146,7 @@ export default function LedgerPage() {
                 <div className="space-y-2">
                   <label className="text-sm font-medium text-foreground">Type</label>
                   <Select
+                    disabled={!!editingTransaction.structuredSupplierRecord || (entityType === 'supplier' && !!supplierFeature?.enabled)}
                     value={editingTransaction.type}
                     onValueChange={(value: 'credit' | 'debit') => 
                       setEditingTransaction({ ...editingTransaction, type: value })
@@ -1109,8 +1163,9 @@ export default function LedgerPage() {
                 </div>
 
                 <div className="space-y-2">
-                  <label className="text-sm font-medium text-foreground">Amount (₹)</label>
+                  <label htmlFor="edit-transaction-amount" className="text-sm font-medium text-foreground">{editingTransaction.supplierPayment ? 'Actual money paid (₹)' : 'Amount (₹)'}</label>
                   <Input
+                    id="edit-transaction-amount"
                     type="number"
                     inputMode="decimal"
                     min="0"
@@ -1126,8 +1181,9 @@ export default function LedgerPage() {
                 </div>
 
                 <div className="space-y-2">
-                  <label className="text-sm font-medium text-foreground">Description</label>
+                  <label htmlFor="edit-transaction-description" className="text-sm font-medium text-foreground">Description</label>
                   <Textarea
+                    id="edit-transaction-description"
                     value={editingTransaction.description}
                     onChange={(e) => 
                       setEditingTransaction({ 
@@ -1141,8 +1197,9 @@ export default function LedgerPage() {
                 </div>
 
                 <div className="space-y-2">
-                  <label className="text-sm font-medium text-foreground">Date</label>
+                  <label htmlFor="edit-transaction-date" className="text-sm font-medium text-foreground">Date</label>
                   <Input
+                    id="edit-transaction-date"
                     type="date"
                     value={editingTransaction.date}
                     onChange={(e) => 
@@ -1153,6 +1210,12 @@ export default function LedgerPage() {
                     }
                   />
                 </div>
+                {editingBill && <SupplierBillFields value={editingBill} onChange={setEditingBill} />}
+                {editingTransaction.structuredSupplierRecord && !supplierFeature?.enabled && <p className="text-sm text-muted-foreground">This bill or payment is protected while Supplier Payments is unavailable.</p>}
+                {editingTransaction.supplierPayment && <div className="space-y-3">
+                  {!editingTransaction.structuredSupplierRecord && <p className="rounded-lg bg-blue-50 p-3 text-sm">Connect this existing payment to its bills. Keep the actual cash amount unchanged when correcting allocations after a balance confirmation.</p>}
+                  {editingPaymentSupplier ? <SupplierPaymentFields supplier={editingPaymentSupplier} value={editingAllocation} onChange={setEditingAllocation} date={editingTransaction.date} /> : <p role="status" className="text-sm text-muted-foreground">Loading supplier bills…</p>}
+                </div>}
               </div>
             ) : null}
 
@@ -1162,7 +1225,7 @@ export default function LedgerPage() {
               </Button>
               <Button 
                 onClick={handleEditSave} 
-                disabled={editLoading || editSaving || !editingTransaction?.amount}
+                disabled={editLoading || editSaving || !editingTransaction?.amount || (!!editingTransaction?.structuredSupplierRecord && !supplierFeature?.enabled) || (!!editingTransaction?.supplierPayment && (!editingPaymentSupplier || supplierPayments.isFetching))}
               >
                 {editSaving ? 'Saving...' : 'Save Changes'}
               </Button>

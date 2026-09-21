@@ -6,6 +6,10 @@ import { ObjectId } from 'mongodb';
 import redis from '@/lib/redis';
 import { bumpCacheVersions } from '@/lib/cache-version';
 import { refreshUserReadModels } from '@/lib/read-models';
+import { createSupplierPayment, saveSupplierBill, supplierTransactionFields } from '@/lib/supplier-payments';
+import { supplierPaymentsEnabled } from '@/lib/supplier-payment-settings';
+import { supplierPaymentError } from '@/app/api/supplier-payments/shared';
+import { BusinessCashError } from '@/lib/business-cash';
 
 const transactionSchema = z
   .object({
@@ -115,6 +119,7 @@ export async function GET(request: NextRequest) {
         billPublicId: transaction.billPublicId,
         date: transaction.date,
         createdAt: transaction.createdAt,
+        ...supplierTransactionFields(transaction),
       })),
       pagination: {
         total,
@@ -145,6 +150,20 @@ export async function POST(request: NextRequest) {
 
     const body = await request.json();
     const validatedData = transactionSchema.parse(body);
+
+    if (validatedData.entityType === 'supplier') {
+      if (validatedData.type === 'credit' && body.invoiceNumber !== undefined) {
+        return NextResponse.json({ message: 'Transaction created successfully', transaction: await saveSupplierBill(userId, { ...body, ...validatedData }) }, { status: 201 });
+      }
+      if (validatedData.type === 'debit' && supplierPaymentsEnabled()) {
+        if (!body.paymentAllocations && body.previousBalanceCashAmount === undefined) throw new BusinessCashError('Record supplier payments from the supplier ledger and allocate them to bills or Previous Balance', 400);
+        return NextResponse.json({ message: 'Transaction created successfully', transaction: await createSupplierPayment(userId, { ...body, supplierId: validatedData.entityId }) }, { status: 201 });
+      }
+      if (validatedData.type === 'credit' && supplierPaymentsEnabled()) {
+        throw new BusinessCashError('Add supplier purchases from the supplier ledger with an invoice number, invoice date, and due date', 400);
+      }
+      if (body.paymentAllocations !== undefined) throw new BusinessCashError('Supplier payments are disabled', 409);
+    }
 
     const db = await getDb();
     const transactionsCollection = db.collection('transactions');
@@ -240,6 +259,7 @@ export async function POST(request: NextRequest) {
       { status: 201 }
     );
   } catch (error) {
+    if (error instanceof BusinessCashError || (typeof error === 'object' && error && 'code' in error && error.code === 11000)) return supplierPaymentError(error);
     if (error instanceof z.ZodError) {
       return NextResponse.json(
         { error: error.issues[0].message },

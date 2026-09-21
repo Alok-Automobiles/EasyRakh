@@ -487,6 +487,7 @@ export default function VoiceAssistant() {
   const [messages, setMessages] = useState<Message[]>([]);
   const [pulseAnimation, setPulseAnimation] = useState(false);
   const [pendingAction, setPendingAction] = useState<AssistantPendingAction | null>(null);
+  const cashSaveRequest = useRef<{ fingerprint: string; key: string } | null>(null);
   const [billChooserOpen, setBillChooserOpen] = useState(false);
   const [billUploading, setBillUploading] = useState(false);
   const [inputValue, setInputValue] = useState('');
@@ -702,6 +703,8 @@ export default function VoiceAssistant() {
     queryClient.invalidateQueries({ queryKey: ['dashboard'] });
     queryClient.invalidateQueries({ queryKey: ['customers'] });
     queryClient.invalidateQueries({ queryKey: ['suppliers'] });
+    queryClient.invalidateQueries({ queryKey: ['business-cash'] });
+    queryClient.invalidateQueries({ queryKey: ['supplier-payments'] });
     router.refresh();
   }, [queryClient, router]);
 
@@ -740,10 +743,12 @@ export default function VoiceAssistant() {
               billPublicId: bill?.billPublicId,
             };
 
+      const fingerprint = JSON.stringify(payload);
+      if (cashSaveRequest.current?.fingerprint !== fingerprint) cashSaveRequest.current = { fingerprint, key: crypto.randomUUID() };
       const response = await fetch(endpoint, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(payload),
+        body: JSON.stringify({ ...payload, idempotencyKey: cashSaveRequest.current.key }),
       });
 
       if (response.status === 401) {
@@ -758,6 +763,7 @@ export default function VoiceAssistant() {
       }
 
       setPendingAction(null);
+      cashSaveRequest.current = null;
       setBillChooserOpen(false);
       invalidateAppData();
       notifyDataUpdate(actionToSave);

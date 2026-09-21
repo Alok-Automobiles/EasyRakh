@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { parseDateOnly, parseInvoiceDate } from '@/lib/invoice-payments';
+import { parseDateOnly, parseInvoiceDate, parsePaymentDate } from '@/lib/invoice-payments';
 
 describe('invoice dates', () => {
   it('parses a valid date-only value at UTC midnight', () => {
@@ -21,5 +21,11 @@ describe('invoice dates', () => {
     expect(parseInvoiceDate(undefined, justAfterMidnightInIndia).toISOString()).toBe(
       '2026-08-01T00:00:00.000Z'
     );
+  });
+
+  it('never treats a promised future collection as cash received today', () => {
+    const now = new Date('2026-08-01T06:00:00.000Z');
+    expect(() => parsePaymentDate('2026-08-02', now)).toThrow('Payment date cannot be in the future');
+    expect(parsePaymentDate('2026-08-01', now).toISOString()).toBe('2026-08-01T00:00:00.000Z');
   });
 });

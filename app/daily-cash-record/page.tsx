@@ -33,6 +33,7 @@ import {
   isPdfBillAttachment,
 } from '@/lib/bill-attachments';
 import PdfDocumentViewer from '@/components/PdfDocumentViewer';
+import DailyBusinessBalance from '@/components/DailyBusinessBalance';
 
 const MAX_BILL_SIZE_BYTES = 5 * 1024 * 1024; // 5MB
 const ACCEPTED_BILL_TYPES = [
@@ -82,6 +83,12 @@ interface PaginationInfo {
 export default function DailyCashRecordPage() {
   const router = useRouter();
   const queryClient = useQueryClient();
+  const cashRequestRef = useRef<{ fingerprint: string; id: string } | null>(null);
+  const cashRequestId = (date: string) => {
+    const fingerprint = JSON.stringify([date, amount, entryType, description, billUploadedUrl, billUploadedPublicId]);
+    if (cashRequestRef.current?.fingerprint !== fingerprint) cashRequestRef.current = { fingerprint, id: crypto.randomUUID() };
+    return cashRequestRef.current.id;
+  };
   const [selectedDate, setSelectedDate] = useState<Date>(new Date());
   const [summaryRecords, setSummaryRecords] = useState<SummaryRecord[]>([]);
   const [loading, setLoading] = useState(true);
@@ -364,6 +371,7 @@ export default function DailyCashRecordPage() {
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({
+          idempotencyKey: cashRequestId(dateString),
           amount: amountNum,
           type: entryType,
           description,
@@ -380,6 +388,7 @@ export default function DailyCashRecordPage() {
 
       const data = await response.json();
       if (response.ok) {
+        cashRequestRef.current = null;
         toast.success(`Money ${entryType === 'in' ? 'added' : 'deducted'} successfully`);
         setAmount('');
         setDescription('');
@@ -400,6 +409,8 @@ export default function DailyCashRecordPage() {
         }
 
         queryClient.invalidateQueries({ queryKey: ['dashboard'] });
+        queryClient.invalidateQueries({ queryKey: ['business-cash'] });
+        queryClient.invalidateQueries({ queryKey: ['supplier-payments'] });
 
         if (currentPage !== 1) {
           suppressNextSummaryLoadingRef.current = true;
@@ -470,6 +481,7 @@ export default function DailyCashRecordPage() {
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({
+          idempotencyKey: cashRequestId(dateString),
           amount: amountNum,
           type: entryType,
           description,
@@ -486,6 +498,7 @@ export default function DailyCashRecordPage() {
 
       const data = await response.json();
       if (response.ok) {
+        cashRequestRef.current = null;
         toast.success(`Transaction ${entryType === 'in' ? 'added' : 'deducted'} successfully`);
         setAmount('');
         setDescription('');
@@ -506,6 +519,8 @@ export default function DailyCashRecordPage() {
         queryClient.invalidateQueries({ queryKey: ['dashboard'] });
 
         fetchData(currentPage, { showLoading: false });
+        queryClient.invalidateQueries({ queryKey: ['business-cash'] });
+        queryClient.invalidateQueries({ queryKey: ['supplier-payments'] });
       } else {
         toast.error(data.error || 'Failed to add transaction');
       }
@@ -577,6 +592,8 @@ export default function DailyCashRecordPage() {
 
         queryClient.invalidateQueries({ queryKey: ['dashboard'] });
         fetchData(currentPage, { showLoading: false });
+        queryClient.invalidateQueries({ queryKey: ['business-cash'] });
+        queryClient.invalidateQueries({ queryKey: ['supplier-payments'] });
       } else {
         toast.error(data.error || 'Failed to update entry');
       }
@@ -635,6 +652,8 @@ export default function DailyCashRecordPage() {
         const nextPage = !updatedRecord && summaryRecords.length === 1 && currentPage > 1
           ? currentPage - 1
           : currentPage;
+        queryClient.invalidateQueries({ queryKey: ['business-cash'] });
+        queryClient.invalidateQueries({ queryKey: ['supplier-payments'] });
 
         if (nextPage !== currentPage) {
           suppressNextSummaryLoadingRef.current = true;
@@ -735,6 +754,8 @@ export default function DailyCashRecordPage() {
             <span className="hidden sm:inline">Select a day to view entries and add transactions</span>
           </p>
         </header>
+
+        <DailyBusinessBalance />
 
         <div className="grid grid-cols-2 gap-2 sm:flex sm:flex-row sm:items-center sm:gap-3 mb-4 sm:mb-6">
           <Dialog open={createNewRecordOpen} onOpenChange={(open) => {

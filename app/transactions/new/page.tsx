@@ -12,6 +12,8 @@ import { format } from 'date-fns';
 import { Customer, Supplier, CustomEntity, CollectionType } from '@/lib/types';
 import { compressImage, isCompressibleImage, formatFileSize } from '@/lib/imageCompression';
 import { parseNumberInput, parseNumberInputOrZero } from '@/lib/number-input';
+import { businessToday, formatMoney, paymentRequestFingerprint, useBusinessCash, useSupplierPayments, useRefreshSupplierPayments } from '@/lib/hooks/useSupplierPayments';
+import { SupplierBillFields, SupplierPaymentFields, SupplierTermsFields, allocationPayload, allocationCashTotal, defaultSupplierBill, defaultSupplierTerms, emptyAllocation, supplierBillPayload } from '@/components/SupplierPaymentFields';
 import {
   Dialog,
   DialogContent,
@@ -107,6 +109,14 @@ type CustomEntityForm = z.input<typeof customEntitySchema>;
 
 function NewTransactionPageContent() {
   const router = useRouter();
+  const supplierFeatureQuery = useBusinessCash();
+  const supplierFeature = supplierFeatureQuery.data;
+  const refreshSupplierPayments = useRefreshSupplierPayments();
+  const [supplierBill, setSupplierBill] = useState(() => defaultSupplierBill(businessToday()));
+  const [supplierTerms, setSupplierTerms] = useState(defaultSupplierTerms);
+  const [paymentAllocation, setPaymentAllocation] = useState(emptyAllocation);
+  const requestRef = useRef<{ fingerprint: string; key: string } | null>(null);
+  const submitInFlight = useRef(false);
   const searchParams = useSearchParams();
   const [step, setStep] = useState<'select' | 'form'>('select');
   const [entityType, setEntityType] = useState<string | null>(null);
@@ -140,6 +150,12 @@ function NewTransactionPageContent() {
       date: format(new Date(), 'yyyy-MM-dd'),
     },
   });
+
+  const watchedEntityId = watch('entityId');
+  const watchedType = watch('type');
+  const paymentDate = watch('date');
+  const supplierPayments = useSupplierPayments(!!supplierFeature?.enabled && entityType === 'supplier' && !!watchedEntityId, watchedEntityId);
+  const paymentSupplier = supplierPayments.data?.suppliers.find((supplier) => supplier.id === watchedEntityId);
 
   const {
     register: registerCustomer,
@@ -215,14 +231,16 @@ function NewTransactionPageContent() {
   useEffect(() => {
     const urlEntityType = searchParams.get('entityType');
     const urlEntityId = searchParams.get('entityId');
+    const urlType = searchParams.get('type');
 
-    if (urlEntityType && urlEntityId) {
+    if (urlEntityType) {
       setEntityType(urlEntityType);
       setValue('entityType', urlEntityType);
       if (urlEntityType !== 'customer' && urlEntityType !== 'supplier') {
         fetchCustomEntities(urlEntityType);
       }
-      setValue('entityId', urlEntityId);
+      if (urlEntityId) setValue('entityId', urlEntityId);
+      if (urlType === 'credit' || urlType === 'debit') setValue('type', urlType);
       setStep('form');
     }
   }, [searchParams, setValue]);
@@ -376,7 +394,7 @@ function NewTransactionPageContent() {
       const response = await fetch('/api/suppliers', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(data),
+        body: JSON.stringify({ ...data, ...(supplierFeature?.enabled ? { creditLimit: supplierTerms.creditLimit === '' ? null : Number(supplierTerms.creditLimit), criticality: supplierTerms.criticality, partialPaymentAllowed: supplierTerms.partialPaymentAllowed } : {}) }),
       });
 
       if (response.ok) {
@@ -429,9 +447,21 @@ function NewTransactionPageContent() {
   };
 
   const onSubmit = async (data: TransactionForm) => {
+    if (submitInFlight.current) return;
+    if (data.entityType === 'supplier' && !supplierFeature) { toast.error('Wait for supplier payment settings to load before saving'); return; }
+    if (supplierFeature?.enabled && data.entityType === 'supplier' && data.type === 'debit') {
+      if (!supplierFeature.businessCash || supplierFeature.businessCash.needsReconciliation) { toast.error('Set or confirm your business balance on Supplier Payments first.'); return; }
+      if (!paymentSupplier || supplierPayments.isFetching) { toast.error('Wait for supplier bills to finish loading'); return; }
+      if (Math.round(data.amount * 100) !== Math.round(allocationCashTotal(paymentAllocation) * 100)) { toast.error('The cash allocated to bills must equal the amount actually paid'); return; }
+    }
+    submitInFlight.current = true;
     setLoading(true);
     try {
       const payload: Record<string, unknown> = { ...data };
+      if (supplierFeature?.enabled && data.entityType === 'supplier') {
+        if (data.type === 'credit') Object.assign(payload, supplierBillPayload(supplierBill));
+        else Object.assign(payload, allocationPayload(paymentAllocation), { supplierId: data.entityId, expectedVersion: supplierPayments.data?.version });
+      }
 
       if (billUploadResult) {
         payload.billUrl = billUploadResult.url;
@@ -439,6 +469,11 @@ function NewTransactionPageContent() {
       } else {
         delete payload.billUrl;
         delete payload.billPublicId;
+      }
+      if (supplierFeature?.enabled && data.entityType === 'supplier') {
+        const fingerprint = paymentRequestFingerprint(payload);
+        if (requestRef.current?.fingerprint !== fingerprint) requestRef.current = { fingerprint, key: crypto.randomUUID() };
+        payload.requestId = requestRef.current.key;
       }
 
       const response = await fetch('/api/transactions', {
@@ -448,6 +483,8 @@ function NewTransactionPageContent() {
       });
 
       if (response.ok) {
+        requestRef.current = null;
+        void refreshSupplierPayments();
         toast.success('Transaction created successfully!');
         reset();
         if (fileInputRef.current) {
@@ -466,11 +503,13 @@ function NewTransactionPageContent() {
       } else {
         const result = await response.json();
         toast.error(result.error || 'Failed to create transaction');
+        void refreshSupplierPayments();
       }
     } catch (error) {
       console.error('Failed to create transaction', error);
       toast.error('An error occurred. Please try again.');
     } finally {
+      submitInFlight.current = false;
       setLoading(false);
     }
   };
@@ -707,6 +746,8 @@ function NewTransactionPageContent() {
         </div>
 
         <form onSubmit={handleSubmit(onSubmit)} className="space-y-6">
+          {entityType === 'supplier' && supplierFeatureQuery.isPending && <p className="text-sm text-muted-foreground" role="status">Loading supplier payment settings…</p>}
+          {entityType === 'supplier' && supplierFeatureQuery.isError && <div className="space-y-2 rounded-lg border border-destructive p-4"><p role="alert" className="text-sm">{supplierFeatureQuery.error.message}</p><Button type="button" variant="outline" onClick={() => void supplierFeatureQuery.refetch()}>Reload payment settings</Button></div>}
           {/* Counterparty */}
           <div className="bg-white rounded-xl border border-gray-200 shadow-sm p-5">
             <div className="flex items-center justify-between mb-4">
@@ -732,7 +773,12 @@ function NewTransactionPageContent() {
             </Label>
             <Select
               value={currentEntityId || ''}
-              onValueChange={(value) => setValue('entityId', value, { shouldValidate: true })}
+              onValueChange={(value) => {
+                setValue('entityId', value, { shouldValidate: true });
+                setPaymentAllocation(emptyAllocation());
+                const supplier = suppliers.find((item) => item.id === value);
+                setSupplierBill((bill) => ({ ...bill, partialPaymentAllowed: supplier?.partialPaymentAllowed ?? true }));
+              }}
             >
               <SelectTrigger id="entity-select" className="w-full mt-1">
                 <SelectValue placeholder={
@@ -825,7 +871,7 @@ function NewTransactionPageContent() {
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div>
                   <Label htmlFor="amount" className="text-sm text-gray-600">
-                    Amount *
+                    {supplierFeature?.enabled && entityType === 'supplier' && currentType === 'debit' ? 'Actual money paid *' : 'Amount *'}
                   </Label>
                   <div className="relative mt-1">
                     <IndianRupee className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
@@ -855,6 +901,7 @@ function NewTransactionPageContent() {
                       id="date"
                       {...register('date')}
                       type="date"
+                      max={supplierFeature?.enabled && entityType === 'supplier' ? businessToday() : undefined}
                       className="pl-9"
                     />
                   </div>
@@ -865,6 +912,19 @@ function NewTransactionPageContent() {
               </div>
             </div>
           </div>
+
+          {supplierFeature?.enabled && entityType === 'supplier' && watchedType === 'credit' && <>
+            <SupplierBillFields value={supplierBill} onChange={setSupplierBill} />
+            {paymentSupplier && <div className="rounded-lg border border-border p-4 text-sm"><p>Current supplier dues: {formatMoney(paymentSupplier.totalDue)}</p><p className="text-muted-foreground">Previous Balance: {formatMoney(paymentSupplier.previousBalance)}</p>{paymentSupplier.creditLimit != null && paymentSupplier.totalDue + (Number(watch('amount')) || 0) > paymentSupplier.creditLimit && <p className="mt-2 text-amber-700">This purchase exceeds the credit limit by {formatMoney(paymentSupplier.totalDue + (Number(watch('amount')) || 0) - paymentSupplier.creditLimit)}. Review Supplier Payments after saving.</p>}</div>}
+          </>}
+          {supplierFeature?.enabled && entityType === 'supplier' && watchedType === 'debit' && <div className="rounded-xl border border-border bg-card p-5 space-y-3">
+            <h2 className="text-lg font-semibold">Allocate supplier payment</h2>
+            {!supplierFeature.businessCash || supplierFeature.businessCash.needsReconciliation ? <p className="text-sm">First <Link href="/supplier-payments" className="text-blue-600 underline">set or confirm your business balance</Link>.</p> : null}
+            {supplierPayments.isPending && watchedEntityId && <p className="text-sm text-muted-foreground" role="status">Loading supplier bills…</p>}
+            {supplierPayments.isError && <p className="text-sm text-destructive" role="alert">{supplierPayments.error.message}</p>}
+            {paymentSupplier && <SupplierPaymentFields supplier={paymentSupplier} value={paymentAllocation} onChange={setPaymentAllocation} date={paymentDate} />}
+            <p className="text-xs text-muted-foreground">Supplier payments are recorded separately from Daily Cash Money Out.</p>
+          </div>}
 
           {/* Description */}
           <div className="bg-white rounded-xl border border-gray-200 shadow-sm p-5">
@@ -995,7 +1055,7 @@ function NewTransactionPageContent() {
             </Button>
             <Button
               type="submit"
-              disabled={loading || billUploading}
+              disabled={loading || billUploading || (entityType === 'supplier' && !supplierFeature)}
               variant="default"
             >
               {loading ? (
@@ -1121,6 +1181,7 @@ function NewTransactionPageContent() {
               </form>
             ) : entityType === 'supplier' ? (
               <form onSubmit={handleSubmitSupplier(handleCreateSupplier)} className="space-y-4">
+                {supplierFeature?.enabled && <SupplierTermsFields value={supplierTerms} onChange={setSupplierTerms} />}
                 <div>
                   <Label htmlFor="supplier-name">Name *</Label>
                   <Input

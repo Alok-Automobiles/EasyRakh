@@ -30,6 +30,7 @@ import {
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
 import ThemeToggle from '@/components/ThemeToggle';
+import { useBusinessCash } from '@/lib/hooks/useSupplierPayments';
 
 type SidebarProps = {
   collapsed?: boolean;
@@ -48,6 +49,7 @@ export default function Sidebar({ collapsed = false }: SidebarProps) {
   const [isDesktop, setIsDesktop] = useState(false);
 
   const isAuthPage = pathname === '/login' || pathname === '/register' || pathname === '/';
+  const { data: supplierFeature } = useBusinessCash(!isAuthPage);
   const effectiveCollapsed = isMobileOpen ? false : collapsed;
 
   useEffect(() => {
@@ -121,6 +123,7 @@ export default function Sidebar({ collapsed = false }: SidebarProps) {
       { href: '/dashboard', label: 'Dashboard', icon: LayoutDashboard },
       { href: '/customers', label: 'Customers', icon: Users },
       { href: '/suppliers', label: 'Suppliers', icon: Building2 },
+      ...(supplierFeature?.enabled ? [{ href: '/supplier-payments', label: 'Supplier Payments', icon: Wallet }] : []),
       { href: '/transactions/new', label: 'New Transaction', icon: PlusCircle },
       { href: '/invoices', label: 'Invoices', icon: FileText },
       { href: '/inventory', label: 'Inventory', icon: Boxes },
@@ -137,7 +140,7 @@ export default function Sidebar({ collapsed = false }: SidebarProps) {
     }
 
     return links;
-  }, [user?.isAdmin]);
+  }, [user?.isAdmin, supplierFeature?.enabled]);
 
   const isActive = useCallback((href: string) => {
     if (href === '/dashboard') {

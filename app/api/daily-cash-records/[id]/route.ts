@@ -5,6 +5,8 @@ import { z } from 'zod';
 import { format } from 'date-fns';
 import { ObjectId } from 'mongodb';
 import { bumpCacheVersions } from '@/lib/cache-version';
+import { supplierPaymentsEnabled } from '@/lib/supplier-payment-settings';
+import { mutateDailyBusinessCash } from '@/lib/daily-business-cash';
 
 const BILL_URL_MAX_LENGTH = 2048;
 const ALLOWED_BILL_URL_SCHEMES = ['https:'];
@@ -124,6 +126,7 @@ export async function PUT(
     }
 
     const { id: entryId } = await params;
+    if (supplierPaymentsEnabled()) return mutateDailyBusinessCash(request, userId, 'PUT', entryId);
     const body = await request.json();
     const validatedData = updateEntrySchema.parse(body);
 
@@ -250,6 +253,7 @@ export async function DELETE(
     }
 
     const { id: entryId } = await params;
+    if (supplierPaymentsEnabled()) return mutateDailyBusinessCash(request, userId, 'DELETE', entryId);
 
     if (!ObjectId.isValid(entryId)) {
       return NextResponse.json(

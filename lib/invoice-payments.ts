@@ -1,6 +1,8 @@
 import { ClientSession, Db, ObjectId } from 'mongodb';
 import { roundMoney } from './invoice-calculations';
 import type { InvoicePayment } from './types';
+import { applyBusinessCashDelta, type CashMarker } from './business-cash';
+import { supplierPaymentsEnabled } from './supplier-payment-settings';
 
 export type InvoiceCashEntryInput = {
   entryId: string;
@@ -60,8 +62,14 @@ export function parseInvoiceDate(value?: string, now = new Date()) {
   return date;
 }
 
-export function parsePaymentDate(value?: string) {
-  return parseDateOnly(value, 'Payment date');
+export function parsePaymentDate(value?: string, now = new Date()) {
+  const today = dateInputValueInTimeZone(now, 'Asia/Kolkata');
+  const dateValue = value || today;
+  const date = parseDateOnly(dateValue, 'Payment date');
+  if (dateValue > today) {
+    throw new Error('Payment date cannot be in the future');
+  }
+  return date;
 }
 
 export function reconcileInvoicePaymentHistory(invoice: Record<string, unknown>) {
@@ -127,7 +135,8 @@ export async function addInvoicePaymentCashEntry(
   db: Db,
   userId: string,
   input: InvoiceCashEntryInput,
-  session: ClientSession
+  session: ClientSession,
+  previousMarker?: CashMarker,
 ) {
   const collection = db.collection('dailyCashRecords');
   const existingPayment = await collection.findOne(
@@ -139,6 +148,7 @@ export async function addInvoicePaymentCashEntry(
   }
 
   const date = normalizeCashDate(input.date);
+  const cashMarker = await applyBusinessCashDelta(db, userId, roundMoney(input.amount), session, previousMarker);
   const record = await collection.findOne({ userId, date }, { session });
   const now = new Date();
   const entry = {
@@ -154,6 +164,7 @@ export async function addInvoicePaymentCashEntry(
     billPublicId: input.billPublicId || '',
     createdAt: now,
     updatedAt: now,
+    ...cashMarker,
   };
 
   if (!record) {
@@ -184,6 +195,8 @@ export async function removeInvoicePaymentCashEntry(
   const collection = db.collection('dailyCashRecords');
   const record = await collection.findOne({ userId, 'entries.paymentId': paymentId }, { session });
   if (!record) return;
+  const removed = (record.entries || []).find((entry: any) => entry.paymentId === paymentId);
+  if (removed) await applyBusinessCashDelta(db, userId, -removed.amount, session, removed);
   const entries = (record.entries || []).filter((entry: any) => entry.paymentId !== paymentId);
   await saveEntries(db, userId, record, entries, session);
 }
@@ -194,8 +207,12 @@ export async function replaceInvoicePaymentCashEntry(
   input: InvoiceCashEntryInput,
   session: ClientSession
 ) {
+  const record = supplierPaymentsEnabled()
+    ? await db.collection('dailyCashRecords').findOne({ userId, 'entries.paymentId': input.paymentId }, { session })
+    : null;
+  const previous = record?.entries?.find((entry: any) => entry.paymentId === input.paymentId);
   await removeInvoicePaymentCashEntry(db, userId, input.paymentId, session);
-  await addInvoicePaymentCashEntry(db, userId, input, session);
+  await addInvoicePaymentCashEntry(db, userId, input, session, previous ?? {});
 }
 
 export async function removeInvoiceCashEntries(
@@ -207,6 +224,9 @@ export async function removeInvoiceCashEntries(
   const collection = db.collection('dailyCashRecords');
   const records = await collection.find({ userId, 'entries.invoiceId': invoiceId }, { session }).toArray();
   for (const record of records) {
+    for (const entry of (record.entries || []).filter((entry: any) => entry.invoiceId === invoiceId)) {
+      await applyBusinessCashDelta(db, userId, -entry.amount, session, entry);
+    }
     const entries = (record.entries || []).filter((entry: any) => entry.invoiceId !== invoiceId);
     await saveEntries(db, userId, record, entries, session);
   }
