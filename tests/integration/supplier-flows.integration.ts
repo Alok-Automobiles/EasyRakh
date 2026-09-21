@@ -139,6 +139,64 @@ describe('supplier payments with the existing ledger and Daily Cash APIs', () =>
     expect((await summary()).summary.dailySupplierPayments).toBe(20_000);
   });
 
+  it('remembers every protected-amount request key instead of reapplying an older retry', async () => {
+    await open();
+    const { PATCH } = await import('@/app/api/business-cash/route');
+    const firstKey = randomUUID();
+    const secondKey = randomUUID();
+    await assertResponse(await PATCH(request('/api/business-cash', {
+      protectedAmount: 25_000, expectedVersion: (await cash()).version, idempotencyKey: firstKey,
+    }, 'PATCH')), 200);
+    await assertResponse(await PATCH(request('/api/business-cash', {
+      protectedAmount: 30_000, expectedVersion: (await cash()).version, idempotencyKey: secondKey,
+    }, 'PATCH')), 200);
+    const beforeRetry = await cash();
+    const replay = await assertResponse(await PATCH(request('/api/business-cash', {
+      protectedAmount: 25_000, expectedVersion: 0, idempotencyKey: firstKey,
+    }, 'PATCH')), 200);
+    expect(replay.replayed).toBe(true);
+    expect(await cash()).toEqual(beforeRetry);
+    await assertResponse(await PATCH(request('/api/business-cash', {
+      protectedAmount: 24_000, expectedVersion: beforeRetry.version, idempotencyKey: firstKey,
+    }, 'PATCH')), 409);
+  });
+
+  it('preserves reservations for contact edits and clears them only when payment-planning terms change', async () => {
+    await open();
+    const created = await bill();
+    const reserve = await import('@/app/api/supplier-payments/reserve/route');
+    await assertResponse(await reserve.POST(request('/api/supplier-payments/reserve', {
+      supplierId, billTransactionId: created.id, amount: 20_000,
+      expectedVersion: (await cash()).version, requestId: randomUUID(),
+    })), 200);
+    const versionAfterReserve = (await cash()).version;
+    const supplierRoute = await import('@/app/api/suppliers/[id]/route');
+    await assertResponse(await supplierRoute.PUT(request(`/api/suppliers/${supplierId}`, {
+      name: 'Renamed local supplier', phone: '9999999999', openingBalance: 0, balanceType: 'credit',
+    }, 'PUT'), { params: Promise.resolve({ id: supplierId }) }), 200);
+    expect(await db.collection('transactions').findOne({ _id: new ObjectId(created.id) })).toMatchObject({ reservationStatus: 'active', reservedAmount: 20_000 });
+    expect((await cash()).version).toBe(versionAfterReserve);
+    await assertResponse(await supplierRoute.PUT(request(`/api/suppliers/${supplierId}`, {
+      name: 'Renamed local supplier', phone: '9999999999', openingBalance: 0, balanceType: 'credit', criticality: 'important',
+    }, 'PUT'), { params: Promise.resolve({ id: supplierId }) }), 200);
+    expect(await db.collection('transactions').findOne({ _id: new ObjectId(created.id) })).toMatchObject({ reservationStatus: 'cancelled', reservedAmount: 0 });
+    expect((await cash()).version).toBe(versionAfterReserve + 1);
+  });
+
+  it('replays a generic ledger transaction exactly once and rejects key reuse with different details', async () => {
+    await open();
+    const customerId = new ObjectId().toHexString();
+    await db.collection('customers').insertOne({ _id: new ObjectId(customerId), userId, name: 'Cash customer' });
+    const key = randomUUID();
+    const body = { entityType: 'customer', entityId: customerId, type: 'credit', amount: 1_000, description: 'Voice collection', date: today, idempotencyKey: key };
+    const transactionRoute = await import('@/app/api/transactions/route');
+    const first = await assertResponse(await transactionRoute.POST(request('/api/transactions', body)));
+    const replay = await assertResponse(await transactionRoute.POST(request('/api/transactions', body)), 200);
+    expect(replay.transaction.id).toBe(first.transaction.id);
+    expect(await db.collection('transactions').countDocuments({ userId, transactionRequestId: key })).toBe(1);
+    await assertResponse(await transactionRoute.POST(request('/api/transactions', { ...body, amount: 2_000 })), 409);
+  });
+
   it('requires invoice terms for every new supplier purchase while enabled', async () => {
     await open();
     const { POST } = await import('@/app/api/transactions/route');

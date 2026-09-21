@@ -76,15 +76,25 @@ export async function changeProtectedCash(body: unknown, userId: string) {
     const user = await users.findOne({ _id: new ObjectId(userId) }, { session });
     const cash = user?.businessCash as BusinessCash | undefined;
     if (!cash) throw new BusinessCashError('Set up your business balance first');
-    if (user?.protectedCashRequest?.id === input.idempotencyKey) {
-      if (user.protectedCashRequest.amount !== input.protectedAmount) throw new BusinessCashError('This request was already used for another protected amount');
+    const requestHistory = Array.isArray(user?.protectedCashRequestHistory)
+      ? user.protectedCashRequestHistory as Array<{ id: string; amount: number }>
+      : [];
+    const legacyRequest = user?.protectedCashRequest as { id: string; amount: number } | undefined;
+    const previousRequest = [...requestHistory, ...(legacyRequest ? [legacyRequest] : [])]
+      .find(request => request.id === input.idempotencyKey);
+    if (previousRequest) {
+      if (previousRequest.amount !== input.protectedAmount) throw new BusinessCashError('This request was already used for another protected amount');
       return { businessCash: await readBusinessCash(db, userId, session), replayed: true };
     }
     if (cash.version !== input.expectedVersion) throw new BusinessCashError('Your balance changed. Refresh and try again.');
     const next: BusinessCash = { ...cash, protectedAmount: cashMoney(input.protectedAmount),
       version: cash.version + 1, updatedAt: new Date() };
+    const retainedHistory = legacyRequest && !requestHistory.some(request => request.id === legacyRequest.id)
+      ? [...requestHistory, legacyRequest]
+      : requestHistory;
+    const protectedCashRequest = { id: input.idempotencyKey, amount: input.protectedAmount };
     await users.updateOne({ _id: user!._id }, { $set: { businessCash: next,
-      protectedCashRequest: { id: input.idempotencyKey, amount: input.protectedAmount } } }, { session });
+      protectedCashRequest, protectedCashRequestHistory: [...retainedHistory, protectedCashRequest] } }, { session });
     // Review allocations whenever the owner changes the money they want protected.
     await clearBusinessCashReservations(db, userId, session);
     return { businessCash: { ...next, needsReconciliation: next.needsReconciliation || next.featureEpoch !== featureEpoch() }, replayed: false };

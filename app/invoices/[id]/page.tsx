@@ -47,6 +47,7 @@ import InvoiceItemsEditor from '@/components/InvoiceItemsEditor';
 import type { EditableInvoiceItem } from '@/components/InvoiceItemsEditor';
 import { getInvoiceItemDisplayRows, getInvoicePdfTableRows } from '@/lib/invoice-format';
 import { legacyUnitPrice } from '@/lib/invoice-calculations';
+import { useRefreshSupplierPayments } from '@/lib/hooks/useSupplierPayments';
 
 interface InvoiceWithId extends Invoice {
   id: string;
@@ -136,6 +137,7 @@ function isValidInvoiceItem(item: EditableInvoiceItem) {
 
 export default function InvoiceDetailPage() {
   const router = useRouter();
+  const refreshCashPlanning = useRefreshSupplierPayments();
   const params = useParams();
   const searchParams = useSearchParams();
   const id = params.id as string;
@@ -664,7 +666,7 @@ export default function InvoiceDetailPage() {
         if (response.status < 500) paymentRequestIdRef.current = null;
         throw new Error(data.error || 'Failed to add payment');
       }
-      await refreshInvoice();
+      await Promise.all([refreshInvoice(), refreshCashPlanning()]);
       paymentRequestIdRef.current = null;
       setPaymentAmount('');
       setPaymentFormOpen(false);
@@ -683,7 +685,7 @@ export default function InvoiceDetailPage() {
       const response = await fetch(`/api/invoices/${id}/payments/${paymentId}`, { method: 'DELETE' });
       const data = await response.json();
       if (!response.ok) throw new Error(data.error || 'Failed to delete payment');
-      await refreshInvoice();
+      await Promise.all([refreshInvoice(), refreshCashPlanning()]);
       toast.success('Payment deleted');
     } catch (error) {
       toast.error(error instanceof Error ? error.message : 'Failed to delete payment');

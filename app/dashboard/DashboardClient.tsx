@@ -9,6 +9,7 @@ import { format } from 'date-fns';
 import toast from 'react-hot-toast';
 import { motion } from 'motion/react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { stableDatedRequest, type StableDatedRequest } from '@/lib/idempotent-client-request';
 import { RecentActivity } from '@/lib/types';
 import { Button } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
@@ -374,7 +375,7 @@ export default function DashboardClient() {
   const [entryType, setEntryType] = useState<'in' | 'out'>('in');
   const [amount, setAmount] = useState('');
   const [description, setDescription] = useState('');
-  const quickCashRequest = useRef<{ fingerprint: string; key: string } | null>(null);
+  const quickCashRequest = useRef<StableDatedRequest | null>(null);
   const activitiesPerPage = 5;
 
   const currentMonthKey = format(new Date(), 'yyyy-MM');
@@ -548,12 +549,14 @@ export default function DashboardClient() {
 
   const addTransactionMutation = useMutation({
     mutationFn: async ({ amountNum, type, desc, billUrl, billPublicId }: { amountNum: number; type: 'in' | 'out'; desc: string; billUrl?: string; billPublicId?: string }) => {
-      const dateString = format(new Date(), 'dd-MM-yyyy');
-      const payload = { amount: amountNum, type, description: desc, date: dateString, billUrl, billPublicId };
-      const fingerprint = JSON.stringify(payload);
-      if (quickCashRequest.current?.fingerprint !== fingerprint) {
-        quickCashRequest.current = { fingerprint, key: crypto.randomUUID() };
-      }
+      const fields = { amount: amountNum, type, description: desc, billUrl, billPublicId };
+      quickCashRequest.current = stableDatedRequest(
+        quickCashRequest.current,
+        JSON.stringify(fields),
+        format(new Date(), 'dd-MM-yyyy'),
+        () => crypto.randomUUID(),
+      );
+      const payload = { ...fields, date: quickCashRequest.current.date };
       const response = await fetch('/api/daily-cash-records', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },

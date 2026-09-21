@@ -1,8 +1,9 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { createHash } from 'node:crypto';
 import { getDb } from '@/lib/mongodb';
 import { getUserIdFromRequest } from '@/lib/auth';
 import { z } from 'zod';
-import { ObjectId } from 'mongodb';
+import { Document, ObjectId } from 'mongodb';
 import redis from '@/lib/redis';
 import { bumpCacheVersions } from '@/lib/cache-version';
 import { refreshUserReadModels } from '@/lib/read-models';
@@ -10,6 +11,7 @@ import { createSupplierPayment, saveSupplierBill, supplierTransactionFields } fr
 import { supplierPaymentsEnabled } from '@/lib/supplier-payment-settings';
 import { supplierPaymentError } from '@/app/api/supplier-payments/shared';
 import { BusinessCashError } from '@/lib/business-cash';
+import { ensureTransactionIdempotencyIndex } from '@/lib/transaction-idempotency';
 
 const transactionSchema = z
   .object({
@@ -21,6 +23,7 @@ const transactionSchema = z
     date: z.string().or(z.date()),
     billUrl: z.union([z.string().url('Invalid bill URL'), z.literal('')]).optional(),
     billPublicId: z.string().optional(),
+    idempotencyKey: z.string().trim().min(8).max(128).optional(),
   })
   .refine(
     (data) => {
@@ -34,6 +37,20 @@ const transactionSchema = z
       path: ['billPublicId'],
     }
   );
+
+function transactionPayload(transaction: Document) {
+  return {
+    id: transaction._id.toString(),
+    entityType: transaction.entityType,
+    entityId: transaction.entityId,
+    type: transaction.type,
+    amount: transaction.amount,
+    description: transaction.description,
+    billUrl: transaction.billUrl,
+    billPublicId: transaction.billPublicId,
+    date: transaction.date,
+  };
+}
 
 export async function GET(request: NextRequest) {
   try {
@@ -171,6 +188,37 @@ export async function POST(request: NextRequest) {
     const suppliersCollection = db.collection('suppliers');
     const customEntitiesCollection = db.collection('customEntities');
 
+    const transactionDate = validatedData.date
+      ? new Date(validatedData.date)
+      : new Date();
+    if (Number.isNaN(transactionDate.getTime())) throw new BusinessCashError('Invalid transaction date', 400);
+    const billUrl = validatedData.billUrl?.trim();
+    const billPublicId = validatedData.billPublicId?.trim();
+    const requestHash = createHash('sha256').update(JSON.stringify({
+      entityType: validatedData.entityType,
+      entityId: validatedData.entityId,
+      type: validatedData.type,
+      amount: validatedData.amount,
+      description: validatedData.description || '',
+      billUrl: billUrl || '',
+      billPublicId: billPublicId || '',
+      date: transactionDate.toISOString(),
+    })).digest('hex');
+
+    if (validatedData.idempotencyKey) {
+      await ensureTransactionIdempotencyIndex(db);
+      const previous = await transactionsCollection.findOne({
+        userId,
+        transactionRequestId: validatedData.idempotencyKey,
+      });
+      if (previous) {
+        if (previous.transactionRequestHash !== requestHash) {
+          throw new BusinessCashError('This request was already used for a different transaction', 409);
+        }
+        return NextResponse.json({ message: 'Transaction already created', transaction: transactionPayload(previous) });
+      }
+    }
+
     let entity;
     let entityDisplayName = 'Entity';
     
@@ -207,14 +255,7 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    const transactionDate = validatedData.date
-      ? new Date(validatedData.date)
-      : new Date();
-
-    const billUrl = validatedData.billUrl?.trim();
-    const billPublicId = validatedData.billPublicId?.trim();
-
-    const result = await transactionsCollection.insertOne({
+    const document = {
       userId,
       entityType: validatedData.entityType,
       entityId: validatedData.entityId,
@@ -227,7 +268,22 @@ export async function POST(request: NextRequest) {
       billPublicId: billPublicId || undefined,
       date: transactionDate,
       createdAt: new Date(),
-    });
+      ...(validatedData.idempotencyKey ? {
+        transactionRequestId: validatedData.idempotencyKey,
+        transactionRequestHash: requestHash,
+      } : {}),
+    };
+    let insertedId: ObjectId;
+    try {
+      ({ insertedId } = await transactionsCollection.insertOne(document));
+    } catch (error) {
+      if (!(validatedData.idempotencyKey && typeof error === 'object' && error && 'code' in error && error.code === 11000)) throw error;
+      const previous = await transactionsCollection.findOne({ userId, transactionRequestId: validatedData.idempotencyKey });
+      if (!previous || previous.transactionRequestHash !== requestHash) {
+        throw new BusinessCashError('This request was already used for a different transaction', 409);
+      }
+      return NextResponse.json({ message: 'Transaction already created', transaction: transactionPayload(previous) });
+    }
 
     const namespaces = validatedData.entityType === 'customer'
       ? ['dashboard', 'customers', 'bootstrap'] as const
@@ -245,7 +301,7 @@ export async function POST(request: NextRequest) {
       {
         message: 'Transaction created successfully',
         transaction: {
-          id: result.insertedId.toString(),
+          id: insertedId.toString(),
           entityType: validatedData.entityType,
           entityId: validatedData.entityId,
           type: validatedData.type,
