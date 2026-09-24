@@ -36,6 +36,16 @@ describe('/api/transactions/[id]/bill', () => {
     mocks.getUserIdFromRequest.mockReturnValue(ids.user);
   });
 
+  it('routes an owned on-demand invoice attachment to the authenticated PDF endpoint', async () => {
+    const downloadUrl = `/api/invoices/${ids.transaction}/download?filename=invoice.pdf`;
+    mocks.getDb.mockResolvedValue({ collection: () => ({ findOne: vi.fn().mockResolvedValue({ billUrl: downloadUrl }) }) });
+    const { GET } = await import('@/app/api/transactions/[id]/bill/route');
+    const response = await GET(jsonRequest(`http://localhost/api/transactions/${ids.transaction}/bill`), routeParams({ id: ids.transaction }));
+    expect(response.status).toBe(307);
+    expect(response.headers.get('location')).toBe(`http://localhost${downloadUrl}`);
+    expect(mocks.downloadRawAsset).not.toHaveBeenCalled();
+  });
+
   it('requires authentication before reading a transaction', async () => {
     mocks.getUserIdFromRequest.mockReturnValue(null);
     const { GET } = await import('@/app/api/transactions/[id]/bill/route');

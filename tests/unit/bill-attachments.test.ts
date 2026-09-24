@@ -46,3 +46,11 @@ describe('bill attachment view URLs', () => {
     expect(getDailyCashBillViewUrl('record', { id: 'entry' })).toBe('');
   });
 });
+
+it('opens on-demand invoice PDFs directly for ledger and cash entries', () => {
+  const billUrl = '/api/invoices/507f1f77bcf86cd799439011/download?filename=invoice.pdf';
+  const attachment = { id: 'entry', billUrl };
+  expect(isPdfBillAttachment(attachment)).toBe(true);
+  expect(getTransactionBillViewUrl('transaction', attachment)).toBe(billUrl);
+  expect(getDailyCashBillViewUrl('record', attachment)).toBe(billUrl);
+});

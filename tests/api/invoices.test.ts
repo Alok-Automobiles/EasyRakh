@@ -257,7 +257,7 @@ describe('/api/invoices stock sync', () => {
     });
   });
 
-  it('deducts linked inventory when creating an invoice', async () => {
+  it.each([undefined, 300, 0])('deducts stock and uses invoice cost %s without changing inventory cost', async (unitCost) => {
     const invoiceFind = invoiceFindChain();
     const insertOne = vi.fn().mockResolvedValue({ insertedId: objectIdLike('507f1f77bcf86cd799439099') });
     const inventoryLookup = inventoryFindChain([storedInventory(8)]);
@@ -276,9 +276,10 @@ describe('/api/invoices stock sync', () => {
     );
 
     const { POST } = await import('@/app/api/invoices/route');
-    const response = await POST(jsonRequest('http://localhost/api/invoices', createBody([linkedItem()])));
+    const response = await POST(jsonRequest('http://localhost/api/invoices', createBody([{ ...linkedItem(), unitCost }])));
 
     expect(response.status).toBe(201);
+    expect(mocks.uploadInvoicePdf).not.toHaveBeenCalled();
     expect(mocks.session.withTransaction).toHaveBeenCalledTimes(1);
     expect(inventory.findOneAndUpdate).toHaveBeenCalledWith(
       { _id: expect.any(Object), userId: ids.user, quantity: { $gte: 2 } },
@@ -301,11 +302,13 @@ describe('/api/invoices stock sync', () => {
             quantity: 2,
             amount: 900,
             unitPrice: 450,
-            unitCost: 450,
-            cogs: 900,
+            unitCost: unitCost ?? 450,
+            cogs: 2 * (unitCost ?? 450),
           }),
         ],
         totalAmount: 900,
+        totalCogs: 2 * (unitCost ?? 450),
+        grossProfit: 900 - 2 * (unitCost ?? 450),
       }),
       { session: mocks.session }
     );
@@ -460,12 +463,7 @@ describe('/api/invoices stock sync', () => {
       }),
       { session: mocks.session }
     );
-    expect(mocks.uploadInvoicePdf).toHaveBeenCalledWith(
-      ids.user,
-      expect.objectContaining({
-        invoiceDate: new Date('2026-06-15T00:00:00.000Z'),
-      })
-    );
+    expect(mocks.uploadInvoicePdf).not.toHaveBeenCalled();
   });
 
   it('creates an invoice with linked stock and a manual item that has a part number', async () => {
@@ -587,7 +585,7 @@ describe('/api/invoices stock sync', () => {
     expect(mocks.client.startSession).not.toHaveBeenCalled();
   });
 
-  it('adds an initial partial payment to Daily Cash with the stored invoice PDF', async () => {
+  it('adds an initial partial payment to Daily Cash with an on-demand invoice PDF', async () => {
     const invoiceFind = invoiceFindChain();
     const invoiceInsert = vi.fn().mockResolvedValue({ insertedId: objectIdLike('507f1f77bcf86cd799439099') });
     const inventoryLookup = inventoryFindChain([storedInventory(8)]);
@@ -631,7 +629,7 @@ describe('/api/invoices stock sync', () => {
         entries: [expect.objectContaining({
           amount: 400,
           source: 'invoice_payment',
-          billUrl: 'https://example.com/invoice.pdf',
+          billUrl: expect.stringMatching(/^\/api\/invoices\/[a-f0-9]{24}\/download\?filename=invoice\.pdf$/),
         })],
       }),
       { session: mocks.session }
@@ -647,7 +645,7 @@ describe('/api/invoices stock sync', () => {
     );
   });
 
-  it('attaches the generated invoice PDF to its ledger transaction', async () => {
+  it('attaches an on-demand invoice PDF to its ledger transaction', async () => {
     const invoiceFind = invoiceFindChain();
     const invoiceInsert = vi.fn().mockResolvedValue({
       insertedId: objectIdLike('507f1f77bcf86cd799439099'),
@@ -678,8 +676,8 @@ describe('/api/invoices stock sync', () => {
         entityId: ids.customer,
         type: 'debit',
         source: 'invoice',
-        billUrl: 'https://example.com/invoice.pdf',
-        billPublicId: 'invoice.pdf',
+        billUrl: expect.stringMatching(/^\/api\/invoices\/[a-f0-9]{24}\/download\?filename=invoice\.pdf$/),
+        billPublicId: '',
       }),
       { session: mocks.session }
     );

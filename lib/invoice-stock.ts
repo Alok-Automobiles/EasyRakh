@@ -263,7 +263,7 @@ export async function normalizeInvoiceItemsForSave(
       }
 
       const storedCost = inventoryItem.buyingPrice;
-      const unitCost = typeof storedCost === 'number' ? storedCost : item.unitCost;
+      const unitCost = item.unitCost ?? storedCost;
       if (unitCost === undefined || !Number.isFinite(unitCost) || unitCost < 0) {
         throw new InvoiceStockError(
           'MISSING_COST_PRICE',
@@ -274,21 +274,13 @@ export async function normalizeInvoiceItemsForSave(
       }
       const normalizedUnitCost = roundMoney(unitCost);
 
-      if (typeof storedCost !== 'number') {
-        await db.collection('inventory').updateOne(
-          { _id: inventoryItem._id, userId },
-          { $set: { buyingPrice: normalizedUnitCost, updatedAt: new Date() } },
-          { session }
-        );
-      }
-
       normalizedItems.push(buildCostedItem({
         inventoryItemId: inventoryItem._id.toString(),
         itemNumber: storedItemNumber,
-        // The inventory ID controls stock and cost. The entered name is an
+        // The inventory ID controls stock. The entered name is an
         // invoice-only description and must not rename the inventory record.
         itemName,
-      }, normalizedUnitCost, typeof storedCost === 'number' ? 'inventory_snapshot' : 'entered'));
+      }, normalizedUnitCost, item.unitCost === undefined || item.unitCost === storedCost ? 'inventory_snapshot' : 'entered'));
       continue;
     }
 
@@ -297,7 +289,7 @@ export async function normalizeInvoiceItemsForSave(
 
       if (inventoryItem) {
         const storedCost = inventoryItem.buyingPrice;
-        const unitCost = typeof storedCost === 'number' ? storedCost : item.unitCost;
+        const unitCost = item.unitCost ?? storedCost;
         if (unitCost === undefined || !Number.isFinite(unitCost) || unitCost < 0) {
           throw new InvoiceStockError(
             'MISSING_COST_PRICE',
@@ -307,18 +299,11 @@ export async function normalizeInvoiceItemsForSave(
           );
         }
         const normalizedUnitCost = roundMoney(unitCost);
-        if (typeof storedCost !== 'number') {
-          await db.collection('inventory').updateOne(
-            { _id: inventoryItem._id, userId },
-            { $set: { buyingPrice: normalizedUnitCost, updatedAt: new Date() } },
-            { session }
-          );
-        }
         normalizedItems.push(buildCostedItem({
           inventoryItemId: inventoryItem._id.toString(),
           itemNumber: inventoryItem.itemNumber || itemNumber,
           itemName,
-        }, normalizedUnitCost, typeof storedCost === 'number' ? 'inventory_snapshot' : 'entered'));
+        }, normalizedUnitCost, item.unitCost === undefined || item.unitCost === storedCost ? 'inventory_snapshot' : 'entered'));
         continue;
       }
     }

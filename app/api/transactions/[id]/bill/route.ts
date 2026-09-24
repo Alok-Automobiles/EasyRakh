@@ -1,3 +1,4 @@
+import { isInvoiceDownloadUrl } from '@/lib/bill-attachments';
 import { ObjectId } from 'mongodb';
 import { NextRequest, NextResponse } from 'next/server';
 import { getUserIdFromRequest } from '@/lib/auth';
@@ -57,6 +58,10 @@ export async function GET(
       );
       billUrl = invoice?.pdfUrl;
       billPublicId = invoice?.pdfPublicId;
+    }
+
+    if (isInvoiceDownloadUrl(billUrl)) {
+      return NextResponse.redirect(new URL(billUrl, request.url));
     }
 
     const [asset] = cloudinaryAssetsFromFields({

@@ -1,5 +1,7 @@
 'use client';
 
+import { fetchAppBootstrap } from '@/lib/app-bootstrap-client';
+
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
@@ -37,6 +39,7 @@ import type { EditableInvoiceItem } from '@/components/InvoiceItemsEditor';
 import { Customer } from '@/lib/types';
 import { parseNumberInputOrZero } from '@/lib/number-input';
 import { format } from 'date-fns';
+import { clearInvoiceDraft, invoiceDraftKey, readInvoiceDraft, writeInvoiceDraft, type InvoiceDraft } from '@/lib/invoice-draft';
 import { useDebounce } from '@/lib/hooks/useDebounce';
 
 interface CustomerWithId extends Customer {
@@ -93,6 +96,9 @@ export default function NewInvoicePage() {
   const [submitting, setSubmitting] = useState(false);
   const hasFetchedRef = useRef(false);
   const createRequestIdRef = useRef<string | null>(null);
+  const [draftKey, setDraftKey] = useState<string | null>(null);
+  const [draftSaved, setDraftSaved] = useState(false);
+  const draftCompletedRef = useRef(false);
 
   const [nextInvoiceNumber, setNextInvoiceNumber] = useState('');
   const [invoiceDate, setInvoiceDate] = useState(() => format(new Date(), 'yyyy-MM-dd'));
@@ -103,7 +109,7 @@ export default function NewInvoicePage() {
     query: string;
     customers: CustomerWithId[];
   } | null>(null);
-  const [selectedCustomer, setSelectedCustomer] = useState<CustomerWithId | null>(null);
+  const [selectedCustomer, setSelectedCustomer] = useState<InvoiceDraft['selectedCustomer']>(null);
   const [showCustomerDropdown, setShowCustomerDropdown] = useState(false);
   const [customerName, setCustomerName] = useState('');
   const [customerPhone, setCustomerPhone] = useState('');
@@ -121,6 +127,16 @@ export default function NewInvoicePage() {
   const [addToLedger, setAddToLedger] = useState(false);
   const [firmDetailsComplete, setFirmDetailsComplete] = useState(false);
 
+  useEffect(() => {
+    if (!draftKey || draftCompletedRef.current) return;
+    setDraftSaved(writeInvoiceDraft(draftKey, {
+      invoiceDate, customerSearch, customerName, customerPhone, customerAddress,
+      selectedCustomer, createNewCustomer, items, paidAmount, notes, addToLedger,
+      clientRequestId: createRequestIdRef.current,
+    }));
+  }, [draftKey, invoiceDate, customerSearch, customerName, customerPhone, customerAddress,
+    selectedCustomer, createNewCustomer, items, paidAmount, notes, addToLedger]);
+
   const customerDropdownRef = useRef<HTMLDivElement | null>(null);
 
   const totalAmount = items.reduce(
@@ -134,19 +150,30 @@ export default function NewInvoicePage() {
 
     const fetchData = async () => {
       try {
-        const [customersRes, userRes] = await Promise.all([
-          fetch('/api/customers'),
-          fetch('/api/auth/me'),
-        ]);
-
-        if (customersRes.ok) {
-          const data = await customersRes.json();
-          setCustomers(data.customers || []);
-        }
+        const userRes = await fetchAppBootstrap();
 
         if (userRes.ok) {
           const data = await userRes.json();
           const user = data.user || {};
+          if (user.id) {
+            const key = invoiceDraftKey(user.id);
+            const draft = readInvoiceDraft(key);
+            if (draft) {
+              setInvoiceDate(draft.invoiceDate);
+              setCustomerSearch(draft.customerSearch);
+              setCustomerName(draft.customerName);
+              setCustomerPhone(draft.customerPhone);
+              setCustomerAddress(draft.customerAddress);
+              setSelectedCustomer(draft.selectedCustomer);
+              setCreateNewCustomer(draft.createNewCustomer);
+              setItems(draft.items);
+              setPaidAmount(draft.paidAmount);
+              setNotes(draft.notes);
+              setAddToLedger(draft.addToLedger);
+              createRequestIdRef.current = draft.clientRequestId;
+            }
+            setDraftKey(key);
+          }
           setFirmDetailsComplete(Boolean(
             user.firmTitle && user.gstNumber && user.firmPhone && user.firmEmail && user.firmAddress
           ));
@@ -163,6 +190,7 @@ export default function NewInvoicePage() {
   }, []);
 
   useEffect(() => {
+    if (loading) return;
     if (!invoiceDate) {
       setNextInvoiceNumber('');
       return;
@@ -187,7 +215,16 @@ export default function NewInvoicePage() {
 
     loadNextInvoiceNumber();
     return () => controller.abort();
-  }, [invoiceDate]);
+  }, [invoiceDate, loading]);
+
+  const customerSuggestionsRequested = useRef(false);
+  useEffect(() => {
+    if (!showCustomerDropdown || customerSearch.trim().length >= 2 || customerSuggestionsRequested.current) return;
+    customerSuggestionsRequested.current = true;
+    fetch('/api/customers?limit=20').then(async response => {
+      if (response.ok) setCustomers((await response.json()).customers || []);
+    }).catch(() => { customerSuggestionsRequested.current = false; });
+  }, [showCustomerDropdown, customerSearch]);
 
   const debouncedCustomerSearch = useDebounce(customerSearch, 300).trim();
   useEffect(() => {
@@ -399,6 +436,11 @@ export default function NewInvoicePage() {
         createCustomerIfNew: createNewCustomer && addToLedger,
       };
 
+      // Preserve the retry key too if navigation interrupts a pending submission.
+      if (draftKey) {
+        const draft = readInvoiceDraft(draftKey);
+        if (draft) writeInvoiceDraft(draftKey, { ...draft, clientRequestId: payload.clientRequestId });
+      }
       const response = await fetch('/api/invoices', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -411,8 +453,10 @@ export default function NewInvoicePage() {
       }
 
       const data = await response.json();
+      draftCompletedRef.current = true;
+      if (draftKey) clearInvoiceDraft(draftKey);
       createRequestIdRef.current = null;
-      await queryClient.invalidateQueries({ queryKey: ['invoices'] });
+      await queryClient.invalidateQueries({ queryKey: ['invoices'], refetchType: 'none' });
       toast.success('Invoice created successfully!');
       router.push(`/invoices/${data.invoice.id}`);
     } catch (error) {
@@ -433,6 +477,7 @@ export default function NewInvoicePage() {
     selectedCustomer,
     createNewCustomer,
     firmDetailsComplete,
+    draftKey,
     queryClient,
     router,
   ]);
@@ -490,6 +535,9 @@ export default function NewInvoicePage() {
               <h1 className="text-2xl sm:text-3xl font-bold text-gray-900">
                 Create Invoice
               </h1>
+              {draftKey && <p className="text-sm text-gray-500" role="status">
+                {draftSaved ? 'Draft saved in this tab. You can leave and return to continue.' : 'Draft could not be saved in this tab.'}
+              </p>}
               {nextInvoiceNumber && (
                 <p className="text-gray-500 text-sm">
                   Invoice #: {nextInvoiceNumber}

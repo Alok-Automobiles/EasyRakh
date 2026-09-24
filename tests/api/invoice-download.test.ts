@@ -68,6 +68,22 @@ describe('/api/invoices/[id]/download', () => {
     mocks.getUserIdFromRequest.mockReturnValue(ids.user);
   });
 
+  it('generates a new invoice PDF on demand from its saved seller snapshot without cloud storage', async () => {
+    const sellerSnapshot = { firmTitle: 'Saved seller' };
+    const { db, userFindOne } = dbWithInvoice({ ...storedInvoice, pdfUrl: `/api/invoices/${invoiceId}/download?filename=invoice.pdf`, pdfPublicId: '', sellerSnapshot });
+    mocks.getDb.mockResolvedValue(db);
+    mocks.cloudinaryAssetsFromFields.mockReturnValue([]);
+    mocks.isSellerSnapshotComplete.mockReturnValue(true);
+    mocks.buildInvoicePdfBuffer.mockReturnValue(Buffer.from('%PDF-1.7 on demand'));
+    const { GET } = await import('@/app/api/invoices/[id]/download/route');
+    const response = await GET(jsonRequest(`http://localhost/api/invoices/${invoiceId}/download`), routeParams({ id: invoiceId }));
+    expect(response.status).toBe(200);
+    expect(Buffer.from(await response.arrayBuffer()).toString()).toBe('%PDF-1.7 on demand');
+    expect(mocks.downloadRawAsset).not.toHaveBeenCalled();
+    expect(userFindOne).not.toHaveBeenCalled();
+    expect(mocks.buildInvoicePdfBuffer).toHaveBeenCalledWith(expect.objectContaining({ sellerSnapshot }));
+  });
+
   it('downloads the stored PDF immediately when one exists', async () => {
     const { db, invoiceFindOne, userFindOne } = dbWithInvoice(storedInvoice);
     mocks.getDb.mockResolvedValue(db);

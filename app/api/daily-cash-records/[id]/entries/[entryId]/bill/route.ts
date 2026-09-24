@@ -1,3 +1,4 @@
+import { isInvoiceDownloadUrl } from '@/lib/bill-attachments';
 import { ObjectId } from 'mongodb';
 import { NextRequest, NextResponse } from 'next/server';
 import { getUserIdFromRequest } from '@/lib/auth';
@@ -48,6 +49,10 @@ export async function GET(
 
     if (!entry) {
       return NextResponse.json({ error: 'Bill attachment not found' }, { status: 404 });
+    }
+
+    if (isInvoiceDownloadUrl(entry.billUrl)) {
+      return NextResponse.redirect(new URL(entry.billUrl, request.url));
     }
 
     const [asset] = cloudinaryAssetsFromFields({

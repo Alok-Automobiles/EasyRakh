@@ -1,3 +1,8 @@
+// Only app-owned invoice URLs may bypass the Cloudinary bill proxy.
+export function isInvoiceDownloadUrl(url?: string): url is string {
+  return /^\/api\/invoices\/[a-f0-9]{24}\/download\?filename=invoice\.pdf$/i.test(url || '');
+}
+
 export type BillAttachment = {
   id: string;
   billUrl?: string;
@@ -14,6 +19,7 @@ export function isPdfBillAttachment(
 
 export function getDailyCashBillViewUrl(recordId: string, attachment: BillAttachment) {
   if (!attachment.billUrl) return '';
+  if (isInvoiceDownloadUrl(attachment.billUrl)) return attachment.billUrl;
   if (!isPdfBillAttachment(attachment)) return attachment.billUrl;
 
   return [
@@ -30,6 +36,7 @@ export function getTransactionBillViewUrl(
   attachment: Pick<BillAttachment, 'billUrl' | 'billPublicId'>
 ) {
   if (!attachment.billUrl) return '';
+  if (isInvoiceDownloadUrl(attachment.billUrl)) return attachment.billUrl;
   if (!isPdfBillAttachment(attachment)) return attachment.billUrl;
 
   return `/api/transactions/${encodeURIComponent(transactionId)}/bill`;
