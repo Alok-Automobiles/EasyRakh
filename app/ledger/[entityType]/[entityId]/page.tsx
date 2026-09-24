@@ -87,6 +87,7 @@ interface LedgerData {
     billPublicId?: string;
   };
   entries: LedgerEntry[];
+  pagination?: { hasMore: boolean; nextCursor?: string };
   totals: {
     credit: number;
     debit: number;
@@ -108,7 +109,12 @@ export default function LedgerPage() {
   const editInFlight = useRef(false);
   const [ledgerData, setLedgerData] = useState<LedgerData | null>(null);
   const [loading, setLoading] = useState(true);
-  const lastFetchedRef = useRef<string>('');
+  const [loadingMore, setLoadingMore] = useState(false);
+  const [pageError, setPageError] = useState(false);
+  const loadMoreRef = useRef<HTMLDivElement>(null);
+  const requestRef = useRef<AbortController | null>(null);
+  const [printData, setPrintData] = useState<LedgerData | null>(null);
+  const [preparingPrint, setPreparingPrint] = useState(false);
   const [billModalOpen, setBillModalOpen] = useState(false);
   const [selectedEntry, setSelectedEntry] = useState<(LedgerEntry & { transactionId?: string }) | null>(null);
   const [selectedTransaction, setSelectedTransaction] = useState<{
@@ -174,32 +180,62 @@ export default function LedgerPage() {
   const [openingBalanceUploading, setOpeningBalanceUploading] = useState(false);
   const openingBalanceFileInputRef = useRef<HTMLInputElement>(null);
 
-  const fetchLedger = useCallback(async () => {
+  const fetchLedger = useCallback(async (cursor?: string) => {
+    // A refresh supersedes any page request; repeated scroll events share one request.
+    if (cursor && requestRef.current) return;
+    requestRef.current?.abort();
+    const controller = new AbortController();
+    requestRef.current = controller;
+    setPageError(false);
+    setLoadingMore(!!cursor);
+    if (!cursor) setLoading(true);
     try {
-      const response = await fetch(`/api/ledger/${entityType}/${entityId}`);
-      if (response.ok) {
-        const data = await response.json();
-        setLedgerData(data);
-      } else if (response.status === 401) {
+      const query = new URLSearchParams({ limit: '50' });
+      if (cursor) query.set('cursor', cursor);
+      const response = await fetch(`/api/ledger/${entityType}/${entityId}?${query}`, {
+        signal: controller.signal,
+      });
+      if (response.status === 401) {
         router.push('/login');
-      } else {
-        toast.error('Failed to fetch ledger');
+        return;
       }
+      if (!response.ok) throw new Error('Failed to fetch ledger');
+      const data: LedgerData = await response.json();
+      if (controller.signal.aborted) return;
+      setLedgerData(previous => cursor && previous
+        ? { ...data, entries: [...previous.entries, ...data.entries] }
+        : data);
     } catch (error) {
+      if (controller.signal.aborted) return;
       console.error('Failed to fetch ledger data', error);
-      toast.error('An error occurred. Please try again.');
+      setPageError(true);
+      toast.error('Failed to fetch ledger. Please try again.');
     } finally {
-      setLoading(false);
+      if (requestRef.current === controller) {
+        requestRef.current = null;
+        setLoading(false);
+        setLoadingMore(false);
+      }
     }
   }, [entityId, entityType, router]);
 
   useEffect(() => {
     if (!entityId || !entityType) return;
-    const fetchKey = `${entityType}-${entityId}`;
-    if (lastFetchedRef.current === fetchKey) return;
-    lastFetchedRef.current = fetchKey;
-    fetchLedger();
+    setLedgerData(null);
+    void fetchLedger();
+    return () => requestRef.current?.abort();
   }, [entityId, entityType, fetchLedger]);
+
+  const nextCursor = ledgerData?.pagination?.hasMore ? ledgerData.pagination.nextCursor : undefined;
+  useEffect(() => {
+    const target = loadMoreRef.current;
+    if (!target || !nextCursor || loading || loadingMore || pageError || typeof IntersectionObserver === 'undefined') return;
+    const observer = new IntersectionObserver(([entry]) => {
+      if (entry.isIntersecting) void fetchLedger(nextCursor);
+    }, { rootMargin: '200px' });
+    observer.observe(target);
+    return () => observer.disconnect();
+  }, [nextCursor, loading, loadingMore, pageError, fetchLedger]);
 
   useEffect(() => {
     const handleAssistantUpdate = (event: Event) => {
@@ -212,7 +248,6 @@ export default function LedgerPage() {
         detail.entityType === entityType &&
         detail.entityId === entityId
       ) {
-        lastFetchedRef.current = '';
         fetchLedger();
       }
     };
@@ -383,7 +418,6 @@ export default function LedgerPage() {
       void refreshSupplierPayments();
       handleEditModalClose();
       // Refresh ledger data
-      lastFetchedRef.current = '';
       fetchLedger();
     } catch (error) {
       console.error('Failed to update transaction', error);
@@ -428,7 +462,6 @@ export default function LedgerPage() {
       void refreshSupplierPayments();
       handleDeleteModalClose();
       // Refresh ledger data
-      lastFetchedRef.current = '';
       fetchLedger();
     } catch (error) {
       console.error('Failed to delete transaction', error);
@@ -723,7 +756,6 @@ export default function LedgerPage() {
       toast.success('Opening balance updated successfully');
       handleOpeningBalanceModalClose();
       // Refresh ledger data
-      lastFetchedRef.current = '';
       fetchLedger();
     } catch (error) {
       console.error('Failed to update opening balance', error);
@@ -754,8 +786,29 @@ export default function LedgerPage() {
   };
 
   const handlePrintClick = async () => {
-    await fetchFirmInfo();
-    setPrintOverlayOpen(true);
+    if (preparingPrint) return;
+    setPreparingPrint(true);
+    try {
+      // Printing explicitly requests the complete ledger, independently of scroll position.
+      let complete: LedgerData | null = null;
+      let cursor: string | undefined;
+      do {
+        const query = new URLSearchParams({ limit: '500' });
+        if (cursor) query.set('cursor', cursor);
+        const response = await fetch(`/api/ledger/${entityType}/${entityId}?${query}`);
+        if (!response.ok) throw new Error('Failed to load complete ledger');
+        const page: LedgerData = await response.json();
+        complete = complete ? { ...page, entries: [...complete.entries, ...page.entries] } : page;
+        cursor = page.pagination?.hasMore ? page.pagination.nextCursor : undefined;
+      } while (cursor);
+      setPrintData(complete);
+      await fetchFirmInfo();
+      setPrintOverlayOpen(true);
+    } catch {
+      toast.error('Failed to prepare ledger for printing. Please try again.');
+    } finally {
+      setPreparingPrint(false);
+    }
   };
 
   if (loading) {
@@ -1041,9 +1094,17 @@ export default function LedgerPage() {
           </div>
         </Card>
 
+        {nextCursor && (
+          <div ref={loadMoreRef} className="flex justify-center py-4" aria-live="polite">
+            <Button variant="outline" disabled={loadingMore} onClick={() => fetchLedger(nextCursor)}>
+              {loadingMore ? 'Loading transactions…' : pageError ? 'Retry loading transactions' : 'Load more transactions'}
+            </Button>
+          </div>
+        )}
+
         <div className="mt-6 flex justify-end gap-3">
-          <Button variant="outline" onClick={handlePrintClick}>
-            Print/Download
+          <Button variant="outline" onClick={handlePrintClick} disabled={preparingPrint}>
+            {preparingPrint ? 'Preparing ledger…' : 'Print/Download'}
           </Button>
           <Button asChild>
             <Link href={`/transactions/new?entityType=${entityType}&entityId=${entityId}`}>
@@ -1406,7 +1467,7 @@ export default function LedgerPage() {
         <PrintLedgerOverlay
           open={printOverlayOpen}
           onClose={() => setPrintOverlayOpen(false)}
-          ledgerData={ledgerData}
+          ledgerData={printData}
           initialFirmInfo={firmInfo}
         />
       </div>

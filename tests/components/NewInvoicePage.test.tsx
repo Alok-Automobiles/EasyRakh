@@ -1,6 +1,7 @@
 import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { invoiceDraftKey } from '@/lib/invoice-draft';
 import NewInvoicePage from '@/app/invoices/new/page';
 
 const mocks = vi.hoisted(() => ({
@@ -38,7 +39,8 @@ vi.mock('@/components/InvoiceItemsEditor', () => ({
     unitCost: undefined,
     unitCostInput: '',
   }),
-  default: ({ onChange }: { onChange: (items: unknown[]) => void }) => (
+  default: ({ items, onChange }: { items: unknown[]; onChange: (items: unknown[]) => void }) => (
+    <div><output aria-label="Draft items">{JSON.stringify(items)}</output>
     <button
       type="button"
       onClick={() => onChange([{
@@ -51,7 +53,7 @@ vi.mock('@/components/InvoiceItemsEditor', () => ({
       }])}
     >
       Add valid invoice item
-    </button>
+    </button></div>
   ),
 }));
 
@@ -59,6 +61,7 @@ describe('NewInvoicePage', () => {
   beforeEach(() => {
     mocks.invalidateQueries.mockReset().mockResolvedValue(undefined);
     mocks.push.mockReset();
+    sessionStorage.clear();
   });
 
   afterEach(() => {
@@ -69,12 +72,12 @@ describe('NewInvoicePage', () => {
     const fetchMock = vi.spyOn(globalThis, 'fetch').mockImplementation(async (input) => {
       const url = String(input);
 
-      if (url === '/api/customers') {
+      if (url === '/api/customers?limit=20') {
         return Response.json({
           customers: [{ id: 'customer-1', name: 'Raj Traders', phone: '9876543210' }],
         });
       }
-      if (url === '/api/auth/me') {
+      if (url === '/api/bootstrap') {
         return Response.json({ user: {} });
       }
       if (url.startsWith('/api/invoices/next-number')) {
@@ -107,12 +110,13 @@ describe('NewInvoicePage', () => {
     const fetchMock = vi.spyOn(globalThis, 'fetch').mockImplementation(async (input, init) => {
       const url = String(input);
 
-      if (url === '/api/customers') {
+      if (url === '/api/customers?limit=20') {
         return Response.json({ customers: [] });
       }
-      if (url === '/api/auth/me') {
+      if (url === '/api/bootstrap') {
         return Response.json({
           user: {
+            id: 'user-1',
             firmTitle: 'EasyRakh Test',
             gstNumber: '07ABCDE1234F1Z5',
             firmPhone: '9999999999',
@@ -145,12 +149,43 @@ describe('NewInvoicePage', () => {
         '/api/invoices',
         expect.objectContaining({ method: 'POST' })
       );
-      expect(mocks.invalidateQueries).toHaveBeenCalledWith({ queryKey: ['invoices'] });
+      expect(mocks.invalidateQueries).toHaveBeenCalledWith({ queryKey: ['invoices'], refetchType: 'none' });
       expect(mocks.push).toHaveBeenCalledWith('/invoices/invoice-1');
     });
 
+    expect(sessionStorage.getItem(invoiceDraftKey('user-1'))).toBeNull();
     expect(mocks.invalidateQueries.mock.invocationCallOrder[0]).toBeLessThan(
       mocks.push.mock.invocationCallOrder[0]
     );
   });
+});
+
+
+it('restores unfinished customer, item, and note inputs after leaving and returning, scoped to the account', async () => {
+  sessionStorage.clear();
+  let userId = 'draft-owner';
+  vi.spyOn(globalThis, 'fetch').mockImplementation(async (input) => {
+    const url = String(input);
+    if (url === '/api/bootstrap') return Response.json({ user: { id: userId } });
+    if (url.startsWith('/api/customers')) return Response.json({ customers: [] });
+    return Response.json({ nextInvoiceNumber: 'INV-1' });
+  });
+  const first = render(<NewInvoicePage />);
+  fireEvent.change(await screen.findByLabelText('Customer Name *'), { target: { value: 'Draft Customer' } });
+  fireEvent.click(screen.getByRole('button', { name: 'Add valid invoice item' }));
+  const notes = screen.getByPlaceholderText(/notes/i);
+  fireEvent.change(notes, { target: { value: 'Deliver tomorrow' } });
+  await waitFor(() => expect(sessionStorage.getItem(invoiceDraftKey(userId))).toContain('Deliver tomorrow'));
+  first.unmount();
+  const second = render(<NewInvoicePage />);
+  expect(await screen.findByLabelText('Customer Name *')).toHaveValue('Draft Customer');
+  expect(screen.getByLabelText('Draft items')).toHaveTextContent('Brake Pad');
+  expect(screen.getByLabelText('Draft items')).toHaveTextContent('600');
+  expect(screen.getByPlaceholderText(/notes/i)).toHaveValue('Deliver tomorrow');
+  second.unmount();
+  userId = 'another-account';
+  render(<NewInvoicePage />);
+  expect(await screen.findByLabelText('Customer Name *')).toHaveValue('');
+  expect(screen.getByLabelText('Draft items')).not.toHaveTextContent('Brake Pad');
+  vi.restoreAllMocks();
 });

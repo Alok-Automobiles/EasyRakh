@@ -38,6 +38,16 @@ describe('/api/daily-cash-records/[id]/entries/[entryId]/bill', () => {
     mocks.getUserIdFromRequest.mockReturnValue(ids.user);
   });
 
+  it('routes an owned on-demand invoice attachment to the authenticated PDF endpoint', async () => {
+    const downloadUrl = `/api/invoices/${ids.transaction}/download?filename=invoice.pdf`;
+    mocks.getDb.mockResolvedValue({ collection: () => ({ findOne: vi.fn().mockResolvedValue({ entries: [{ billUrl: downloadUrl }] }) }) });
+    const { GET } = await import('@/app/api/daily-cash-records/[id]/entries/[entryId]/bill/route');
+    const response = await GET(jsonRequest(`http://localhost/api/daily-cash-records/${recordId}/entries/${entryId}/bill`), routeParams({ id: recordId, entryId }));
+    expect(response.status).toBe(307);
+    expect(response.headers.get('location')).toBe(`http://localhost${downloadUrl}`);
+    expect(mocks.downloadRawAsset).not.toHaveBeenCalled();
+  });
+
   it('requires an authenticated user before accessing the database', async () => {
     mocks.getUserIdFromRequest.mockReturnValue(null);
     const { GET } = await import(

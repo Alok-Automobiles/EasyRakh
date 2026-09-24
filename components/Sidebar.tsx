@@ -1,5 +1,7 @@
 'use client';
 
+import { fetchAppBootstrap } from '@/lib/app-bootstrap-client';
+
 import Link from 'next/link';
 import Image from 'next/image';
 import { useRouter, usePathname } from 'next/navigation';
@@ -70,7 +72,7 @@ export default function Sidebar({ collapsed = false }: SidebarProps) {
     if (lastPathnameRef.current === pathname) return;
     lastPathnameRef.current = pathname;
 
-    fetch('/api/bootstrap')
+    fetchAppBootstrap()
       .then((res) => {
         if (res.ok) return res.json();
         if (res.status === 401) {

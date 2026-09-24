@@ -29,12 +29,7 @@ import { addInvoicePaymentCashEntry, parseInvoiceDate, parsePaymentDate } from '
 import {
   isSellerSnapshotComplete,
   sellerSnapshotFromUser,
-  uploadInvoicePdf,
 } from '@/lib/invoice-pdf';
-import {
-  cleanupInvoicePdfUploads,
-  transactionCommitMayBeUnknown,
-} from '@/lib/invoice-pdf-cleanup';
 
 const invoiceItemSchema = z.object({
   id: z.string().trim().optional(),
@@ -146,19 +141,11 @@ async function invalidateInvoiceCaches(
 ) {
   try {
     await refreshUserReadModels(db, userId);
-    await bumpCacheVersions(userId, ['invoices', 'dashboard', 'dailyCash', 'customers', 'inventory', 'search', 'bootstrap']);
-    if (customerId) {
-      await redis.del(
-        `ledger:customer:${customerId}:${userId}`
-      );
-    }
-    if (changedInventoryIds.size > 0) {
-      await Promise.all(
-        Array.from(changedInventoryIds).map((itemId) =>
-          invalidateInventoryCache(userId, itemId)
-        )
-      );
-    }
+    await Promise.all([
+      bumpCacheVersions(userId, ['invoices', 'dashboard', 'dailyCash', 'customers', 'inventory', 'search', 'bootstrap']),
+      ...(customerId ? [redis.del(`ledger:customer:${customerId}:${userId}`)] : []),
+      ...Array.from(changedInventoryIds, itemId => invalidateInventoryCache(userId, itemId)),
+    ]);
   } catch (cacheError) {
     console.warn('Redis cache invalidation failed:', cacheError);
   }
@@ -363,8 +350,6 @@ export async function POST(request: NextRequest) {
       changedInventoryIds.clear();
       savedCustomerId = undefined;
       createdInvoice = undefined;
-      let uploadedPdfForAttempt: { url: string; publicId: string } | undefined;
-      const uploadedPdfsForAttempt: Array<{ url: string; publicId: string }> = [];
 
       try {
         await session.withTransaction(async () => {
@@ -450,7 +435,8 @@ export async function POST(request: NextRequest) {
             addedToLedger: false,
             transactionId: undefined as string | undefined,
             sellerSnapshot,
-            pdfUrl: '',
+            // Generate PDFs on demand through the authenticated download endpoint.
+            pdfUrl: `/api/invoices/${invoiceObjectId}/download?filename=invoice.pdf`,
             pdfPublicId: '',
             pdfStatus: 'missing',
             ...invoiceSearchFields({
@@ -471,31 +457,11 @@ export async function POST(request: NextRequest) {
           );
           adjustedIds.forEach((itemId) => changedInventoryIds.add(itemId));
 
-          uploadedPdfForAttempt = await uploadInvoicePdf(userId, {
-            invoiceNumber,
-            customerName: validatedData.customerName,
-            customerPhone: validatedData.customerPhone,
-            customerAddress: validatedData.customerAddress,
-            items: normalizedItems,
-            totalAmount,
-            paidAmount: initialPaidAmount,
-            status,
-            notes: validatedData.notes,
-            invoiceDate,
-            createdAt: now,
-            sellerSnapshot: sellerSnapshot!,
-          });
-          uploadedPdfsForAttempt.push(uploadedPdfForAttempt);
-          invoiceDoc.pdfUrl = uploadedPdfForAttempt.url;
-          invoiceDoc.pdfPublicId = uploadedPdfForAttempt.publicId;
-          invoiceDoc.pdfStatus = 'ready';
-          invoiceDoc.pdfUpdatedAt = now;
-
           let paymentLedgerTransactionId: string | undefined;
           if (validatedData.addToLedger && customerId) {
             const attachment = {
-              billUrl: uploadedPdfForAttempt.url,
-              billPublicId: uploadedPdfForAttempt.publicId,
+              billUrl: invoiceDoc.pdfUrl,
+              billPublicId: '',
             };
             const debitTx = await transactionsCollection.insertOne(
               {
@@ -574,17 +540,8 @@ export async function POST(request: NextRequest) {
           };
         });
 
-        await cleanupInvoicePdfUploads(
-          uploadedPdfsForAttempt,
-          uploadedPdfForAttempt?.publicId,
-          'retried invoice PDF upload'
-        );
-
         break;
       } catch (error) {
-        if (!transactionCommitMayBeUnknown(error)) {
-          await cleanupInvoicePdfUploads(uploadedPdfsForAttempt, undefined, 'uncommitted invoice PDF');
-        }
         if (
           attempt < INVOICE_NUMBER_RETRY_ATTEMPTS &&
           isDuplicateInvoiceNumberError(error)

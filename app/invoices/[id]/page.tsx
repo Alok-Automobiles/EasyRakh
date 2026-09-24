@@ -1,5 +1,6 @@
 'use client';
 
+import { useQueryClient } from '@tanstack/react-query';
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { useRouter, useParams, useSearchParams } from 'next/navigation';
 import Link from 'next/link';
@@ -138,6 +139,8 @@ function isValidInvoiceItem(item: EditableInvoiceItem) {
 export default function InvoiceDetailPage() {
   const router = useRouter();
   const refreshCashPlanning = useRefreshSupplierPayments();
+  const queryClient = useQueryClient();
+  const invalidateInvoiceLists = () => queryClient.invalidateQueries({ queryKey: ['invoices'], refetchType: 'all' });
   const params = useParams();
   const searchParams = useSearchParams();
   const id = params.id as string;
@@ -622,6 +625,7 @@ export default function InvoiceDetailPage() {
 
       const data = await response.json();
       setInvoice(data.invoice);
+      await invalidateInvoiceLists();
       setIsEditing(false);
       toast.success('Invoice updated successfully!');
     } catch (error) {
@@ -668,7 +672,7 @@ export default function InvoiceDetailPage() {
       }
       paymentRequestIdRef.current = null;
       try {
-        await Promise.all([refreshInvoice(), refreshCashPlanning()]);
+        await Promise.all([invalidateInvoiceLists(), refreshInvoice(), refreshCashPlanning()]);
       } catch (refreshError) {
         console.warn('Payment saved but invoice view refresh failed', refreshError);
       }
@@ -690,7 +694,7 @@ export default function InvoiceDetailPage() {
       const data = await response.json();
       if (!response.ok) throw new Error(data.error || 'Failed to delete payment');
       try {
-        await Promise.all([refreshInvoice(), refreshCashPlanning()]);
+        await Promise.all([invalidateInvoiceLists(), refreshInvoice(), refreshCashPlanning()]);
       } catch (refreshError) {
         console.warn('Payment deleted but invoice view refresh failed', refreshError);
       }

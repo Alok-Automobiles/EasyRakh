@@ -21,7 +21,7 @@ function transactionCursor(items: unknown[]) {
     toArray: vi.fn().mockResolvedValue(items),
   };
   return {
-    find: vi.fn(() => cursor),
+    find: vi.fn((filter: Record<string, unknown>) => { void filter; return cursor; }),
     cursor,
   };
 }
@@ -172,4 +172,32 @@ describe('/api/ledger/[entityType]/[entityId]', () => {
       expect.objectContaining({ projection: expect.any(Object) })
     );
   });
+});
+
+
+it.each(['customer', 'supplier', 'partner'])('keeps %s cursor pages bounded and carries the running balance forward', async (entityType) => {
+  mocks.getUserIdFromRequest.mockReturnValue(ids.user);
+  const date = new Date('2026-09-01');
+  const rows = [31, 32, 33].map((n) => ({
+    _id: objectIdLike(`507f1f77bcf86cd7994390${n}`), date, createdAt: date,
+    type: 'debit', amount: 20, description: 'Transaction',
+  }));
+  const transactions = transactionCursor(rows);
+  mocks.getDb.mockResolvedValue({ collection: (name: string) => {
+    if (name === 'transactions') return transactions;
+    if (name === 'entityBalances') return { findOne: vi.fn().mockResolvedValue({ totalCredit: 0, totalDebit: 60, totalBalance: 160 }) };
+    return { findOne: vi.fn().mockResolvedValue({ _id: objectIdLike(ids.customer), name: 'Entity', openingBalance: 100, balanceType: 'debit' }) };
+  } });
+  const { GET } = await import('@/app/api/ledger/[entityType]/[entityId]/route');
+  const params = () => routeParams({ entityType, entityId: ids.customer });
+  const first = await (await GET(jsonRequest(`http://localhost/api/ledger/${entityType}/${ids.customer}?limit=2`), params())).json();
+  expect(first.entries.map((entry: { balance: number }) => entry.balance)).toEqual([120, 140]);
+  expect(first.pagination.hasMore).toBe(true);
+  transactions.cursor.toArray.mockResolvedValue([rows[2]]);
+  const second = await (await GET(jsonRequest(`http://localhost/api/ledger/${entityType}/${ids.customer}?limit=2&cursor=${first.pagination.nextCursor}`), params())).json();
+  expect(second.entries).toHaveLength(1);
+  expect(second.entries[0].balance).toBe(160);
+  expect(second.pagination.hasMore).toBe(false);
+  expect(transactions.cursor.limit.mock.calls).toEqual([[3], [3]]);
+  expect(transactions.find.mock.calls.at(-1)?.[0]).toMatchObject({ userId: ids.user, entityType, entityId: ids.customer, $or: expect.any(Array) });
 });
