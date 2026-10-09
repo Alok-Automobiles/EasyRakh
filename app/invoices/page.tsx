@@ -1,36 +1,26 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { Suspense, useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
-import { format } from 'date-fns';
 import toast from 'react-hot-toast';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { motion } from 'motion/react';
 import {
   FileText,
   Plus,
-  Search,
   Download,
   Trash2,
   Share2,
-  Filter,
   CheckCircle2,
   Clock,
   AlertCircle,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Badge } from '@/components/ui/badge';
 import { Pagination } from '@/components/ui/pagination';
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '@/components/ui/select';
+import { InvoiceFiltersToolbar } from '@/components/InvoiceFiltersToolbar';
 import {
   Dialog,
   DialogContent,
@@ -40,7 +30,9 @@ import {
   DialogTitle,
 } from '@/components/ui/dialog';
 import { Invoice } from '@/lib/types';
-import { useDebounce } from '@/lib/hooks/useDebounce';
+import { useInvoiceListFilters } from '@/lib/hooks/useInvoiceListFilters';
+import { formatInvoiceListDate, invoiceListParams, invoiceListUrl } from '@/lib/invoice-list-state';
+import { invoiceDetailUrl } from '@/lib/invoice-navigation';
 
 const currencyFormatter = new Intl.NumberFormat('en-IN', {
   style: 'currency',
@@ -80,25 +72,21 @@ const statusConfig = {
   },
 };
 
-export default function InvoicesPage() {
+function InvoicesPageContent() {
   const router = useRouter();
   const queryClient = useQueryClient();
-  const [searchQuery, setSearchQuery] = useState('');
-  const debouncedSearchQuery = useDebounce(searchQuery, 350);
-  const normalizedSearchQuery = debouncedSearchQuery.trim();
-  const effectiveSearchQuery = normalizedSearchQuery.length >= 2
-    ? normalizedSearchQuery
-    : '';
-  const [statusFilter, setStatusFilter] = useState<string>('all');
-  const [currentPage, setCurrentPage] = useState(1);
+  const { draft, filters, change, clear, setPage } = useInvoiceListFilters();
+  const queryString = invoiceListParams(filters).toString();
+  const returnTo = invoiceListUrl(filters);
+  const hasActiveFilters = Boolean(
+    filters.search || filters.status !== 'all' || filters.customerId ||
+    filters.startDate || filters.endDate || filters.minAmount || filters.maxAmount ||
+    filters.addedToLedger !== 'all'
+  );
   const [downloadingInvoiceId, setDownloadingInvoiceId] = useState<string | null>(null);
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [deletingInvoice, setDeletingInvoice] = useState<{ id: string; invoiceNumber: string; addedToLedger: boolean } | null>(null);
   const [deleteTransactions, setDeleteTransactions] = useState(false);
-
-  useEffect(() => {
-    setCurrentPage(1);
-  }, [effectiveSearchQuery, statusFilter]);
 
   useEffect(() => {
     const onKeyDown = (e: KeyboardEvent) => {
@@ -115,16 +103,14 @@ export default function InvoicesPage() {
     return () => window.removeEventListener('keydown', onKeyDown);
   }, [router]);
 
-  const { data, isLoading } = useQuery<InvoicesResponse>({
-    queryKey: ['invoices', effectiveSearchQuery, statusFilter, currentPage],
-    queryFn: async () => {
-      const params = new URLSearchParams();
-      if (effectiveSearchQuery) params.set('search', effectiveSearchQuery);
-      if (statusFilter && statusFilter !== 'all') params.set('status', statusFilter);
-      params.set('page', currentPage.toString());
+  const { data, isLoading, isFetching, isError, refetch } = useQuery<InvoicesResponse>({
+    queryKey: ['invoices', queryString],
+    queryFn: async ({ signal }) => {
+      const params = new URLSearchParams(queryString);
+      params.set('page', filters.page.toString());
       params.set('limit', '20');
 
-      const response = await fetch(`/api/invoices?${params.toString()}`);
+      const response = await fetch(`/api/invoices?${params.toString()}`, { signal });
       if (response.status === 401) {
         router.push('/login');
         throw new Error('Unauthorized');
@@ -188,7 +174,7 @@ export default function InvoicesPage() {
       if (response.status === 409) {
         const result = await response.json().catch(() => ({}));
         if (result.code === 'FIRM_DETAILS_REQUIRED') {
-          router.push(`/invoices/${invoice.id}?download=true`);
+          router.push(invoiceDetailUrl(invoice.id, returnTo, 'download'));
           return;
         }
       }
@@ -216,28 +202,6 @@ export default function InvoicesPage() {
     }
   };
 
-  if (isLoading) {
-    return (
-      <motion.div
-        initial={{ opacity: 0 }}
-        animate={{ opacity: 1 }}
-        transition={{ duration: 0.5 }}
-      >
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-          <div className="flex justify-between items-center mb-6">
-            <Skeleton className="h-9 w-48" />
-            <Skeleton className="h-10 w-36" />
-          </div>
-          <div className="space-y-4">
-            {[1, 2, 3, 4].map((i) => (
-              <Skeleton key={i} className="h-24 w-full rounded-xl" />
-            ))}
-          </div>
-        </div>
-      </motion.div>
-    );
-  }
-
   return (
     <motion.div
       initial={{ opacity: 0 }}
@@ -254,7 +218,7 @@ export default function InvoicesPage() {
             <div>
               <h1 className="text-2xl sm:text-3xl font-bold text-gray-900">Invoices</h1>
               <p className="text-gray-500 text-sm">
-                {data?.pagination?.total ?? invoices.length} {(data?.pagination?.total ?? invoices.length) === 1 ? 'invoice' : 'invoices'}
+                {isLoading ? 'Loading invoices...' : `${data?.pagination?.total ?? 0} matching ${(data?.pagination?.total ?? 0) === 1 ? 'invoice' : 'invoices'}`}
               </p>
             </div>
           </div>
@@ -270,52 +234,36 @@ export default function InvoicesPage() {
           </Button>
         </div>
 
-        {/* Filters */}
-        <div className="flex flex-col sm:flex-row gap-3 mb-6">
-          <div className="relative flex-1">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
-            <Input
-              placeholder="Search by customer name or invoice number..."
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-              aria-label="Search invoices"
-              className="pl-10"
-            />
-          </div>
-          <Select value={statusFilter} onValueChange={setStatusFilter}>
-            <SelectTrigger className="w-full sm:w-[180px]">
-              <Filter className="w-4 h-4 mr-2 text-gray-400" />
-              <SelectValue placeholder="Filter by status" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="all">All Status</SelectItem>
-              <SelectItem value="paid">Paid</SelectItem>
-              <SelectItem value="partial">Partial</SelectItem>
-              <SelectItem value="unpaid">Unpaid</SelectItem>
-            </SelectContent>
-          </Select>
-        </div>
+        <InvoiceFiltersToolbar draft={draft} filters={filters} onChange={change} onClear={clear} />
+
+        {isFetching && <p role="status" className="mb-3 text-sm text-gray-500">Updating invoices...</p>}
 
         {/* Invoice List */}
-        {invoices.length === 0 ? (
+        {isLoading ? (
+          <div className="space-y-4" aria-label="Loading invoices">
+            {[1, 2, 3].map((i) => <Skeleton key={i} className="h-24 w-full rounded-xl" />)}
+          </div>
+        ) : isError ? (
+          <div className="rounded-xl border border-red-200 bg-red-50 px-5 py-8 text-center">
+            <p role="alert" className="mb-3 text-sm text-red-700">Unable to load invoices. Please try again.</p>
+            <Button type="button" variant="outline" onClick={() => void refetch()}>Retry</Button>
+          </div>
+        ) : invoices.length === 0 ? (
           <div className="text-center py-16">
             <div className="w-20 h-20 mx-auto mb-6 rounded-2xl bg-blue-100 flex items-center justify-center">
               <FileText className="w-10 h-10 text-blue-500" strokeWidth={1.5} />
             </div>
-            <h3 className="text-xl font-semibold text-gray-900 mb-2">No invoices yet</h3>
+            <h3 className="text-xl font-semibold text-gray-900 mb-2">
+              {data?.pagination?.total ? 'No invoices on this page' : hasActiveFilters ? 'No matching invoices' : 'No invoices yet'}
+            </h3>
             <p className="text-gray-500 mb-6 max-w-sm mx-auto">
-              Create your first invoice to start tracking your sales and payments.
+              {data?.pagination?.total ? 'Return to the first page to see your matches.' : hasActiveFilters ? 'Try changing or clearing a search filter.' : 'Create your first invoice to start tracking your sales and payments.'}
             </p>
-            <Button
-              asChild
-              className="bg-slate-900 hover:bg-slate-800"
-              title="Shortcut: Ctrl+N / Cmd+N"
-            >
-              <Link href="/invoices/new">
-                <Plus className="w-4 h-4 mr-2" />
-                Create your first invoice
-              </Link>
-            </Button>
+            {data?.pagination?.total ? <Button type="button" onClick={() => setPage(1)}>First page</Button> : hasActiveFilters ? <Button type="button" variant="outline" onClick={clear}>Clear all filters</Button> : (
+              <Button asChild className="bg-slate-900 hover:bg-slate-800" title="Shortcut: Ctrl+N / Cmd+N">
+                <Link href="/invoices/new"><Plus className="w-4 h-4 mr-2" />Create your first invoice</Link>
+              </Button>
+            )}
           </div>
         ) : (
           <div className="space-y-3">
@@ -323,7 +271,7 @@ export default function InvoicesPage() {
               const status = statusConfig[invoice.status];
               const StatusIcon = status.icon;
 
-              const openInvoice = () => router.push(`/invoices/${invoice.id}`);
+              const openInvoice = () => router.push(invoiceDetailUrl(invoice.id, returnTo));
 
               return (
                 <motion.div
@@ -361,7 +309,7 @@ export default function InvoicesPage() {
                       </div>
                       <p className="text-sm text-gray-600 truncate">{invoice.customerName}</p>
                       <p className="text-xs text-gray-400 mt-1">
-                        Invoice date {format(new Date(invoice.invoiceDate || invoice.createdAt), 'MMM dd, yyyy')}
+                        Invoice date {formatInvoiceListDate(invoice.invoiceDate || invoice.createdAt)}
                       </p>
                     </div>
 
@@ -401,7 +349,7 @@ export default function InvoicesPage() {
                           title="Share Invoice"
                           asChild
                         >
-                          <Link href={`/invoices/${invoice.id}?share=true`}>
+                          <Link href={invoiceDetailUrl(invoice.id, returnTo, 'share')} aria-label={`Share invoice ${invoice.invoiceNumber}`}>
                             <Share2 className="w-4 h-4" />
                           </Link>
                         </Button>
@@ -410,6 +358,7 @@ export default function InvoicesPage() {
                           size="icon"
                           className="h-9 w-9 text-red-600 hover:text-red-700 hover:bg-red-50"
                           title="Delete Invoice"
+                          aria-label={`Delete invoice ${invoice.invoiceNumber}`}
                           onClick={() => openDeleteDialog(invoice)}
                         >
                           <Trash2 className="w-4 h-4" />
@@ -426,9 +375,9 @@ export default function InvoicesPage() {
         {/* Pagination */}
         {data?.pagination && data.pagination.totalPages > 1 && (
           <Pagination
-            currentPage={currentPage}
+            currentPage={filters.page}
             totalPages={data.pagination.totalPages}
-            onPageChange={setCurrentPage}
+            onPageChange={setPage}
             className="mt-6"
           />
         )}
@@ -495,4 +444,8 @@ export default function InvoicesPage() {
       </div>
     </motion.div>
   );
+}
+
+export default function InvoicesPage() {
+  return <Suspense fallback={<div className="mx-auto max-w-7xl px-4 py-8"><Skeleton className="h-10 w-48" /></div>}><InvoicesPageContent /></Suspense>;
 }

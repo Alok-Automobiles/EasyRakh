@@ -30,6 +30,13 @@ import {
   isSellerSnapshotComplete,
   sellerSnapshotFromUser,
 } from '@/lib/invoice-pdf';
+import {
+  InvoiceListQueryError,
+  invoiceListFilterQuery,
+  invoiceListSort,
+  invoiceListSortStages,
+  parseInvoiceListFilters,
+} from '@/lib/invoice-list-query';
 
 const invoiceItemSchema = z.object({
   id: z.string().trim().optional(),
@@ -163,6 +170,7 @@ export async function GET(request: NextRequest) {
     const customerId = searchParams.get('customerId');
     const status = searchParams.get('status');
     const search = searchParams.get('search')?.trim() || '';
+    const listFilters = parseInvoiceListFilters(searchParams);
     const pageParam = Number(searchParams.get('page') || '1');
     const limitParam = Number(searchParams.get('limit') || '20');
     const page = Number.isNaN(pageParam) || pageParam < 1 ? 1 : pageParam;
@@ -173,7 +181,7 @@ export async function GET(request: NextRequest) {
       request,
       'invoices',
       userId,
-      `${customerId || ''}:${status || ''}:${search || ''}:${page}:${limit}`
+      `list-v2:${JSON.stringify({ customerId, status, search, page, limit, ...listFilters })}`
     );
     const cachedData = await getCachedJson<Record<string, unknown>>(cacheKey);
     if (cachedData) {
@@ -183,7 +191,7 @@ export async function GET(request: NextRequest) {
     const db = await getDb();
     const invoicesCollection = db.collection('invoices');
 
-    const query: Document = { userId };
+    const query: Document = { userId, ...invoiceListFilterQuery(listFilters) };
     
     if (customerId) {
       query.customerId = customerId;
@@ -195,12 +203,19 @@ export async function GET(request: NextRequest) {
     const runInvoiceQuery = async (filter: Document) => {
       const [queryTotal, queryInvoices] = await Promise.all([
         invoicesCollection.countDocuments(filter),
-        invoicesCollection
-          .find(filter)
-          .sort({ createdAt: -1 })
-          .skip(skip)
-          .limit(limit)
-          .toArray(),
+        listFilters.sort === 'date-desc' || listFilters.sort === 'date-asc'
+          ? invoicesCollection.aggregate([
+            { $match: filter },
+            ...invoiceListSortStages(listFilters.sort),
+            { $skip: skip },
+            { $limit: limit },
+          ]).toArray()
+          : invoicesCollection
+            .find(filter)
+            .sort(invoiceListSort(listFilters.sort))
+            .skip(skip)
+            .limit(limit)
+            .toArray(),
       ]);
       return { total: queryTotal, invoices: queryInvoices };
     };
@@ -218,7 +233,11 @@ export async function GET(request: NextRequest) {
                 }>([
                   buildInvoiceSearchStage(userId, search),
                   { $match: query },
-                  ...searchScoreStages(),
+                  ...(listFilters.sort === 'default'
+                    ? searchScoreStages().map((stage) => stage.$sort
+                      ? { $sort: { ...stage.$sort, _id: -1 } }
+                      : stage)
+                    : invoiceListSortStages(listFilters.sort)),
                   {
                     $facet: {
                       invoices: [{ $skip: skip }, { $limit: limit }],
@@ -282,6 +301,9 @@ export async function GET(request: NextRequest) {
 
     return NextResponse.json(responseData, { status: 200 });
   } catch (error) {
+    if (error instanceof InvoiceListQueryError) {
+      return NextResponse.json({ error: error.message }, { status: 400 });
+    }
     console.error('Get invoices error:', error);
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
   }

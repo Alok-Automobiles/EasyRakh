@@ -48,6 +48,7 @@ import InvoiceItemsEditor from '@/components/InvoiceItemsEditor';
 import type { EditableInvoiceItem } from '@/components/InvoiceItemsEditor';
 import { getInvoiceItemDisplayRows, getInvoicePdfTableRows } from '@/lib/invoice-format';
 import { legacyUnitPrice } from '@/lib/invoice-calculations';
+import { invoiceListReturnUrl } from '@/lib/invoice-navigation';
 import { useRefreshSupplierPayments } from '@/lib/hooks/useSupplierPayments';
 
 interface InvoiceWithId extends Invoice {
@@ -146,6 +147,7 @@ export default function InvoiceDetailPage() {
   const id = params.id as string;
   const shouldDownload = searchParams.get('download') === 'true';
   const shouldShare = searchParams.get('share') === 'true';
+  const returnTo = invoiceListReturnUrl(searchParams.get('returnTo'));
 
   const [invoice, setInvoice] = useState<InvoiceWithId | null>(null);
   const [firmInfo, setFirmInfo] = useState<FirmInfo | null>(null);
@@ -196,7 +198,7 @@ export default function InvoiceDetailPage() {
 
         if (!invoiceRes.ok) {
           toast.error('Invoice not found');
-          router.push('/invoices');
+          router.push(returnTo);
           return;
         }
 
@@ -239,7 +241,7 @@ export default function InvoiceDetailPage() {
     };
 
     fetchData();
-  }, [id, router]);
+  }, [id, router, returnTo]);
 
   const isFirmInfoComplete = useCallback((info: FirmInfo | null): boolean => {
     if (!info) return false;
@@ -789,7 +791,7 @@ export default function InvoiceDetailPage() {
         {/* Header */}
         <div className="mb-6">
           <Link
-            href="/invoices"
+            href={returnTo}
             className="inline-flex items-center text-sm text-blue-600 hover:text-blue-800 mb-4"
           >
             <ArrowLeft className="w-4 h-4 mr-1" />

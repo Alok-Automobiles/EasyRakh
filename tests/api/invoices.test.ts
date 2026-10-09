@@ -13,6 +13,9 @@ const mocks = vi.hoisted(() => ({
   deleteAsset: vi.fn(),
   refreshUserReadModels: vi.fn(),
   bumpCacheVersions: vi.fn(),
+  getCachedJson: vi.fn(),
+  requestCacheKey: vi.fn(),
+  setCachedJson: vi.fn(),
   session: {
     withTransaction: vi.fn(),
     endSession: vi.fn(),
@@ -50,9 +53,9 @@ vi.mock('@/lib/read-models', () => ({
 
 vi.mock('@/lib/cache-version', () => ({
   bumpCacheVersions: mocks.bumpCacheVersions,
-  getCachedJson: vi.fn().mockResolvedValue(null),
-  requestCacheKey: vi.fn().mockResolvedValue('invoice-test-cache-key'),
-  setCachedJson: vi.fn().mockResolvedValue(undefined),
+  getCachedJson: mocks.getCachedJson,
+  requestCacheKey: mocks.requestCacheKey,
+  setCachedJson: mocks.setCachedJson,
 }));
 
 vi.mock('@/lib/invoice-pdf', () => ({
@@ -165,6 +168,9 @@ describe('/api/invoices stock sync', () => {
     mocks.deleteAsset.mockReset();
     mocks.refreshUserReadModels.mockReset();
     mocks.bumpCacheVersions.mockReset();
+    mocks.getCachedJson.mockReset().mockResolvedValue(null);
+    mocks.requestCacheKey.mockReset().mockResolvedValue('invoice-test-cache-key');
+    mocks.setCachedJson.mockReset().mockResolvedValue(undefined);
     mocks.session.withTransaction.mockReset();
     mocks.session.endSession.mockReset();
     mocks.client.startSession.mockReset();
@@ -255,6 +261,181 @@ describe('/api/invoices stock sync', () => {
         { customerName: { $regex: 'Raj', $options: 'i' } },
       ]),
     });
+  });
+
+  it('combines all invoice filters before counting, sorting, and paginating', async () => {
+    const invoiceList = invoiceListFindChain();
+    const countDocuments = vi.fn().mockResolvedValue(45);
+    mocks.getDb.mockResolvedValue(
+      dbWithCollections({ invoices: { find: invoiceList.find, countDocuments } })
+    );
+    const { GET } = await import('@/app/api/invoices/route');
+    const response = await GET(jsonRequest(
+      `http://localhost/api/invoices?customerId=${ids.customer}&status=partial&search=Raj&startDate=2026-06-01&endDate=2026-06-30&minAmount=0&maxAmount=900&addedToLedger=false&sort=amount-asc&page=2&limit=10`
+    ));
+
+    expect(response.status).toBe(200);
+    const filter = (invoiceList.find.mock.calls as unknown[][])[0][0];
+    expect(filter).toEqual({
+      userId: ids.user,
+      customerId: ids.customer,
+      status: 'partial',
+      totalAmount: { $gte: 0, $lte: 900 },
+      addedToLedger: { $ne: true },
+      $and: [{
+        $or: [
+          { invoiceDate: { $gte: new Date('2026-06-01T00:00:00Z'), $lt: new Date('2026-07-01T00:00:00Z') } },
+          { invoiceDate: null, createdAt: { $gte: new Date('2026-05-31T18:30:00Z'), $lt: new Date('2026-06-30T18:30:00Z') } },
+        ],
+      }],
+      $or: expect.arrayContaining([{ customerName: { $regex: 'Raj', $options: 'i' } }]),
+    });
+    expect(countDocuments).toHaveBeenCalledWith(filter);
+    expect(invoiceList.chain.sort).toHaveBeenCalledWith({ totalAmount: 1, _id: -1 });
+    expect(invoiceList.chain.skip).toHaveBeenCalledWith(10);
+    expect(invoiceList.chain.limit).toHaveBeenCalledWith(10);
+    expect(await response.json()).toMatchObject({
+      pagination: { total: 45, page: 2, pageSize: 10, totalPages: 5 },
+    });
+  });
+
+  it.each([
+    'startDate=2026-02-30',
+    'endDate=not-a-date',
+    'startDate=',
+    'startDate=2026-07-01&endDate=2026-06-01',
+    'minAmount=-1',
+    'minAmount=NaN',
+    'maxAmount=Infinity',
+    'maxAmount=',
+    'minAmount=100&maxAmount=99',
+    'addedToLedger=yes',
+    'sort=customerName',
+  ])('rejects invalid invoice list filters before cache or database access: %s', async (query) => {
+    const { GET } = await import('@/app/api/invoices/route');
+    const response = await GET(jsonRequest(`http://localhost/api/invoices?${query}`));
+
+    expect(response.status).toBe(400);
+    expect(await response.json()).toEqual({ error: expect.any(String) });
+    expect(mocks.requestCacheKey).not.toHaveBeenCalled();
+    expect(mocks.getDb).not.toHaveBeenCalled();
+  });
+
+  it('keeps normalized filter values in separate cache entries', async () => {
+    const invoiceList = invoiceListFindChain();
+    mocks.getDb.mockResolvedValue(dbWithCollections({
+      invoices: { find: invoiceList.find, countDocuments: vi.fn().mockResolvedValue(0) },
+    }));
+    const { GET } = await import('@/app/api/invoices/route');
+    const queries = [
+      '',
+      'startDate=2026-06-01',
+      'endDate=2026-06-30',
+      'minAmount=0',
+      'maxAmount=900',
+      'addedToLedger=false',
+      'addedToLedger=true',
+      'sort=amount-asc',
+      'minAmount=0.00',
+    ];
+    for (const query of queries) {
+      expect((await GET(jsonRequest(`http://localhost/api/invoices?${query}`))).status).toBe(200);
+    }
+    const keys = mocks.requestCacheKey.mock.calls.map((call) => call[3]);
+    expect(new Set(keys.slice(0, -1)).size).toBe(8);
+    expect(keys[3]).toBe(keys[8]);
+  });
+
+  it('serves a cached filtered result without fetching invoices', async () => {
+    const cached = { invoices: [], pagination: { total: 0, page: 1, pageSize: 20, totalPages: 1 } };
+    mocks.getCachedJson.mockResolvedValue(cached);
+    const { GET } = await import('@/app/api/invoices/route');
+    const response = await GET(jsonRequest('http://localhost/api/invoices?addedToLedger=true&minAmount=100'));
+
+    expect(await response.json()).toEqual(cached);
+    expect(mocks.getDb).not.toHaveBeenCalled();
+    expect(mocks.requestCacheKey.mock.calls[0][3]).toContain('"addedToLedger":true');
+  });
+
+  it('sorts by the displayed invoice date, including India calendar dates for legacy invoices', async () => {
+    const aggregate = vi.fn(() => ({ toArray: vi.fn().mockResolvedValue([]) }));
+    const countDocuments = vi.fn().mockResolvedValue(0);
+    mocks.getDb.mockResolvedValue(dbWithCollections({ invoices: { aggregate, countDocuments } }));
+    const { GET } = await import('@/app/api/invoices/route');
+    const response = await GET(jsonRequest('http://localhost/api/invoices?sort=date-asc&startDate=2026-06-01'));
+
+    expect(response.status).toBe(200);
+    const pipeline = (aggregate.mock.calls as unknown as Array<[Array<Record<string, unknown>>]>)[0][0];
+    expect(countDocuments).toHaveBeenCalledWith(pipeline[0].$match);
+    expect(pipeline).toEqual(expect.arrayContaining([
+      { $set: { _invoiceListDate: { $ifNull: [
+        { $dateToString: { date: '$invoiceDate', format: '%Y-%m-%d', timezone: 'UTC' } },
+        { $dateToString: { date: '$createdAt', format: '%Y-%m-%d', timezone: 'Asia/Kolkata' } },
+      ] } } },
+      { $sort: { _invoiceListDate: 1, _id: -1 } },
+    ]));
+  });
+
+  it.each(['date-desc', 'date-asc', 'amount-desc', 'amount-asc'])(
+    'applies the same invoice filters and %s ordering in Atlas and fallback queries',
+    async (sort) => {
+      process.env.MONGODB_SEARCH_ENABLED = 'true';
+      const invoiceList = invoiceListFindChain();
+      const aggregateResults = vi.fn().mockResolvedValue([{ invoices: [], total: [{ count: 12 }] }]);
+      const aggregate = vi.fn(() => ({ toArray: aggregateResults }));
+      const countDocuments = vi.fn().mockResolvedValue(12);
+      mocks.getDb.mockResolvedValue(dbWithCollections({
+        invoices: { aggregate, countDocuments, find: invoiceList.find },
+      }));
+      const { GET } = await import('@/app/api/invoices/route');
+      const url = `http://localhost/api/invoices?search=Raj&status=paid&startDate=2026-06-01&endDate=2026-06-30&minAmount=100&maxAmount=900&addedToLedger=true&sort=${sort}&page=2&limit=5`;
+      const atlasResponse = await GET(jsonRequest(url));
+      expect(atlasResponse.status).toBe(200);
+      expect(await atlasResponse.json()).toMatchObject({ pagination: { total: 12, totalPages: 3 } });
+      const atlasPipeline = (aggregate.mock.calls as unknown as Array<[Array<Record<string, unknown>>]>)[0][0];
+      const atlasFilter = atlasPipeline.find((stage) => stage.$match)?.$match;
+      const atlasSort = atlasPipeline.find((stage) => stage.$sort)?.$sort;
+      expect(atlasPipeline[0]).toHaveProperty('$search');
+      expect(atlasFilter).toMatchObject({
+        userId: ids.user,
+        status: 'paid',
+        totalAmount: { $gte: 100, $lte: 900 },
+        addedToLedger: true,
+        $and: expect.any(Array),
+      });
+      expect(atlasPipeline.at(-1)).toEqual({
+        $facet: { invoices: [{ $skip: 5 }, { $limit: 5 }], total: [{ $count: 'count' }] },
+      });
+
+      delete process.env.MONGODB_SEARCH_ENABLED;
+      aggregate.mockClear();
+      aggregateResults.mockResolvedValue([]);
+      expect((await GET(jsonRequest(url))).status).toBe(200);
+      const fallbackFilter = countDocuments.mock.calls[0][0];
+      expect(fallbackFilter).toEqual({ ...(atlasFilter as Record<string, unknown>), $or: expect.any(Array) });
+      if (sort.startsWith('date-')) {
+        const fallbackPipeline = (aggregate.mock.calls as unknown as Array<[Array<Record<string, unknown>>]>)[0][0];
+        expect(fallbackPipeline[0]).toEqual({ $match: fallbackFilter });
+        expect(fallbackPipeline.find((stage) => stage.$sort)?.$sort).toEqual(atlasSort);
+        expect(fallbackPipeline.find((stage) => stage.$set))
+          .toEqual(atlasPipeline.find((stage) => stage.$set));
+      } else {
+        expect(invoiceList.chain.sort).toHaveBeenCalledWith(atlasSort);
+      }
+    }
+  );
+
+  it('retains relevance ranking for default Atlas searches with a stable tie breaker', async () => {
+    process.env.MONGODB_SEARCH_ENABLED = 'true';
+    const aggregate = vi.fn(() => ({ toArray: vi.fn().mockResolvedValue([]) }));
+    mocks.getDb.mockResolvedValue(dbWithCollections({ invoices: { aggregate } }));
+    const { GET } = await import('@/app/api/invoices/route');
+    expect((await GET(jsonRequest('http://localhost/api/invoices?search=Raj&addedToLedger=false'))).status).toBe(200);
+
+    expect((aggregate.mock.calls as unknown as Array<[Array<Record<string, unknown>>]>)[0][0]).toEqual(expect.arrayContaining([
+      { $set: { _searchScore: { $meta: 'searchScore' } } },
+      { $sort: { _searchScore: -1, updatedAt: -1, createdAt: -1, _id: -1 } },
+    ]));
   });
 
   it.each([undefined, 300, 0])('deducts stock and uses invoice cost %s without changing inventory cost', async (unitCost) => {
