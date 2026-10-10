@@ -13,6 +13,7 @@ const mocks = vi.hoisted(() => ({
   invalidateInventoryCache: vi.fn(),
   cleanSearchQuery: vi.fn(),
   scoreInventoryItem: vi.fn(),
+  syncAffectedReadModels: vi.fn(),
 }));
 
 vi.mock('@/lib/auth', () => ({
@@ -43,6 +44,11 @@ vi.mock('@/lib/cache', () => ({
 vi.mock('@/lib/voice-assistant', () => ({
   cleanSearchQuery: mocks.cleanSearchQuery,
   scoreInventoryItem: mocks.scoreInventoryItem,
+}));
+
+vi.mock('@/lib/read-models', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('@/lib/read-models')>()),
+  syncAffectedReadModels: mocks.syncAffectedReadModels,
 }));
 
 const validInventoryBody = {
@@ -77,6 +83,8 @@ describe('/api/inventory', () => {
     mocks.invalidateInventoryCache.mockReset();
     mocks.cleanSearchQuery.mockReset();
     mocks.scoreInventoryItem.mockReset();
+    mocks.syncAffectedReadModels.mockReset();
+    mocks.syncAffectedReadModels.mockResolvedValue(undefined);
 
     mocks.getUserIdFromRequest.mockReturnValue(ids.user);
     mocks.cacheGet.mockResolvedValue(null);
@@ -225,6 +233,53 @@ describe('/api/inventory', () => {
     });
   });
 
+  it('bounds fuzzy fallback candidates but still finds an exact part number', async () => {
+    const summaryPayload = {
+      stats: { totalItems: 1, totalQuantity: 1, totalValue: 10, locations: [], brands: [], suppliers: [] },
+      lowStockItems: [],
+    };
+    mocks.cacheGet
+      .mockResolvedValueOnce(null)
+      .mockResolvedValueOnce(JSON.stringify(summaryPayload));
+
+    const chains: Array<{ limit: ReturnType<typeof vi.fn>; toArray: ReturnType<typeof vi.fn> }> = [];
+    const find = vi.fn(() => {
+      const chain = {
+        sort: vi.fn(),
+        limit: vi.fn(),
+        toArray: vi.fn().mockResolvedValue([]),
+      };
+      chain.sort.mockReturnValue(chain);
+      chain.limit.mockReturnValue(chain);
+      chains.push(chain);
+      return chain;
+    });
+    const exactItem = {
+      _id: objectIdLike(ids.inventory),
+      itemName: 'OLD BRAKE PART',
+      itemNumber: 'BP-104',
+      itemNumberKey: 'BP-104',
+      quantity: 1,
+      updatedAt: new Date('2020-01-01'),
+      createdAt: new Date('2020-01-01'),
+    };
+    const findOne = vi.fn().mockResolvedValue(exactItem);
+    mocks.getDb.mockResolvedValue({
+      collection: vi.fn(() => ({ find, findOne })),
+    });
+
+    const { GET } = await import('@/app/api/inventory/route');
+    const response = await GET(jsonRequest('http://localhost/api/inventory?search=BP-104'));
+
+    expect(response.status).toBe(200);
+    expect(chains.map((chain) => chain.limit.mock.calls[0][0])).toEqual([2500, 500]);
+    expect(findOne).toHaveBeenCalledWith({ userId: ids.user, itemNumberKey: 'BP-104' });
+    await expect(response.json()).resolves.toMatchObject({
+      items: [{ id: ids.inventory, itemNumber: 'BP-104' }],
+      pagination: { total: 1 },
+    });
+  });
+
   it('returns a duplicate item-number conflict with the existing item details', async () => {
     const findOne = vi.fn().mockResolvedValue({
       _id: objectIdLike(ids.otherInventory),
@@ -261,7 +316,12 @@ describe('/api/inventory', () => {
   it('normalizes persisted text fields to uppercase and invalidates inventory caches on create', async () => {
     const findOne = vi.fn().mockResolvedValue(null);
     const insertOne = vi.fn().mockResolvedValue({ insertedId: objectIdLike(ids.inventory) });
+    const session = {
+      withTransaction: vi.fn(async (operation: () => Promise<unknown>) => operation()),
+      endSession: vi.fn().mockResolvedValue(undefined),
+    };
     mocks.getDb.mockResolvedValue({
+      client: { startSession: vi.fn(() => session) },
       collection: vi.fn(() => ({ findOne, insertOne })),
     });
 
@@ -286,7 +346,11 @@ describe('/api/inventory', () => {
         lastQuantityUpdatedAt: expect.any(Date),
         createdAt: expect.any(Date),
         updatedAt: expect.any(Date),
-      })
+      }),
+      { session }
+    );
+    expect(mocks.syncAffectedReadModels).toHaveBeenCalledWith(
+      expect.anything(), ids.user, { inventoryItemIds: [ids.inventory] }, { session }
     );
     expect(mocks.invalidateInventoryCache).toHaveBeenCalledWith(ids.user);
     await expect(response.json()).resolves.toMatchObject({

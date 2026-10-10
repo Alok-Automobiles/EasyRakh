@@ -220,7 +220,7 @@ export async function PUT(
     }
 
     await Promise.all([
-      refreshUserReadModels(db, userId),
+      refreshUserReadModels(db, userId, { inventoryItemIds: [id] }),
       invalidateInventoryCache(userId, id),
     ]);
 
@@ -311,7 +311,7 @@ export async function PATCH(
       );
       await inventoryCollection.updateOne({ _id: objectId, userId }, { $set: derived });
       await Promise.all([
-        refreshUserReadModels(db, userId),
+        refreshUserReadModels(db, userId, { inventoryItemIds: [id] }),
         invalidateInventoryCache(userId, id),
       ]);
 
@@ -341,7 +341,7 @@ export async function PATCH(
       );
       await inventoryCollection.updateOne({ _id: objectId, userId }, { $set: derived });
       await Promise.all([
-        refreshUserReadModels(db, userId),
+        refreshUserReadModels(db, userId, { inventoryItemIds: [id] }),
         invalidateInventoryCache(userId, id),
       ]);
 
@@ -381,7 +381,7 @@ export async function PATCH(
       // Quantity was already 0; return current state unchanged
       const current = await inventoryCollection.findOne({ _id: objectId, userId });
       await Promise.all([
-        refreshUserReadModels(db, userId),
+        refreshUserReadModels(db, userId, { inventoryItemIds: [id] }),
         invalidateInventoryCache(userId, id),
       ]);
       const item = serializeInventoryItem(
@@ -395,7 +395,7 @@ export async function PATCH(
     );
     await inventoryCollection.updateOne({ _id: objectId, userId }, { $set: derived });
     await Promise.all([
-      refreshUserReadModels(db, userId),
+      refreshUserReadModels(db, userId, { inventoryItemIds: [id] }),
       invalidateInventoryCache(userId, id),
     ]);
 
@@ -471,7 +471,7 @@ export async function DELETE(
     }
 
     await Promise.all([
-      refreshUserReadModels(db, userId),
+      refreshUserReadModels(db, userId, { inventoryItemIds: [id] }),
       invalidateInventoryCache(userId, id),
     ]);
 

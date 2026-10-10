@@ -155,7 +155,7 @@ export async function PUT(
     }
 
     await Promise.all([
-      refreshUserReadModels(db, userId),
+      refreshUserReadModels(db, userId, { entities: [{ entityType: 'supplier', entityId: id }] }),
       bumpCacheVersions(userId, ['suppliers', 'dashboard', 'bootstrap', 'search']),
       redis.del(`ledger:supplier:${id}:${userId}`),
     ]);
@@ -233,7 +233,7 @@ export async function DELETE(
       });
       try { await deleteCloudinaryAssets(cloudinaryAssetsFromFields({ publicIds: [removed.openingBalanceBillPublicId], urls: [removed.openingBalanceBillUrl] })); }
       catch (error) { console.error('Supplier removed; attachment cleanup requires retry:', error); }
-      await Promise.all([refreshUserReadModels(db, userId), bumpCacheVersions(userId, ['suppliers', 'dashboard', 'bootstrap', 'search']), redis.del(`ledger:supplier:${id}:${userId}`)]);
+      await Promise.all([refreshUserReadModels(db, userId, { entities: [{ entityType: 'supplier', entityId: id }] }), bumpCacheVersions(userId, ['suppliers', 'dashboard', 'bootstrap', 'search']), redis.del(`ledger:supplier:${id}:${userId}`)]);
       return NextResponse.json({ message: 'Supplier deleted successfully' });
     }
     const transactionsToDelete = await transactionsCollection
@@ -280,7 +280,7 @@ export async function DELETE(
     }
 
     await Promise.all([
-      refreshUserReadModels(db, userId),
+      refreshUserReadModels(db, userId, { entities: [{ entityType: 'supplier', entityId: id }] }),
       bumpCacheVersions(userId, ['suppliers', 'dashboard', 'bootstrap', 'search']),
       redis.del(`ledger:supplier:${id}:${userId}`),
     ]);

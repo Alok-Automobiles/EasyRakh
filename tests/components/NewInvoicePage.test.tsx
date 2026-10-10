@@ -6,6 +6,7 @@ import NewInvoicePage from '@/app/invoices/new/page';
 
 const mocks = vi.hoisted(() => ({
   invalidateQueries: vi.fn(),
+  fetchQuery: vi.fn(),
   push: vi.fn(),
 }));
 
@@ -22,8 +23,10 @@ vi.mock('next/link', () => ({
 }));
 
 vi.mock('@tanstack/react-query', () => ({
+  queryOptions: (options: unknown) => options,
   useQueryClient: () => ({
     invalidateQueries: mocks.invalidateQueries,
+    fetchQuery: mocks.fetchQuery,
   }),
 }));
 
@@ -60,6 +63,7 @@ vi.mock('@/components/InvoiceItemsEditor', () => ({
 describe('NewInvoicePage', () => {
   beforeEach(() => {
     mocks.invalidateQueries.mockReset().mockResolvedValue(undefined);
+    mocks.fetchQuery.mockReset().mockImplementation(({ queryFn }) => queryFn());
     mocks.push.mockReset();
     sessionStorage.clear();
   });

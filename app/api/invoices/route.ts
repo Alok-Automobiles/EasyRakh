@@ -147,7 +147,10 @@ async function invalidateInvoiceCaches(
   changedInventoryIds: Set<string>
 ) {
   try {
-    await refreshUserReadModels(db, userId);
+    await refreshUserReadModels(db, userId, {
+      entities: customerId ? [{ entityType: 'customer', entityId: customerId }] : [],
+      inventoryItemIds: Array.from(changedInventoryIds),
+    });
     await Promise.all([
       bumpCacheVersions(userId, ['invoices', 'dashboard', 'dailyCash', 'customers', 'inventory', 'search', 'bootstrap']),
       ...(customerId ? [redis.del(`ledger:customer:${customerId}:${userId}`)] : []),

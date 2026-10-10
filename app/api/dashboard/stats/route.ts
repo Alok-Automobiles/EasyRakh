@@ -6,7 +6,13 @@ import type { Invoice, RecentActivity, Transaction } from '@/lib/types';
 import { ObjectId } from 'mongodb';
 import { ensureUserReadModels, type EntityBalance } from '@/lib/read-models';
 import { getCachedJson, requestCacheKey, setCachedJson } from '@/lib/cache-version';
-import { calculateInvoiceProfitViews } from '@/lib/invoice-calculations';
+import {
+  combineInvoiceProfitViews,
+  legacyInvoiceProfitQuery,
+  storedInvoiceProfitPipeline,
+  type StoredInvoiceProfitTotals,
+} from '@/lib/dashboard-invoice-profit';
+import { createApiTimer } from '@/lib/performance-timing';
 
 const MONTH_REGEX = /^\d{4}-(0[1-9]|1[0-2])$/;
 const DATE_REGEX = /^\d{4}-(0[1-9]|1[0-2])-(0[1-9]|[12]\d|3[01])$/;
@@ -27,13 +33,14 @@ function parseUtcCalendarDate(value: string) {
 }
 
 export async function GET(request: NextRequest) {
+  const timer = createApiTimer(request);
   try {
     const userId = getUserIdFromRequest(request);
     if (!userId) {
-      return NextResponse.json(
+      return timer.finish(NextResponse.json(
         { error: 'Unauthorized' },
         { status: 401 }
-      );
+      ));
     }
 
     const searchParams = request.nextUrl.searchParams;
@@ -47,10 +54,10 @@ export async function GET(request: NextRequest) {
 
     if (monthParam) {
       if (!MONTH_REGEX.test(monthParam)) {
-        return NextResponse.json(
+        return timer.finish(NextResponse.json(
           { error: 'Invalid month format. Use YYYY-MM.' },
           { status: 400 }
-        );
+        ));
       }
       const [y, m] = monthParam.split('-').map(Number);
       rangeStart = new Date(Date.UTC(y, m - 1, 1, 0, 0, 0, 0));
@@ -60,10 +67,10 @@ export async function GET(request: NextRequest) {
       const fromDate = parseUtcCalendarDate(fromParam);
       const toDate = parseUtcCalendarDate(toParam);
       if (!fromDate || !toDate) {
-        return NextResponse.json(
+        return timer.finish(NextResponse.json(
           { error: 'Invalid date format. Use YYYY-MM-DD for from and to.' },
           { status: 400 }
-        );
+        ));
       }
       rangeStart = fromDate;
       rangeEnd = new Date(Date.UTC(
@@ -73,10 +80,10 @@ export async function GET(request: NextRequest) {
         0, 0, 0, 0
       ));
       if (rangeStart >= rangeEnd) {
-        return NextResponse.json(
+        return timer.finish(NextResponse.json(
           { error: 'from must be before or equal to to.' },
           { status: 400 }
-        );
+        ));
       }
       periodLabel = `${format(rangeStart, 'd MMM yyyy')} – ${format(toDate, 'd MMM yyyy')}`;
     }
@@ -84,13 +91,15 @@ export async function GET(request: NextRequest) {
     const hasDateFilter = rangeStart !== null && rangeEnd !== null;
     const periodCacheSuffix = hasDateFilter ? monthParam || `${fromParam}-${toParam}` : 'current';
     const cacheSuffix = `paid-profit-v1:${periodCacheSuffix}`;
-    const cacheKey = await requestCacheKey(request, 'dashboard', userId, cacheSuffix);
-    const cached = await getCachedJson<Record<string, unknown>>(cacheKey);
+    const cacheKey = await timer.measure('redis', () => requestCacheKey(request, 'dashboard', userId, cacheSuffix));
+    const cached = await timer.measure('cache', () => getCachedJson<Record<string, unknown>>(cacheKey));
     if (cached) {
-      return NextResponse.json(cached);
+      timer.markCache('hit');
+      return timer.finish(NextResponse.json(cached));
     }
+    timer.markCache(cacheKey ? 'miss' : 'bypass');
 
-    const db = await getDb();
+    const db = await timer.measure('mongodb', getDb);
     const customersCollection = db.collection('customers');
     const suppliersCollection = db.collection('suppliers');
     const customEntitiesCollection = db.collection('customEntities');
@@ -113,6 +122,16 @@ export async function GET(request: NextRequest) {
     const dailyCashQuery = hasDateFilter
       ? { userId, date: { $gte: rangeStart!, $lt: rangeEnd! } }
       : { userId, date: { $gte: currentMonthStart, $lt: tomorrow } };
+    const periodInvoiceQuery = {
+      userId,
+      $or: [
+        { invoiceDate: { $gte: periodStart, $lt: periodEnd } },
+        {
+          invoiceDate: { $exists: false },
+          createdAt: { $gte: periodStart, $lt: periodEnd },
+        },
+      ],
+    };
 
     const [
       summary,
@@ -122,10 +141,11 @@ export async function GET(request: NextRequest) {
       recentCustomers,
       recentSuppliers,
       recentDailyCashRecords,
-      periodInvoices,
+      storedInvoiceProfit,
+      legacyInvoices,
       dashboardNotes,
-    ] = await Promise.all([
-      ensureUserReadModels(db, userId),
+    ] = await timer.measure('mongodb', () => Promise.all([
+      timer.measure('read_model', () => ensureUserReadModels(db, userId)),
       entityBalancesCollection
         .find({ userId, entityType: 'customer' })
         .sort({ totalDebit: -1, totalCredit: -1, lastTransactionDate: -1 })
@@ -169,30 +189,20 @@ export async function GET(request: NextRequest) {
         .sort({ date: 1 })
         .toArray(),
       invoicesCollection
-        .find(
-          {
-            userId,
-            $or: [
-              { invoiceDate: { $gte: periodStart, $lt: periodEnd } },
-              {
-                invoiceDate: { $exists: false },
-                createdAt: { $gte: periodStart, $lt: periodEnd },
-              },
-            ],
+        .aggregate<StoredInvoiceProfitTotals>(storedInvoiceProfitPipeline(periodInvoiceQuery))
+        .toArray(),
+      invoicesCollection
+        .find(legacyInvoiceProfitQuery(periodInvoiceQuery), {
+          projection: {
+            totalAmount: 1,
+            totalCogs: 1,
+            costedSales: 1,
+            uncostedSales: 1,
+            missingCostItemCount: 1,
+            status: 1,
+            items: 1,
           },
-          {
-            projection: {
-              totalAmount: 1,
-              totalCogs: 1,
-              costedSales: 1,
-              uncostedSales: 1,
-              missingCostItemCount: 1,
-              grossProfit: 1,
-              status: 1,
-              items: 1,
-            },
-          }
-        )
+        })
         .toArray(),
       notesCollection
         .find(
@@ -202,7 +212,7 @@ export async function GET(request: NextRequest) {
         .sort({ updatedAt: -1 })
         .limit(6)
         .toArray(),
-    ]);
+    ]));
 
     const totalCredit = summary.totalCredit || 0;
     const totalDebit = summary.totalDebit || 0;
@@ -240,7 +250,10 @@ export async function GET(request: NextRequest) {
       totalLeft: todayRecord?.totalLeft || 0,
     };
 
-    const { salesProfit, paidSalesProfit } = calculateInvoiceProfitViews(periodInvoices);
+    const { salesProfit, paidSalesProfit } = combineInvoiceProfitViews(
+      storedInvoiceProfit[0],
+      legacyInvoices
+    );
 
     let monthlyRecords: typeof recentDailyCashRecords;
     let monthlyTotals: { totalIn: number; totalOut: number; totalLeft: number };
@@ -457,14 +470,14 @@ export async function GET(request: NextRequest) {
       ...(periodLabel && { periodLabel }),
     };
 
-    await setCachedJson(cacheKey, 300, responseData);
+    await timer.measure('cache', () => setCachedJson(cacheKey, 300, responseData));
 
-    return NextResponse.json(responseData);
+    return timer.finish(NextResponse.json(responseData));
   } catch (error) {
     console.error('Get dashboard stats error:', error);
-    return NextResponse.json(
+    return timer.finish(NextResponse.json(
       { error: 'Internal server error' },
       { status: 500 }
-    );
+    ));
   }
 }
