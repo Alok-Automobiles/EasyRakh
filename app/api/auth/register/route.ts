@@ -4,8 +4,6 @@ import { getDb } from '@/lib/mongodb';
 import { generateToken } from '@/lib/auth';
 import { z } from 'zod';
 import { checkRateLimit, rateLimitConfigs } from '@/lib/rateLimit';
-import { emptyUserSummary } from '@/lib/read-models';
-import { ObjectId } from 'mongodb';
 
 const registerSchema = z.object({
   name: z.string().min(1, 'Name is required'),
@@ -60,19 +58,10 @@ export async function POST(request: NextRequest) {
     if (validatedData.firmEmail?.trim()) userData.firmEmail = validatedData.firmEmail.trim();
     if (validatedData.firmAddress?.trim()) userData.firmAddress = validatedData.firmAddress.trim();
 
-    const newUserId = new ObjectId();
-    const session = db.client.startSession();
-    try {
-      await session.withTransaction(async () => {
-        await usersCollection.insertOne({ ...userData, _id: newUserId }, { session });
-        await db.collection('userSummaries').insertOne(emptyUserSummary(newUserId.toString()), { session });
-      });
-    } finally {
-      await session.endSession();
-    }
+    const result = await usersCollection.insertOne(userData);
 
     const token = generateToken({
-      userId: newUserId.toString(),
+      userId: result.insertedId.toString(),
       email: validatedData.email.toLowerCase(),
     });
 
@@ -81,7 +70,7 @@ export async function POST(request: NextRequest) {
         message: 'User created successfully',
         token,
         user: {
-          id: newUserId.toString(),
+          id: result.insertedId.toString(),
           name: validatedData.name,
           email: validatedData.email.toLowerCase(),
           firmTitle: validatedData.firmTitle?.trim() || undefined,

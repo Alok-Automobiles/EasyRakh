@@ -14,7 +14,7 @@ import { z } from 'zod';
 import { uppercaseInventoryPayload } from '@/lib/inventory-text';
 import { getRequestCacheVersion } from '@/lib/cache-version';
 import { getInventoryStatusFilter, normalizeIdentifier } from '@/lib/search-normalization';
-import { ensureUserReadModels, inventoryDerivedFields, syncAffectedReadModels } from '@/lib/read-models';
+import { ensureUserReadModels, inventoryDerivedFields, refreshUserReadModels } from '@/lib/read-models';
 import {
   fuzzyCandidateTokens,
   inventoryQueryTokens,
@@ -25,7 +25,6 @@ import {
   searchScoreStages,
   withMongoSearchFallback,
 } from '@/lib/mongodb-search';
-import { createApiTimer } from '@/lib/performance-timing';
 
 const optionalDateSchema = z.preprocess(
   (value) => {
@@ -132,18 +131,11 @@ interface SummaryCachePayload {
   lowStockItems: SerializedItem[];
 }
 
-// Atlas Search handles ranking and total counts in MongoDB. The local fuzzy
-// fallback is only for a missing/unavailable Search index; keep its CPU and
-// memory bounded until the index is restored or legacy tokens are backfilled.
-const FALLBACK_INDEXED_CANDIDATE_LIMIT = 2500;
-const FALLBACK_LEGACY_CANDIDATE_LIMIT = 500;
-
 export async function GET(request: NextRequest) {
-  const timer = createApiTimer(request);
   try {
     const userId = getUserIdFromRequest(request);
     if (!userId) {
-      return timer.finish(NextResponse.json({ error: 'Unauthorized' }, { status: 401 }));
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
     const searchParams = request.nextUrl.searchParams;
@@ -156,7 +148,7 @@ export async function GET(request: NextRequest) {
     const limit = Math.min(Math.max(parseInt(searchParams.get('limit') || '20', 10), 1), 100);
     const skip = (page - 1) * limit;
     const statusNow = new Date();
-    const cacheVersion = await timer.measure('redis', () => getRequestCacheVersion(request, 'inventory', userId));
+    const cacheVersion = await getRequestCacheVersion(request, 'inventory', userId);
     const cacheEnabled = cacheVersion !== null;
     const listCacheKey = cacheEnabled
       ? inventoryListKey(userId, {
@@ -175,10 +167,10 @@ export async function GET(request: NextRequest) {
       : null;
 
     const [cachedList, cachedSummary] = cacheEnabled
-      ? await timer.measure('cache', () => Promise.all([
+      ? await Promise.all([
           cacheGet(listCacheKey!),
           cacheGet(summaryCacheKey!),
-        ]))
+        ])
       : [null, null];
 
     let listPayload = listCacheKey
@@ -187,10 +179,9 @@ export async function GET(request: NextRequest) {
     let summaryPayload = summaryCacheKey
       ? safeParseCache<SummaryCachePayload>(cachedSummary, summaryCacheKey)
       : null;
-    timer.markCache(!cacheEnabled ? 'bypass' : listPayload && summaryPayload ? 'hit' : 'miss');
 
     if (!listPayload || !summaryPayload) {
-      const db = await timer.measure('mongodb', getDb);
+      const db = await getDb();
       const inventoryCollection = db.collection<InventoryItem>('inventory');
 
       const buildListPayload = async (): Promise<ListCachePayload> => {
@@ -251,22 +242,19 @@ export async function GET(request: NextRequest) {
 
               // The unindexed legacy subset is merged in until the read-model
               // backfill has populated fuzzySearchTokens for every item.
-              const [indexedCandidates, legacyCandidates, exactPartNumber] = await Promise.all([
+              const [indexedCandidates, legacyCandidates] = await Promise.all([
                 inventoryCollection
                   .find(candidateQuery)
                   .sort({ updatedAt: -1, createdAt: -1 })
-                  .limit(FALLBACK_INDEXED_CANDIDATE_LIMIT)
                   .toArray(),
                 inventoryCollection
                   .find({ ...query, fuzzySearchTokens: { $exists: false } })
                   .sort({ updatedAt: -1, createdAt: -1 })
-                  .limit(FALLBACK_LEGACY_CANDIDATE_LIMIT)
                   .toArray(),
-                inventoryCollection.findOne({ ...query, itemNumberKey: normalizeIdentifier(search) }),
               ]);
               const candidates = Array.from(
                 new Map(
-                  [...indexedCandidates, ...legacyCandidates, ...(exactPartNumber ? [exactPartNumber] : [])].map((item) => [
+                  [...indexedCandidates, ...legacyCandidates].map((item) => [
                     item._id?.toString(),
                     item,
                   ])
@@ -364,10 +352,10 @@ export async function GET(request: NextRequest) {
         };
       };
 
-      const [resolvedList, resolvedSummary] = await timer.measure('mongodb', () => Promise.all([
+      const [resolvedList, resolvedSummary] = await Promise.all([
         listPayload ?? buildListPayload(),
         summaryPayload ?? buildSummaryPayload(),
-      ]));
+      ]);
 
       if (!listPayload && listCacheKey) {
         listPayload = resolvedList;
@@ -388,15 +376,15 @@ export async function GET(request: NextRequest) {
       }
     }
 
-    return timer.finish(NextResponse.json({
+    return NextResponse.json({
       items: listPayload.items,
       stats: summaryPayload.stats,
       lowStockItems: summaryPayload.lowStockItems,
       pagination: listPayload.pagination,
-    }));
+    });
   } catch (error) {
     console.error('Get inventory error:', error);
-    return timer.finish(NextResponse.json({ error: 'Internal server error' }, { status: 500 }));
+    return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
   }
 }
 
@@ -440,36 +428,30 @@ export async function POST(request: NextRequest) {
       }
     }
 
-    let insertedItemId = '';
-    const session = db.client.startSession();
-    try {
-      await session.withTransaction(async () => {
-        const result = await inventoryCollection.insertOne({
-          userId,
-          ...itemData,
-          lastQuantityUpdatedAt: now,
-          createdAt: now,
-          updatedAt: now,
-          ...inventoryDerivedFields({
-            ...itemData,
-            lastQuantityUpdatedAt: now,
-            createdAt: now,
-            updatedAt: now,
-          }),
-        }, { session });
-        insertedItemId = result.insertedId.toString();
-        await syncAffectedReadModels(db, userId, { inventoryItemIds: [insertedItemId] }, { session });
-      });
-    } finally {
-      await session.endSession();
-    }
-    await invalidateInventoryCache(userId);
+    const result = await inventoryCollection.insertOne({
+      userId,
+      ...itemData,
+      lastQuantityUpdatedAt: now,
+      createdAt: now,
+      updatedAt: now,
+      ...inventoryDerivedFields({
+        ...itemData,
+        lastQuantityUpdatedAt: now,
+        createdAt: now,
+        updatedAt: now,
+      }),
+    });
+
+    await Promise.all([
+      refreshUserReadModels(db, userId),
+      invalidateInventoryCache(userId),
+    ]);
 
     return NextResponse.json(
       {
         message: 'Inventory item created successfully',
         item: {
-          id: insertedItemId,
+          id: result.insertedId.toString(),
           ...itemData,
           lastQuantityUpdatedAt: now,
           createdAt: now,

@@ -6,7 +6,6 @@ import DailyCashRecordPage from '@/app/daily-cash-record/page';
 const mocks = vi.hoisted(() => ({
   push: vi.fn(),
   invalidateQueries: vi.fn(),
-  fetchQuery: vi.fn(),
 }));
 
 vi.mock('next/navigation', () => ({
@@ -14,12 +13,7 @@ vi.mock('next/navigation', () => ({
 }));
 
 vi.mock('@tanstack/react-query', () => ({
-  useQueryClient: () => ({
-    invalidateQueries: mocks.invalidateQueries,
-    fetchQuery: mocks.fetchQuery,
-    getQueryData: () => undefined,
-    getQueryState: () => undefined,
-  }),
+  useQueryClient: () => ({ invalidateQueries: mocks.invalidateQueries }),
 }));
 
 vi.mock('@/components/DailyBusinessBalance', () => ({ default: () => null }));
@@ -28,7 +22,6 @@ describe('DailyCashRecordPage entry dates', () => {
   beforeEach(() => {
     mocks.push.mockReset();
     mocks.invalidateQueries.mockReset();
-    mocks.fetchQuery.mockReset().mockImplementation(({ queryFn }) => queryFn({ signal: new AbortController().signal }));
 
     vi.spyOn(globalThis, 'fetch').mockImplementation(async (input) => {
       const url = String(input);

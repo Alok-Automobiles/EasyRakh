@@ -1,14 +1,14 @@
 'use client';
 
-import { BootstrapRequestError, useAppBootstrap } from '@/lib/app-bootstrap-client';
+import { fetchAppBootstrap } from '@/lib/app-bootstrap-client';
 
 import Link from 'next/link';
 import Image from 'next/image';
 import { useRouter, usePathname } from 'next/navigation';
-import { useEffect, useState } from 'react';
-import { useQueryClient } from '@tanstack/react-query';
+import { useEffect, useState, useRef } from 'react';
 import { Button } from '@/components/ui/button';
 import { Menu, X, ChevronDown } from 'lucide-react';
+import { useBusinessCash } from '@/lib/hooks/useSupplierPayments';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -19,31 +19,50 @@ import {
 
 export default function Header() {
   const router = useRouter();
-  const queryClient = useQueryClient();
   const pathname = usePathname();
+  const [user, setUser] = useState<{ name: string; email: string } | null>(null);
+  const [loading, setLoading] = useState(true);
+  const lastPathnameRef = useRef<string>('');
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
+  const [customCollectionTypes, setCustomCollectionTypes] = useState<Array<{ id: string; name: string; slug: string; lastTransactionDate?: Date }>>([]);
 
   const isAuthPage = pathname === '/login' || pathname === '/register' || pathname === '/';
-  const bootstrap = useAppBootstrap(!isAuthPage);
-  const user = bootstrap.data?.user ?? null;
-  const loading = bootstrap.isPending;
-  const customCollectionTypes = bootstrap.data?.collectionTypes ?? [];
+  const { data: supplierFeature } = useBusinessCash(!isAuthPage);
 
   useEffect(() => {
-    if (bootstrap.error instanceof BootstrapRequestError && bootstrap.error.status === 401) {
-      queryClient.clear();
-      router.push('/login');
+    if (isAuthPage) {
+      setLoading(false);
+      return;
     }
-  }, [bootstrap.error, queryClient, router]);
+
+    if (lastPathnameRef.current === pathname) return;
+    lastPathnameRef.current = pathname;
+
+    fetchAppBootstrap()
+      .then((res) => {
+        if (res.ok) return res.json();
+        if (res.status === 401) router.push('/login');
+        return null;
+      })
+      .then((data) => {
+        if (data?.user) setUser(data.user);
+        if (data?.collectionTypes) {
+          setCustomCollectionTypes(data.collectionTypes.map((ct: { id: string; name: string; slug: string; lastTransactionDate?: string }) => ({
+            ...ct,
+            lastTransactionDate: ct.lastTransactionDate ? new Date(ct.lastTransactionDate) : undefined,
+          })));
+        }
+        setLoading(false);
+      })
+      .catch(() => setLoading(false));
+  }, [pathname, router, isAuthPage]);
 
   useEffect(() => {
     setIsMobileMenuOpen(false);
   }, [pathname]);
 
   const handleLogout = async () => {
-    const response = await fetch('/api/auth/logout', { method: 'POST' });
-    if (!response.ok) return;
-    queryClient.clear();
+    await fetch('/api/auth/logout', { method: 'POST' });
     router.push('/');
     router.refresh();
   };
@@ -62,7 +81,7 @@ export default function Header() {
     { href: '/dashboard', label: 'Dashboard' },
     { href: '/customers', label: 'Customers' },
     { href: '/suppliers', label: 'Suppliers' },
-    ...(bootstrap.data?.supplierPaymentsEnabled ? [{ href: '/supplier-payments', label: 'Supplier Payments' }] : []),
+    ...(supplierFeature?.enabled ? [{ href: '/supplier-payments', label: 'Supplier Payments' }] : []),
     { href: '/transactions/new', label: 'Transaction' },
     { href: '/daily-cash-record', label: 'Cash Record' },
     { href: '/notes', label: 'Notes' },

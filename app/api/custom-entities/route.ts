@@ -198,9 +198,7 @@ export async function POST(request: NextRequest) {
     });
 
     await Promise.all([
-      refreshUserReadModels(db, userId, {
-        entities: [{ entityType: validatedData.collectionType, entityId: result.insertedId.toString() }],
-      }),
+      refreshUserReadModels(db, userId),
       bumpCacheVersions(userId, ['customEntities', 'dashboard', 'bootstrap', 'search']),
     ]);
 

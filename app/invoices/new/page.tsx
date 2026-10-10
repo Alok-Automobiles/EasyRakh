@@ -1,6 +1,6 @@
 'use client';
 
-import { appBootstrapQuery } from '@/lib/app-bootstrap-client';
+import { fetchAppBootstrap } from '@/lib/app-bootstrap-client';
 
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
@@ -150,8 +150,10 @@ export default function NewInvoicePage() {
 
     const fetchData = async () => {
       try {
-        const data = await queryClient.fetchQuery(appBootstrapQuery);
-        if (data) {
+        const userRes = await fetchAppBootstrap();
+
+        if (userRes.ok) {
+          const data = await userRes.json();
           const user = data.user || {};
           if (user.id) {
             const key = invoiceDraftKey(user.id);
@@ -185,9 +187,10 @@ export default function NewInvoicePage() {
     };
 
     fetchData();
-  }, [queryClient]);
+  }, []);
 
   useEffect(() => {
+    if (loading) return;
     if (!invoiceDate) {
       setNextInvoiceNumber('');
       return;
@@ -212,7 +215,7 @@ export default function NewInvoicePage() {
 
     loadNextInvoiceNumber();
     return () => controller.abort();
-  }, [invoiceDate]);
+  }, [invoiceDate, loading]);
 
   const customerSuggestionsRequested = useRef(false);
   useEffect(() => {

@@ -4,7 +4,7 @@ import { useState, useEffect, useRef, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
 import { format } from 'date-fns';
 import toast from 'react-hot-toast';
-import { useQuery, useQueryClient } from '@tanstack/react-query';
+import { useQueryClient } from '@tanstack/react-query';
 import { motion } from 'motion/react';
 import { Plus, Star, Trash2, LayoutDashboard, StickyNote } from 'lucide-react';
 import { Note } from '@/lib/types';
@@ -26,23 +26,8 @@ interface DraftNote {
 export default function NotesPage() {
   const router = useRouter();
   const queryClient = useQueryClient();
-  const { data: notes = [], isLoading: loading, isFetching, isError, dataUpdatedAt, refetch } = useQuery<NoteWithId[]>({
-    queryKey: ['notes'],
-    queryFn: async ({ signal }) => {
-      const response = await fetch('/api/notes', { signal });
-      if (response.status === 401) {
-        router.push('/login');
-        throw new Error('Unauthorized');
-      }
-      if (!response.ok) throw new Error('Failed to fetch notes');
-      const data = await response.json();
-      return data.notes || [];
-    },
-    staleTime: 30_000,
-  });
-  const setNotes = (updater: (previous: NoteWithId[]) => NoteWithId[]) => {
-    queryClient.setQueryData<NoteWithId[]>(['notes'], (previous) => updater(previous ?? []));
-  };
+  const [notes, setNotes] = useState<NoteWithId[]>([]);
+  const [loading, setLoading] = useState(true);
   const [draftNote, setDraftNote] = useState<DraftNote | null>(null);
   const [editingNoteId, setEditingNoteId] = useState<string | null>(null);
   const [editingField, setEditingField] = useState<'title' | 'content' | null>(null);
@@ -52,8 +37,32 @@ export default function NotesPage() {
   const contentTextareaRef = useRef<HTMLTextAreaElement>(null);
   const draftTitleRef = useRef<HTMLInputElement>(null);
   const draftContentRef = useRef<HTMLTextAreaElement>(null);
+  const hasFetchedRef = useRef(false);
   const colorIndexRef = useRef(0);
   const draftIdRef = useRef<string | null>(null);
+
+  useEffect(() => {
+    if (hasFetchedRef.current) return;
+    hasFetchedRef.current = true;
+
+    const fetchNotes = async () => {
+      try {
+        const response = await fetch('/api/notes');
+        if (response.ok) {
+          const data = await response.json();
+          setNotes(data.notes || []);
+        } else if (response.status === 401) {
+          router.push('/login');
+        }
+      } catch {
+        toast.error('Failed to fetch notes');
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchNotes();
+  }, []);
 
   useEffect(() => {
     if (editingNoteId && editingField === 'title' && titleInputRef.current) {
@@ -128,8 +137,7 @@ export default function NotesPage() {
 
       if (response.ok) {
         const data = await response.json();
-        await queryClient.cancelQueries({ queryKey: ['notes'] });
-        setNotes((previous) => [data.note, ...previous]);
+        setNotes([data.note, ...notes]);
         setDraftNote(null);
       } else {
         const errorData = await response.json();
@@ -183,8 +191,7 @@ export default function NotesPage() {
 
       if (response.ok) {
         const data = await response.json();
-        await queryClient.cancelQueries({ queryKey: ['notes'] });
-        setNotes((previous) => previous.map((n) => (n.id === noteId ? data.note : n)));
+        setNotes(notes.map((n) => (n.id === noteId ? data.note : n)));
         setEditingNoteId(null);
         setEditingField(null);
       } else {
@@ -212,8 +219,7 @@ export default function NotesPage() {
       });
 
       if (response.ok) {
-        await queryClient.cancelQueries({ queryKey: ['notes'] });
-        setNotes((previous) => previous.filter((n) => n.id !== noteId));
+        setNotes(notes.filter((n) => n.id !== noteId));
         toast.success('Note deleted');
       } else {
         const errorData = await response.json();
@@ -236,8 +242,7 @@ export default function NotesPage() {
 
       if (response.ok) {
         const data = await response.json();
-        await queryClient.cancelQueries({ queryKey: ['notes'] });
-        setNotes((previous) => previous.map((n) => (n.id === note.id ? data.note : n)));
+        setNotes(notes.map((n) => (n.id === note.id ? data.note : n)));
       } else {
         toast.error('Failed to update favorite');
       }
@@ -258,8 +263,7 @@ export default function NotesPage() {
 
       if (response.ok) {
         const data = await response.json();
-        await queryClient.cancelQueries({ queryKey: ['notes'] });
-        setNotes((previous) => previous.map((n) => (n.id === note.id ? data.note : n)));
+        setNotes(notes.map((n) => (n.id === note.id ? data.note : n)));
         queryClient.invalidateQueries({ queryKey: ['dashboard'] });
         toast.success(
           !note.showOnDashboard
@@ -305,14 +309,6 @@ export default function NotesPage() {
     );
   }
 
-  if (isError && dataUpdatedAt === 0) {
-    return (
-      <div role="alert" className="mx-auto max-w-7xl px-4 py-8 text-sm text-red-700">
-        Notes could not be loaded. <Button variant="outline" onClick={() => void refetch()}>Retry</Button>
-      </div>
-    );
-  }
-
   const showEmptyState = notes.length === 0 && !draftNote;
 
   return (
@@ -329,11 +325,6 @@ export default function NotesPage() {
               <p className="text-gray-500 text-sm">
                 {notes.length} {notes.length === 1 ? 'note' : 'notes'}
               </p>
-              {dataUpdatedAt > 0 && (
-                <p role="status" className="text-xs text-gray-500">
-                  {isFetching ? 'Showing saved notes while updating…' : `Last synced ${new Date(dataUpdatedAt).toLocaleTimeString('en-IN', { hour: 'numeric', minute: '2-digit' })}`}
-                </p>
-              )}
             </div>
           </div>
 

@@ -48,16 +48,8 @@ describe('auth register and profile routes', () => {
   it('registers users with lowercased emails, trimmed firm metadata, and an auth cookie', async () => {
     const findOne = vi.fn().mockResolvedValue(null);
     const insertOne = vi.fn().mockResolvedValue({ insertedId: objectIdLike(ids.user) });
-    const insertSummary = vi.fn().mockResolvedValue({ insertedId: objectIdLike(ids.user) });
-    const session = {
-      withTransaction: vi.fn(async (operation: () => Promise<unknown>) => operation()),
-      endSession: vi.fn().mockResolvedValue(undefined),
-    };
     mocks.getDb.mockResolvedValue({
-      client: { startSession: vi.fn(() => session) },
-      collection: vi.fn((name: string) => name === 'userSummaries'
-        ? { insertOne: insertSummary }
-        : { findOne, insertOne }),
+      collection: vi.fn(() => ({ findOne, insertOne })),
     });
 
     const { POST } = await import('@/app/api/auth/register/route');
@@ -87,20 +79,14 @@ describe('auth register and profile routes', () => {
         firmEmail: 'billing@example.com',
         firmAddress: 'Main market',
         createdAt: expect.any(Date),
-      }),
-      { session }
+      })
     );
     expect(insertOne.mock.calls[0][0]).not.toHaveProperty('firmPhone');
-    const createdId = insertOne.mock.calls[0][0]._id.toString();
-    expect(insertSummary).toHaveBeenCalledWith(
-      expect.objectContaining({ userId: createdId, readModelVersion: 2, totalCustomers: 0 }),
-      { session }
-    );
     expect(response.headers.get('set-cookie')).toContain('token=signed-token');
     await expect(response.json()).resolves.toMatchObject({
       token: 'signed-token',
       user: {
-        id: createdId,
+        id: ids.user,
         email: 'owner@example.com',
         firmTitle: 'EasyRakh Auto',
       },

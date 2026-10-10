@@ -102,10 +102,7 @@ async function invalidateInvoiceCaches(
   changedInventoryIds: Set<string>
 ) {
   try {
-    await refreshUserReadModels(db, userId, {
-      entities: customerId ? [{ entityType: 'customer', entityId: customerId }] : [],
-      inventoryItemIds: Array.from(changedInventoryIds),
-    });
+    await refreshUserReadModels(db, userId);
     await bumpCacheVersions(userId, ['invoices', 'dashboard', 'dailyCash', 'customers', 'inventory', 'search', 'bootstrap']);
     if (customerId) {
       await redis.del(

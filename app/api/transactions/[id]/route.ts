@@ -283,14 +283,7 @@ export async function PUT(
       }
     }
     await Promise.all([
-      refreshUserReadModels(db, userId, {
-        entities: [
-          { entityType: validatedData.entityType, entityId: validatedData.entityId },
-          ...(oldEntityId && oldEntityType
-            ? [{ entityType: oldEntityType, entityId: oldEntityId }]
-            : []),
-        ],
-      }),
+      refreshUserReadModels(db, userId),
       bumpCacheVersions(userId, Array.from(namespaces)),
       redis.del(...keysToDelete),
     ]);
@@ -402,9 +395,7 @@ export async function DELETE(
         : 'customEntities';
 
     await Promise.all([
-      refreshUserReadModels(db, userId, {
-        entities: entityId ? [{ entityType, entityId }] : [],
-      }),
+      refreshUserReadModels(db, userId),
       bumpCacheVersions(userId, ['dashboard', 'bootstrap', namespace]),
       redis.del(`ledger:${entityType}:${entityId}:${userId}`),
     ]);

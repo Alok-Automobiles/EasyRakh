@@ -5,7 +5,6 @@ import { getUserIdFromRequest } from '@/lib/auth';
 import { isAdminEmail } from '@/lib/admin';
 import { getCachedJson, requestCacheKey, setCachedJson } from '@/lib/cache-version';
 import { ensureUserReadModels, type EntityBalance } from '@/lib/read-models';
-import { supplierPaymentsEnabled } from '@/lib/supplier-payment-settings';
 
 const LAST_ACTIVE_WRITE_INTERVAL_MS = 15 * 60 * 1000;
 
@@ -68,7 +67,6 @@ export async function GET(request: NextRequest) {
     }
 
     const responseData = {
-      supplierPaymentsEnabled: supplierPaymentsEnabled(),
       user: {
         id: user._id.toString(),
         name: user.name,

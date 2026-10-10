@@ -292,9 +292,7 @@ export async function POST(request: NextRequest) {
         : ['dashboard', 'customEntities', 'bootstrap'] as const;
 
     await Promise.all([
-      refreshUserReadModels(db, userId, {
-        entities: [{ entityType: validatedData.entityType, entityId: validatedData.entityId }],
-      }),
+      refreshUserReadModels(db, userId),
       bumpCacheVersions(userId, [...namespaces]),
       redis.del(`ledger:${validatedData.entityType}:${validatedData.entityId}:${userId}`),
     ]);

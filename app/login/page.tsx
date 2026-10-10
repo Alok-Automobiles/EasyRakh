@@ -2,7 +2,6 @@
 
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { useQueryClient } from '@tanstack/react-query';
 import Link from 'next/link';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
@@ -30,7 +29,6 @@ type LoginForm = z.infer<typeof loginSchema>;
 
 export default function LoginPage() {
   const router = useRouter();
-  const queryClient = useQueryClient();
   const [loading, setLoading] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
   const form = useForm<LoginForm>({
@@ -53,7 +51,6 @@ export default function LoginPage() {
       const result = await response.json();
 
       if (response.ok) {
-        queryClient.clear();
         toast.success('Login successful!');
         router.push('/dashboard');
         router.refresh();

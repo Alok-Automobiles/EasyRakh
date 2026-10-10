@@ -172,12 +172,7 @@ export async function PUT(
       );
     }
     await Promise.all([
-      refreshUserReadModels(db, userId, {
-        entities: [
-          { entityType: existingEntity.collectionType, entityId: id },
-          { entityType: validatedData.collectionType, entityId: id },
-        ],
-      }),
+      refreshUserReadModels(db, userId),
       bumpCacheVersions(userId, ['customEntities', 'dashboard', 'bootstrap', 'search']),
       redis.del(...keysToInvalidate),
     ]);
@@ -282,9 +277,7 @@ export async function DELETE(
     }
 
     await Promise.all([
-      refreshUserReadModels(db, userId, {
-        entities: [{ entityType: entity.collectionType, entityId: id }],
-      }),
+      refreshUserReadModels(db, userId),
       bumpCacheVersions(userId, ['customEntities', 'dashboard', 'bootstrap', 'search']),
       redis.del(`ledger:${entity.collectionType}:${id}:${userId}`),
     ]);

@@ -7,6 +7,8 @@ export default function ServiceWorkerRegistration() {
     if (!('serviceWorker' in navigator)) return;
 
     let intervalId: ReturnType<typeof setInterval>;
+    let refreshing = false;
+    const hadController = Boolean(navigator.serviceWorker.controller);
 
     const clearAppCaches = () => {
       if (!('caches' in window)) return;
@@ -31,6 +33,12 @@ export default function ServiceWorkerRegistration() {
       return;
     }
 
+    const onControllerChange = () => {
+      if (!hadController || refreshing) return;
+      refreshing = true;
+      window.location.reload();
+    };
+
     const watchForUpdates = (registration: ServiceWorkerRegistration) => {
       const installing = registration.installing;
       if (!installing) return;
@@ -46,6 +54,7 @@ export default function ServiceWorkerRegistration() {
       navigator.serviceWorker
         .register('/sw.js', { updateViaCache: 'none' })
         .then((registration) => {
+          console.log('SW registered: ', registration.scope);
           registration.addEventListener('updatefound', () => watchForUpdates(registration));
           registration.active?.postMessage({ type: 'CLEAR_APP_CACHES' });
           registration.update().catch(() => undefined);
@@ -56,9 +65,10 @@ export default function ServiceWorkerRegistration() {
         });
     };
 
-    if (document.readyState === 'complete') onLoad();
-    else window.addEventListener('load', onLoad, { once: true });
+    navigator.serviceWorker.addEventListener('controllerchange', onControllerChange);
+    window.addEventListener('load', onLoad);
     return () => {
+      navigator.serviceWorker.removeEventListener('controllerchange', onControllerChange);
       window.removeEventListener('load', onLoad);
       if (intervalId) clearInterval(intervalId);
     };

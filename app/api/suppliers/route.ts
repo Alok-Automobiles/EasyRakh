@@ -291,9 +291,7 @@ export async function POST(request: NextRequest) {
       : await suppliersCollection.insertOne(document);
 
     await Promise.all([
-      refreshUserReadModels(db, userId, {
-        entities: [{ entityType: 'supplier', entityId: result.insertedId.toString() }],
-      }),
+      refreshUserReadModels(db, userId),
       bumpCacheVersions(userId, ['suppliers', 'dashboard', 'bootstrap', 'search']),
     ]);
 

@@ -128,7 +128,7 @@ export async function PUT(
     }
 
     await Promise.all([
-      refreshUserReadModels(db, userId, { entities: [{ entityType: 'customer', entityId: id }] }),
+      refreshUserReadModels(db, userId),
       bumpCacheVersions(userId, ['customers', 'dashboard', 'bootstrap', 'search']),
       redis.del(`ledger:customer:${id}:${userId}`),
     ]);
@@ -233,7 +233,7 @@ export async function DELETE(
     }
 
     await Promise.all([
-      refreshUserReadModels(db, userId, { entities: [{ entityType: 'customer', entityId: id }] }),
+      refreshUserReadModels(db, userId),
       bumpCacheVersions(userId, ['customers', 'dashboard', 'bootstrap', 'search']),
       redis.del(`ledger:customer:${id}:${userId}`),
     ]);
