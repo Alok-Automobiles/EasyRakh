@@ -6,14 +6,20 @@ import {
 } from '@/lib/cache-consistency';
 
 export function proxy(request: NextRequest) {
+  const startedAt = performance.now();
   const token = request.cookies.get('token')?.value;
   const { pathname } = request.nextUrl;
   const shouldShowLanding = request.nextUrl.searchParams.get('view') === 'landing';
 
   if (pathname.startsWith('/api/')) {
-    const response = NextResponse.next();
+    const requestId = crypto.randomUUID();
+    const requestHeaders = new Headers(request.headers);
+    requestHeaders.set('x-request-id', requestId);
+    const response = NextResponse.next({ request: { headers: requestHeaders } });
+    response.headers.set('X-Request-ID', requestId);
+    response.headers.set('Server-Timing', `proxy;dur=${Math.max(0, performance.now() - startedAt).toFixed(1)}`);
     const method = request.method.toUpperCase();
-    const isWrite = !['GET', 'HEAD', 'OPTIONS'].includes(method);
+    const isWrite = !['GET', 'HEAD', 'OPTIONS'].includes(method) && pathname !== '/api/performance';
 
     if (isWrite) {
       response.cookies.set(CACHE_WRITE_BARRIER_COOKIE, '1', {

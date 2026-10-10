@@ -29,4 +29,12 @@ describe('API cache consistency middleware', () => {
 
     expect(response.cookies.get(CACHE_WRITE_BARRIER_COOKIE)).toBeUndefined();
   });
+
+  it('does not set a write barrier for background timing reports', () => {
+    const response = proxy(new NextRequest('http://localhost/api/performance', { method: 'POST' }));
+
+    expect(response.cookies.get(CACHE_WRITE_BARRIER_COOKIE)).toBeUndefined();
+    expect(response.headers.get('x-request-id')).toMatch(/[0-9a-f-]{36}/);
+    expect(response.headers.get('server-timing')).toMatch(/^proxy;dur=/);
+  });
 });

@@ -92,6 +92,11 @@ export async function initializeIndexes(db: Db): Promise<void> {
       inventory.createIndex({ userId: 1, location: 1 }),
       inventory.createIndex({ userId: 1, quantity: 1, updatedAt: -1 }),
 
+      db.collection('inventoryReadModelItems').createIndex({ userId: 1, itemId: 1 }, { unique: true }),
+      db.collection('inventoryReadModelItems').createIndex({ userId: 1, location: 1 }),
+      db.collection('inventoryReadModelItems').createIndex({ userId: 1, brand: 1 }),
+      db.collection('inventoryReadModelItems').createIndex({ userId: 1, supplier: 1 }),
+
       customers.createIndex({ userId: 1, searchTokens: 1 }),
       suppliers.createIndex({ userId: 1, searchTokens: 1 }),
 

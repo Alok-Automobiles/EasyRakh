@@ -1,4 +1,4 @@
-const CACHE_VERSION = '2026-06-21-network-first';
+const CACHE_VERSION = '2026-10-09-static-only';
 const CACHE_PREFIX = 'easyrakh';
 const ASSET_CACHE_NAME = `${CACHE_PREFIX}-assets-${CACHE_VERSION}`;
 const CACHE_ALLOWLIST = [ASSET_CACHE_NAME];
@@ -63,8 +63,6 @@ self.addEventListener('install', (event) => {
 });
 
 self.addEventListener('activate', (event) => {
-  let removedOldCache = false;
-
   event.waitUntil(
     caches
       .keys()
@@ -72,29 +70,10 @@ self.addEventListener('activate', (event) => {
         Promise.all(
           cacheNames
             .filter((name) => name.startsWith(`${CACHE_PREFIX}-`) && !CACHE_ALLOWLIST.includes(name))
-            .map((name) =>
-              caches.delete(name).then((deleted) => {
-                removedOldCache = removedOldCache || deleted;
-              })
-            )
+            .map((name) => caches.delete(name))
         )
       )
       .then(() => self.clients.claim())
-      .then(() => {
-        if (!removedOldCache) return undefined;
-        return self.clients
-          .matchAll({ type: 'window', includeUncontrolled: true })
-          .then((clients) =>
-            Promise.all(
-              clients.map((client) => {
-                if ('navigate' in client) {
-                  return client.navigate(client.url).catch(() => undefined);
-                }
-                return undefined;
-              })
-            )
-          );
-      })
   );
 });
 
@@ -140,7 +119,7 @@ self.addEventListener('fetch', (event) => {
   }
 
   if (isCacheableAsset(url)) {
-    event.respondWith(networkFirstAsset(event, request));
+    event.respondWith(cacheFirstAsset(event, request));
   }
 });
 
@@ -155,18 +134,19 @@ async function fetchNavigation(request) {
   }
 }
 
-async function networkFirstAsset(event, request) {
+async function cacheFirstAsset(event, request) {
   const cache = await caches.open(ASSET_CACHE_NAME);
+  const cached = await cache.match(request);
+  if (cached) return cached;
 
   try {
     const response = await fetch(request);
-    if (response.ok) {
+    if (response.ok && response.type === 'basic') {
       event.waitUntil(cache.put(request, response.clone()).catch(() => undefined));
     }
     return response;
   } catch {
-    const cached = await cache.match(request);
-    return cached || new Response('Offline', { status: 503 });
+    return new Response('Offline', { status: 503 });
   }
 }
 
@@ -180,7 +160,6 @@ function offlineJsonResponse() {
 function isCacheableAsset(url) {
   return (
     url.pathname.startsWith('/_next/static/') ||
-    /\.(?:css|js|png|jpe?g|webp|gif|svg|ico|woff2?|ttf)$/i.test(url.pathname) ||
     PRECACHE_ASSETS.includes(url.pathname)
   );
 }

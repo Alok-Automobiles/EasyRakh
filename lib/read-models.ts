@@ -1,4 +1,4 @@
-import type { Db, ClientSession } from 'mongodb';
+import { ObjectId, type Db, type ClientSession, type Document } from 'mongodb';
 import type { CustomEntity, Customer, InventoryItem, Supplier, Transaction } from './types';
 import {
   LOW_STOCK_THRESHOLD,
@@ -18,6 +18,7 @@ export interface EntityBalance {
   openingBalance: number;
   openingBalanceType: 'credit' | 'debit';
   openingBalanceSigned: number;
+  sourcePresent?: boolean;
   totalCredit: number;
   totalDebit: number;
   totalBalance: number;
@@ -28,8 +29,32 @@ export interface EntityBalance {
   updatedAt: Date;
 }
 
+interface InventoryReadModelItem {
+  userId: string;
+  itemId: string;
+  quantity: number;
+  value: number;
+  outOfStock: number;
+  inactive: number;
+  restock: number;
+  location: string;
+  brand: string;
+  supplier: string;
+}
+
+export interface ReadModelEntityKey {
+  entityType: string;
+  entityId: string;
+}
+
+export interface ReadModelChanges {
+  entities?: ReadModelEntityKey[];
+  inventoryItemIds?: string[];
+}
+
 export interface UserSummary {
   userId: string;
+  readModelVersion?: number;
   totalCredit: number;
   totalDebit: number;
   totalTransactions: number;
@@ -84,6 +109,7 @@ function makeBalanceDoc(
     openingBalance,
     openingBalanceType,
     openingBalanceSigned,
+    sourcePresent: entityName !== 'Unknown' || Boolean(entity._id),
     totalCredit: 0,
     totalDebit: 0,
     totalBalance: openingBalanceSigned,
@@ -95,6 +121,54 @@ function makeBalanceDoc(
       collectionType: entityType,
     }),
     createdAt: now,
+    updatedAt: now,
+  };
+}
+
+function inventoryReadModelItem(userId: string, item: InventoryItem & { _id: { toString(): string } }): InventoryReadModelItem {
+  const status = getInventoryStockStatus(item);
+  const quantity = item.quantity || 0;
+  return {
+    userId,
+    itemId: item._id.toString(),
+    quantity,
+    value: quantity * (item.buyingPrice || 0),
+    outOfStock: Number(status === 'out-of-stock'),
+    inactive: Number(status === 'inactive'),
+    restock: Number(status === 'low-stock'),
+    location: item.location || '',
+    brand: item.brand || '',
+    supplier: item.supplier || '',
+  };
+}
+
+export function emptyUserSummary(userId: string, now = new Date()): UserSummary {
+  return {
+    userId,
+    readModelVersion: 2,
+    totalCredit: 0,
+    totalDebit: 0,
+    totalTransactions: 0,
+    customerCredit: 0,
+    customerDebit: 0,
+    supplierCredit: 0,
+    supplierDebit: 0,
+    totalCustomers: 0,
+    totalSuppliers: 0,
+    customerOpeningBalanceTotal: 0,
+    supplierOpeningBalanceTotal: 0,
+    inventory: {
+      totalItems: 0,
+      totalQuantity: 0,
+      totalValue: 0,
+      outOfStockItems: 0,
+      inactiveItems: 0,
+      restockItems: 0,
+      lowStockThreshold: LOW_STOCK_THRESHOLD,
+      locations: [],
+      brands: [],
+      suppliers: [],
+    },
     updatedAt: now,
   };
 }
@@ -116,6 +190,7 @@ export async function rebuildUserReadModels(
   const transactionsCollection = db.collection<Transaction>('transactions');
   const inventoryCollection = db.collection<InventoryItem>('inventory');
   const entityBalancesCollection = db.collection<EntityBalance>('entityBalances');
+  const inventoryReadModelCollection = db.collection<InventoryReadModelItem>('inventoryReadModelItems');
   const userSummariesCollection = db.collection<UserSummary>('userSummaries');
 
   const [customers, suppliers, customEntities, transactions, inventoryItems] = await Promise.all([
@@ -146,33 +221,12 @@ export async function rebuildUserReadModels(
     );
   }
 
-  const summary: UserSummary = {
-    userId,
-    totalCredit: 0,
-    totalDebit: 0,
-    totalTransactions: transactions.length,
-    customerCredit: 0,
-    customerDebit: 0,
-    supplierCredit: 0,
-    supplierDebit: 0,
-    totalCustomers: customers.length,
-    totalSuppliers: suppliers.length,
-    customerOpeningBalanceTotal: customers.reduce((sum, entity) => sum + signedOpeningBalance(entity), 0),
-    supplierOpeningBalanceTotal: suppliers.reduce((sum, entity) => sum + signedOpeningBalance(entity), 0),
-    inventory: {
-      totalItems: 0,
-      totalQuantity: 0,
-      totalValue: 0,
-      outOfStockItems: 0,
-      inactiveItems: 0,
-      restockItems: 0,
-      lowStockThreshold: LOW_STOCK_THRESHOLD,
-      locations: [],
-      brands: [],
-      suppliers: [],
-    },
-    updatedAt: now,
-  };
+  const summary: UserSummary = emptyUserSummary(userId, now);
+  summary.totalTransactions = transactions.length;
+  summary.totalCustomers = customers.length;
+  summary.totalSuppliers = suppliers.length;
+  summary.customerOpeningBalanceTotal = customers.reduce((sum, entity) => sum + signedOpeningBalance(entity), 0);
+  summary.supplierOpeningBalanceTotal = suppliers.reduce((sum, entity) => sum + signedOpeningBalance(entity), 0);
 
   for (const transaction of transactions) {
     const entityType = transaction.entityType || (transaction.customerId ? 'customer' : 'supplier');
@@ -243,8 +297,169 @@ export async function rebuildUserReadModels(
     await entityBalancesCollection.insertMany(balanceDocs, { session, ordered: false });
   }
 
+  await inventoryReadModelCollection.deleteMany({ userId }, { session });
+  if (inventoryItems.length > 0) {
+    await inventoryReadModelCollection.insertMany(
+      inventoryItems.map((item) => inventoryReadModelItem(userId, item as InventoryItem & { _id: { toString(): string } })),
+      { session, ordered: false }
+    );
+  }
+
   await userSummariesCollection.replaceOne({ userId }, summary, { session, upsert: true });
   return summary;
+}
+
+function effectiveTransactionMatch(entityType: string, entityId: string): Document[] {
+  const candidates: Document[] = [{ entityId }];
+  if (entityType === 'customer') candidates.push({ customerId: entityId });
+  if (entityType === 'supplier') candidates.push({ supplierId: entityId });
+  return [
+    { $match: { $or: candidates } },
+    { $addFields: {
+      _readModelEntityType: { $ifNull: ['$entityType', { $cond: [{ $ifNull: ['$customerId', false] }, 'customer', 'supplier'] }] },
+      _readModelEntityId: { $ifNull: ['$entityId', { $ifNull: ['$customerId', '$supplierId'] }] },
+    } },
+    { $match: { _readModelEntityType: entityType, _readModelEntityId: entityId } },
+  ];
+}
+
+async function currentEntityBalance(
+  db: Db,
+  userId: string,
+  key: ReadModelEntityKey,
+  session: ClientSession,
+  now: Date
+): Promise<EntityBalance | null> {
+  const { entityType, entityId } = key;
+  const collectionName = entityType === 'customer' ? 'customers' : entityType === 'supplier' ? 'suppliers' : 'customEntities';
+  const objectId = ObjectId.isValid(entityId) ? new ObjectId(entityId) : null;
+  const entity = objectId
+    ? await db.collection(collectionName).findOne({ _id: objectId, userId, ...(collectionName === 'customEntities' ? { collectionType: entityType } : {}) }, { session })
+    : null;
+  const [totals] = await db.collection('transactions').aggregate<{
+    totalCredit: number;
+    totalDebit: number;
+    transactionCount: number;
+    lastTransactionDate?: Date;
+  }>([
+    { $match: { userId } },
+    ...effectiveTransactionMatch(entityType, entityId),
+    { $group: {
+      _id: null,
+      totalCredit: { $sum: { $cond: [{ $eq: ['$type', 'credit'] }, { $ifNull: ['$amount', 0] }, 0] } },
+      totalDebit: { $sum: { $cond: [{ $eq: ['$type', 'credit'] }, 0, { $ifNull: ['$amount', 0] }] } },
+      transactionCount: { $sum: 1 },
+      lastTransactionDate: { $max: '$date' },
+    } },
+  ], { session }).toArray();
+  if (!entity && !totals) return null;
+  const balance = makeBalanceDoc(userId, entityType, entityId, entity || { name: 'Unknown', openingBalance: 0, balanceType: 'debit' }, now);
+  balance.sourcePresent = Boolean(entity);
+  balance.totalCredit = totals?.totalCredit || 0;
+  balance.totalDebit = totals?.totalDebit || 0;
+  balance.transactionCount = totals?.transactionCount || 0;
+  balance.totalBalance = balance.openingBalanceSigned - balance.totalCredit + balance.totalDebit;
+  if (totals?.lastTransactionDate) balance.lastTransactionDate = totals.lastTransactionDate;
+  return balance;
+}
+
+function applyBalanceDifference(summary: UserSummary, previous: EntityBalance | null, current: EntityBalance | null, entityType: string) {
+  const delta = (field: keyof EntityBalance) => Number(current?.[field] || 0) - Number(previous?.[field] || 0);
+  summary.totalCredit += delta('totalCredit');
+  summary.totalDebit += delta('totalDebit');
+  summary.totalTransactions += delta('transactionCount');
+  if (entityType === 'customer') {
+    summary.customerCredit += delta('totalCredit');
+    summary.customerDebit += delta('totalDebit');
+    summary.totalCustomers += Number(Boolean(current?.sourcePresent)) - Number(Boolean(previous && (previous.sourcePresent ?? previous.entityName !== 'Unknown')));
+    summary.customerOpeningBalanceTotal += delta('openingBalanceSigned');
+  } else if (entityType === 'supplier') {
+    summary.supplierCredit += delta('totalCredit');
+    summary.supplierDebit += delta('totalDebit');
+    summary.totalSuppliers += Number(Boolean(current?.sourcePresent)) - Number(Boolean(previous && (previous.sourcePresent ?? previous.entityName !== 'Unknown')));
+    summary.supplierOpeningBalanceTotal += delta('openingBalanceSigned');
+  }
+}
+
+async function syncInventoryItem(
+  db: Db,
+  userId: string,
+  itemId: string,
+  summary: UserSummary,
+  session: ClientSession
+) {
+  const collection = db.collection<InventoryReadModelItem>('inventoryReadModelItems');
+  const previous = await collection.findOne({ userId, itemId }, { session });
+  const item = ObjectId.isValid(itemId)
+    ? await db.collection('inventory').findOne({ _id: new ObjectId(itemId), userId }, { session })
+    : null;
+  const current = item ? inventoryReadModelItem(userId, item as unknown as InventoryItem & { _id: { toString(): string } }) : null;
+  const delta = (field: keyof InventoryReadModelItem) => Number(current?.[field] || 0) - Number(previous?.[field] || 0);
+  summary.inventory.totalItems += Number(Boolean(current)) - Number(Boolean(previous));
+  summary.inventory.totalQuantity += delta('quantity');
+  summary.inventory.totalValue += delta('value');
+  summary.inventory.outOfStockItems += delta('outOfStock');
+  summary.inventory.inactiveItems += delta('inactive');
+  summary.inventory.restockItems += delta('restock');
+
+  if (current) await collection.replaceOne({ userId, itemId }, current, { upsert: true, session });
+  else if (previous) await collection.deleteOne({ userId, itemId }, { session });
+
+  for (const field of ['location', 'brand', 'supplier'] as const) {
+    const summaryField = field === 'location' ? 'locations' : field === 'brand' ? 'brands' : 'suppliers';
+    const values = new Set(summary.inventory[summaryField]);
+    if (current?.[field]) values.add(current[field]);
+    if (previous?.[field] && previous[field] !== current?.[field]) {
+      const other = await collection.findOne({ userId, [field]: previous[field] }, { session, projection: { _id: 1 } });
+      if (!other) values.delete(previous[field]);
+    }
+    summary.inventory[summaryField] = [...values].sort();
+  }
+}
+
+/** Refreshes only touched rows and writes balances plus their summary in one transaction. */
+export async function syncAffectedReadModels(
+  db: Db,
+  userId: string,
+  changes: ReadModelChanges,
+  options: { session?: ClientSession } = {}
+): Promise<UserSummary> {
+  const entities = [...new Map((changes.entities || []).map((key) => [balanceKey(key.entityType, key.entityId), key])).values()];
+  const inventoryItemIds = [...new Set(changes.inventoryItemIds || [])];
+  const run = async (session: ClientSession) => {
+    const now = new Date();
+    const summaries = db.collection<UserSummary>('userSummaries');
+    let summary: UserSummary | null = await summaries.findOne({ userId }, { session });
+    if (!summary || summary.readModelVersion !== 2) {
+      throw new Error(`Read model v2 missing for account; run the read-model backfill before deploying incremental writes`);
+    }
+    for (const key of entities) {
+      const filter = { userId, entityType: key.entityType, entityId: key.entityId };
+      const collection = db.collection<EntityBalance>('entityBalances');
+      const previous = await collection.findOne(filter, { session });
+      const current = await currentEntityBalance(db, userId, key, session, now);
+      applyBalanceDifference(summary, previous, current, key.entityType);
+      if (current) {
+        current.createdAt = previous?.createdAt || now;
+        await collection.replaceOne(filter, current, { upsert: true, session });
+      } else if (previous) {
+        await collection.deleteOne(filter, { session });
+      }
+    }
+    for (const itemId of inventoryItemIds) await syncInventoryItem(db, userId, itemId, summary, session);
+    summary.updatedAt = now;
+    const { _id: _summaryId, ...summaryDocument } = summary as UserSummary & { _id?: ObjectId };
+    void _summaryId;
+    await summaries.replaceOne({ userId }, summaryDocument, { upsert: true, session });
+    return summary;
+  };
+  if (options.session) return run(options.session);
+  const session = db.client.startSession();
+  try {
+    return await session.withTransaction(() => run(session));
+  } finally {
+    await session.endSession();
+  }
 }
 
 export async function ensureUserReadModels(db: Db, userId: string): Promise<UserSummary> {
@@ -254,8 +469,18 @@ export async function ensureUserReadModels(db: Db, userId: string): Promise<User
   return rebuildUserReadModels(db, userId);
 }
 
-export async function refreshUserReadModels(db: Db, userId: string): Promise<UserSummary | null> {
+/**
+ * Compatibility entrypoint for write routes. New callers must declare what
+ * changed so the bounded, transactional synchronizer can be used. The
+ * full rebuild path remains for maintenance scripts and legacy repair only.
+ */
+export async function refreshUserReadModels(
+  db: Db,
+  userId: string,
+  changes?: ReadModelChanges
+): Promise<UserSummary | null> {
   try {
+    if (changes) return await syncAffectedReadModels(db, userId, changes);
     return await rebuildUserReadModels(db, userId);
   } catch (error) {
     console.warn(`Read model refresh failed for ${userId}:`, error);

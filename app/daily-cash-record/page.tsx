@@ -80,6 +80,11 @@ interface PaginationInfo {
   recordsPerPage: number;
 }
 
+interface DailyCashSummaryResponse {
+  records: SummaryRecord[];
+  pagination: PaginationInfo | null;
+}
+
 export default function DailyCashRecordPage() {
   const router = useRouter();
   const queryClient = useQueryClient();
@@ -90,8 +95,13 @@ export default function DailyCashRecordPage() {
     return cashRequestRef.current.id;
   };
   const [selectedDate, setSelectedDate] = useState<Date>(new Date());
-  const [summaryRecords, setSummaryRecords] = useState<SummaryRecord[]>([]);
-  const [loading, setLoading] = useState(true);
+  const initialSummary = queryClient.getQueryData<DailyCashSummaryResponse>(['daily-cash-summary', 1]);
+  const [summaryRecords, setSummaryRecords] = useState<SummaryRecord[]>(initialSummary?.records ?? []);
+  const [loading, setLoading] = useState(!initialSummary);
+  const [summaryRefreshing, setSummaryRefreshing] = useState(false);
+  const [summaryError, setSummaryError] = useState(false);
+  const [lastSummarySync, setLastSummarySync] = useState(() =>
+    queryClient.getQueryState(['daily-cash-summary', 1])?.dataUpdatedAt ?? 0);
   const [seePrevRecordsOpen, setSeePrevRecordsOpen] = useState(false);
   const [createNewRecordOpen, setCreateNewRecordOpen] = useState(false);
   const [editEntryOpen, setEditEntryOpen] = useState(false);
@@ -103,12 +113,13 @@ export default function DailyCashRecordPage() {
   const [deleteEntryOpen, setDeleteEntryOpen] = useState(false);
   const [deleteEntryPending, setDeleteEntryPending] = useState(false);
   const [currentPage, setCurrentPage] = useState(1);
-  const [pagination, setPagination] = useState<PaginationInfo | null>(null);
+  const [pagination, setPagination] = useState<PaginationInfo | null>(initialSummary?.pagination ?? null);
   const [recordsCache, setRecordsCache] = useState<Map<string, DailyRecord>>(new Map());
   const [addTransactionOpen, setAddTransactionOpen] = useState(false);
   const hasFetchedRef = useRef(false);
   const prevPageRef = useRef<number | null>(null);
   const suppressNextSummaryLoadingRef = useRef(false);
+  const summaryRequestIdRef = useRef(0);
 
   const [amount, setAmount] = useState('');
   const [description, setDescription] = useState('');
@@ -207,23 +218,49 @@ export default function DailyCashRecordPage() {
     options: { showLoading?: boolean } = {}
   ) => {
     const showLoading = options.showLoading ?? true;
+    const requestId = ++summaryRequestIdRef.current;
+    const queryKey = ['daily-cash-summary', page] as const;
+    const cached = queryClient.getQueryData<DailyCashSummaryResponse>(queryKey);
+    if (cached && showLoading) {
+      setSummaryRecords(cached.records || []);
+      setPagination(cached.pagination || null);
+      setLastSummarySync(queryClient.getQueryState(queryKey)?.dataUpdatedAt ?? 0);
+      setLoading(false);
+    } else if (showLoading) {
+      setLoading(true);
+    }
+    setSummaryRefreshing(true);
+    setSummaryError(false);
     try {
-      if (showLoading) setLoading(true);
-      const response = await fetch(`/api/daily-cash-records?page=${page}`);
-      if (response.status === 401) {
-        router.push('/login');
-        return;
-      }
-      const data = await response.json();
+      const data = await queryClient.fetchQuery<DailyCashSummaryResponse>({
+        queryKey,
+        staleTime: 0,
+        queryFn: async ({ signal }) => {
+          const response = await fetch(`/api/daily-cash-records?page=${page}`, { signal });
+          if (response.status === 401) {
+            router.push('/login');
+            throw new Error('Unauthorized');
+          }
+          if (!response.ok) throw new Error('Failed to load cash records');
+          return response.json();
+        },
+      });
+      if (requestId !== summaryRequestIdRef.current) return;
       setSummaryRecords(data.records || []);
       setPagination(data.pagination || null);
+      setLastSummarySync(queryClient.getQueryState(queryKey)?.dataUpdatedAt ?? Date.now());
     } catch (error) {
+      if (requestId !== summaryRequestIdRef.current) return;
       console.error('Error fetching summary:', error);
-      toast.error('Failed to load records');
+      setSummaryError(true);
+      if (!cached) toast.error('Failed to load records');
     } finally {
-      if (showLoading) setLoading(false);
+      if (requestId === summaryRequestIdRef.current) {
+        setLoading(false);
+        setSummaryRefreshing(false);
+      }
     }
-  }, [router]);
+  }, [queryClient, router]);
 
   useEffect(() => {
     if (!hasFetchedRef.current) {
@@ -742,6 +779,14 @@ export default function DailyCashRecordPage() {
     );
   }
 
+  if (summaryError && lastSummarySync === 0) {
+    return (
+      <div role="alert" className="cash-record-page mx-auto max-w-7xl px-4 py-8 text-sm text-red-700">
+        Cash records could not be loaded. <Button variant="outline" onClick={() => void fetchData(currentPage)}>Retry</Button>
+      </div>
+    );
+  }
+
   return (
     <div className="cash-record-page min-h-screen bg-background px-3 py-3 pb-10 sm:p-6 sm:pb-8">
       <div className="max-w-7xl mx-auto">
@@ -753,6 +798,12 @@ export default function DailyCashRecordPage() {
             <span className="sm:hidden">Tap a day to view entries and add transactions</span>
             <span className="hidden sm:inline">Select a day to view entries and add transactions</span>
           </p>
+          {lastSummarySync > 0 && (
+            <p role="status" className="mt-1 text-xs text-muted-foreground">
+              {summaryError ? 'Unable to refresh. ' : summaryRefreshing ? 'Showing saved records while updating. ' : ''}
+              Last synced {new Date(lastSummarySync).toLocaleTimeString('en-IN', { hour: 'numeric', minute: '2-digit' })}
+            </p>
+          )}
         </header>
 
         <DailyBusinessBalance />

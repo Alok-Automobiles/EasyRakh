@@ -351,7 +351,7 @@ export default function SuppliersPage() {
       <motion.div
         initial={{ opacity: 0 }}
         animate={{ opacity: 1 }}
-        transition={{ duration: 1.3 }}
+        transition={{ duration: 0.12 }}
         exit={{ opacity: 0 }}
       >
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
@@ -370,7 +370,7 @@ export default function SuppliersPage() {
     <motion.div
       initial={{ opacity: 0 }}
       animate={{ opacity: 1 }}
-      transition={{ duration: 1.3 }}
+      transition={{ duration: 0.12 }}
       exit={{ opacity: 0 }}
     >
       <div className="mx-auto max-w-6xl px-3 py-5 sm:px-6 sm:py-8 lg:px-8 lg:py-10">

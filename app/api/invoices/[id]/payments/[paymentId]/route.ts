@@ -29,7 +29,9 @@ const updatePaymentSchema = z.object({
 
 async function invalidate(db: Db, userId: string, customerId?: string) {
   try {
-    await refreshUserReadModels(db, userId);
+    await refreshUserReadModels(db, userId, {
+      entities: customerId ? [{ entityType: 'customer', entityId: customerId }] : [],
+    });
     await bumpCacheVersions(userId, ['invoices', 'dashboard', 'dailyCash', 'customers', 'search', 'bootstrap']);
     if (customerId) await redis.del(`ledger:customer:${customerId}:${userId}`);
   } catch (cacheError) {

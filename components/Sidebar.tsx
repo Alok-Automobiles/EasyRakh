@@ -1,11 +1,12 @@
 'use client';
 
-import { fetchAppBootstrap } from '@/lib/app-bootstrap-client';
+import { BootstrapRequestError, useAppBootstrap } from '@/lib/app-bootstrap-client';
 
 import Link from 'next/link';
 import Image from 'next/image';
 import { useRouter, usePathname } from 'next/navigation';
-import { useEffect, useState, useRef, useMemo, useCallback } from 'react';
+import { useEffect, useState, useMemo, useCallback } from 'react';
+import { useQueryClient } from '@tanstack/react-query';
 import { 
   LayoutDashboard, 
   Users, 
@@ -32,7 +33,6 @@ import {
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
 import ThemeToggle from '@/components/ThemeToggle';
-import { useBusinessCash } from '@/lib/hooks/useSupplierPayments';
 
 type SidebarProps = {
   collapsed?: boolean;
@@ -41,17 +41,21 @@ type SidebarProps = {
 
 export default function Sidebar({ collapsed = false }: SidebarProps) {
   const router = useRouter();
+  const queryClient = useQueryClient();
   const pathname = usePathname();
-  const [user, setUser] = useState<{ name: string; email: string; isAdmin?: boolean } | null>(null);
-  const [loading, setLoading] = useState(true);
-  const lastPathnameRef = useRef<string>('');
   const [isMobileOpen, setIsMobileOpen] = useState(false);
-  const [customCollectionTypes, setCustomCollectionTypes] = useState<Array<{ id: string; name: string; slug: string; lastTransactionDate?: Date }>>([]);
   const [expandedCollections, setExpandedCollections] = useState(false);
   const [isDesktop, setIsDesktop] = useState(false);
 
   const isAuthPage = pathname === '/login' || pathname === '/register' || pathname === '/';
-  const { data: supplierFeature } = useBusinessCash(!isAuthPage);
+  const bootstrap = useAppBootstrap(!isAuthPage);
+  const user = bootstrap.data?.user ?? null;
+  const loading = bootstrap.isPending;
+  const customCollectionTypes = useMemo(() =>
+    (bootstrap.data?.collectionTypes ?? []).map((ct) => ({
+      ...ct,
+      lastTransactionDate: ct.lastTransactionDate ? new Date(ct.lastTransactionDate) : undefined,
+    })), [bootstrap.data?.collectionTypes]);
   const effectiveCollapsed = isMobileOpen ? false : collapsed;
 
   useEffect(() => {
@@ -64,39 +68,11 @@ export default function Sidebar({ collapsed = false }: SidebarProps) {
   }, []);
 
   useEffect(() => {
-    if (isAuthPage) {
-      const timer = setTimeout(() => setLoading(false), 0);
-      return () => clearTimeout(timer);
+    if (bootstrap.error instanceof BootstrapRequestError && bootstrap.error.status === 401) {
+      queryClient.clear();
+      router.push('/login');
     }
-
-    if (lastPathnameRef.current === pathname) return;
-    lastPathnameRef.current = pathname;
-
-    fetchAppBootstrap()
-      .then((res) => {
-        if (res.ok) return res.json();
-        if (res.status === 401) {
-          router.push('/login');
-          return null;
-        }
-        return null;
-      })
-      .then((bootstrapData) => {
-        if (bootstrapData?.user) {
-          setUser(bootstrapData.user);
-        }
-        if (bootstrapData?.collectionTypes) {
-          setCustomCollectionTypes(
-            bootstrapData.collectionTypes.map((ct: { id: string; name: string; slug: string; lastTransactionDate?: string | Date }) => ({
-              ...ct,
-              lastTransactionDate: ct.lastTransactionDate ? new Date(ct.lastTransactionDate) : undefined,
-            }))
-          );
-        }
-        setLoading(false);
-      })
-      .catch(() => setLoading(false));
-  }, [pathname, router, isAuthPage]);
+  }, [bootstrap.error, queryClient, router]);
 
   useEffect(() => {
     const timer = setTimeout(() => setIsMobileOpen(false), 0);
@@ -115,17 +91,19 @@ export default function Sidebar({ collapsed = false }: SidebarProps) {
   }, [isMobileOpen]);
 
   const handleLogout = useCallback(async () => {
-    await fetch('/api/auth/logout', { method: 'POST' });
+    const response = await fetch('/api/auth/logout', { method: 'POST' });
+    if (!response.ok) return;
+    queryClient.clear();
     router.push('/');
     router.refresh();
-  }, [router]);
+  }, [queryClient, router]);
 
   const navLinks = useMemo(() => {
     const links = [
       { href: '/dashboard', label: 'Dashboard', icon: LayoutDashboard },
       { href: '/customers', label: 'Customers', icon: Users },
       { href: '/suppliers', label: 'Suppliers', icon: Building2 },
-      ...(supplierFeature?.enabled ? [{ href: '/supplier-payments', label: 'Supplier Payments', icon: Wallet }] : []),
+      ...(bootstrap.data?.supplierPaymentsEnabled ? [{ href: '/supplier-payments', label: 'Supplier Payments', icon: Wallet }] : []),
       { href: '/transactions/new', label: 'New Transaction', icon: PlusCircle },
       { href: '/invoices', label: 'Invoices', icon: FileText },
       { href: '/inventory', label: 'Inventory', icon: Boxes },
@@ -142,7 +120,7 @@ export default function Sidebar({ collapsed = false }: SidebarProps) {
     }
 
     return links;
-  }, [user?.isAdmin, supplierFeature?.enabled]);
+  }, [user?.isAdmin, bootstrap.data?.supplierPaymentsEnabled]);
 
   const isActive = useCallback((href: string) => {
     if (href === '/dashboard') {
