@@ -265,6 +265,7 @@ export default function NotesPage() {
         const data = await response.json();
         setNotes(notes.map((n) => (n.id === note.id ? data.note : n)));
         queryClient.invalidateQueries({ queryKey: ['dashboard'] });
+      queryClient.invalidateQueries({ queryKey: ['bootstrap'] });
         toast.success(
           !note.showOnDashboard
             ? 'Note pinned to dashboard'

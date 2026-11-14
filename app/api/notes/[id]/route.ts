@@ -1,3 +1,4 @@
+import { withRequestTiming } from '@/lib/request-timing';
 import { NextRequest, NextResponse } from 'next/server';
 import { getDb } from '@/lib/mongodb';
 import { getUserIdFromRequest } from '@/lib/auth';
@@ -15,7 +16,7 @@ const updateNoteSchema = z.object({
 
 const colorPalette = ['#FFB347', '#FF6B6B', '#9B59B6', '#5DADE2', '#52BE80']; // orange, red-orange, purple, light blue, light green
 
-export async function PUT(
+async function handlePUT(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
@@ -123,7 +124,7 @@ export async function PUT(
   }
 }
 
-export async function DELETE(
+async function handleDELETE(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
@@ -172,3 +173,6 @@ export async function DELETE(
     );
   }
 }
+
+export const PUT = withRequestTiming('PUT /api/notes/[id]', handlePUT);
+export const DELETE = withRequestTiming('DELETE /api/notes/[id]', handleDELETE);

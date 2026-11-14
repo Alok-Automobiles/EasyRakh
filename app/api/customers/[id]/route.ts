@@ -1,3 +1,4 @@
+import { withRequestTiming } from '@/lib/request-timing';
 import { NextRequest, NextResponse } from 'next/server';
 import { getDb } from '@/lib/mongodb';
 import { getUserIdFromRequest } from '@/lib/auth';
@@ -24,7 +25,7 @@ const customerSchema = z.object({
   openingBalanceBillPublicId: z.string().optional(),
 });
 
-export async function GET(
+async function handleGET(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
@@ -78,7 +79,7 @@ export async function GET(
   }
 }
 
-export async function PUT(
+async function handlePUT(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
@@ -127,8 +128,8 @@ export async function PUT(
       );
     }
 
+    await refreshUserReadModels(db, userId, { entities: [{ entityType: 'customer', entityId: id }] });
     await Promise.all([
-      refreshUserReadModels(db, userId),
       bumpCacheVersions(userId, ['customers', 'dashboard', 'bootstrap', 'search']),
       redis.del(`ledger:customer:${id}:${userId}`),
     ]);
@@ -156,7 +157,7 @@ export async function PUT(
   }
 }
 
-export async function DELETE(
+async function handleDELETE(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
@@ -232,8 +233,8 @@ export async function DELETE(
       );
     }
 
+    await refreshUserReadModels(db, userId, { entities: [{ entityType: 'customer', entityId: id }] });
     await Promise.all([
-      refreshUserReadModels(db, userId),
       bumpCacheVersions(userId, ['customers', 'dashboard', 'bootstrap', 'search']),
       redis.del(`ledger:customer:${id}:${userId}`),
     ]);
@@ -249,3 +250,7 @@ export async function DELETE(
     );
   }
 }
+
+export const GET = withRequestTiming('GET /api/customers/[id]', handleGET);
+export const PUT = withRequestTiming('PUT /api/customers/[id]', handlePUT);
+export const DELETE = withRequestTiming('DELETE /api/customers/[id]', handleDELETE);

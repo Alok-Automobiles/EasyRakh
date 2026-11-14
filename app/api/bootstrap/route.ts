@@ -1,3 +1,4 @@
+import { withRequestTiming } from '@/lib/request-timing';
 import { NextRequest, NextResponse } from 'next/server';
 import { ObjectId } from 'mongodb';
 import { getDb } from '@/lib/mongodb';
@@ -8,7 +9,7 @@ import { ensureUserReadModels, type EntityBalance } from '@/lib/read-models';
 
 const LAST_ACTIVE_WRITE_INTERVAL_MS = 15 * 60 * 1000;
 
-export async function GET(request: NextRequest) {
+async function handleGET(request: NextRequest) {
   try {
     const userId = getUserIdFromRequest(request);
     if (!userId) {
@@ -103,3 +104,5 @@ export async function GET(request: NextRequest) {
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
   }
 }
+
+export const GET = withRequestTiming('GET /api/bootstrap', handleGET);

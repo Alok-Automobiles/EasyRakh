@@ -1499,6 +1499,7 @@ export default function InventoryItemsPage() {
       queryClient.invalidateQueries({ queryKey: ['inventory-items'] });
       queryClient.invalidateQueries({ queryKey: ['inventory-overview'] });
       queryClient.invalidateQueries({ queryKey: ['dashboard'] });
+      queryClient.invalidateQueries({ queryKey: ['bootstrap'] });
     },
     onError: (error: Error) => {
       pendingUploadIdsAtSubmitRef.current = new Set();
@@ -1520,6 +1521,7 @@ export default function InventoryItemsPage() {
       queryClient.invalidateQueries({ queryKey: ['inventory-items'] });
       queryClient.invalidateQueries({ queryKey: ['inventory-overview'] });
       queryClient.invalidateQueries({ queryKey: ['dashboard'] });
+      queryClient.invalidateQueries({ queryKey: ['bootstrap'] });
     },
     onError: (error: Error) => {
       toast.error(error.message || 'Failed to delete item');
@@ -1620,6 +1622,7 @@ export default function InventoryItemsPage() {
       queryClient.invalidateQueries({ queryKey: ['inventory-items'] });
       queryClient.invalidateQueries({ queryKey: ['inventory-overview'] });
       queryClient.invalidateQueries({ queryKey: ['dashboard'] });
+      queryClient.invalidateQueries({ queryKey: ['bootstrap'] });
     },
   });
 
@@ -1743,6 +1746,7 @@ export default function InventoryItemsPage() {
           queryClient.invalidateQueries({ queryKey: ['inventory-items'] });
           queryClient.invalidateQueries({ queryKey: ['inventory-overview'] });
           queryClient.invalidateQueries({ queryKey: ['dashboard'] });
+      queryClient.invalidateQueries({ queryKey: ['bootstrap'] });
         })
         .catch((error) => {
           toast.error(error instanceof Error ? error.message : 'Uploaded image could not be attached');

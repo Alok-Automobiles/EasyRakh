@@ -1,3 +1,4 @@
+import { withRequestTiming } from '@/lib/request-timing';
 import { NextRequest, NextResponse } from 'next/server';
 import { getDb } from '@/lib/mongodb';
 import { getUserIdFromRequest } from '@/lib/auth';
@@ -97,7 +98,7 @@ function getObjectId(id: string) {
   return new ObjectId(id);
 }
 
-export async function GET(
+async function handleGET(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
@@ -140,7 +141,7 @@ export async function GET(
   }
 }
 
-export async function PUT(
+async function handlePUT(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
@@ -219,8 +220,8 @@ export async function PUT(
       return NextResponse.json({ error: 'Inventory item not found' }, { status: 404 });
     }
 
+    await refreshUserReadModels(db, userId, { inventory: true });
     await Promise.all([
-      refreshUserReadModels(db, userId),
       invalidateInventoryCache(userId, id),
     ]);
 
@@ -262,7 +263,7 @@ const imagePatchSchema = z.object({
 
 const inventoryPatchSchema = z.union([quantityPatchSchema, imagePatchSchema]);
 
-export async function PATCH(
+async function handlePATCH(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
@@ -310,8 +311,8 @@ export async function PATCH(
         result as unknown as InventoryItem & { _id: { toString(): string } }
       );
       await inventoryCollection.updateOne({ _id: objectId, userId }, { $set: derived });
+      await refreshUserReadModels(db, userId, { inventory: true });
       await Promise.all([
-        refreshUserReadModels(db, userId),
         invalidateInventoryCache(userId, id),
       ]);
 
@@ -340,8 +341,8 @@ export async function PATCH(
         result as unknown as InventoryItem & { _id: { toString(): string } }
       );
       await inventoryCollection.updateOne({ _id: objectId, userId }, { $set: derived });
+      await refreshUserReadModels(db, userId, { inventory: true });
       await Promise.all([
-        refreshUserReadModels(db, userId),
         invalidateInventoryCache(userId, id),
       ]);
 
@@ -380,8 +381,8 @@ export async function PATCH(
       }
       // Quantity was already 0; return current state unchanged
       const current = await inventoryCollection.findOne({ _id: objectId, userId });
+      await refreshUserReadModels(db, userId, { inventory: true });
       await Promise.all([
-        refreshUserReadModels(db, userId),
         invalidateInventoryCache(userId, id),
       ]);
       const item = serializeInventoryItem(
@@ -394,8 +395,8 @@ export async function PATCH(
       result as unknown as InventoryItem & { _id: { toString(): string } }
     );
     await inventoryCollection.updateOne({ _id: objectId, userId }, { $set: derived });
+    await refreshUserReadModels(db, userId, { inventory: true });
     await Promise.all([
-      refreshUserReadModels(db, userId),
       invalidateInventoryCache(userId, id),
     ]);
 
@@ -417,7 +418,7 @@ export async function PATCH(
   }
 }
 
-export async function DELETE(
+async function handleDELETE(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
@@ -470,8 +471,8 @@ export async function DELETE(
       return NextResponse.json({ error: 'Inventory item not found' }, { status: 404 });
     }
 
+    await refreshUserReadModels(db, userId, { inventory: true });
     await Promise.all([
-      refreshUserReadModels(db, userId),
       invalidateInventoryCache(userId, id),
     ]);
 
@@ -481,3 +482,8 @@ export async function DELETE(
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
   }
 }
+
+export const GET = withRequestTiming('GET /api/inventory/[id]', handleGET);
+export const PUT = withRequestTiming('PUT /api/inventory/[id]', handlePUT);
+export const PATCH = withRequestTiming('PATCH /api/inventory/[id]', handlePATCH);
+export const DELETE = withRequestTiming('DELETE /api/inventory/[id]', handleDELETE);

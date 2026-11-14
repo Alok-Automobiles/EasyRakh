@@ -1,5 +1,7 @@
 'use client';
 
+import { useQueryClient } from '@tanstack/react-query';
+
 import { useState, useEffect, useRef, useMemo, ChangeEvent } from 'react';
 import { useRouter, useParams } from 'next/navigation';
 import { useForm } from 'react-hook-form';
@@ -81,6 +83,7 @@ interface BillUploadResult {
 }
 
 export default function CustomEntitiesPage() {
+  const queryClient = useQueryClient();
   const router = useRouter();
   const params = useParams();
   const collectionTypeSlug = params.collectionType as string;
@@ -190,6 +193,7 @@ export default function CustomEntitiesPage() {
     try {
       const response = await fetch('/api/collection-types');
       if (response.ok) {
+        void queryClient.invalidateQueries({ queryKey: ['bootstrap'] });
         const data = await response.json();
         const ct = data.collectionTypes.find((ct: CollectionType) => ct.slug === collectionTypeSlug);
         if (ct) {
@@ -208,6 +212,7 @@ export default function CustomEntitiesPage() {
     try {
       const response = await fetch(`/api/custom-entities?collectionType=${collectionTypeSlug}`);
       if (response.ok) {
+        void queryClient.invalidateQueries({ queryKey: ['bootstrap'] });
         const data = await response.json();
         setEntities(data.entities);
       } else if (response.status === 401) {
@@ -315,6 +320,7 @@ export default function CustomEntitiesPage() {
       });
 
       if (response.ok) {
+        void queryClient.invalidateQueries({ queryKey: ['bootstrap'] });
         const result = await response.json();
         const nextEntityId = editingEntity ?? result.entity?.id;
 
@@ -362,6 +368,7 @@ export default function CustomEntitiesPage() {
       });
 
       if (response.ok) {
+        void queryClient.invalidateQueries({ queryKey: ['bootstrap'] });
         toast.success('Entity deleted successfully!');
         setDeleteDialogOpen(false);
         setDeletingEntity(null);

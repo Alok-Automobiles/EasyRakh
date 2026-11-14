@@ -1,3 +1,4 @@
+import { withRequestTiming } from '@/lib/request-timing';
 import { NextRequest, NextResponse } from 'next/server';
 import { Db, ObjectId } from 'mongodb';
 import { z } from 'zod';
@@ -29,7 +30,7 @@ const paymentSchema = z.object({
 
 async function invalidate(db: Db, userId: string, customerId?: string) {
   try {
-    await refreshUserReadModels(db, userId);
+    await refreshUserReadModels(db, userId, { entities: [{ entityType: 'customer', entityId: customerId }] });
     await bumpCacheVersions(userId, ['invoices', 'dashboard', 'dailyCash', 'customers', 'search', 'bootstrap']);
     if (customerId) await redis.del(`ledger:customer:${customerId}:${userId}`);
   } catch (cacheError) {
@@ -39,7 +40,7 @@ async function invalidate(db: Db, userId: string, customerId?: string) {
   }
 }
 
-export async function POST(
+async function handlePOST(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
@@ -236,3 +237,5 @@ export async function POST(
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
   }
 }
+
+export const POST = withRequestTiming('POST /api/invoices/[id]/payments', handlePOST);

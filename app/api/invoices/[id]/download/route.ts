@@ -1,3 +1,4 @@
+import { withRequestTiming } from '@/lib/request-timing';
 import { ObjectId } from 'mongodb';
 import { NextRequest, NextResponse } from 'next/server';
 import { getUserIdFromRequest } from '@/lib/auth';
@@ -18,7 +19,7 @@ function invoiceFilename(invoiceNumber: string) {
   return `${safeNumber || 'invoice'}.pdf`;
 }
 
-export async function GET(
+async function handleGET(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
@@ -117,3 +118,5 @@ export async function GET(
     );
   }
 }
+
+export const GET = withRequestTiming('GET /api/invoices/[id]/download', handleGET);

@@ -1,3 +1,4 @@
+import { withRequestTiming } from '@/lib/request-timing';
 import { NextRequest, NextResponse } from 'next/server';
 import { getDb } from '@/lib/mongodb';
 import { getUserIdFromRequest } from '@/lib/auth';
@@ -18,7 +19,7 @@ function generateSlug(name: string): string {
     .replace(/^-+|-+$/g, '');
 }
 
-export async function GET(
+async function handleGET(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
@@ -65,7 +66,7 @@ export async function GET(
   }
 }
 
-export async function PUT(
+async function handlePUT(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
@@ -163,7 +164,7 @@ export async function PUT(
   }
 }
 
-export async function DELETE(
+async function handleDELETE(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
@@ -231,3 +232,7 @@ export async function DELETE(
     );
   }
 }
+
+export const GET = withRequestTiming('GET /api/collection-types/[id]', handleGET);
+export const PUT = withRequestTiming('PUT /api/collection-types/[id]', handlePUT);
+export const DELETE = withRequestTiming('DELETE /api/collection-types/[id]', handleDELETE);

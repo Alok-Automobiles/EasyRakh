@@ -604,6 +604,7 @@ export default function DashboardClient() {
       resetAddTransactionForm();
       setAddTransactionOpen(false);
       queryClient.invalidateQueries({ queryKey: ['dashboard'] });
+      queryClient.invalidateQueries({ queryKey: ['bootstrap'] });
     },
   });
 

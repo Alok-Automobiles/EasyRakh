@@ -26,6 +26,8 @@ export async function initializeIndexes(db: Db): Promise<void> {
 
       transactions.createIndex({ userId: 1, date: -1, createdAt: -1 }),
       transactions.createIndex({ userId: 1, entityId: 1, entityType: 1 }),
+      transactions.createIndex({ userId: 1, customerId: 1 }),
+      transactions.createIndex({ userId: 1, supplierId: 1 }),
       transactions.createIndex({ userId: 1, entityType: 1, entityId: 1, date: 1, createdAt: 1 }),
       transactions.createIndex({ userId: 1, entityType: 1, entityId: 1, date: 1, createdAt: 1, _id: 1 }),
       transactions.createIndex({ userId: 1, entityType: 1, entityId: 1, date: -1, createdAt: -1 }),

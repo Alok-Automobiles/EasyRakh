@@ -1,3 +1,4 @@
+import { withRequestTiming } from '@/lib/request-timing';
 import { NextRequest, NextResponse } from 'next/server';
 import { getDb } from '@/lib/mongodb';
 import { getUserIdFromRequest } from '@/lib/auth';
@@ -17,7 +18,7 @@ function generateSlug(name: string): string {
     .replace(/^-+|-+$/g, ''); // Remove leading/trailing hyphens
 }
 
-export async function GET(request: NextRequest) {
+async function handleGET(request: NextRequest) {
   try {
     const userId = getUserIdFromRequest(request);
 
@@ -63,7 +64,7 @@ export async function GET(request: NextRequest) {
   }
 }
 
-export async function POST(request: NextRequest) {
+async function handlePOST(request: NextRequest) {
   try {
     const userId = getUserIdFromRequest(request);
 
@@ -133,3 +134,6 @@ export async function POST(request: NextRequest) {
     );
   }
 }
+
+export const GET = withRequestTiming('GET /api/collection-types', handleGET);
+export const POST = withRequestTiming('POST /api/collection-types', handlePOST);

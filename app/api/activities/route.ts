@@ -1,9 +1,10 @@
+import { withRequestTiming } from '@/lib/request-timing';
 import { NextRequest, NextResponse } from 'next/server';
 import { getDb } from '@/lib/mongodb';
 import { getUserIdFromRequest } from '@/lib/auth';
 import { ObjectId } from 'mongodb';
 
-export async function GET(request: NextRequest) {
+async function handleGET(request: NextRequest) {
   try {
     const userId = getUserIdFromRequest(request);
 
@@ -164,3 +165,5 @@ export async function GET(request: NextRequest) {
   }
 }
 
+
+export const GET = withRequestTiming('GET /api/activities', handleGET);

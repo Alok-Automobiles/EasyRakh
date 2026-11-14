@@ -258,6 +258,7 @@ export default function CustomersPage() {
       setBillUploadResult(null);
       queryClient.invalidateQueries({ queryKey: ['customers'] });
       queryClient.invalidateQueries({ queryKey: ['dashboard'] });
+      queryClient.invalidateQueries({ queryKey: ['bootstrap'] });
       
       if (!variables.id && result.customer?.id) {
         router.push(`/ledger/customer/${result.customer.id}`);
@@ -286,6 +287,7 @@ export default function CustomersPage() {
       }
       queryClient.invalidateQueries({ queryKey: ['customers'] });
       queryClient.invalidateQueries({ queryKey: ['dashboard'] });
+      queryClient.invalidateQueries({ queryKey: ['bootstrap'] });
     },
     onError: (error: Error) => {
       toast.error(error.message || 'An error occurred. Please try again.');

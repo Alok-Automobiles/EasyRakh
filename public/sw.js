@@ -1,4 +1,4 @@
-const CACHE_VERSION = '2026-06-21-network-first';
+const CACHE_VERSION = '2026-11-14-immutable-assets';
 const CACHE_PREFIX = 'easyrakh';
 const ASSET_CACHE_NAME = `${CACHE_PREFIX}-assets-${CACHE_VERSION}`;
 const CACHE_ALLOWLIST = [ASSET_CACHE_NAME];
@@ -139,6 +139,11 @@ self.addEventListener('fetch', (event) => {
     return;
   }
 
+  if (url.pathname.startsWith('/_next/static/')) {
+    event.respondWith(immutableAsset(event, request));
+    return;
+  }
+
   if (isCacheableAsset(url)) {
     event.respondWith(networkFirstAsset(event, request));
   }
@@ -183,4 +188,16 @@ function isCacheableAsset(url) {
     /\.(?:css|js|png|jpe?g|webp|gif|svg|ico|woff2?|ttf)$/i.test(url.pathname) ||
     PRECACHE_ASSETS.includes(url.pathname)
   );
+}
+
+// Next.js includes content hashes in these URLs; a new deployment gets new URLs.
+async function immutableAsset(event, request) {
+  const cache = await caches.open(ASSET_CACHE_NAME);
+  const cached = await cache.match(request);
+  if (cached) return cached;
+  const response = await fetch(request);
+  if (response.ok) {
+    event.waitUntil(cache.put(request, response.clone()).catch(() => undefined));
+  }
+  return response;
 }

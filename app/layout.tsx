@@ -9,6 +9,7 @@ import VoiceAssistantWrapper from "@/components/VoiceAssistantWrapper";
 import { Analytics } from "@vercel/analytics/next";
 import { Providers } from "./providers";
 import ServiceWorkerRegistration from "@/components/ServiceWorkerRegistration";
+import PerformanceMetrics from '@/components/PerformanceMetrics';
 import InstallPrompt from "@/components/InstallPrompt";
 
 const themeScript = `
@@ -85,6 +86,7 @@ export default function RootLayout({
         <ServiceWorkerRegistration />
         <InstallPrompt />
         <Analytics />
+        <PerformanceMetrics />
       </body>
     </html>
   );

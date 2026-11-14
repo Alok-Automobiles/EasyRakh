@@ -1,3 +1,4 @@
+import { withRequestTiming } from '@/lib/request-timing';
 import { NextRequest, NextResponse } from 'next/server';
 import { getDb } from '@/lib/mongodb';
 import { getUserIdFromRequest } from '@/lib/auth';
@@ -57,7 +58,7 @@ const supplierSchema = z.object({
   ...supplierTermsSchema.shape,
 });
 
-export async function GET(request: NextRequest) {
+async function handleGET(request: NextRequest) {
   try {
     const userId = getUserIdFromRequest(request);
 
@@ -250,7 +251,7 @@ export async function GET(request: NextRequest) {
   }
 }
 
-export async function POST(request: NextRequest) {
+async function handlePOST(request: NextRequest) {
   try {
     const userId = getUserIdFromRequest(request);
 
@@ -290,10 +291,8 @@ export async function POST(request: NextRequest) {
       })
       : await suppliersCollection.insertOne(document);
 
-    await Promise.all([
-      refreshUserReadModels(db, userId),
-      bumpCacheVersions(userId, ['suppliers', 'dashboard', 'bootstrap', 'search']),
-    ]);
+    await refreshUserReadModels(db, userId, { entities: [{ entityType: 'supplier', entityId: result.insertedId.toString() }] });
+    await bumpCacheVersions(userId, ['suppliers', 'dashboard', 'bootstrap', 'search']);
 
     return NextResponse.json(
       {
@@ -320,3 +319,6 @@ export async function POST(request: NextRequest) {
     );
   }
 }
+
+export const GET = withRequestTiming('GET /api/suppliers', handleGET);
+export const POST = withRequestTiming('POST /api/suppliers', handlePOST);

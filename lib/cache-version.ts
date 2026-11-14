@@ -1,8 +1,10 @@
 import redis from './redis';
+import { optionalCache } from './cache-deadline';
+import { timeStage } from './request-timing';
 import { hasRecentWriteBarrier } from './cache-consistency';
 
-const CACHE_VERSION_TIMEOUT_MS = 500;
-const CACHE_VALUE_TIMEOUT_MS = 250;
+const CACHE_VERSION_TIMEOUT_MS = 150;
+const CACHE_VALUE_TIMEOUT_MS = 150;
 
 export type CacheNamespace =
   | 'bootstrap'
@@ -29,20 +31,10 @@ async function redisGetWithTimeout(
 ): Promise<RedisReadResult> {
   if (typeof redis.get !== 'function') return { status: 'unavailable' };
 
-  let timeout: ReturnType<typeof setTimeout> | undefined;
-  try {
-    return await Promise.race<RedisReadResult>([
-      redis.get(key).then((value) => ({ status: 'available', value })),
-      new Promise<RedisReadResult>((resolve) => {
-        timeout = setTimeout(() => resolve({ status: 'unavailable' }), timeoutMs);
-      }),
-    ]);
-  } catch (error) {
-    console.warn(`Cache read failed for ${key}`, error);
-    return { status: 'unavailable' };
-  } finally {
-    if (timeout) clearTimeout(timeout);
-  }
+  return optionalCache<RedisReadResult>(
+    async () => ({ status: 'available', value: await redis.get(key) }),
+    { status: 'unavailable' }, timeoutMs,
+  );
 }
 
 /**
@@ -105,7 +97,7 @@ export async function bumpCacheVersion(namespace: CacheNamespace, userId: string
   if (typeof redis.incr !== 'function') return;
 
   try {
-    await redis.incr(cacheVersionKey(namespace, userId));
+    await timeStage('redis', () => redis.incr(cacheVersionKey(namespace, userId)));
   } catch (error) {
     console.warn(`Cache version bump failed for ${namespace}:${userId}`, error);
   }
@@ -134,7 +126,7 @@ export async function getCachedJson<T>(key: string | null): Promise<T | null> {
 export function setCachedJson(key: string | null, ttlSeconds: number, value: unknown) {
   if (key === null) return Promise.resolve();
 
-  return redis
-    .setex(key, ttlSeconds, JSON.stringify(value))
-    .catch((error) => console.warn(`Cache write failed for ${key}`, error));
+  return optionalCache(async () => {
+    await redis.setex(key, ttlSeconds, JSON.stringify(value));
+  }, undefined);
 }

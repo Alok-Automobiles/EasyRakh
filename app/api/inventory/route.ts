@@ -1,3 +1,4 @@
+import { withRequestTiming } from '@/lib/request-timing';
 import { NextRequest, NextResponse } from 'next/server';
 import { getDb } from '@/lib/mongodb';
 import { getUserIdFromRequest } from '@/lib/auth';
@@ -131,7 +132,7 @@ interface SummaryCachePayload {
   lowStockItems: SerializedItem[];
 }
 
-export async function GET(request: NextRequest) {
+async function handleGET(request: NextRequest) {
   try {
     const userId = getUserIdFromRequest(request);
     if (!userId) {
@@ -388,7 +389,7 @@ export async function GET(request: NextRequest) {
   }
 }
 
-export async function POST(request: NextRequest) {
+async function handlePOST(request: NextRequest) {
   try {
     const userId = getUserIdFromRequest(request);
     if (!userId) {
@@ -442,8 +443,8 @@ export async function POST(request: NextRequest) {
       }),
     });
 
+    await refreshUserReadModels(db, userId, { inventory: true });
     await Promise.all([
-      refreshUserReadModels(db, userId),
       invalidateInventoryCache(userId),
     ]);
 
@@ -469,3 +470,6 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
   }
 }
+
+export const GET = withRequestTiming('GET /api/inventory', handleGET);
+export const POST = withRequestTiming('POST /api/inventory', handlePOST);

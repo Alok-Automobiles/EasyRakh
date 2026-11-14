@@ -1,3 +1,4 @@
+import { withRequestTiming } from '@/lib/request-timing';
 import { NextRequest } from 'next/server';
 import { getUserIdFromRequest } from '@/lib/auth';
 import { getDb } from '@/lib/mongodb';
@@ -6,7 +7,7 @@ import { readBusinessCash } from '@/lib/business-cash';
 import { changeProtectedCash, confirmBusinessCash } from '@/lib/business-cash-commands';
 import { businessCashFailure, businessCashResponse } from '@/lib/business-cash-http';
 
-export async function GET(request: NextRequest) {
+async function handleGET(request: NextRequest) {
   try {
     const userId = getUserIdFromRequest(request);
     if (!userId) return businessCashResponse({ error: 'Unauthorized' }, 401);
@@ -15,7 +16,7 @@ export async function GET(request: NextRequest) {
   } catch (error) { return businessCashFailure(error); }
 }
 
-export async function POST(request: NextRequest) {
+async function handlePOST(request: NextRequest) {
   try {
     const userId = getUserIdFromRequest(request);
     if (!userId) return businessCashResponse({ error: 'Unauthorized' }, 401);
@@ -24,10 +25,14 @@ export async function POST(request: NextRequest) {
   } catch (error) { return businessCashFailure(error); }
 }
 
-export async function PATCH(request: NextRequest) {
+async function handlePATCH(request: NextRequest) {
   try {
     const userId = getUserIdFromRequest(request);
     if (!userId) return businessCashResponse({ error: 'Unauthorized' }, 401);
     return businessCashResponse(await changeProtectedCash(await request.json(), userId));
   } catch (error) { return businessCashFailure(error); }
 }
+
+export const GET = withRequestTiming('GET /api/business-cash', handleGET);
+export const POST = withRequestTiming('POST /api/business-cash', handlePOST);
+export const PATCH = withRequestTiming('PATCH /api/business-cash', handlePATCH);

@@ -1,3 +1,4 @@
+import { withRequestTiming } from '@/lib/request-timing';
 import { NextRequest, NextResponse } from 'next/server';
 import { getDb } from '@/lib/mongodb';
 import { getUserIdFromRequest } from '@/lib/auth';
@@ -111,7 +112,7 @@ async function invalidateDailyCashCaches(userId: string, dateKey: string) {
   await bumpCacheVersions(userId, ['dailyCash', 'dashboard']);
 }
 
-export async function PUT(
+async function handlePUT(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
@@ -238,7 +239,7 @@ export async function PUT(
   }
 }
 
-export async function DELETE(
+async function handleDELETE(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
@@ -381,3 +382,6 @@ export async function DELETE(
     );
   }
 }
+
+export const PUT = withRequestTiming('PUT /api/daily-cash-records/[id]', handlePUT);
+export const DELETE = withRequestTiming('DELETE /api/daily-cash-records/[id]', handleDELETE);

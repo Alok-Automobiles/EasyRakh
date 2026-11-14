@@ -1,3 +1,4 @@
+import { withRequestTiming } from '@/lib/request-timing';
 import { NextRequest, NextResponse } from 'next/server';
 import { getDb } from '@/lib/mongodb';
 import { getUserIdFromRequest } from '@/lib/auth';
@@ -44,7 +45,7 @@ function decodeLedgerCursor(value: string | null): LedgerCursor | null {
   }
 }
 
-export async function GET(
+async function handleGET(
   request: NextRequest,
   { params }: { params: Promise<{ entityType: string; entityId: string }> }
 ) {
@@ -304,3 +305,5 @@ export async function GET(
     );
   }
 }
+
+export const GET = withRequestTiming('GET /api/ledger/[entityType]/[entityId]', handleGET);

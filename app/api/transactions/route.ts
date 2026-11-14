@@ -1,3 +1,4 @@
+import { withRequestTiming } from '@/lib/request-timing';
 import { NextRequest, NextResponse } from 'next/server';
 import { createHash } from 'node:crypto';
 import { getDb } from '@/lib/mongodb';
@@ -52,7 +53,7 @@ function transactionPayload(transaction: Document) {
   };
 }
 
-export async function GET(request: NextRequest) {
+async function handleGET(request: NextRequest) {
   try {
     const userId = getUserIdFromRequest(request);
 
@@ -154,7 +155,7 @@ export async function GET(request: NextRequest) {
   }
 }
 
-export async function POST(request: NextRequest) {
+async function handlePOST(request: NextRequest) {
   try {
     const userId = getUserIdFromRequest(request);
 
@@ -291,8 +292,8 @@ export async function POST(request: NextRequest) {
         ? ['dashboard', 'suppliers', 'bootstrap'] as const
         : ['dashboard', 'customEntities', 'bootstrap'] as const;
 
+    await refreshUserReadModels(db, userId, { entities: [{ entityType: validatedData.entityType, entityId: validatedData.entityId }] });
     await Promise.all([
-      refreshUserReadModels(db, userId),
       bumpCacheVersions(userId, [...namespaces]),
       redis.del(`ledger:${validatedData.entityType}:${validatedData.entityId}:${userId}`),
     ]);
@@ -330,3 +331,6 @@ export async function POST(request: NextRequest) {
     );
   }
 }
+
+export const GET = withRequestTiming('GET /api/transactions', handleGET);
+export const POST = withRequestTiming('POST /api/transactions', handlePOST);

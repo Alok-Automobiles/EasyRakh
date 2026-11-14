@@ -264,6 +264,7 @@ export default function SuppliersPage() {
       setBillUploadResult(null);
       queryClient.invalidateQueries({ queryKey: ['suppliers'] });
       queryClient.invalidateQueries({ queryKey: ['dashboard'] });
+      queryClient.invalidateQueries({ queryKey: ['bootstrap'] });
       void refreshSupplierPayments();
       
       if (!variables.id && result.supplier?.id) {
@@ -293,6 +294,7 @@ export default function SuppliersPage() {
       }
       queryClient.invalidateQueries({ queryKey: ['suppliers'] });
       queryClient.invalidateQueries({ queryKey: ['dashboard'] });
+      queryClient.invalidateQueries({ queryKey: ['bootstrap'] });
     },
     onError: (error: Error) => {
       toast.error(error.message || 'An error occurred. Please try again.');

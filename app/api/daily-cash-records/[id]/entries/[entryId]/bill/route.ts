@@ -1,3 +1,4 @@
+import { withRequestTiming } from '@/lib/request-timing';
 import { isInvoiceDownloadUrl } from '@/lib/bill-attachments';
 import { ObjectId } from 'mongodb';
 import { NextRequest, NextResponse } from 'next/server';
@@ -15,7 +16,7 @@ function pdfFilename(publicId: string) {
   return safeName.toLowerCase().endsWith('.pdf') ? safeName : `${safeName}.pdf`;
 }
 
-export async function GET(
+async function handleGET(
   request: NextRequest,
   { params }: { params: Promise<{ id: string; entryId: string }> }
 ) {
@@ -90,3 +91,5 @@ export async function GET(
     );
   }
 }
+
+export const GET = withRequestTiming('GET /api/daily-cash-records/[id]/entries/[entryId]/bill', handleGET);

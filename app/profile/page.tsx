@@ -1,5 +1,7 @@
 'use client';
 
+import { useQueryClient } from '@tanstack/react-query';
+
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { useForm } from 'react-hook-form';
@@ -33,6 +35,7 @@ const profileSchema = z.object({
 type ProfileForm = z.infer<typeof profileSchema>;
 
 export default function ProfilePage() {
+  const queryClient = useQueryClient();
   const router = useRouter();
   const [returnTo, setReturnTo] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
@@ -105,6 +108,7 @@ export default function ProfilePage() {
       const result = await response.json();
 
       if (response.ok) {
+        void queryClient.invalidateQueries({ queryKey: ['bootstrap'] });
         toast.success('Profile updated successfully!');
         if (returnTo) router.push(returnTo);
         else router.refresh();

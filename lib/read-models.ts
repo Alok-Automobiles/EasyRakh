@@ -1,7 +1,9 @@
-import type { Db, ClientSession } from 'mongodb';
+import { ObjectId, type Db, type ClientSession } from 'mongodb';
+import { timeStage } from './request-timing';
 import type { CustomEntity, Customer, InventoryItem, Supplier, Transaction } from './types';
 import {
   LOW_STOCK_THRESHOLD,
+  getInactiveCutoff,
   entitySearchTokens,
   getInventoryStockStatus,
   inventorySearchTokens,
@@ -118,13 +120,23 @@ export async function rebuildUserReadModels(
   const entityBalancesCollection = db.collection<EntityBalance>('entityBalances');
   const userSummariesCollection = db.collection<UserSummary>('userSummaries');
 
-  const [customers, suppliers, customEntities, transactions, inventoryItems] = await Promise.all([
-    customersCollection.find({ userId }, { session }).toArray(),
-    suppliersCollection.find({ userId }, { session }).toArray(),
-    customEntitiesCollection.find({ userId }, { session }).toArray(),
-    transactionsCollection.find({ userId }, { session }).toArray(),
-    inventoryCollection.find({ userId }, { session }).toArray(),
-  ]);
+  // MongoDB forbids parallel operations on one transaction session. Keep the
+  // original parallel reads for standalone backfills and benchmark baselines.
+  const [customers, suppliers, customEntities, transactions, inventoryItems] = session
+    ? [
+        await customersCollection.find({ userId }, { session }).toArray(),
+        await suppliersCollection.find({ userId }, { session }).toArray(),
+        await customEntitiesCollection.find({ userId }, { session }).toArray(),
+        await transactionsCollection.find({ userId }, { session }).toArray(),
+        await inventoryCollection.find({ userId }, { session }).toArray(),
+      ] as const
+    : await Promise.all([
+        customersCollection.find({ userId }).toArray(),
+        suppliersCollection.find({ userId }).toArray(),
+        customEntitiesCollection.find({ userId }).toArray(),
+        transactionsCollection.find({ userId }).toArray(),
+        inventoryCollection.find({ userId }).toArray(),
+      ]);
 
   const balances = new Map<string, EntityBalance>();
 
@@ -251,16 +263,144 @@ export async function ensureUserReadModels(db: Db, userId: string): Promise<User
   const userSummariesCollection = db.collection<UserSummary>('userSummaries');
   const existing = await userSummariesCollection.findOne({ userId });
   if (existing) return existing;
-  return rebuildUserReadModels(db, userId);
+  const rebuilt = await refreshUserReadModels(db, userId);
+  if (!rebuilt) throw new Error('Read models unavailable');
+  return rebuilt;
 }
 
-export async function refreshUserReadModels(db: Db, userId: string): Promise<UserSummary | null> {
-  try {
-    return await rebuildUserReadModels(db, userId);
-  } catch (error) {
-    console.warn(`Read model refresh failed for ${userId}:`, error);
-    return null;
-  }
+export type ReadModelChanges = {
+  entities?: Array<{ entityType: string; entityId: string | undefined }>;
+  inventory?: boolean;
+};
+
+/** Re-read authoritative rows, rather than applying caller-provided money deltas.
+ * Retried refreshes are idempotent. The per-user write makes concurrent snapshots
+ * conflict and retry, preventing one refresh from overwriting another's totals.
+ */
+export async function refreshUserReadModels(
+  db: Db, userId: string, changes?: ReadModelChanges,
+): Promise<UserSummary | null> {
+  return timeStage('summary', async () => {
+    let session: ClientSession | undefined;
+    try {
+      session = db.client.startSession();
+      const activeSession = session;
+      return await activeSession.withTransaction(async () => {
+        const session = activeSession;
+        await db.collection('users').updateOne(
+          { _id: new ObjectId(userId) }, { $inc: { readModelRevision: 1 } }, { session },
+        );
+        const existing = await db.collection<UserSummary>('userSummaries').findOne({ userId }, { session });
+        if (!existing || !changes) return rebuildUserReadModels(db, userId, { session });
+        const now = new Date();
+        const summary = { ...existing, updatedAt: now };
+        const balances = db.collection<EntityBalance>('entityBalances');
+        const unique = new Map((changes.entities || [])
+          .filter((entity) => entity.entityId)
+          .map((entity) => [balanceKey(entity.entityType, entity.entityId!), entity]));
+        for (const { entityType, entityId } of unique.values()) {
+          const filter = { userId, entityType, entityId: entityId! };
+          const previous = await balances.findOne(filter, { session });
+          const collection = entityType === 'customer' ? 'customers'
+            : entityType === 'supplier' ? 'suppliers' : 'customEntities';
+          const entity = await db.collection(collection).findOne({
+            userId, _id: new ObjectId(entityId!),
+            ...(collection === 'customEntities' ? { collectionType: entityType } : {}),
+          }, { session });
+          // Include pre-entityType ledger records, with the same precedence as
+          // rebuildUserReadModels. The initial match uses the user/entity indexes.
+          const candidates = [{ entityId }, ...(entityType === 'customer' ? [{ customerId: entityId }]
+            : entityType === 'supplier' ? [{ supplierId: entityId }] : [])];
+          const [totals] = await db.collection('transactions').aggregate<{
+            credit: number; debit: number; count: number; lastDate?: Date;
+          }>([
+            { $match: { userId, $or: candidates } },
+            { $set: {
+              resolvedType: { $cond: [{ $toBool: '$entityType' }, '$entityType',
+                { $cond: [{ $toBool: '$customerId' }, 'customer', 'supplier'] }] },
+              resolvedId: { $cond: [{ $toBool: '$entityId' }, '$entityId',
+                { $cond: [{ $toBool: '$customerId' }, '$customerId', '$supplierId'] }] },
+            } },
+            { $match: { resolvedType: entityType, resolvedId: entityId } },
+            { $group: { _id: null,
+              credit: { $sum: { $cond: [{ $eq: ['$type', 'credit'] }, { $ifNull: ['$amount', 0] }, 0] } },
+              debit: { $sum: { $cond: [{ $ne: ['$type', 'credit'] }, { $ifNull: ['$amount', 0] }, 0] } },
+              count: { $sum: 1 }, lastDate: { $max: '$date' },
+            } },
+          ], { session }).toArray();
+          const next = entity || totals?.count
+            ? makeBalanceDoc(userId, entityType, entityId!, entity || { name: 'Unknown' }, now) : null;
+          if (next) {
+            next.createdAt = previous?.createdAt || now;
+            next.totalCredit = totals?.credit || 0;
+            next.totalDebit = totals?.debit || 0;
+            next.transactionCount = totals?.count || 0;
+            if (totals?.lastDate) next.lastTransactionDate = totals.lastDate;
+            next.totalBalance = next.openingBalanceSigned - next.totalCredit + next.totalDebit;
+            await balances.replaceOne(filter, next, { session, upsert: true });
+          } else {
+            await balances.deleteOne(filter, { session });
+          }
+          const creditDelta = (next?.totalCredit || 0) - (previous?.totalCredit || 0);
+          const debitDelta = (next?.totalDebit || 0) - (previous?.totalDebit || 0);
+          summary.totalCredit += creditDelta;
+          summary.totalDebit += debitDelta;
+          summary.totalTransactions += (next?.transactionCount || 0) - (previous?.transactionCount || 0);
+          if (entityType === 'customer' || entityType === 'supplier') {
+            summary[entityType === 'customer' ? 'customerCredit' : 'supplierCredit'] += creditDelta;
+            summary[entityType === 'customer' ? 'customerDebit' : 'supplierDebit'] += debitDelta;
+            summary[entityType === 'customer' ? 'customerOpeningBalanceTotal' : 'supplierOpeningBalanceTotal'] +=
+              (next?.openingBalanceSigned || 0) - (previous?.openingBalanceSigned || 0);
+            summary[entityType === 'customer' ? 'totalCustomers' : 'totalSuppliers'] =
+              await db.collection(collection).countDocuments({ userId }, { session });
+          }
+        }
+        if (changes.inventory) summary.inventory = await aggregateInventorySummary(db, userId, session, now);
+        // Do not pass the driver's _id back as a replacement field.
+        await db.collection<UserSummary>('userSummaries').updateOne({ userId }, { $set: {
+          totalCredit: summary.totalCredit, totalDebit: summary.totalDebit,
+          totalTransactions: summary.totalTransactions,
+          customerCredit: summary.customerCredit, customerDebit: summary.customerDebit,
+          supplierCredit: summary.supplierCredit, supplierDebit: summary.supplierDebit,
+          customerOpeningBalanceTotal: summary.customerOpeningBalanceTotal,
+          supplierOpeningBalanceTotal: summary.supplierOpeningBalanceTotal,
+          totalCustomers: summary.totalCustomers, totalSuppliers: summary.totalSuppliers,
+          ...(changes.inventory ? { inventory: summary.inventory } : {}), updatedAt: now,
+        } }, { session });
+        return summary;
+      }, { readConcern: { level: 'snapshot' }, writeConcern: { w: 'majority' } });
+    } catch (error) {
+      console.warn('Read model refresh failed', error instanceof Error ? error.name : 'UnknownError');
+      return null;
+    } finally { await session?.endSession(); }
+  });
+}
+
+// Inventory-only writes no longer read any ledger or entity collections. Reduce
+// on the database so payload/memory use does not grow with the inventory size.
+async function aggregateInventorySummary(db: Db, userId: string, session: ClientSession, now: Date) {
+  const quantity = { $ifNull: ['$quantity', 0] };
+  const quantityDate = { $ifNull: ['$lastQuantityUpdatedAt', { $ifNull: ['$createdAt', new Date(0)] }] };
+  const zero = { $lte: [quantity, 0] };
+  const [row] = await db.collection('inventory').aggregate([
+    { $match: { userId } },
+    { $group: { _id: null, totalItems: { $sum: 1 }, totalQuantity: { $sum: quantity },
+      totalValue: { $sum: { $multiply: [quantity, { $ifNull: ['$buyingPrice', 0] }] } },
+      restockItems: { $sum: { $cond: [{ $and: [{ $gt: [quantity, 0] }, { $lte: [quantity, LOW_STOCK_THRESHOLD] }] }, 1, 0] } },
+      outOfStockItems: { $sum: { $cond: [{ $and: [zero, { $gt: [quantityDate, getInactiveCutoff(now)] }] }, 1, 0] } },
+      inactiveItems: { $sum: { $cond: [{ $and: [zero, { $lte: [quantityDate, getInactiveCutoff(now)] }] }, 1, 0] } },
+      locations: { $addToSet: '$location' }, brands: { $addToSet: '$brand' }, suppliers: { $addToSet: '$supplier' },
+    } },
+  ], { session }).toArray();
+  return {
+    totalItems: row?.totalItems || 0, totalQuantity: row?.totalQuantity || 0,
+    totalValue: row?.totalValue || 0, outOfStockItems: row?.outOfStockItems || 0,
+    inactiveItems: row?.inactiveItems || 0, restockItems: row?.restockItems || 0,
+    lowStockThreshold: LOW_STOCK_THRESHOLD,
+    locations: (row?.locations || []).filter(Boolean).sort() as string[],
+    brands: (row?.brands || []).filter(Boolean).sort() as string[],
+    suppliers: (row?.suppliers || []).filter(Boolean).sort() as string[],
+  };
 }
 
 export function inventoryDerivedFields(item: Partial<InventoryItem>) {

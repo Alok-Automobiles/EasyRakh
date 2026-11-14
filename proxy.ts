@@ -15,7 +15,7 @@ export function proxy(request: NextRequest) {
     const method = request.method.toUpperCase();
     const isWrite = !['GET', 'HEAD', 'OPTIONS'].includes(method);
 
-    if (isWrite) {
+    if (isWrite && pathname !== '/api/performance') {
       response.cookies.set(CACHE_WRITE_BARRIER_COOKIE, '1', {
         httpOnly: true,
         secure: process.env.NODE_ENV === 'production',

@@ -24,6 +24,8 @@ vi.mock('next/link', () => ({
 vi.mock('@tanstack/react-query', () => ({
   useQueryClient: () => ({
     invalidateQueries: mocks.invalidateQueries,
+    fetchQuery: (options: { queryFn: (context: { signal: AbortSignal }) => Promise<unknown> }) =>
+      options.queryFn({ signal: new AbortController().signal }),
   }),
 }));
 

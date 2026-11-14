@@ -150,7 +150,7 @@ export default function NewInvoicePage() {
 
     const fetchData = async () => {
       try {
-        const userRes = await fetchAppBootstrap();
+        const userRes = await fetchAppBootstrap(queryClient);
 
         if (userRes.ok) {
           const data = await userRes.json();
