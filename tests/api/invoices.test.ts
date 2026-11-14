@@ -1225,6 +1225,49 @@ describe('/api/invoices stock sync', () => {
     expect(invoiceInsert).not.toHaveBeenCalled();
   });
 
+  it.each(['missing', 'zero-stock'] as const)(
+    'allows adding an item while retaining an unchanged %s inventory line', async (state) => {
+      const savedLine = {
+        ...linkedItem(1, 450), id: 'historical-line', unitPrice: 450,
+        unitCost: 300, lineTotal: 450, cogs: 300, grossProfit: 150,
+        costStatus: 'complete', costSource: 'inventory_snapshot',
+      };
+      const previousInvoice = {
+        _id: objectIdLike(ids.transaction), invoiceNumber: 'INV-2026-06-0001',
+        customerName: 'Raj Traders', items: [savedLine], totalAmount: 450,
+        paidAmount: 0, status: 'unpaid', addedToLedger: false,
+        createdAt: new Date('2026-06-01T00:00:00.000Z'),
+        updatedAt: new Date('2026-06-01T00:00:00.000Z'),
+      };
+      const invoices = {
+        findOne: vi.fn().mockResolvedValueOnce(previousInvoice).mockResolvedValueOnce({
+          ...previousInvoice, items: [savedLine, manualItem()], totalAmount: 700,
+        }),
+        updateOne: vi.fn().mockResolvedValue({ matchedCount: 1 }),
+      };
+      const inventory = {
+        find: inventoryFindChain(state === 'missing' ? [] : [storedInventory(0)]).find,
+        findOneAndUpdate: vi.fn(),
+      };
+      mocks.getDb.mockResolvedValue(dbWithCollections({ invoices, inventory, transactions: {} }));
+      const { PUT } = await import('@/app/api/invoices/[id]/route');
+      const response = await PUT(jsonRequest(`http://localhost/api/invoices/${ids.transaction}`, {
+        // Existing browser clients omit the historical line ID.
+        items: [{ ...savedLine, id: undefined }, manualItem()],
+      }, { method: 'PUT' }), routeParams({ id: ids.transaction }));
+      expect(response.status).toBe(200);
+      expect(inventory.findOneAndUpdate).not.toHaveBeenCalled();
+      expect(invoices.updateOne).toHaveBeenCalledWith(
+        expect.anything(),
+        expect.objectContaining({ $set: expect.objectContaining({
+          items: [savedLine, expect.objectContaining({ itemName: 'LABOUR', amount: 250 })],
+          totalAmount: 700,
+        }) }),
+        expect.anything()
+      );
+    }
+  );
+
   it('deducts only the quantity increase when editing an invoice', async () => {
     const previousInvoice = {
       _id: objectIdLike('507f1f77bcf86cd799439099'),
