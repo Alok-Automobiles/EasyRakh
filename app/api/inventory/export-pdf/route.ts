@@ -1,3 +1,4 @@
+import { withRequestTiming } from '@/lib/request-timing';
 import { NextRequest, NextResponse } from 'next/server';
 import { getDb } from '@/lib/mongodb';
 import { getUserIdFromRequest } from '@/lib/auth';
@@ -62,7 +63,7 @@ async function getFirmDetails(db: Awaited<ReturnType<typeof getDb>>, userId: str
   };
 }
 
-export async function GET(request: NextRequest) {
+async function handleGET(request: NextRequest) {
   try {
     const userId = getUserIdFromRequest(request);
 
@@ -303,7 +304,7 @@ export async function GET(request: NextRequest) {
   }
 }
 
-export async function POST(request: NextRequest) {
+async function handlePOST(request: NextRequest) {
   try {
     const userId = getUserIdFromRequest(request);
 
@@ -486,3 +487,6 @@ export async function POST(request: NextRequest) {
     );
   }
 }
+
+export const GET = withRequestTiming('GET /api/inventory/export-pdf', handleGET);
+export const POST = withRequestTiming('POST /api/inventory/export-pdf', handlePOST);

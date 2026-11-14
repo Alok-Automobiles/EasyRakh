@@ -1,5 +1,6 @@
 import { MongoClient, Db } from 'mongodb';
 import { initializeIndexes } from './db-indexes';
+import { monitorDatabaseTiming, timeStage } from './request-timing';
 
 if (!process.env.MONGODB_URI) {
   throw new Error('Please add your Mongo URI to .env.local');
@@ -7,6 +8,7 @@ if (!process.env.MONGODB_URI) {
 
 const uri: string = process.env.MONGODB_URI;
 const options = {
+  monitorCommands: true,
   maxPoolSize: 10,
   minPoolSize: 2,
   maxIdleTimeMS: 30000,
@@ -22,13 +24,14 @@ const globalWithMongo = global as GlobalWithMongo;
 
 if (!globalWithMongo._mongoClientPromise) {
   const client = new MongoClient(uri, options);
+  monitorDatabaseTiming(client);
   globalWithMongo._mongoClientPromise = client.connect();
 }
 
 const clientPromise: Promise<MongoClient> = globalWithMongo._mongoClientPromise;
 
 export async function getDb(): Promise<Db> {
-  const client = await clientPromise;
+  const client = await timeStage('db', () => clientPromise);
   const db = client.db('ledger');
 
   // Indexes are idempotent and Atlas already has them from prior deploys.

@@ -1,3 +1,4 @@
+import { withRequestTiming } from '@/lib/request-timing';
 import { NextRequest, NextResponse } from 'next/server';
 import { getDb } from '@/lib/mongodb';
 import { getUserIdFromRequest } from '@/lib/auth';
@@ -39,7 +40,7 @@ const transactionSchema = z
     }
   );
 
-export async function GET(
+async function handleGET(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
@@ -95,7 +96,7 @@ export async function GET(
   }
 }
 
-export async function PUT(
+async function handlePUT(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
@@ -282,8 +283,8 @@ export async function PUT(
         namespaces.add('customEntities');
       }
     }
+    await refreshUserReadModels(db, userId, { entities: [{ entityType: oldEntityType, entityId: oldEntityId }, { entityType: validatedData.entityType, entityId: validatedData.entityId }] });
     await Promise.all([
-      refreshUserReadModels(db, userId),
       bumpCacheVersions(userId, Array.from(namespaces)),
       redis.del(...keysToDelete),
     ]);
@@ -319,7 +320,7 @@ export async function PUT(
   }
 }
 
-export async function DELETE(
+async function handleDELETE(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
@@ -394,8 +395,8 @@ export async function DELETE(
         ? 'suppliers'
         : 'customEntities';
 
+    await refreshUserReadModels(db, userId, { entities: [{ entityType, entityId }] });
     await Promise.all([
-      refreshUserReadModels(db, userId),
       bumpCacheVersions(userId, ['dashboard', 'bootstrap', namespace]),
       redis.del(`ledger:${entityType}:${entityId}:${userId}`),
     ]);
@@ -412,3 +413,7 @@ export async function DELETE(
     );
   }
 }
+
+export const GET = withRequestTiming('GET /api/transactions/[id]', handleGET);
+export const PUT = withRequestTiming('PUT /api/transactions/[id]', handlePUT);
+export const DELETE = withRequestTiming('DELETE /api/transactions/[id]', handleDELETE);

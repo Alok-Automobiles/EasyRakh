@@ -1,5 +1,7 @@
 'use client';
 
+import { useQueryClient } from '@tanstack/react-query';
+
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
@@ -46,6 +48,7 @@ const registerSchema = z.object({
 type RegisterForm = z.input<typeof registerSchema>;
 
 export default function RegisterPage() {
+  const queryClient = useQueryClient();
   const router = useRouter();
   const [loading, setLoading] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
@@ -85,6 +88,8 @@ export default function RegisterPage() {
       const result = await response.json();
 
       if (response.ok) {
+        await queryClient.cancelQueries();
+        queryClient.clear();
         toast.success('Registration successful!');
         router.push('/dashboard');
         router.refresh();

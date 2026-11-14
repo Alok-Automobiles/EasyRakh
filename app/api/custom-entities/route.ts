@@ -1,3 +1,4 @@
+import { withRequestTiming } from '@/lib/request-timing';
 import { NextRequest, NextResponse } from 'next/server';
 import { getDb } from '@/lib/mongodb';
 import { getUserIdFromRequest } from '@/lib/auth';
@@ -28,7 +29,7 @@ const customEntitySchema = z.object({
   openingBalanceBillPublicId: z.string().optional(),
 });
 
-export async function GET(request: NextRequest) {
+async function handleGET(request: NextRequest) {
   try {
     const userId = getUserIdFromRequest(request);
 
@@ -151,7 +152,7 @@ export async function GET(request: NextRequest) {
   }
 }
 
-export async function POST(request: NextRequest) {
+async function handlePOST(request: NextRequest) {
   try {
     const userId = getUserIdFromRequest(request);
 
@@ -197,10 +198,8 @@ export async function POST(request: NextRequest) {
       createdAt: new Date(),
     });
 
-    await Promise.all([
-      refreshUserReadModels(db, userId),
-      bumpCacheVersions(userId, ['customEntities', 'dashboard', 'bootstrap', 'search']),
-    ]);
+    await refreshUserReadModels(db, userId, { entities: [{ entityType: validatedData.collectionType, entityId: result.insertedId.toString() }] });
+    await bumpCacheVersions(userId, ['customEntities', 'dashboard', 'bootstrap', 'search']);
 
     return NextResponse.json(
       {
@@ -227,3 +226,6 @@ export async function POST(request: NextRequest) {
     );
   }
 }
+
+export const GET = withRequestTiming('GET /api/custom-entities', handleGET);
+export const POST = withRequestTiming('POST /api/custom-entities', handlePOST);

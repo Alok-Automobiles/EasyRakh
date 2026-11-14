@@ -701,6 +701,7 @@ export default function VoiceAssistant() {
 
   const invalidateAppData = useCallback(() => {
     queryClient.invalidateQueries({ queryKey: ['dashboard'] });
+      queryClient.invalidateQueries({ queryKey: ['bootstrap'] });
     queryClient.invalidateQueries({ queryKey: ['customers'] });
     queryClient.invalidateQueries({ queryKey: ['suppliers'] });
     queryClient.invalidateQueries({ queryKey: ['business-cash'] });

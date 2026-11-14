@@ -156,7 +156,8 @@ export async function getSupplierPaymentSummary(_db: Db, userId: string, options
 async function invalidate(userId: string, supplierId: string) {
   const [{ getDb }, { refreshUserReadModels }, { bumpCacheVersions }, { default: redis }] = await Promise.all([import('./mongodb'), import('./read-models'), import('./cache-version'), import('./redis')]);
   const db = await getDb();
-  await Promise.all([refreshUserReadModels(db, userId), bumpCacheVersions(userId, ['suppliers', 'dashboard', 'bootstrap']), redis.del(`ledger:supplier:${supplierId}:${userId}`)]);
+  await refreshUserReadModels(db, userId, { entities: [{ entityType: 'supplier', entityId: supplierId }] });
+  await Promise.all([bumpCacheVersions(userId, ['suppliers', 'dashboard', 'bootstrap']), redis.del(`ledger:supplier:${supplierId}:${userId}`)]);
 }
 function requireSupplier(snapshot: Awaited<ReturnType<typeof supplierSnapshot>>, id: string) {
   const supplier = snapshot.suppliers.find(s => s.id === id);

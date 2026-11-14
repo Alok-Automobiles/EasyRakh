@@ -12,6 +12,11 @@ vi.mock('@/lib/auth', () => ({
   getUserIdFromRequest: mocks.getUserIdFromRequest,
 }));
 
+vi.mock('@/lib/read-models', async (importOriginal) => ({
+  ...await importOriginal<typeof import('@/lib/read-models')>(),
+  refreshUserReadModels: vi.fn().mockResolvedValue(null),
+}));
+
 vi.mock('@/lib/mongodb', () => ({
   getDb: mocks.getDb,
 }));

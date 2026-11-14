@@ -1,11 +1,12 @@
 'use client';
 
-import { fetchAppBootstrap } from '@/lib/app-bootstrap-client';
+import { useAppBootstrap } from '@/lib/app-bootstrap-client';
+import { useQueryClient } from '@tanstack/react-query';
 
 import Link from 'next/link';
 import Image from 'next/image';
 import { useRouter, usePathname } from 'next/navigation';
-import { useEffect, useState, useRef } from 'react';
+import { useEffect, useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Menu, X, ChevronDown } from 'lucide-react';
 import { useBusinessCash } from '@/lib/hooks/useSupplierPayments';
@@ -20,49 +21,27 @@ import {
 export default function Header() {
   const router = useRouter();
   const pathname = usePathname();
-  const [user, setUser] = useState<{ name: string; email: string } | null>(null);
-  const [loading, setLoading] = useState(true);
-  const lastPathnameRef = useRef<string>('');
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
-  const [customCollectionTypes, setCustomCollectionTypes] = useState<Array<{ id: string; name: string; slug: string; lastTransactionDate?: Date }>>([]);
 
   const isAuthPage = pathname === '/login' || pathname === '/register' || pathname === '/';
   const { data: supplierFeature } = useBusinessCash(!isAuthPage);
 
+  const queryClient = useQueryClient();
+  const { data: bootstrap, isLoading: loading, error: bootstrapError } = useAppBootstrap(!isAuthPage);
+  const user = bootstrap?.user;
+  const customCollectionTypes = bootstrap?.collectionTypes ?? [];
   useEffect(() => {
-    if (isAuthPage) {
-      setLoading(false);
-      return;
-    }
-
-    if (lastPathnameRef.current === pathname) return;
-    lastPathnameRef.current = pathname;
-
-    fetchAppBootstrap()
-      .then((res) => {
-        if (res.ok) return res.json();
-        if (res.status === 401) router.push('/login');
-        return null;
-      })
-      .then((data) => {
-        if (data?.user) setUser(data.user);
-        if (data?.collectionTypes) {
-          setCustomCollectionTypes(data.collectionTypes.map((ct: { id: string; name: string; slug: string; lastTransactionDate?: string }) => ({
-            ...ct,
-            lastTransactionDate: ct.lastTransactionDate ? new Date(ct.lastTransactionDate) : undefined,
-          })));
-        }
-        setLoading(false);
-      })
-      .catch(() => setLoading(false));
-  }, [pathname, router, isAuthPage]);
+    if (bootstrapError && 'status' in bootstrapError && bootstrapError.status === 401) router.push('/login');
+  }, [bootstrapError, router]);
 
   useEffect(() => {
     setIsMobileMenuOpen(false);
   }, [pathname]);
 
   const handleLogout = async () => {
+    await queryClient.cancelQueries();
     await fetch('/api/auth/logout', { method: 'POST' });
+    queryClient.clear();
     router.push('/');
     router.refresh();
   };

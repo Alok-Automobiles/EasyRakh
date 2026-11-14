@@ -1,11 +1,12 @@
 'use client';
 
-import { fetchAppBootstrap } from '@/lib/app-bootstrap-client';
+import { useAppBootstrap } from '@/lib/app-bootstrap-client';
+import { useQueryClient } from '@tanstack/react-query';
 
 import Link from 'next/link';
 import Image from 'next/image';
 import { useRouter, usePathname } from 'next/navigation';
-import { useEffect, useState, useRef, useMemo, useCallback } from 'react';
+import { useEffect, useState, useMemo, useCallback } from 'react';
 import { 
   LayoutDashboard, 
   Users, 
@@ -42,11 +43,7 @@ type SidebarProps = {
 export default function Sidebar({ collapsed = false }: SidebarProps) {
   const router = useRouter();
   const pathname = usePathname();
-  const [user, setUser] = useState<{ name: string; email: string; isAdmin?: boolean } | null>(null);
-  const [loading, setLoading] = useState(true);
-  const lastPathnameRef = useRef<string>('');
   const [isMobileOpen, setIsMobileOpen] = useState(false);
-  const [customCollectionTypes, setCustomCollectionTypes] = useState<Array<{ id: string; name: string; slug: string; lastTransactionDate?: Date }>>([]);
   const [expandedCollections, setExpandedCollections] = useState(false);
   const [isDesktop, setIsDesktop] = useState(false);
 
@@ -63,40 +60,13 @@ export default function Sidebar({ collapsed = false }: SidebarProps) {
     return () => window.removeEventListener('resize', checkDesktop);
   }, []);
 
+  const queryClient = useQueryClient();
+  const { data: bootstrap, isLoading: loading, error: bootstrapError } = useAppBootstrap(!isAuthPage);
+  const user = bootstrap?.user;
+  const customCollectionTypes = useMemo(() => bootstrap?.collectionTypes ?? [], [bootstrap?.collectionTypes]);
   useEffect(() => {
-    if (isAuthPage) {
-      const timer = setTimeout(() => setLoading(false), 0);
-      return () => clearTimeout(timer);
-    }
-
-    if (lastPathnameRef.current === pathname) return;
-    lastPathnameRef.current = pathname;
-
-    fetchAppBootstrap()
-      .then((res) => {
-        if (res.ok) return res.json();
-        if (res.status === 401) {
-          router.push('/login');
-          return null;
-        }
-        return null;
-      })
-      .then((bootstrapData) => {
-        if (bootstrapData?.user) {
-          setUser(bootstrapData.user);
-        }
-        if (bootstrapData?.collectionTypes) {
-          setCustomCollectionTypes(
-            bootstrapData.collectionTypes.map((ct: { id: string; name: string; slug: string; lastTransactionDate?: string | Date }) => ({
-              ...ct,
-              lastTransactionDate: ct.lastTransactionDate ? new Date(ct.lastTransactionDate) : undefined,
-            }))
-          );
-        }
-        setLoading(false);
-      })
-      .catch(() => setLoading(false));
-  }, [pathname, router, isAuthPage]);
+    if (bootstrapError && 'status' in bootstrapError && bootstrapError.status === 401) router.push('/login');
+  }, [bootstrapError, router]);
 
   useEffect(() => {
     const timer = setTimeout(() => setIsMobileOpen(false), 0);
@@ -115,10 +85,12 @@ export default function Sidebar({ collapsed = false }: SidebarProps) {
   }, [isMobileOpen]);
 
   const handleLogout = useCallback(async () => {
+    await queryClient.cancelQueries();
     await fetch('/api/auth/logout', { method: 'POST' });
+    queryClient.clear();
     router.push('/');
     router.refresh();
-  }, [router]);
+  }, [router, queryClient]);
 
   const navLinks = useMemo(() => {
     const links = [

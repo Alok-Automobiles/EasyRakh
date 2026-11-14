@@ -409,6 +409,7 @@ export default function DailyCashRecordPage() {
         }
 
         queryClient.invalidateQueries({ queryKey: ['dashboard'] });
+      queryClient.invalidateQueries({ queryKey: ['bootstrap'] });
         queryClient.invalidateQueries({ queryKey: ['business-cash'] });
         queryClient.invalidateQueries({ queryKey: ['supplier-payments'] });
 
@@ -517,6 +518,7 @@ export default function DailyCashRecordPage() {
         }
 
         queryClient.invalidateQueries({ queryKey: ['dashboard'] });
+      queryClient.invalidateQueries({ queryKey: ['bootstrap'] });
 
         fetchData(currentPage, { showLoading: false });
         queryClient.invalidateQueries({ queryKey: ['business-cash'] });
@@ -591,6 +593,7 @@ export default function DailyCashRecordPage() {
         }
 
         queryClient.invalidateQueries({ queryKey: ['dashboard'] });
+      queryClient.invalidateQueries({ queryKey: ['bootstrap'] });
         fetchData(currentPage, { showLoading: false });
         queryClient.invalidateQueries({ queryKey: ['business-cash'] });
         queryClient.invalidateQueries({ queryKey: ['supplier-payments'] });
@@ -648,6 +651,7 @@ export default function DailyCashRecordPage() {
         }
 
         queryClient.invalidateQueries({ queryKey: ['dashboard'] });
+      queryClient.invalidateQueries({ queryKey: ['bootstrap'] });
 
         const nextPage = !updatedRecord && summaryRecords.length === 1 && currentPage > 1
           ? currentPage - 1

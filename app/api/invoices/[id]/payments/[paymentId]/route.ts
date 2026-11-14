@@ -1,3 +1,4 @@
+import { withRequestTiming } from '@/lib/request-timing';
 import { NextRequest, NextResponse } from 'next/server';
 import { Db, ObjectId } from 'mongodb';
 import { z } from 'zod';
@@ -29,7 +30,7 @@ const updatePaymentSchema = z.object({
 
 async function invalidate(db: Db, userId: string, customerId?: string) {
   try {
-    await refreshUserReadModels(db, userId);
+    await refreshUserReadModels(db, userId, { entities: [{ entityType: 'customer', entityId: customerId }] });
     await bumpCacheVersions(userId, ['invoices', 'dashboard', 'dailyCash', 'customers', 'search', 'bootstrap']);
     if (customerId) await redis.del(`ledger:customer:${customerId}:${userId}`);
   } catch (cacheError) {
@@ -59,7 +60,7 @@ async function deleteOldPdf(publicId?: string, replacementId?: string) {
   }
 }
 
-export async function PUT(
+async function handlePUT(
   request: NextRequest,
   { params }: { params: Promise<{ id: string; paymentId: string }> }
 ) {
@@ -228,7 +229,7 @@ export async function PUT(
   }
 }
 
-export async function DELETE(
+async function handleDELETE(
   request: NextRequest,
   { params }: { params: Promise<{ id: string; paymentId: string }> }
 ) {
@@ -332,3 +333,6 @@ export async function DELETE(
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
   }
 }
+
+export const PUT = withRequestTiming('PUT /api/invoices/[id]/payments/[paymentId]', handlePUT);
+export const DELETE = withRequestTiming('DELETE /api/invoices/[id]/payments/[paymentId]', handleDELETE);

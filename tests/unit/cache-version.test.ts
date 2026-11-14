@@ -14,6 +14,7 @@ vi.mock('@/lib/redis', () => ({
 describe('versioned cache safety', () => {
   beforeEach(() => {
     vi.useRealTimers();
+    vi.resetModules();
     mocks.get.mockReset();
     mocks.setex.mockReset();
     mocks.del.mockReset();

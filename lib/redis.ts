@@ -1,4 +1,5 @@
 import Redis from 'ioredis';
+import { optionalCache } from './cache-deadline';
 
 if (!process.env.REDIS_HOST || !process.env.REDIS_PORT) {
   throw new Error("REDIS_HOST and REDIS_PORT are required");
@@ -6,7 +7,8 @@ if (!process.env.REDIS_HOST || !process.env.REDIS_PORT) {
 
 const redis = new Redis(Number(process.env.REDIS_PORT), process.env.REDIS_HOST, {
   password: process.env.REDIS_PASSWORD,
-  maxRetriesPerRequest: 3,
+  maxRetriesPerRequest: 1,
+  commandTimeout: 500,
   retryStrategy: (times: number) => {
     const delay = Math.min(times * 50, 2000);
     return delay;
@@ -55,15 +57,7 @@ export async function cacheGet(
   key: string,
   timeoutMs: number = DEFAULT_CACHE_TIMEOUT_MS
 ): Promise<string | null> {
-  try {
-    return await Promise.race<string | null>([
-      redis.get(key),
-      new Promise<null>((resolve) => setTimeout(() => resolve(null), timeoutMs)),
-    ]);
-  } catch (error) {
-    console.warn('cacheGet failed for', key, error);
-    return null;
-  }
+  return optionalCache(() => redis.get(key), null, timeoutMs);
 }
 
 export async function deleteByPattern(pattern: string): Promise<number> {

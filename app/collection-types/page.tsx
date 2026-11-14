@@ -1,5 +1,7 @@
 'use client';
 
+import { useQueryClient } from '@tanstack/react-query';
+
 import { useState, useEffect, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 import { useForm } from 'react-hook-form';
@@ -44,6 +46,7 @@ interface CollectionType {
 }
 
 export default function CollectionTypesPage() {
+  const queryClient = useQueryClient();
   const router = useRouter();
   const [collectionTypes, setCollectionTypes] = useState<CollectionType[]>([]);
   const [loading, setLoading] = useState(true);
@@ -67,6 +70,7 @@ export default function CollectionTypesPage() {
     try {
       const response = await fetch('/api/collection-types');
       if (response.ok) {
+        void queryClient.invalidateQueries({ queryKey: ['bootstrap'] });
         const data = await response.json();
         setCollectionTypes(data.collectionTypes);
       } else if (response.status === 401) {
@@ -93,6 +97,7 @@ export default function CollectionTypesPage() {
       });
 
       if (response.ok) {
+        void queryClient.invalidateQueries({ queryKey: ['bootstrap'] });
         toast.success(
           editingCollectionType
             ? 'Collection type updated successfully!'
@@ -122,6 +127,7 @@ export default function CollectionTypesPage() {
       });
 
       if (response.ok) {
+        void queryClient.invalidateQueries({ queryKey: ['bootstrap'] });
         toast.success('Collection type deleted successfully!');
         fetchCollectionTypes();
       } else {

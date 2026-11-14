@@ -29,4 +29,9 @@ describe('API cache consistency middleware', () => {
 
     expect(response.cookies.get(CACHE_WRITE_BARRIER_COOKIE)).toBeUndefined();
   });
+
+  it('does not bypass data caches after browser telemetry', () => {
+    const response = proxy(new NextRequest('http://localhost/api/performance', { method: 'POST' }));
+    expect(response.cookies.get(CACHE_WRITE_BARRIER_COOKIE)).toBeUndefined();
+  });
 });

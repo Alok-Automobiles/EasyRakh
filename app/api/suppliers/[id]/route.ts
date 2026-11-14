@@ -1,3 +1,4 @@
+import { withRequestTiming } from '@/lib/request-timing';
 import { NextRequest, NextResponse } from 'next/server';
 import { getDb } from '@/lib/mongodb';
 import { getUserIdFromRequest } from '@/lib/auth';
@@ -29,7 +30,7 @@ const supplierSchema = z.object({
   ...supplierTermsSchema.shape,
 });
 
-export async function GET(
+async function handleGET(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
@@ -84,7 +85,7 @@ export async function GET(
   }
 }
 
-export async function PUT(
+async function handlePUT(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
@@ -154,8 +155,8 @@ export async function PUT(
       );
     }
 
+    await refreshUserReadModels(db, userId, { entities: [{ entityType: 'supplier', entityId: id }] });
     await Promise.all([
-      refreshUserReadModels(db, userId),
       bumpCacheVersions(userId, ['suppliers', 'dashboard', 'bootstrap', 'search']),
       redis.del(`ledger:supplier:${id}:${userId}`),
     ]);
@@ -184,7 +185,7 @@ export async function PUT(
   }
 }
 
-export async function DELETE(
+async function handleDELETE(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
@@ -233,7 +234,8 @@ export async function DELETE(
       });
       try { await deleteCloudinaryAssets(cloudinaryAssetsFromFields({ publicIds: [removed.openingBalanceBillPublicId], urls: [removed.openingBalanceBillUrl] })); }
       catch (error) { console.error('Supplier removed; attachment cleanup requires retry:', error); }
-      await Promise.all([refreshUserReadModels(db, userId), bumpCacheVersions(userId, ['suppliers', 'dashboard', 'bootstrap', 'search']), redis.del(`ledger:supplier:${id}:${userId}`)]);
+      await refreshUserReadModels(db, userId, { entities: [{ entityType: 'supplier', entityId: id }] });
+      await Promise.all([ bumpCacheVersions(userId, ['suppliers', 'dashboard', 'bootstrap', 'search']), redis.del(`ledger:supplier:${id}:${userId}`)]);
       return NextResponse.json({ message: 'Supplier deleted successfully' });
     }
     const transactionsToDelete = await transactionsCollection
@@ -279,8 +281,8 @@ export async function DELETE(
       );
     }
 
+    await refreshUserReadModels(db, userId, { entities: [{ entityType: 'supplier', entityId: id }] });
     await Promise.all([
-      refreshUserReadModels(db, userId),
       bumpCacheVersions(userId, ['suppliers', 'dashboard', 'bootstrap', 'search']),
       redis.del(`ledger:supplier:${id}:${userId}`),
     ]);
@@ -297,3 +299,7 @@ export async function DELETE(
     );
   }
 }
+
+export const GET = withRequestTiming('GET /api/suppliers/[id]', handleGET);
+export const PUT = withRequestTiming('PUT /api/suppliers/[id]', handlePUT);
+export const DELETE = withRequestTiming('DELETE /api/suppliers/[id]', handleDELETE);

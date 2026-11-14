@@ -1,3 +1,4 @@
+import { withRequestTiming } from '@/lib/request-timing';
 import { NextRequest, NextResponse } from 'next/server';
 import clientPromise, { getDb } from '@/lib/mongodb';
 import { getUserIdFromRequest } from '@/lib/auth';
@@ -102,7 +103,7 @@ async function invalidateInvoiceCaches(
   changedInventoryIds: Set<string>
 ) {
   try {
-    await refreshUserReadModels(db, userId);
+    await refreshUserReadModels(db, userId, { entities: [{ entityType: 'customer', entityId: customerId }], inventory: changedInventoryIds.size > 0 });
     await bumpCacheVersions(userId, ['invoices', 'dashboard', 'dailyCash', 'customers', 'inventory', 'search', 'bootstrap']);
     if (customerId) {
       await redis.del(
@@ -121,7 +122,7 @@ async function invalidateInvoiceCaches(
   }
 }
 
-export async function GET(
+async function handleGET(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
@@ -187,7 +188,7 @@ export async function GET(
   }
 }
 
-export async function PUT(
+async function handlePUT(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
@@ -582,7 +583,7 @@ export async function PUT(
   }
 }
 
-export async function DELETE(
+async function handleDELETE(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
@@ -678,3 +679,7 @@ export async function DELETE(
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
   }
 }
+
+export const GET = withRequestTiming('GET /api/invoices/[id]', handleGET);
+export const PUT = withRequestTiming('PUT /api/invoices/[id]', handlePUT);
+export const DELETE = withRequestTiming('DELETE /api/invoices/[id]', handleDELETE);
