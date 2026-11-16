@@ -187,12 +187,29 @@ export async function normalizeInvoiceItemsForSave(
   db: Db,
   userId: string,
   items: InvoiceItemInput[],
-  session?: ClientSession
+  session?: ClientSession,
+  previousItems: InvoiceItem[] = []
 ): Promise<InvoiceItem[]> {
-  const inventoryLookups = await getInventoryLookups(db, userId, items, session);
+  // Match each saved line at most once, including clients that omit line IDs.
+  // Unchanged lines are historical snapshots, not new stock selections.
+  const unmatchedPreviousItems = [...previousItems];
+  const preservedItems = items.map((item) => {
+    const index = unmatchedPreviousItems.findIndex((previousItem) =>
+      areInvoiceItemsUnchanged([previousItem], [item])
+    );
+    return index < 0 ? undefined : unmatchedPreviousItems.splice(index, 1)[0];
+  });
+  const inventoryLookups = await getInventoryLookups(
+    db, userId, items.filter((_, index) => !preservedItems[index]), session
+  );
   const normalizedItems: InvoiceItem[] = [];
 
-  for (const item of items) {
+  for (const [index, item] of items.entries()) {
+    const preservedItem = preservedItems[index];
+    if (preservedItem) {
+      normalizedItems.push({ ...preservedItem });
+      continue;
+    }
     const itemNumber = normalizeItemNumber(item.itemNumber);
     const itemName = normalizeItemName(item.itemName);
     const unitPrice = roundMoney(item.unitPrice ?? legacyUnitPrice({

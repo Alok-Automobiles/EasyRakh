@@ -279,7 +279,8 @@ async function handlePUT(
             db,
             userId,
             validatedData.items,
-            session
+            session,
+            previousItems
           );
           updateFields.items = nextItems;
 
