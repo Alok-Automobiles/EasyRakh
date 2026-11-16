@@ -20,6 +20,7 @@ import { Button } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Badge } from '@/components/ui/badge';
 import { Pagination } from '@/components/ui/pagination';
+import { InvoiceReportDialog } from '@/components/InvoiceReportDialog';
 import { InvoiceFiltersToolbar } from '@/components/InvoiceFiltersToolbar';
 import {
   Dialog,
@@ -31,7 +32,7 @@ import {
 } from '@/components/ui/dialog';
 import { Invoice } from '@/lib/types';
 import { useInvoiceListFilters } from '@/lib/hooks/useInvoiceListFilters';
-import { formatInvoiceListDate, invoiceListParams, invoiceListUrl } from '@/lib/invoice-list-state';
+import { formatInvoiceListDate, invoiceListParams, invoiceListUrl, type InvoiceListState } from '@/lib/invoice-list-state';
 import { invoiceDetailUrl } from '@/lib/invoice-navigation';
 
 const currencyFormatter = new Intl.NumberFormat('en-IN', {
@@ -83,6 +84,7 @@ function InvoicesPageContent() {
     filters.startDate || filters.endDate || filters.minAmount || filters.maxAmount ||
     filters.addedToLedger !== 'all'
   );
+  const [downloadingReport, setDownloadingReport] = useState(false);
   const [downloadingInvoiceId, setDownloadingInvoiceId] = useState<string | null>(null);
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [deletingInvoice, setDeletingInvoice] = useState<{ id: string; invoiceNumber: string; addedToLedger: boolean } | null>(null);
@@ -160,6 +162,36 @@ function InvoicesPageContent() {
     deleteMutation.mutate({ id: deletingInvoice.id, deleteTransactions });
   };
 
+  const handleReportDownload = async (reportFilters: InvoiceListState) => {
+    setDownloadingReport(true);
+    try {
+      const params = invoiceListParams(reportFilters);
+      params.delete('page');
+      params.set('format', 'pdf');
+      const response = await fetch(`/api/invoices?${params}`);
+      if (response.status === 401) { router.push('/login'); return false; }
+      if (!response.ok) {
+        const result = await response.json().catch(() => ({}));
+        throw new Error(result.error || 'Failed to download invoice list');
+      }
+      const url = URL.createObjectURL(await response.blob());
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = 'invoice-list.pdf';
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+      window.setTimeout(() => URL.revokeObjectURL(url), 1000);
+      toast.success('Invoice list downloaded');
+      return true;
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : 'Failed to download invoice list');
+      return false;
+    } finally {
+      setDownloadingReport(false);
+    }
+  };
+
   const handleDownload = async (invoice: InvoiceWithId) => {
     setDownloadingInvoiceId(invoice.id);
 
@@ -235,6 +267,10 @@ function InvoicesPageContent() {
         </div>
 
         <InvoiceFiltersToolbar draft={draft} filters={filters} onChange={change} onClear={clear} />
+        <div className="mb-6 flex flex-wrap items-center gap-3">
+          <InvoiceReportDialog filters={filters} downloading={downloadingReport} onDownload={handleReportDownload} />
+          <p className="text-sm text-gray-500">Choose dates, customers and payment status before downloading.</p>
+        </div>
 
         {isFetching && <p role="status" className="mb-3 text-sm text-gray-500">Updating invoices...</p>}
 

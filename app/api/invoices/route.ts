@@ -1,3 +1,4 @@
+import { buildInvoiceListPdfBuffer } from '@/lib/invoice-list-pdf';
 import { withRequestTiming } from '@/lib/request-timing';
 import { NextRequest, NextResponse } from 'next/server';
 import clientPromise, { getDb } from '@/lib/mongodb';
@@ -168,6 +169,7 @@ async function handleGET(request: NextRequest) {
     }
 
     const { searchParams } = new URL(request.url);
+    const report = searchParams.get('format') === 'pdf';
     const customerId = searchParams.get('customerId');
     const status = searchParams.get('status');
     const search = searchParams.get('search')?.trim() || '';
@@ -176,16 +178,17 @@ async function handleGET(request: NextRequest) {
     const limitParam = Number(searchParams.get('limit') || '20');
     const page = Number.isNaN(pageParam) || pageParam < 1 ? 1 : pageParam;
     const limit = Number.isNaN(limitParam) || limitParam < 1 ? 20 : Math.min(limitParam, 100);
-    const skip = (page - 1) * limit;
+    const skip = report ? 0 : (page - 1) * limit;
+    const queryLimit = report ? 10001 : limit;
 
-    const cacheKey = await requestCacheKey(
+    const cacheKey = report ? '' : await requestCacheKey(
       request,
       'invoices',
       userId,
       `list-v2:${JSON.stringify({ customerId, status, search, page, limit, ...listFilters })}`
     );
-    const cachedData = await getCachedJson<Record<string, unknown>>(cacheKey);
-    if (cachedData) {
+    const cachedData = report ? null : await getCachedJson<Record<string, unknown>>(cacheKey);
+    if (cachedData && !report) {
       return NextResponse.json(cachedData, { status: 200 });
     }
 
@@ -200,6 +203,7 @@ async function handleGET(request: NextRequest) {
     if (status && ['paid', 'unpaid', 'partial'].includes(status)) {
       query.status = status;
     }
+    if (status === 'outstanding') query.status = { $in: ['unpaid', 'partial'] };
     const tokens = search ? queryTokens(search) : [];
     const runInvoiceQuery = async (filter: Document) => {
       const [queryTotal, queryInvoices] = await Promise.all([
@@ -209,13 +213,13 @@ async function handleGET(request: NextRequest) {
             { $match: filter },
             ...invoiceListSortStages(listFilters.sort),
             { $skip: skip },
-            { $limit: limit },
+            { $limit: queryLimit },
           ]).toArray()
           : invoicesCollection
             .find(filter)
             .sort(invoiceListSort(listFilters.sort))
             .skip(skip)
-            .limit(limit)
+            .limit(queryLimit)
             .toArray(),
       ]);
       return { total: queryTotal, invoices: queryInvoices };
@@ -241,7 +245,7 @@ async function handleGET(request: NextRequest) {
                     : invoiceListSortStages(listFilters.sort)),
                   {
                     $facet: {
-                      invoices: [{ $skip: skip }, { $limit: limit }],
+                      invoices: [{ $skip: skip }, { $limit: queryLimit }],
                       total: [{ $count: 'count' }],
                     },
                   },
@@ -257,6 +261,25 @@ async function handleGET(request: NextRequest) {
           )
           : await runInvoiceQuery(fallbackQuery)
         : await runInvoiceQuery(query);
+
+    if (report) {
+      if (total > 10000 || invoices.length > 10000) {
+        return NextResponse.json({ error: 'More than 10,000 invoices match. Narrow the date range or other filters and try again.' }, { status: 400 });
+      }
+      if (!invoices.length) return NextResponse.json({ error: 'No invoices match the selected filters.' }, { status: 404 });
+      const buffer = buildInvoiceListPdfBuffer(invoices.map((invoice) => ({
+        invoiceNumber: invoice.invoiceNumber, customerName: invoice.customerName,
+        customerPhone: invoice.customerPhone, invoiceDate: invoice.invoiceDate,
+        createdAt: invoice.createdAt, totalAmount: invoice.totalAmount,
+        paidAmount: invoice.paidAmount ?? 0, status: invoice.status,
+      })), { status: status || 'all', startDate: listFilters.startDate, endDate: listFilters.endDate });
+      return new NextResponse(new Uint8Array(buffer), { headers: {
+        'Content-Type': 'application/pdf',
+        'Content-Disposition': 'attachment; filename="invoice-list.pdf"',
+        'Cache-Control': 'private, no-store, max-age=0',
+        'X-Content-Type-Options': 'nosniff',
+      } });
+    }
 
     const totalPages = Math.max(1, Math.ceil(total / limit));
 

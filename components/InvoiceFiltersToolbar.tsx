@@ -20,7 +20,7 @@ type Props = {
   onClear: () => void;
 };
 
-const statusLabels = { all: 'All statuses', paid: 'Paid', partial: 'Partial', unpaid: 'Unpaid' };
+const statusLabels = { all: 'All statuses', paid: 'Paid', partial: 'Partial', unpaid: 'Unpaid', outstanding: 'Unpaid + partial' };
 const ledgerLabels = { all: 'All invoices', true: 'In ledger', false: 'Not in ledger' };
 
 function selectedPreset(filters: InvoiceListState): InvoiceDatePreset {
