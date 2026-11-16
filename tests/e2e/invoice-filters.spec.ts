@@ -54,7 +54,7 @@ test('invoice filters persist in the URL and survive detail navigation', async (
   await page.getByRole('textbox', { name: 'Search invoices' }).fill('Raj');
   await expect.poll(() => new URL(page.url()).searchParams.get('search')).toBe('Raj');
   await page.getByRole('combobox', { name: 'Payment status' }).click();
-  await page.getByRole('option', { name: 'Unpaid' }).click();
+  await page.getByRole('option', { name: 'Unpaid', exact: true }).click();
   await page.getByRole('combobox', { name: 'Sort invoices' }).click();
   await page.getByRole('option', { name: 'Amount: highest' }).click();
   await page.getByRole('combobox', { name: 'Invoice date' }).click();
