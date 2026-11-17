@@ -19,7 +19,7 @@ export const invoiceDateOptions = [
 export type InvoiceDatePreset = typeof invoiceDateOptions[number][0];
 export type InvoiceListState = {
   search: string;
-  status: 'all' | 'paid' | 'partial' | 'unpaid';
+  status: 'all' | 'paid' | 'partial' | 'unpaid' | 'outstanding';
   customerId: string;
   startDate: string;
   endDate: string;
@@ -42,7 +42,7 @@ export function readInvoiceListState(params: Pick<URLSearchParams, 'get'>): Invo
   const page = Number(params.get('page') || 1);
   return {
     search: params.get('search') || '',
-    status: status === 'paid' || status === 'unpaid' || status === 'partial' ? status : 'all',
+    status: status === 'paid' || status === 'unpaid' || status === 'partial' || status === 'outstanding' ? status : 'all',
     customerId: params.get('customerId') || '',
     startDate: params.get('startDate') || '',
     endDate: params.get('endDate') || '',

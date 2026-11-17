@@ -220,6 +220,35 @@ describe('/api/invoices stock sync', () => {
     expect(mocks.getDb).not.toHaveBeenCalled();
   });
 
+  it('exports all matching outstanding invoices regardless of the selected page', async () => {
+    const invoiceList = invoiceListFindChain(Array.from({ length: 25 }, (_, index) => ({
+      invoiceNumber: `INV-${index}`, customerName: 'Raj Traders',
+      createdAt: new Date('2026-11-16'), totalAmount: 1000, paidAmount: 250, status: 'partial',
+    })));
+    mocks.getDb.mockResolvedValue(dbWithCollections({ invoices: {
+      find: invoiceList.find, countDocuments: vi.fn().mockResolvedValue(25),
+    } }));
+    const { GET } = await import('@/app/api/invoices/route');
+    const response = await GET(jsonRequest('http://localhost/api/invoices?format=pdf&status=outstanding&page=2&limit=20'));
+    expect(response.status).toBe(200);
+    expect(response.headers.get('content-type')).toBe('application/pdf');
+    expect(response.headers.get('cache-control')).toContain('no-store');
+    expect(invoiceList.find).toHaveBeenCalledWith({ userId: ids.user, status: { $in: ['unpaid', 'partial'] } });
+    expect(invoiceList.chain.skip).toHaveBeenCalledWith(0);
+    const pdf = Buffer.from(await response.arrayBuffer()).toString('latin1');
+    expect(pdf).toContain('INV-24');
+    expect(mocks.setCachedJson).not.toHaveBeenCalled();
+  });
+
+  it.each([[0, 404], [10001, 400]])('does not export an empty or truncated report (%s invoices)', async (total, status) => {
+    const invoiceList = invoiceListFindChain();
+    mocks.getDb.mockResolvedValue(dbWithCollections({ invoices: {
+      find: invoiceList.find, countDocuments: vi.fn().mockResolvedValue(total),
+    } }));
+    const { GET } = await import('@/app/api/invoices/route');
+    expect((await GET(jsonRequest('http://localhost/api/invoices?format=pdf'))).status).toBe(status);
+  });
+
   it('keeps one-character invoice searches scoped to matching source fields', async () => {
     const invoiceList = invoiceListFindChain();
     const countDocuments = vi.fn().mockResolvedValue(0);
