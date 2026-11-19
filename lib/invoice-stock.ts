@@ -346,7 +346,8 @@ export async function applyInventoryAdjustments(
   db: Db,
   userId: string,
   adjustments: InventoryAdjustment[],
-  session?: ClientSession
+  session?: ClientSession,
+  options: { skipMissingRestorations?: boolean } = {}
 ): Promise<string[]> {
   const inventoryCollection = db.collection<InventorySnapshot>('inventory');
   const changedInventoryIds: string[] = [];
@@ -385,6 +386,11 @@ export async function applyInventoryAdjustments(
       );
 
       if (!current) {
+        // Removing historical sales must not depend on deleted inventory.
+        // Never recreate the product or apply its stock to a replacement ID.
+        // Deductions remain strict, even when this option is enabled.
+        if (quantityDelta > 0 && options.skipMissingRestorations) continue;
+
         throw new InvoiceStockError(
           'INVENTORY_ITEM_NOT_FOUND',
           'Inventory item linked to this invoice was not found',

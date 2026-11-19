@@ -1530,6 +1530,69 @@ describe('/api/invoices stock sync', () => {
     });
   });
 
+  it('can replace a missing historical product with a new inventory item', async () => {
+    const previousInvoice = {
+      _id: objectIdLike(ids.transaction), invoiceNumber: 'INV-2026-11-0079',
+      customerName: 'Customer', items: [linkedItem(1, 450)], totalAmount: 450,
+      paidAmount: 0, status: 'unpaid', addedToLedger: false,
+      createdAt: new Date('2026-11-07'), updatedAt: new Date('2026-11-07'),
+    };
+    const newItem = { ...linkedItem(1, 450), inventoryItemId: ids.otherInventory };
+    const invoices = {
+      findOne: vi.fn().mockResolvedValueOnce(previousInvoice).mockResolvedValueOnce({ ...previousInvoice, items: [newItem] }),
+      updateOne: vi.fn().mockResolvedValue({ matchedCount: 1 }),
+    };
+    const inventory = {
+      find: inventoryFindChain([{ ...storedInventory(1), _id: objectIdLike(ids.otherInventory) }]).find,
+      findOne: vi.fn().mockResolvedValue(null),
+      findOneAndUpdate: vi.fn().mockResolvedValueOnce(null).mockResolvedValueOnce({
+        ...storedInventory(0), _id: objectIdLike(ids.otherInventory),
+      }),
+    };
+    mocks.getDb.mockResolvedValue(dbWithCollections({ invoices, inventory, transactions: {} }));
+    const { PUT } = await import('@/app/api/invoices/[id]/route');
+    const response = await PUT(jsonRequest(`http://localhost/api/invoices/${ids.transaction}`, {
+      items: [newItem],
+    }, { method: 'PUT' }), routeParams({ id: ids.transaction }));
+    expect(response.status).toBe(200);
+    expect(invoices.updateOne).toHaveBeenCalled();
+    expect(inventory.findOneAndUpdate).toHaveBeenNthCalledWith(1,
+      { _id: expect.any(Object), userId: ids.user },
+      expect.objectContaining({ $inc: { quantity: 1 } }),
+      { returnDocument: 'after', session: mocks.session });
+    expect(inventory.findOneAndUpdate).toHaveBeenNthCalledWith(2,
+      { _id: expect.any(Object), userId: ids.user, quantity: { $gte: 1 } },
+      expect.objectContaining({ $inc: { quantity: -1 } }),
+      { returnDocument: 'after', session: mocks.session });
+  });
+
+  it('deletes an invoice with missing historical inventory and still restores existing stock', async () => {
+    const invoices = {
+      findOne: vi.fn().mockResolvedValue({
+        _id: objectIdLike(ids.transaction), invoiceNumber: 'INV-2026-11-0079',
+        items: [linkedItem(1, 450), { ...linkedItem(2, 900), inventoryItemId: ids.otherInventory }, manualItem()],
+        addedToLedger: false,
+      }),
+      deleteOne: vi.fn().mockResolvedValue({ deletedCount: 1 }),
+    };
+    const inventory = {
+      findOne: vi.fn().mockResolvedValue(null),
+      findOneAndUpdate: vi.fn().mockResolvedValueOnce(null).mockResolvedValueOnce({
+        ...storedInventory(2), _id: objectIdLike(ids.otherInventory),
+      }),
+    };
+    mocks.getDb.mockResolvedValue(dbWithCollections({ invoices, inventory, transactions: {} }));
+    const { DELETE } = await import('@/app/api/invoices/[id]/route');
+    const response = await DELETE(jsonRequest(`http://localhost/api/invoices/${ids.transaction}`, undefined,
+      { method: 'DELETE' }), routeParams({ id: ids.transaction }));
+    expect(response.status).toBe(200);
+    expect(inventory.findOneAndUpdate).toHaveBeenCalledTimes(2);
+    expect(invoices.deleteOne).toHaveBeenCalledWith({ _id: expect.any(Object), userId: ids.user },
+      { session: mocks.session });
+    expect(mocks.invalidateInventoryCache).toHaveBeenCalledWith(ids.user, ids.otherInventory);
+    expect(mocks.invalidateInventoryCache).not.toHaveBeenCalledWith(ids.user, ids.inventory);
+  });
+
   it('restores linked stock and ignores manual rows when deleting an invoice', async () => {
     const invoice = {
       _id: objectIdLike(ids.transaction),

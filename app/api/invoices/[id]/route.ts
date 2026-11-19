@@ -288,7 +288,8 @@ async function handlePUT(
             db,
             userId,
             getInventoryDiffAdjustments(previousItems, nextItems),
-            session
+            session,
+            { skipMissingRestorations: true }
           );
           adjustedIds.forEach((itemId) => changedInventoryIds.add(itemId));
         }
@@ -633,7 +634,8 @@ async function handleDELETE(
           db,
           userId,
           getInventoryRestoreAdjustments((invoice.items || []) as InvoiceItem[]),
-          session
+          session,
+          { skipMissingRestorations: true }
         );
         adjustedIds.forEach((itemId) => changedInventoryIds.add(itemId));
 
