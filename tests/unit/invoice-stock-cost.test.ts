@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from 'vitest';
 import { ObjectId, type Db } from 'mongodb';
-import { getInventoryDiffAdjustments, normalizeInvoiceItemsForSave } from '@/lib/invoice-stock';
+import { applyInventoryAdjustments, getInventoryDiffAdjustments, normalizeInvoiceItemsForSave } from '@/lib/invoice-stock';
 import type { InvoiceItem } from '@/lib/types';
 
 describe('Invoice-specific inventory cost', () => {
@@ -69,5 +69,38 @@ describe('Invoice-specific inventory cost', () => {
     expect(item).toMatchObject({ inventoryItemId: _id.toString(), unitCost: cost, cogs: 2 * cost, grossProfit: 200 - 2 * cost });
     expect(updateOne).not.toHaveBeenCalled();
     expect(inventory.buyingPrice).toBe(storedCost);
+  });
+});
+
+describe('Historical invoice stock restorations', () => {
+  it.each([1, 4])('skips restoring %s units to a missing product and restores other products', async (quantityDelta) => {
+    const missingId = new ObjectId().toString();
+    const existingId = new ObjectId().toString();
+    const findOneAndUpdate = vi.fn().mockResolvedValueOnce(null).mockResolvedValueOnce({
+      _id: new ObjectId(existingId), itemName: 'Existing part', quantity: 5,
+    });
+    const findOne = vi.fn().mockResolvedValue(null);
+    const updateOne = vi.fn();
+    const db = { collection: () => ({ findOneAndUpdate, findOne, updateOne }) } as unknown as Db;
+    const changed = await applyInventoryAdjustments(db, 'user-1', [
+      { inventoryItemId: missingId, quantityDelta },
+      { inventoryItemId: existingId, quantityDelta: 2 },
+    ], undefined, { skipMissingRestorations: true });
+    expect(changed).toEqual([existingId]);
+    expect(findOneAndUpdate).toHaveBeenCalledTimes(2);
+    expect(updateOne).toHaveBeenCalledTimes(1);
+    expect(findOne).toHaveBeenCalledWith({ _id: new ObjectId(missingId), userId: 'user-1' }, expect.anything());
+    expect(findOneAndUpdate.mock.calls.every((call) => !call[2].upsert)).toBe(true);
+  });
+
+  it.each([
+    [-1, true], [1, false],
+  ])('still rejects missing stock for delta %s with skip enabled %s', async (quantityDelta, skipMissingRestorations) => {
+    const db = { collection: () => ({
+      findOneAndUpdate: vi.fn().mockResolvedValue(null), findOne: vi.fn().mockResolvedValue(null),
+    }) } as unknown as Db;
+    await expect(applyInventoryAdjustments(db, 'user-1', [{
+      inventoryItemId: new ObjectId().toString(), quantityDelta,
+    }], undefined, { skipMissingRestorations })).rejects.toMatchObject({ code: 'INVENTORY_ITEM_NOT_FOUND' });
   });
 });
