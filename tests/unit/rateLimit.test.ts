@@ -2,16 +2,12 @@ import { NextRequest, NextResponse } from 'next/server';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 const mocks = vi.hoisted(() => ({
-  incr: vi.fn(),
-  pexpire: vi.fn(),
-  pttl: vi.fn(),
+  eval: vi.fn(),
 }));
 
 vi.mock('@/lib/redis', () => ({
   default: {
-    incr: mocks.incr,
-    pexpire: mocks.pexpire,
-    pttl: mocks.pttl,
+    eval: mocks.eval,
   },
 }));
 
@@ -20,15 +16,11 @@ const request = (path = '/api/customers') =>
 
 describe('rate limit helpers', () => {
   beforeEach(() => {
-    mocks.incr.mockReset();
-    mocks.pexpire.mockReset();
-    mocks.pttl.mockReset();
-    mocks.incr.mockResolvedValue(1);
-    mocks.pexpire.mockResolvedValue(1);
-    mocks.pttl.mockResolvedValue(30_000);
+    mocks.eval.mockReset();
+    mocks.eval.mockResolvedValue([1, 30_000]);
   });
 
-  it('sets a window expiry only on the first hit and allows the request', async () => {
+  it('atomically increments the counter with an expiry and allows the request', async () => {
     const { checkRateLimit } = await import('@/lib/rateLimit');
 
     const response = await checkRateLimit(request(), {
@@ -37,13 +29,14 @@ describe('rate limit helpers', () => {
     });
 
     expect(response).toBeNull();
-    expect(mocks.incr).toHaveBeenCalledWith('rateLimit:anonymous:/api/customers');
-    expect(mocks.pexpire).toHaveBeenCalledWith('rateLimit:anonymous:/api/customers', 60_000);
+    expect(mocks.eval).toHaveBeenCalledWith(
+      expect.stringContaining("redis.call('PEXPIRE'"),
+      1, 'rateLimit:ip:unknown:/api/customers', 60_000
+    );
   });
 
   it('returns a 429 response with retry headers after the limit is exceeded', async () => {
-    mocks.incr.mockResolvedValue(6);
-    mocks.pttl.mockResolvedValue(12_345);
+    mocks.eval.mockResolvedValue([6, 12_345]);
     const { checkRateLimit } = await import('@/lib/rateLimit');
 
     const response = await checkRateLimit(request(), {
@@ -60,6 +53,25 @@ describe('rate limit helpers', () => {
     });
   });
 
+  it('keeps login limits separate for different client addresses', async () => {
+    const { checkRateLimit, rateLimitConfigs } = await import('@/lib/rateLimit');
+    const attempts = new Map<string, number>();
+    mocks.eval.mockImplementation(async (_script, _count, key) => {
+      const current = (attempts.get(key) || 0) + 1;
+      attempts.set(key, current);
+      return [current, 60_000];
+    });
+    const loginRequest = (ip: string) => new NextRequest('http://localhost/api/auth/login', {
+      headers: { 'x-forwarded-for': `${ip}, 10.0.0.1` },
+    });
+    for (let i = 0; i < 5; i++) {
+      expect(await checkRateLimit(loginRequest('192.0.2.1'), rateLimitConfigs.auth)).toBeNull();
+    }
+    expect((await checkRateLimit(loginRequest('192.0.2.1'), rateLimitConfigs.auth))?.status).toBe(429);
+    expect(await checkRateLimit(loginRequest('192.0.2.2'), rateLimitConfigs.auth)).toBeNull();
+    expect(attempts.get('rateLimit:ip:192.0.2.2:/api/auth/login')).toBe(1);
+  });
+
   it('supports custom keys and mutates responses with rate limit headers', async () => {
     const { addRateLimitHeaders, checkRateLimit } = await import('@/lib/rateLimit');
 
@@ -69,7 +81,9 @@ describe('rate limit helpers', () => {
       keyGenerator: () => 'rateLimit:search:ip-1',
     });
 
-    expect(mocks.incr).toHaveBeenCalledWith('rateLimit:search:ip-1');
+    expect(mocks.eval).toHaveBeenCalledWith(
+      expect.any(String), 1, 'rateLimit:search:ip-1', 10_000
+    );
 
     const response = addRateLimitHeaders(NextResponse.json({ ok: true }), {
       windowMs: 10_000,

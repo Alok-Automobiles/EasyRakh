@@ -1,6 +1,17 @@
 import { NextRequest, NextResponse } from 'next/server';
 import redis from './redis';
 
+// Increment and expiry must succeed together so counters cannot become permanent.
+const RATE_LIMIT_SCRIPT = `
+local current = redis.call('INCR', KEYS[1])
+local ttl = redis.call('PTTL', KEYS[1])
+if ttl < 0 then
+  redis.call('PEXPIRE', KEYS[1], ARGV[1])
+  ttl = tonumber(ARGV[1])
+end
+return {current, ttl}
+`;
+
 export interface RateLimitConfig {
   windowMs: number; // Time window in milliseconds
   maxRequests: number; // Maximum requests per window
@@ -15,7 +26,7 @@ const DEFAULT_CONFIG: RateLimitConfig = {
 };
 
 /**
- * Rate limiting check using Redis sliding window
+ * Rate limiting check using a Redis fixed window
  * Returns null if request should proceed, or a NextResponse with 429 if rate limited
  */
 export async function checkRateLimit(
@@ -28,12 +39,17 @@ export async function checkRateLimit(
       ...config,
     };
 
-    let userId = 'anonymous';
+    // The deployment proxy must overwrite forwarding headers with the client IP.
+    const clientIp = request.headers.get('x-forwarded-for')?.split(',')[0]?.trim()
+      || request.headers.get('x-real-ip')?.trim()
+      || 'unknown';
+    let userId = `ip:${clientIp}`;
     try {
       const token = request.cookies.get('token')?.value;
-      if (token) {
+      if (token || request.headers.get('authorization')?.startsWith('Bearer ')) {
         const { getUserIdFromRequest } = await import('./auth');
-        userId = getUserIdFromRequest(request) || 'anonymous';
+        const authenticatedUserId = getUserIdFromRequest(request);
+        if (authenticatedUserId) userId = `user:${authenticatedUserId}`;
       }
     } catch {
     }
@@ -42,13 +58,9 @@ export async function checkRateLimit(
       ? keyGenerator(request)
       : `rateLimit:${userId}:${request.nextUrl.pathname}`;
 
-    const current = await redis.incr(key);
-    
-    if (current === 1) {
-      await redis.pexpire(key, windowMs);
-    }
-
-    const ttl = await redis.pttl(key);
+    const [current, ttl] = await redis.eval(
+      RATE_LIMIT_SCRIPT, 1, key, windowMs
+    ) as [number, number];
     const resetTime = Date.now() + (ttl > 0 ? ttl : windowMs);
 
     if (current > maxRequests) {
