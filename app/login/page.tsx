@@ -60,7 +60,11 @@ export default function LoginPage() {
         router.push('/dashboard');
         router.refresh();
       } else {
-        toast.error(result.error || 'Login failed');
+        toast.error(
+          response.status === 429
+            ? result.message || 'Too many login attempts. Please wait a minute and try again.'
+            : result.error || 'Login failed'
+        );
       }
     } catch {
       toast.error('An error occurred. Please try again.');
