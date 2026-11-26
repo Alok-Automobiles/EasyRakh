@@ -29,6 +29,7 @@ describe('InstallPrompt', () => {
     localStorage.clear();
     Object.defineProperty(window, 'requestAnimationFrame', {
       configurable: true,
+      writable: true,
       value: (callback: FrameRequestCallback) => window.setTimeout(callback, 0),
     });
   });
